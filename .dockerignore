@@ -1,0 +1,12 @@
+.git/
+.agents/
+assets/
+scripts/
+*.md
+*.yaml
+!config.example.yaml
+.DS_Store
+*.log
+.env
+.env.local
+*.wav

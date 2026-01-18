@@ -1,0 +1,67 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 200" fill="none">
+  <defs>
+    <!-- Background gradient: piedra dark -->
+    <linearGradient id="bgGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#121214"/>
+      <stop offset="50%" stop-color="#1a1a1d"/>
+      <stop offset="100%" stop-color="#212125"/>
+    </linearGradient>
+    
+    <!-- Logo gradient: sol to lava -->
+    <linearGradient id="logoGradient" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#f59e0b"/>
+      <stop offset="100%" stop-color="#f87171"/>
+    </linearGradient>
+    
+    <!-- Subtle glow -->
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="8" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    
+    <!-- Text gradient -->
+    <linearGradient id="textGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#fcd34d"/>
+      <stop offset="100%" stop-color="#f59e0b"/>
+    </linearGradient>
+  </defs>
+  
+  <!-- Background -->
+  <rect width="800" height="200" fill="url(#bgGradient)"/>
+  
+  <!-- Decorative elements - subtle volcanic particles -->
+  <circle cx="50" cy="30" r="2" fill="#3d3d44" opacity="0.5"/>
+  <circle cx="120" cy="160" r="3" fill="#3d3d44" opacity="0.4"/>
+  <circle cx="680" cy="40" r="2.5" fill="#3d3d44" opacity="0.5"/>
+  <circle cx="750" cy="150" r="2" fill="#3d3d44" opacity="0.4"/>
+  <circle cx="200" cy="180" r="1.5" fill="#3d3d44" opacity="0.3"/>
+  <circle cx="600" cy="170" r="2" fill="#3d3d44" opacity="0.4"/>
+  
+  <!-- Logo circle with glow -->
+  <g filter="url(#glow)" transform="translate(100, 100)">
+    <circle cx="0" cy="0" r="52" fill="url(#logoGradient)"/>
+    
+    <!-- Purpurina / sparkles -->
+    <circle cx="-24" cy="-16" r="4" fill="white" opacity="0.9"/>
+    <circle cx="-12" cy="-28" r="3" fill="white" opacity="0.7"/>
+    <circle cx="16" cy="-20" r="3.6" fill="white" opacity="0.8"/>
+    <circle cx="28" cy="-4" r="2.4" fill="white" opacity="0.6"/>
+    <circle cx="12" cy="12" r="4" fill="white" opacity="0.75"/>
+    <circle cx="-16" cy="16" r="2.8" fill="white" opacity="0.65"/>
+    <circle cx="0" cy="-8" r="2" fill="white" opacity="0.8"/>
+    <circle cx="-28" cy="4" r="2.6" fill="white" opacity="0.5"/>
+    <circle cx="24" cy="20" r="3.2" fill="white" opacity="0.55"/>
+    <circle cx="-4" cy="28" r="2.4" fill="white" opacity="0.6"/>
+    <circle cx="8" cy="-32" r="2" fill="white" opacity="0.7"/>
+    <circle cx="-20" cy="-4" r="1.6" fill="white" opacity="0.5"/>
+  </g>
+  
+  <!-- Title -->
+  <text x="200" y="115" font-family="system-ui, -apple-system, sans-serif" font-size="72" font-weight="bold" fill="url(#textGradient)">Magec</text>
+  
+  <!-- Tagline with flag -->
+  <text x="205" y="150" font-family="system-ui, -apple-system, sans-serif" font-size="18" fill="#a8a29e">Voice assistant from Canary Islands 🇮🇨</text>
+</svg>

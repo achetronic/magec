@@ -1,0 +1,30 @@
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# AI assistants
+.crush/
+.cursor/
+.aider/
+.copilot/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# Build output
+bin/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Models (download with make download-model)
+gui/pretrained/
+
+# Test audio
+test/
