@@ -138,8 +138,17 @@ func createSessionService(cfg *config.Config) (session.Service, error) {
 		return session.InMemoryService(), nil
 	}
 
+	// Parse TTL duration
+	ttl, err := time.ParseDuration(cfg.Memory.Session.Redis.TTL)
+	if err != nil {
+		ttl = 24 * time.Hour // fallback default
+	}
+
 	svc, err := sessionredis.NewRedisSessionService(sessionredis.RedisSessionServiceConfig{
-		Addr: cfg.Memory.Session.Redis.Address,
+		Addr:     cfg.Memory.Session.Redis.Address,
+		Password: cfg.Memory.Session.Redis.Password,
+		DB:       cfg.Memory.Session.Redis.DB,
+		TTL:      ttl,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Redis session service: %w", err)
