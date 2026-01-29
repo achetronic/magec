@@ -35,7 +35,7 @@ download-model:
 
 clean:
 	@rm -rf bin
-	@rm -rf gui/pretrained gui/models/*.onnx
+	@rm -rf gui/pretrained
 	@find . -name ".DS_Store" -delete
 	@echo "Cleaned"
 
