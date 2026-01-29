@@ -515,4 +515,4 @@ make clean          # Remove build artifacts
 
 ## License
 
-MIT
+Apache 2.0
