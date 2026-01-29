@@ -1,12 +1,24 @@
+# Git and development
 .git/
+.github/
 .agents/
-assets/
-scripts/
+
+# Documentation
+docs/
 *.md
+!README.md
+
+# Config files (except example)
 *.yaml
 !config.example.yaml
+
+# System and temporary files
 .DS_Store
 *.log
 .env
 .env.local
 *.wav
+
+# IDE
+.vscode/
+.idea/
