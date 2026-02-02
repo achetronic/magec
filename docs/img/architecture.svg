@@ -1,0 +1,202 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 500">
+  <defs>
+    <!-- Gradients -->
+    <linearGradient id="bgGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1a1a1d"/>
+      <stop offset="100%" style="stop-color:#121214"/>
+    </linearGradient>
+    <linearGradient id="sunGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#fbbf24"/>
+      <stop offset="100%" style="stop-color:#f59e0b"/>
+    </linearGradient>
+    <linearGradient id="cardGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#2a2a2f"/>
+      <stop offset="100%" style="stop-color:#212125"/>
+    </linearGradient>
+    <linearGradient id="blueGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#38bcd8"/>
+      <stop offset="100%" style="stop-color:#0891b2"/>
+    </linearGradient>
+    <linearGradient id="greenGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#4ade80"/>
+      <stop offset="100%" style="stop-color:#22c55e"/>
+    </linearGradient>
+    <linearGradient id="purpleGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#a78bfa"/>
+      <stop offset="100%" style="stop-color:#8b5cf6"/>
+    </linearGradient>
+    
+    <!-- Glow filter -->
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    
+    <!-- Shadow filter -->
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="4" stdDeviation="8" flood-color="#000" flood-opacity="0.3"/>
+    </filter>
+  </defs>
+  
+  <!-- Background -->
+  <rect width="900" height="500" fill="url(#bgGradient)"/>
+  
+  <!-- Decorative dots -->
+  <circle cx="50" cy="50" r="1.5" fill="#3d3d44" opacity="0.5"/>
+  <circle cx="100" cy="80" r="1" fill="#3d3d44" opacity="0.3"/>
+  <circle cx="850" cy="450" r="1.5" fill="#3d3d44" opacity="0.5"/>
+  <circle cx="800" cy="420" r="1" fill="#3d3d44" opacity="0.3"/>
+  <circle cx="750" cy="60" r="1.2" fill="#3d3d44" opacity="0.4"/>
+  
+  <!-- USER SECTION (Left) -->
+  <g transform="translate(70, 200)">
+    <!-- User card -->
+    <rect x="0" y="0" width="120" height="140" rx="16" fill="url(#cardGradient)" filter="url(#shadow)"/>
+    <rect x="0" y="0" width="120" height="140" rx="16" fill="none" stroke="#3d3d44" stroke-width="1"/>
+    
+    <!-- User icon -->
+    <circle cx="60" cy="50" r="28" fill="url(#blueGradient)" opacity="0.15"/>
+    <circle cx="60" cy="42" r="14" fill="url(#blueGradient)"/>
+    <path d="M 35 75 Q 35 58 60 58 Q 85 58 85 75" fill="url(#blueGradient)"/>
+    
+    <!-- Label -->
+    <text x="60" y="115" text-anchor="middle" fill="#f5f5f4" font-family="system-ui, sans-serif" font-size="14" font-weight="600">You</text>
+    <text x="60" y="132" text-anchor="middle" fill="#78716c" font-family="system-ui, sans-serif" font-size="11">speak naturally</text>
+  </g>
+  
+  <!-- Arrow 1: User to Magec -->
+  <g>
+    <path d="M 200 270 C 240 270, 250 250, 290 250" fill="none" stroke="#fbbf24" stroke-width="2" stroke-dasharray="6,4" opacity="0.6"/>
+    <text x="245" y="240" text-anchor="middle" fill="#fbbf24" font-family="system-ui, sans-serif" font-size="10" font-style="italic">"Oye Magec..."</text>
+  </g>
+  
+  <!-- MAGEC SERVER (Center) -->
+  <g transform="translate(300, 120)">
+    <!-- Main card -->
+    <rect x="0" y="0" width="280" height="260" rx="20" fill="url(#cardGradient)" filter="url(#shadow)"/>
+    <rect x="0" y="0" width="280" height="260" rx="20" fill="none" stroke="url(#sunGradient)" stroke-width="2"/>
+    
+    <!-- Sun logo -->
+    <circle cx="140" cy="45" r="22" fill="url(#sunGradient)" filter="url(#glow)"/>
+    <circle cx="133" cy="38" r="3" fill="#fff" opacity="0.6"/>
+    <circle cx="148" cy="52" r="2" fill="#fff" opacity="0.4"/>
+    <circle cx="130" cy="50" r="2.5" fill="#fff" opacity="0.5"/>
+    
+    <!-- Title -->
+    <text x="140" y="90" text-anchor="middle" fill="#fbbf24" font-family="system-ui, sans-serif" font-size="18" font-weight="700">Magec Server</text>
+    
+    <!-- Processing steps -->
+    <!-- Step 1: Wake Word -->
+    <g transform="translate(25, 110)">
+      <rect x="0" y="0" width="105" height="50" rx="8" fill="#2a2a2f"/>
+      <circle cx="22" cy="25" r="12" fill="#f59e0b" opacity="0.2"/>
+      <text x="22" y="30" text-anchor="middle" fill="#fbbf24" font-size="14">👂</text>
+      <text x="65" y="22" text-anchor="middle" fill="#d6d3d1" font-family="system-ui, sans-serif" font-size="10">Wake Word</text>
+      <text x="65" y="36" text-anchor="middle" fill="#78716c" font-family="system-ui, sans-serif" font-size="9">Detection</text>
+    </g>
+    
+    <!-- Step 2: STT -->
+    <g transform="translate(150, 110)">
+      <rect x="0" y="0" width="105" height="50" rx="8" fill="#2a2a2f"/>
+      <circle cx="22" cy="25" r="12" fill="#38bcd8" opacity="0.2"/>
+      <text x="22" y="30" text-anchor="middle" fill="#38bcd8" font-size="14">🎤</text>
+      <text x="65" y="22" text-anchor="middle" fill="#d6d3d1" font-family="system-ui, sans-serif" font-size="10">Speech to</text>
+      <text x="65" y="36" text-anchor="middle" fill="#78716c" font-family="system-ui, sans-serif" font-size="9">Text</text>
+    </g>
+    
+    <!-- Step 3: AI Agent -->
+    <g transform="translate(25, 175)">
+      <rect x="0" y="0" width="105" height="50" rx="8" fill="#2a2a2f"/>
+      <circle cx="22" cy="25" r="12" fill="#a78bfa" opacity="0.2"/>
+      <text x="22" y="30" text-anchor="middle" fill="#a78bfa" font-size="14">🧠</text>
+      <text x="65" y="22" text-anchor="middle" fill="#d6d3d1" font-family="system-ui, sans-serif" font-size="10">AI Agent</text>
+      <text x="65" y="36" text-anchor="middle" fill="#78716c" font-family="system-ui, sans-serif" font-size="9">Processing</text>
+    </g>
+    
+    <!-- Step 4: TTS -->
+    <g transform="translate(150, 175)">
+      <rect x="0" y="0" width="105" height="50" rx="8" fill="#2a2a2f"/>
+      <circle cx="22" cy="25" r="12" fill="#4ade80" opacity="0.2"/>
+      <text x="22" y="30" text-anchor="middle" fill="#4ade80" font-size="14">🔊</text>
+      <text x="65" y="22" text-anchor="middle" fill="#d6d3d1" font-family="system-ui, sans-serif" font-size="10">Text to</text>
+      <text x="65" y="36" text-anchor="middle" fill="#78716c" font-family="system-ui, sans-serif" font-size="9">Speech</text>
+    </g>
+    
+    <!-- Flow arrows inside -->
+    <path d="M 135 135 L 145 135" stroke="#52525b" stroke-width="1.5" fill="none" marker-end="url(#arrowSmall)"/>
+    <path d="M 77 165 L 77 170" stroke="#52525b" stroke-width="1.5" fill="none"/>
+    <path d="M 135 200 L 145 200" stroke="#52525b" stroke-width="1.5" fill="none"/>
+  </g>
+  
+  <!-- LLM PROVIDERS (Top Right) -->
+  <g transform="translate(650, 80)">
+    <rect x="0" y="0" width="180" height="150" rx="16" fill="url(#cardGradient)" filter="url(#shadow)"/>
+    <rect x="0" y="0" width="180" height="150" rx="16" fill="none" stroke="#3d3d44" stroke-width="1"/>
+    
+    <text x="90" y="28" text-anchor="middle" fill="#a78bfa" font-family="system-ui, sans-serif" font-size="12" font-weight="600">🤖 LLM Providers</text>
+    
+    <!-- Provider pills -->
+    <rect x="15" y="45" width="70" height="24" rx="12" fill="#2a2a2f"/>
+    <text x="50" y="62" text-anchor="middle" fill="#d6d3d1" font-family="system-ui, sans-serif" font-size="10">OpenAI</text>
+    
+    <rect x="95" y="45" width="70" height="24" rx="12" fill="#2a2a2f"/>
+    <text x="130" y="62" text-anchor="middle" fill="#d6d3d1" font-family="system-ui, sans-serif" font-size="10">Anthropic</text>
+    
+    <rect x="15" y="78" width="70" height="24" rx="12" fill="#2a2a2f"/>
+    <text x="50" y="95" text-anchor="middle" fill="#d6d3d1" font-family="system-ui, sans-serif" font-size="10">Gemini</text>
+    
+    <rect x="95" y="78" width="70" height="24" rx="12" fill="#2a2a2f"/>
+    <text x="130" y="95" text-anchor="middle" fill="#d6d3d1" font-family="system-ui, sans-serif" font-size="10">Ollama</text>
+    
+    <text x="90" y="125" text-anchor="middle" fill="#78716c" font-family="system-ui, sans-serif" font-size="9" font-style="italic">+ any OpenAI-compatible</text>
+    <text x="90" y="140" text-anchor="middle" fill="#78716c" font-family="system-ui, sans-serif" font-size="9" font-style="italic">API</text>
+  </g>
+  
+  <!-- MCP TOOLS (Bottom Right) -->
+  <g transform="translate(650, 270)">
+    <rect x="0" y="0" width="180" height="150" rx="16" fill="url(#cardGradient)" filter="url(#shadow)"/>
+    <rect x="0" y="0" width="180" height="150" rx="16" fill="none" stroke="#3d3d44" stroke-width="1"/>
+    
+    <text x="90" y="28" text-anchor="middle" fill="#4ade80" font-family="system-ui, sans-serif" font-size="12" font-weight="600">🔧 MCP Tools</text>
+    
+    <!-- Tool pills -->
+    <rect x="15" y="45" width="75" height="24" rx="12" fill="#2a2a2f"/>
+    <text x="52" y="62" text-anchor="middle" fill="#d6d3d1" font-family="system-ui, sans-serif" font-size="10">🏠 Home</text>
+    
+    <rect x="100" y="45" width="65" height="24" rx="12" fill="#2a2a2f"/>
+    <text x="132" y="62" text-anchor="middle" fill="#d6d3d1" font-family="system-ui, sans-serif" font-size="10">📁 Files</text>
+    
+    <rect x="15" y="78" width="70" height="24" rx="12" fill="#2a2a2f"/>
+    <text x="50" y="95" text-anchor="middle" fill="#d6d3d1" font-family="system-ui, sans-serif" font-size="10">🐙 GitHub</text>
+    
+    <rect x="95" y="78" width="70" height="24" rx="12" fill="#2a2a2f"/>
+    <text x="130" y="95" text-anchor="middle" fill="#d6d3d1" font-family="system-ui, sans-serif" font-size="10">📊 Data</text>
+    
+    <text x="90" y="125" text-anchor="middle" fill="#78716c" font-family="system-ui, sans-serif" font-size="9" font-style="italic">Connect any MCP</text>
+    <text x="90" y="140" text-anchor="middle" fill="#78716c" font-family="system-ui, sans-serif" font-size="9" font-style="italic">compatible service</text>
+  </g>
+  
+  <!-- Arrows: Magec to LLMs -->
+  <g>
+    <path d="M 580 200 C 610 200, 620 155, 650 155" fill="none" stroke="#a78bfa" stroke-width="2" opacity="0.6"/>
+    <circle cx="650" cy="155" r="3" fill="#a78bfa"/>
+  </g>
+  
+  <!-- Arrows: Magec to Tools -->
+  <g>
+    <path d="M 580 300 C 610 300, 620 345, 650 345" fill="none" stroke="#4ade80" stroke-width="2" opacity="0.6"/>
+    <circle cx="650" cy="345" r="3" fill="#4ade80"/>
+  </g>
+  
+  <!-- Arrow: Magec back to User -->
+  <g>
+    <path d="M 300 320 C 260 340, 220 340, 190 310" fill="none" stroke="#4ade80" stroke-width="2" stroke-dasharray="6,4" opacity="0.6"/>
+    <text x="245" y="360" text-anchor="middle" fill="#4ade80" font-family="system-ui, sans-serif" font-size="10" font-style="italic">Voice response</text>
+  </g>
+  
+  <!-- Bottom tagline -->
+  <text x="450" y="470" text-anchor="middle" fill="#52525b" font-family="system-ui, sans-serif" font-size="12">All processing happens on your server • Your voice, your data, your control</text>
+</svg>

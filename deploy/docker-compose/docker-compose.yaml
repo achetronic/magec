@@ -1,0 +1,41 @@
+services:
+  magec:
+    image: ghcr.io/achetronic/magec:latest
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./config.yaml:/app/config.yaml
+    depends_on:
+      - redis
+      - postgres
+      - parakeet
+      - tts
+    restart: unless-stopped
+
+  redis:
+    image: redis:alpine
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+
+  postgres:
+    image: pgvector/pgvector:pg17
+    environment:
+      POSTGRES_USER: magec
+      POSTGRES_PASSWORD: magec
+      POSTGRES_DB: magec
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  parakeet:
+    image: ghcr.io/achetronic/parakeet:latest
+    restart: unless-stopped
+
+  tts:
+    image: travisvn/openai-edge-tts:latest
+    restart: unless-stopped
+
+volumes:
+  redis_data:
+  postgres_data:

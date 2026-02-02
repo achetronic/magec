@@ -1,0 +1,69 @@
+# Magec configuration for docker-compose setup
+# Copy this file to config.yaml and add your LLM API key
+
+server:
+  host: 0.0.0.0
+  port: 8080
+
+log:
+  level: info
+  format: console
+
+backends:
+  # Speech-to-text (Parakeet container)
+  - name: parakeet
+    type: openai
+    url: http://parakeet:5000/v1
+
+  # Text-to-speech (Edge TTS container)
+  - name: edge-tts
+    type: openai
+    url: http://tts:5050/v1
+    apiKey: "dummy"
+
+  # LLM - Choose one and add your API key:
+  
+  # Option 1: OpenAI
+  - name: openai
+    type: openai
+    apiKey: YOUR_OPENAI_API_KEY
+  
+  # Option 2: Anthropic
+  # - name: anthropic
+  #   type: anthropic
+  #   apiKey: YOUR_ANTHROPIC_API_KEY
+  
+  # Option 3: Local with Ollama (run Ollama separately)
+  # - name: ollama
+  #   type: openai
+  #   url: http://host.docker.internal:11434/v1
+
+transcription:
+  backend: parakeet
+  model: whisper-1
+
+llm:
+  backend: openai  # Change to 'anthropic' or 'ollama' if using those
+  model: gpt-4o-mini
+
+tts:
+  backend: edge-tts
+  model: tts-1
+  voice: es-ES-AlvaroNeural
+  speed: 1.0
+
+wakeWord:
+  enabled: true
+
+memory:
+  session:
+    redis:
+      address: redis:6379
+      ttl: 24h
+
+  longTerm:
+    embedding:
+      backend: openai  # Or 'ollama' with model 'nomic-embed-text'
+      model: text-embedding-3-small
+    postgres:
+      connectionString: postgres://magec:magec@postgres:5432/magec?sslmode=disable

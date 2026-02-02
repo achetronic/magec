@@ -1,57 +1,26 @@
 # Magec
 
 <p align="center">
-  <img src="gui/assets/banner.png" alt="Magec - Voice assistant from Canary Islands" width="800">
+  <img src="docs/img/banner.png" alt="Magec - Voice assistant from Canary Islands" width="800">
 </p>
 
 ## What is Magec?
 
-Magec is a **voice-first AI assistant** that lets you talk naturally to Large Language Models (LLMs) and interact with external tools through the Model Context Protocol (MCP). Think of it as your personal voice interface to AI—speak a question, get an intelligent response, and optionally have it read back to you.
+Magec is a **voice assistant that you control**. Talk to it like you would to Alexa or Siri, but with the power of modern AI models (ChatGPT, Claude, Gemini, or local models).
 
-```mermaid
-flowchart LR
-    subgraph User
-        U[🎤 You]
-    end
+Connect it to your tools via MCP: control your smart home, manage files, query databases, or anything else you can imagine. It runs on your server, remembers your preferences, and gets smarter the more you use it.
 
-    subgraph Magec["☀️ Magec Server"]
-        WW[Wake Word Detection]
-        STT[Speech-to-Text]
-        Agent[AI Agent]
-        TTS[Text-to-Speech]
-    end
-
-    subgraph LLMs["LLM Providers"]
-        OpenAI[OpenAI]
-        Anthropic[Anthropic]
-        Ollama[Ollama]
-        Gemini[Gemini]
-    end
-
-    subgraph Tools["MCP Tools"]
-        HA[Home Assistant]
-        FS[Filesystem]
-        GH[GitHub]
-        Custom[Custom MCPs...]
-    end
-
-    U -- "Oye Magec..." --> WW
-    WW --> STT
-    STT --> Agent
-    Agent <--> LLMs
-    Agent <--> Tools
-    Agent --> TTS
-    TTS -- "🔊 Response" --> U
-```
+<p align="center">
+  <img src="docs/img/architecture.png" alt="Magec Architecture - Voice to LLMs and MCP Tools" width="800">
+</p>
 
 ### How it works
 
-1. **Wake word** — Say "Oye Magec" (or your configured phrase) to activate listening
-2. **Speech-to-text** — Your voice is transcribed on the server using Whisper-compatible APIs
-3. **AI processing** — The agent sends your request to the configured LLM, with access to MCP tools
-4. **Text-to-speech** — The response is spoken back to you (optional)
+1. **Deploy** — Run Magec on your server or home lab
+2. **Configure** — Point it to your preferred AI model and connect any MCP tools you want (smart home, files, APIs...)
+3. **Talk** — Just say "Oye Magec" and ask for anything. That's it.
 
-All processing happens on your server—no audio leaves your infrastructure unless you configure cloud providers.
+Your voice, your AI, your rules.
 
 ## Why "Magec"?
 
@@ -62,63 +31,64 @@ The name honors this Canarian heritage while reflecting the assistant's purpose:
 ## Screenshots
 
 <p align="center">
-  <img src="docs/img/home.png" alt="Home - Magec visualizer" width="280">
-  <img src="docs/img/chat.png" alt="Chat conversation" width="280">
+  <img src="docs/img/screenshots/home.png" alt="Home - Magec visualizer" width="280">
+  <img src="docs/img/screenshots/chat.png" alt="Chat conversation" width="280">
 </p>
 <p align="center">
-  <img src="docs/img/settings.png" alt="Settings panel" width="280">
-  <img src="docs/img/notifications.png" alt="Notifications" width="280">
+  <img src="docs/img/screenshots/settings.png" alt="Settings panel" width="280">
+  <img src="docs/img/screenshots/notifications.png" alt="Notifications" width="280">
 </p>
 
 ## Features
 
 ### Voice & Speech
+
 - **Wake word detection** — Server-side OpenWakeWord models for hands-free activation ("Oye Magec", "Magec")
-- **Speech transcription** — Server-side transcription via OpenAI-compatible Whisper APIs
-- **Text-to-speech** — Natural voice responses via OpenAI-compatible TTS APIs
+- **Speech transcription** — Server-side transcription via OpenAI-compatible Whisper APIs (e.g. [Parakeet](https://github.com/achetronic/parakeet))
+- **Text-to-speech** — Natural voice responses via OpenAI-compatible TTS APIs (e.g. [openai-edge-tts](https://github.com/travisvn/openai-edge-tts))
 
 ### AI & Intelligence
+
 - **Multi-provider LLM** — Supports OpenAI, Anthropic (Claude), Google Gemini, and local models via Ollama
 - **Configurable backends** — Define multiple AI backends and switch between them easily
-- **ADK-based agent** — Built on Google's Agent Development Kit for structured AI interactions
 
 ### Memory & Context
-- **Session memory** — Redis-backed conversation history with configurable TTL
-- **Long-term memory** — PostgreSQL with vector embeddings for persistent knowledge across sessions
-- **Embedding models** — Configurable embedding backends for semantic search
+
+- **Session memory** — Conversation history stored in Redis, survives restarts
+- **Long-term memory** — Remembers things about you across sessions using PostgreSQL
 
 ### Extensibility
+
 - **MCP toolsets** — Connect external tools via Model Context Protocol (filesystem, GitHub, Home Assistant, etc.)
 - **YAML configuration** — Single config file for all settings: backends, memory, MCP servers
 
 ### Interface
+
 - **Lightweight client** — All heavy processing (wake word, STT, LLM) happens server-side for fast mobile experience
 - **Magec visualizer** — Mystical audio visualization that reacts to voice
 - **PWA support** — Install as standalone app on mobile devices
 - **Responsive design** — Works on desktop and mobile browsers
 - **i18n** — Supports Spanish (default) and English
 
-## Requirements
-
-- Go 1.21+
-- Docker (for infrastructure)
-- Modern browser with WebAudio support
-
 ## Quick Start
 
+The easiest way to run Magec is with Docker Compose:
+
 ```bash
-# 1. Start infrastructure (PostgreSQL with pgvector + Redis)
-make infra
+# 1. Clone the repo
+git clone https://github.com/achetronic/magec.git
+cd magec/deploy/docker-compose
 
-# 2. Copy and edit config
-cp config.example.yaml config.yaml
-# Edit config.yaml with your API keys and settings
+# 2. Edit config (add your LLM API key)
+nano config.yaml
 
-# 3. Build and run
-make dev
+# 3. Start everything
+docker-compose up -d
 ```
 
-Open http://localhost:8080
+Open http://localhost:8080 and say "Oye Magec"!
+
+> **Note**: Edit `config.yaml` to add your OpenAI/Anthropic API key, or configure Ollama for fully local operation.
 
 ## Configuration
 
@@ -132,11 +102,11 @@ Magec uses a single YAML configuration file. The server accepts one flag:
 
 ```yaml
 server:
-  host: 0.0.0.0  # Use 127.0.0.1 to restrict to localhost
+  host: 0.0.0.0 # Use 127.0.0.1 to restrict to localhost
   port: 8080
 
 log:
-  level: info    # debug, info, warn, error
+  level: info # debug, info, warn, error
   format: console # console, json
 
 # Reusable AI backends
@@ -205,11 +175,11 @@ mcpServers:
 
 ### Backend Types
 
-| Type | Description | Required Fields |
-|------|-------------|-----------------|
-| `openai` | OpenAI-compatible API (OpenAI, Ollama, LM Studio, etc.) | `url` and/or `apiKey` |
-| `anthropic` | Anthropic Claude API | `apiKey` |
-| `gemini` | Google Gemini API | `apiKey` |
+| Type        | Description                                             | Required Fields       |
+| ----------- | ------------------------------------------------------- | --------------------- |
+| `openai`    | OpenAI-compatible API (OpenAI, Ollama, LM Studio, etc.) | `url` and/or `apiKey` |
+| `anthropic` | Anthropic Claude API                                    | `apiKey`              |
+| `gemini`    | Google Gemini API                                       | `apiKey`              |
 
 ### Environment Variables
 
@@ -219,7 +189,7 @@ Config values support `${VAR}` syntax for environment variable expansion:
 backends:
   - name: openai
     type: openai
-    apiKey: ${OPENAI_API_KEY}  # Reads from environment
+    apiKey: ${OPENAI_API_KEY} # Reads from environment
 ```
 
 ## Examples
@@ -364,12 +334,12 @@ backends:
   - name: edge-tts
     type: openai
     url: http://localhost:5050/v1
-    apiKey: "dummy"  # Required but not used
+    apiKey: "dummy" # Required but not used
 
 tts:
   backend: edge-tts
   model: tts-1
-  voice: es-ES-AlvaroNeural  # Spanish voice
+  voice: es-ES-AlvaroNeural # Spanish voice
   speed: 1.0
 ```
 
@@ -494,15 +464,15 @@ After this, PWA installation and features will work over HTTP.
 
 ## API Endpoints
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/api/v1/agent/*` | * | ADK REST API (sessions, run, events) |
-| `/api/v1/agent/run` | POST | Run agent (blocking) |
-| `/api/v1/agent/run_sse` | POST | Run agent (SSE streaming) |
-| `/api/v1/transcription/*` | POST | Proxy to Whisper backend |
-| `/api/v1/tts/*` | POST | Proxy to TTS backend |
-| `/api/v1/wakeword` | WebSocket | Wake word detection stream |
-| `/api/v1/health` | GET | Health check |
+| Endpoint                  | Method    | Description                          |
+| ------------------------- | --------- | ------------------------------------ |
+| `/api/v1/agent/*`         | \*        | ADK REST API (sessions, run, events) |
+| `/api/v1/agent/run`       | POST      | Run agent (blocking)                 |
+| `/api/v1/agent/run_sse`   | POST      | Run agent (SSE streaming)            |
+| `/api/v1/transcription/*` | POST      | Proxy to Whisper backend             |
+| `/api/v1/tts/*`           | POST      | Proxy to TTS backend                 |
+| `/api/v1/wakeword`        | WebSocket | Wake word detection stream           |
+| `/api/v1/health`          | GET       | Health check                         |
 
 ### Agent Request Example
 
@@ -522,6 +492,25 @@ curl -X POST http://localhost:8080/api/v1/agent/run \
 
 ## Development
 
+### Requirements
+
+- Go 1.21+
+- Docker
+- Modern browser with WebAudio support
+
+### Running from source
+
+```bash
+# 1. Start infrastructure (PostgreSQL with pgvector + Redis)
+make infra
+
+# 2. Copy and edit config
+cp config.example.yaml config.yaml
+
+# 3. Build and run
+make dev
+```
+
 ### Project Structure
 
 ```
@@ -534,7 +523,7 @@ magec/
 │   │   ├── i18n/         # Translations (es.js, en.js)
 │   │   ├── ui/           # UI components
 │   │   └── ...
-│   ├── assets/           # Logo, banner, PWA icons
+│   ├── assets/           # PWA icons
 │   └── manifest.json     # PWA manifest
 ├── server/               # Go backend
 │   ├── main.go           # HTTP server
@@ -544,7 +533,9 @@ magec/
 │   └── logging/          # Structured logging
 ├── models/               # Wake word ONNX models + wakewords.yaml
 ├── pretrained/           # Shared models (mel-spectrogram, embeddings)
-├── config.example.yaml   # Config template
+├── deploy/               # Deployment configurations
+│   └── docker-compose/   # One-command deployment with docker-compose
+├── config.example.yaml   # Config template for development
 ├── Dockerfile
 └── Makefile
 ```
@@ -561,11 +552,13 @@ make clean          # Remove build artifacts
 ### Dependencies
 
 **Go backend:**
+
 - `google.golang.org/adk` - Agent Development Kit
 - `github.com/achetronic/adk-utils-go` - ADK utilities (providers, session, memory, tools)
 - `github.com/modelcontextprotocol/go-sdk` - MCP client
 
 **Frontend (CDN, no build step):**
+
 - Tailwind CSS — Styling
 
 ## License

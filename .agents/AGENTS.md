@@ -43,7 +43,7 @@ magec/
 │   │   ├── settings/       # Settings persistence
 │   │   └── utils/          # Utilities (WakeLock)
 │   ├── models/             # Wake word ONNX models + wakewords.json config
-│   ├── assets/             # Logo, banner, PWA icons
+│   ├── assets/             # PWA icons
 │   ├── manifest.json       # PWA manifest
 │   └── index.html
 ├── server/                 # Go backend
@@ -60,16 +60,16 @@ magec/
 
 ### Component Overview
 
-| Component | Purpose |
-|-----------|---------|
-| `gui/src/app.js` | Main entry - MagecApp class orchestrates audio pipeline, wake word, transcription, agent chat |
-| `gui/src/config.js` | Frontend configuration (API endpoints, storage keys) |
-| `gui/src/i18n/` | Translations (es.js, en.js) with `t()` function and `data-i18n` attributes |
-| `gui/src/ui/UIController.js` | DOM manipulation, dynamic translations, settings panel |
-| `gui/src/ui/WaveformRenderer.js` | "Magec" audio visualizer |
-| `server/main.go` | HTTP server with ADK REST handler, Whisper proxy |
-| `server/agent/agent.go` | ADK agent with memory tools, MCP integration |
-| `server/config/config.go` | YAML config with backend resolution and env var expansion |
+| Component                        | Purpose                                                                                       |
+| -------------------------------- | --------------------------------------------------------------------------------------------- |
+| `gui/src/app.js`                 | Main entry - MagecApp class orchestrates audio pipeline, wake word, transcription, agent chat |
+| `gui/src/config.js`              | Frontend configuration (API endpoints, storage keys)                                          |
+| `gui/src/i18n/`                  | Translations (es.js, en.js) with `t()` function and `data-i18n` attributes                    |
+| `gui/src/ui/UIController.js`     | DOM manipulation, dynamic translations, settings panel                                        |
+| `gui/src/ui/WaveformRenderer.js` | "Magec" audio visualizer                                                                      |
+| `server/main.go`                 | HTTP server with ADK REST handler, Whisper proxy                                              |
+| `server/agent/agent.go`          | ADK agent with memory tools, MCP integration                                                  |
+| `server/config/config.go`        | YAML config with backend resolution and env var expansion                                     |
 
 ## Configuration (YAML)
 
@@ -77,12 +77,12 @@ Magec uses a single YAML config file for all settings:
 
 ```yaml
 server:
-  host: 0.0.0.0  # Use 127.0.0.1 to restrict to localhost
+  host: 0.0.0.0 # Use 127.0.0.1 to restrict to localhost
   port: 8080
 
 log:
-  level: info  # debug, info, warn, error
-  format: console  # console, json
+  level: info # debug, info, warn, error
+  format: console # console, json
 
 # Reusable AI backends
 backends:
@@ -126,11 +126,11 @@ mcpServers:
 
 ### Backend Types
 
-| Type | Description | Required Fields |
-|------|-------------|-----------------|
-| `openai` | OpenAI-compatible API (LLM, Whisper, TTS, embeddings) | `url` or default, `apiKey` optional |
-| `anthropic` | Anthropic Claude API | `apiKey` |
-| `gemini` | Google Gemini API | `apiKey` |
+| Type        | Description                                           | Required Fields                     |
+| ----------- | ----------------------------------------------------- | ----------------------------------- |
+| `openai`    | OpenAI-compatible API (LLM, Whisper, TTS, embeddings) | `url` or default, `apiKey` optional |
+| `anthropic` | Anthropic Claude API                                  | `apiKey`                            |
+| `gemini`    | Google Gemini API                                     | `apiKey`                            |
 
 The backend type indicates the API protocol, not the function. The function is determined by where the backend is used (`transcription`, `llm`, `tts`, `memory.longTerm.embedding`).
 
@@ -156,10 +156,10 @@ The backend type indicates the API protocol, not the function. The function is d
 
 1. **Microphone capture** → AudioContext at 16kHz sample rate
 2. **Wake word detection** → OpenWakeWord ONNX models trigger recording
-4. **Recording** → MediaRecorder captures audio as webm
-5. **Transcription** → Local (Transformers.js) or remote (Whisper API proxy)
-6. **Agent interaction** → ADK REST `/run_sse` endpoint with streaming
-7. **TTS** → Browser speech synthesis for responses
+3. **Recording** → MediaRecorder captures audio as webm
+4. **Transcription** → Local (Transformers.js) or remote (Whisper API proxy)
+5. **Agent interaction** → ADK REST `/run_sse` endpoint with streaming
+6. **TTS** → Browser speech synthesis for responses
 
 ## Agent Behavior
 
@@ -221,6 +221,7 @@ make infra-clean        # Remove all containers and volumes
 ### Using with Different Providers
 
 **Ollama (local):**
+
 ```yaml
 backends:
   - name: ollama
@@ -233,6 +234,7 @@ llm:
 ```
 
 **OpenAI:**
+
 ```yaml
 backends:
   - name: openai
@@ -245,6 +247,7 @@ llm:
 ```
 
 **Anthropic:**
+
 ```yaml
 backends:
   - name: anthropic
@@ -257,6 +260,7 @@ llm:
 ```
 
 **Gemini:**
+
 ```yaml
 backends:
   - name: gemini
@@ -280,12 +284,14 @@ Magec can be installed as a standalone app:
 ## Dependencies
 
 **Go backend:**
+
 - `google.golang.org/adk` - Agent Development Kit
 - `github.com/achetronic/adk-utils-go` - ADK utilities (providers, session, memory, tools)
 - `github.com/modelcontextprotocol/go-sdk` - MCP client
 - `gopkg.in/yaml.v3` - YAML config parsing
 
 **Frontend (CDN):**
+
 - `@huggingface/transformers` - Whisper inference
 - `onnxruntime-web` - ONNX model inference
 - `onnxruntime-web` - Wake word model inference (OpenWakeWord)
