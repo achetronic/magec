@@ -190,6 +190,7 @@ func logRoutes(adkHandler http.Handler) {
 	slog.Debug("Route", "methods", []string{"POST"}, "path", "/api/v1/tts/")
 	slog.Debug("Route", "methods", []string{"GET"}, "path", "/api/v1/health")
 	slog.Debug("Route", "methods", []string{"GET"}, "path", "/ (static files)")
+	slog.Debug("Route", "methods", []string{"WebSocket"}, "path", "/api/v1/wakeword")
 }
 
 // responseRecorder wraps http.ResponseWriter to capture status code and bytes written.
