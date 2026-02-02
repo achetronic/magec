@@ -15,8 +15,7 @@
  */
 
 export class AudioCapture {
-    constructor(config) {
-        this.config = config;
+    constructor() {
         this.audioContext = null;
         this.micStream = null;
         this.analyser = null;
@@ -29,16 +28,22 @@ export class AudioCapture {
             throw new Error('Microphone not available. Make sure you are using HTTPS.');
         }
         
+        // Note: We don't force sampleRate in getUserMedia constraints because
+        // many mobile devices ignore it and use their native rate (often 48kHz).
+        // The actual sample rate is handled by AudioContext and passed to consumers.
         this.micStream = await navigator.mediaDevices.getUserMedia({
             audio: {
                 channelCount: 1,
-                sampleRate: this.config.sampleRate,
-                echoCancellation: true,
-                noiseSuppression: true
+                echoCancellation: false,
+                noiseSuppression: false,
+                autoGainControl: false
             }
         });
         
-        this.audioContext = new AudioContext({ sampleRate: this.config.sampleRate });
+        // Don't force sample rate on AudioContext either - let the browser use
+        // the native rate. Mobile browsers often ignore requested sample rates.
+        // Resampling to 16kHz for wake word detection is handled by the server.
+        this.audioContext = new AudioContext();
         const source = this.audioContext.createMediaStreamSource(this.micStream);
         
         this.analyser = this.audioContext.createAnalyser();
@@ -72,7 +77,7 @@ export class AudioCapture {
     }
 
     getSampleRate() {
-        return this.audioContext?.sampleRate || this.config.sampleRate;
+        return this.audioContext?.sampleRate;
     }
 
     stop() {

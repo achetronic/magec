@@ -14,4 +14,4 @@
  * limitations under the License.
  */
 
-export { LocalTranscriber, RemoteTranscriber } from './Transcriber.js';
+export { RemoteTranscriber } from './Transcriber.js';

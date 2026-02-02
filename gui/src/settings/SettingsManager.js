@@ -17,9 +17,6 @@
 const STORAGE_KEY = 'magec_settings';
 
 const DEFAULT_SETTINGS = {
-    stt: {
-        mode: 'server'  // 'server' | 'local'
-    },
     tts: {
         enabled: true
     },
@@ -83,16 +80,6 @@ export class SettingsManager {
         } catch (e) {
             console.warn('Failed to save settings:', e);
         }
-    }
-
-    // STT
-    get sttMode() {
-        return this._settings.stt.mode;
-    }
-
-    set sttMode(value) {
-        this._settings.stt.mode = value;
-        this._save();
     }
 
     // TTS

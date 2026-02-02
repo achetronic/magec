@@ -1,5 +1,5 @@
 # Build stage
-FROM golang:1.24-alpine AS builder
+FROM golang:1.24 AS builder
 
 WORKDIR /build
 
@@ -7,7 +7,7 @@ COPY server/go.mod server/go.sum ./
 RUN go mod download
 
 COPY server/ ./
-RUN CGO_ENABLED=0 GOOS=linux go build -o magec .
+RUN CGO_ENABLED=1 GOOS=linux go build -o magec .
 
 # Download pretrained models
 FROM golang:1.24-alpine AS models
@@ -17,13 +17,26 @@ COPY scripts/download-model.go ./scripts/
 RUN go run scripts/download-model.go
 
 # Runtime stage
-FROM alpine:3.21
+FROM debian:bookworm-slim
 
 WORKDIR /app
 
+# Install CA certificates for TLS
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates && rm -rf /var/lib/apt/lists/*
+
+# Install ONNX Runtime
+ADD https://github.com/microsoft/onnxruntime/releases/download/v1.23.2/onnxruntime-linux-x64-1.23.2.tgz /tmp/onnxruntime.tgz
+RUN tar -xzf /tmp/onnxruntime.tgz -C /tmp && \
+    cp /tmp/onnxruntime-linux-x64-1.23.2/lib/libonnxruntime.so* /usr/lib/ && \
+    rm -rf /tmp/onnxruntime* && \
+    ldconfig
+
 COPY --from=builder /build/magec .
 COPY gui/ ./gui/
-COPY --from=models /build/gui/pretrained/ ./gui/pretrained/
+
+# Models at root level (for server-side wake word detection)
+COPY models/ ./models/
+COPY --from=models /build/pretrained/ ./pretrained/
 
 EXPOSE 8080
 

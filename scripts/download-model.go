@@ -71,7 +71,7 @@ func downloadPretrained() error {
 	fmt.Println("\nChecking pretrained models...")
 
 	for _, model := range pretrainedModels {
-		dest := filepath.Join("gui", "pretrained", model)
+		dest := filepath.Join("pretrained", model)
 
 		if _, err := os.Stat(dest); err == nil {
 			fmt.Printf("  %s already exists\n", model)

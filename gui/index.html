@@ -318,36 +318,6 @@
                                         </div>
                                     </div>
                                     
-                                    <!-- STT Section -->
-                                    <div class="group">
-                                        <div class="p-4 bg-piedra-800/40 rounded-xl border border-piedra-700/30">
-                                            <div class="flex items-center gap-3 mb-3">
-                                                <div class="w-9 h-9 rounded-lg bg-sol-500/20 flex items-center justify-center">
-                                                    <svg class="w-5 h-5 text-sol-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z"/>
-                                                    </svg>
-                                                </div>
-                                                <span class="text-sm font-medium text-arena-100" data-i18n="settings.stt.title">Reconocimiento de voz</span>
-                                            </div>
-                                            <div class="grid grid-cols-2 gap-2">
-                                                <label class="relative">
-                                                    <input type="radio" name="sttMode" value="server" class="peer sr-only">
-                                                    <div class="p-3 rounded-lg border border-piedra-600/50 bg-piedra-700/30 cursor-pointer transition-all peer-checked:border-sol-500 peer-checked:bg-sol-500/10 hover:border-piedra-500">
-                                                        <div class="text-sm font-medium text-arena-100 mb-0.5" data-i18n="settings.stt.server">Servidor</div>
-                                                        <div class="text-xs text-arena-500" data-i18n="settings.stt.serverDesc">Más preciso</div>
-                                                    </div>
-                                                </label>
-                                                <label class="relative">
-                                                    <input type="radio" name="sttMode" value="local" class="peer sr-only">
-                                                    <div class="p-3 rounded-lg border border-piedra-600/50 bg-piedra-700/30 cursor-pointer transition-all peer-checked:border-sol-500 peer-checked:bg-sol-500/10 hover:border-piedra-500">
-                                                        <div class="text-sm font-medium text-arena-100 mb-0.5" data-i18n="settings.stt.browser">Navegador</div>
-                                                        <div class="text-xs text-arena-500" data-i18n="settings.stt.browserDesc">Más privado</div>
-                                                    </div>
-                                                </label>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    
                                     <!-- TTS Section -->
                                     <div class="group">
                                         <div class="p-4 bg-piedra-800/40 rounded-xl border border-piedra-700/30">
@@ -451,7 +421,6 @@
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.17.0/dist/ort.min.js"></script>
     <script type="module" src="src/app.js"></script>
 </body>
 </html>

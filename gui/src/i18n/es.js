@@ -61,14 +61,6 @@ export default {
       model: "Modelo",
     },
 
-    stt: {
-      title: "Reconocimiento de voz",
-      server: "Servidor",
-      serverDesc: "Más preciso",
-      browser: "Navegador",
-      browserDesc: "Más privado",
-    },
-
     tts: {
       title: "Síntesis de voz",
     },
@@ -89,10 +81,8 @@ export default {
     wakeWordLoading: "Cargando modelo Wake Word...",
     wakeWordReady: "Modelo Wake Word listo",
     wakeWordFailed: "Modelo Wake Word falló. Ver consola.",
-    whisperLoading: "Cargando modelo Whisper (local)...",
-    whisperReady: "Modelo Whisper listo (local)",
-    whisperFailed: "Modelo Whisper falló. Ver consola.",
     ttsUnavailable: "Síntesis de voz no disponible. El servidor TTS no está configurado o no responde.",
+    wakeWordUnavailable: "Detección de wake word no disponible. Servidor no configurado.",
   },
 
   actions: {

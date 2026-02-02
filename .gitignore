@@ -24,7 +24,8 @@ bin/
 Thumbs.db
 
 # Models (download with make download-model)
-gui/pretrained/
+# Pretrained models (mel-spectrogram, speech-embedding, etc)
+pretrained/*.onnx
 
 # Test audio
 test/

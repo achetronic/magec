@@ -15,6 +15,7 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -22,6 +23,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"net"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -36,6 +38,7 @@ import (
 	"github.com/achetronic/magec/server/agent"
 	"github.com/achetronic/magec/server/config"
 	"github.com/achetronic/magec/server/logging"
+	"github.com/achetronic/magec/server/wakeword"
 )
 
 var configFile = flag.String("config", "config.yaml", "Path to config file")
@@ -86,6 +89,51 @@ func main() {
 		}
 	}
 
+	// Wake word WebSocket handler
+	const (
+		wakeWordModelsPath    = "models"
+		wakeWordPretrainedPath = "pretrained"
+		onnxLibraryPath       = "/usr/lib/libonnxruntime.so"
+	)
+	var wakeWordDetector *wakeword.Detector
+	if cfg.WakeWord.Enabled {
+		// Load wake word models configuration from wakewords.yaml
+		wakeWordModelsCfg, err := config.LoadWakeWordModels(wakeWordModelsPath)
+		if err != nil {
+			slog.Error("Failed to load wakewords.yaml", "error", err)
+		} else if len(wakeWordModelsCfg.Models) == 0 {
+			slog.Warn("No wake word models configured in wakewords.yaml")
+		} else {
+			// Convert config models to detector models
+			models := make([]wakeword.ModelConfig, len(wakeWordModelsCfg.Models))
+			for i, m := range wakeWordModelsCfg.Models {
+				models[i] = wakeword.ModelConfig{
+					ID:        m.ID,
+					Name:      m.Name,
+					File:      fmt.Sprintf("%s/%s", wakeWordModelsPath, m.File),
+					Phrase:    m.Phrase,
+					Threshold: m.Threshold,
+				}
+			}
+
+			wakeWordDetector = wakeword.NewDetector(wakeword.DetectorConfig{
+				MelspecModelPath:   fmt.Sprintf("%s/mel-spectrogram.onnx", wakeWordPretrainedPath),
+				EmbeddingModelPath: fmt.Sprintf("%s/speech-embedding.onnx", wakeWordPretrainedPath),
+				Models:             models,
+				OnnxLibraryPath:    onnxLibraryPath,
+			}, slog.Default())
+
+			if err := wakeWordDetector.Load(); err != nil {
+				slog.Error("Failed to load wake word models", "error", err)
+				// Don't exit - wake word is optional
+			} else {
+				wakeWordHandler := wakeword.NewHandler(wakeWordDetector, slog.Default())
+				mux.Handle("/api/v1/wakeword", wakeWordHandler)
+				slog.Info("Wake word detection enabled", "models", len(models))
+			}
+		}
+	}
+
 	// Log registered routes
 	logRoutes(agentService.Handler())
 
@@ -108,6 +156,9 @@ func main() {
 		<-sigChan
 
 		slog.Info("Shutting down...")
+		if wakeWordDetector != nil {
+			wakeWordDetector.Close()
+		}
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 		server.Shutdown(ctx)
@@ -157,6 +208,14 @@ func (r *responseRecorder) Write(b []byte) (int, error) {
 	n, err := r.ResponseWriter.Write(b)
 	r.bytes += n
 	return n, err
+}
+
+// Hijack implements http.Hijacker for WebSocket support.
+func (r *responseRecorder) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	if hj, ok := r.ResponseWriter.(http.Hijacker); ok {
+		return hj.Hijack()
+	}
+	return nil, nil, fmt.Errorf("ResponseWriter does not implement http.Hijacker")
 }
 
 // accessLogMiddleware logs all HTTP requests with method, path, status, duration and size.

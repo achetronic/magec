@@ -4,6 +4,55 @@
   <img src="gui/assets/banner.png" alt="Magec - Voice assistant from Canary Islands" width="800">
 </p>
 
+## What is Magec?
+
+Magec is a **voice-first AI assistant** that lets you talk naturally to Large Language Models (LLMs) and interact with external tools through the Model Context Protocol (MCP). Think of it as your personal voice interface to AI—speak a question, get an intelligent response, and optionally have it read back to you.
+
+```mermaid
+flowchart LR
+    subgraph User
+        U[🎤 You]
+    end
+
+    subgraph Magec["☀️ Magec Server"]
+        WW[Wake Word Detection]
+        STT[Speech-to-Text]
+        Agent[AI Agent]
+        TTS[Text-to-Speech]
+    end
+
+    subgraph LLMs["LLM Providers"]
+        OpenAI[OpenAI]
+        Anthropic[Anthropic]
+        Ollama[Ollama]
+        Gemini[Gemini]
+    end
+
+    subgraph Tools["MCP Tools"]
+        HA[Home Assistant]
+        FS[Filesystem]
+        GH[GitHub]
+        Custom[Custom MCPs...]
+    end
+
+    U -- "Oye Magec..." --> WW
+    WW --> STT
+    STT --> Agent
+    Agent <--> LLMs
+    Agent <--> Tools
+    Agent --> TTS
+    TTS -- "🔊 Response" --> U
+```
+
+### How it works
+
+1. **Wake word** — Say "Oye Magec" (or your configured phrase) to activate listening
+2. **Speech-to-text** — Your voice is transcribed on the server using Whisper-compatible APIs
+3. **AI processing** — The agent sends your request to the configured LLM, with access to MCP tools
+4. **Text-to-speech** — The response is spoken back to you (optional)
+
+All processing happens on your server—no audio leaves your infrastructure unless you configure cloud providers.
+
 ## Why "Magec"?
 
 **Magec** (/maˈxek/) was the god of the Sun worshipped by the Guanches, the aboriginal Berber inhabitants of Tenerife in the Canary Islands. Among their pantheon of deities, Magec represented light and warmth—essential forces that sustained life on the island.
@@ -24,29 +73,30 @@ The name honors this Canarian heritage while reflecting the assistant's purpose:
 ## Features
 
 ### Voice & Speech
-- **Wake word detection** - Custom OpenWakeWord models for hands-free activation ("Oye Magec", "Magec")
-- **Speech transcription** - Local transcription via Whisper or remote through OpenAI-compatible APIs
-- **Text-to-speech** - Natural voice responses via OpenAI-compatible TTS APIs
+- **Wake word detection** — Server-side OpenWakeWord models for hands-free activation ("Oye Magec", "Magec")
+- **Speech transcription** — Server-side transcription via OpenAI-compatible Whisper APIs
+- **Text-to-speech** — Natural voice responses via OpenAI-compatible TTS APIs
 
 ### AI & Intelligence
-- **Multi-provider LLM** - Supports OpenAI, Anthropic (Claude), Google Gemini, and local models via Ollama
-- **Configurable backends** - Define multiple AI backends and switch between them easily
-- **ADK-based agent** - Built on Agent Development Kit for structured AI interactions
+- **Multi-provider LLM** — Supports OpenAI, Anthropic (Claude), Google Gemini, and local models via Ollama
+- **Configurable backends** — Define multiple AI backends and switch between them easily
+- **ADK-based agent** — Built on Google's Agent Development Kit for structured AI interactions
 
 ### Memory & Context
-- **Session memory** - Redis-backed conversation history with configurable TTL
-- **Long-term memory** - PostgreSQL with vector embeddings for persistent knowledge across sessions
-- **Embedding models** - Configurable embedding backends for semantic search
+- **Session memory** — Redis-backed conversation history with configurable TTL
+- **Long-term memory** — PostgreSQL with vector embeddings for persistent knowledge across sessions
+- **Embedding models** — Configurable embedding backends for semantic search
 
 ### Extensibility
-- **MCP toolsets** - Connect external tools via Model Context Protocol (filesystem, GitHub, Home Assistant, etc.)
-- **YAML configuration** - Single config file for all settings: backends, memory, MCP servers
+- **MCP toolsets** — Connect external tools via Model Context Protocol (filesystem, GitHub, Home Assistant, etc.)
+- **YAML configuration** — Single config file for all settings: backends, memory, MCP servers
 
 ### Interface
-- **Magec visualizer** - Mystical audio visualization that reacts to voice
-- **PWA support** - Install as standalone app on mobile devices
-- **Responsive design** - Works on desktop and mobile browsers
-- **i18n** - Supports Spanish (default) and English
+- **Lightweight client** — All heavy processing (wake word, STT, LLM) happens server-side for fast mobile experience
+- **Magec visualizer** — Mystical audio visualization that reacts to voice
+- **PWA support** — Install as standalone app on mobile devices
+- **Responsive design** — Works on desktop and mobile browsers
+- **i18n** — Supports Spanish (default) and English
 
 ## Requirements
 
@@ -123,6 +173,10 @@ tts:
   model: tts-1
   voice: alloy
   speed: 1.0
+
+# Wake word detection (enabled by default)
+wakeWord:
+  enabled: true
 
 # Memory configuration (optional)
 # Without this section, sessions are stored in-memory and long-term memory is disabled
@@ -447,6 +501,7 @@ After this, PWA installation and features will work over HTTP.
 | `/api/v1/agent/run_sse` | POST | Run agent (SSE streaming) |
 | `/api/v1/transcription/*` | POST | Proxy to Whisper backend |
 | `/api/v1/tts/*` | POST | Proxy to TTS backend |
+| `/api/v1/wakeword` | WebSocket | Wake word detection stream |
 | `/api/v1/health` | GET | Health check |
 
 ### Agent Request Example
@@ -475,18 +530,20 @@ magec/
 │   ├── src/              # Application source
 │   │   ├── app.js        # Main application (MagecApp class)
 │   │   ├── config.js     # Frontend configuration
-│   │   ├── audio/        # Audio processing modules
+│   │   ├── audio/        # Audio capture and processing
 │   │   ├── i18n/         # Translations (es.js, en.js)
 │   │   ├── ui/           # UI components
 │   │   └── ...
 │   ├── assets/           # Logo, banner, PWA icons
-│   ├── models/           # Wake word ONNX models + wakewords.json
 │   └── manifest.json     # PWA manifest
 ├── server/               # Go backend
 │   ├── main.go           # HTTP server
 │   ├── agent/            # ADK agent service
 │   ├── config/           # YAML config parsing
+│   ├── wakeword/         # Server-side wake word detection (ONNX)
 │   └── logging/          # Structured logging
+├── models/               # Wake word ONNX models + wakewords.yaml
+├── pretrained/           # Shared models (mel-spectrogram, embeddings)
 ├── config.example.yaml   # Config template
 ├── Dockerfile
 └── Makefile
@@ -509,9 +566,7 @@ make clean          # Remove build artifacts
 - `github.com/modelcontextprotocol/go-sdk` - MCP client
 
 **Frontend (CDN, no build step):**
-- `@huggingface/transformers` - Whisper inference (browser)
-- `onnxruntime-web` - OpenWakeWord model inference
-- Tailwind CSS - Styling
+- Tailwind CSS — Styling
 
 ## License
 

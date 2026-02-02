@@ -15,8 +15,8 @@
  */
 
 import { CONFIG } from './config.js';
-import { AudioCapture, AudioRecorder, OpenWakeWordDetector, FeedbackSound, OpenAITTS } from './audio/index.js';
-import { LocalTranscriber, RemoteTranscriber } from './transcription/index.js';
+import { AudioCapture, AudioRecorder, ServerWakeWordDetector, FeedbackSound, OpenAITTS } from './audio/index.js';
+import { RemoteTranscriber } from './transcription/index.js';
 import { UIController, WaveformRenderer } from './ui/index.js';
 import { SessionManager, SessionService } from './session/index.js';
 import { AgentClient } from './api/index.js';
@@ -39,8 +39,7 @@ class MagecApp {
         this.audioCapture = null;
         this.audioRecorder = null;
         this.wakeWordDetector = null;
-        this.localTranscriber = null;
-        this.remoteTranscriber = null;
+        this.transcriber = null;
         
         // Audio utilities
         this.feedbackSound = new FeedbackSound({ volume: 0.3 });
@@ -49,7 +48,7 @@ class MagecApp {
         
         // State
         this.isRecording = false;
-        this.wakeWordPhrase = CONFIG.wakeWord.defaultPhrase;
+        this.wakeWordPhrase = '';
     }
 
     // ==================== Initialization ====================
@@ -90,11 +89,10 @@ class MagecApp {
     }
 
     _initSettings() {
-        const { sttMode, ttsEnabled } = this.settings;
+        const { ttsEnabled } = this.settings;
         
         this.ui.setupSettingsUI(
-            { sttMode, ttsEnabled, language: getLanguage() },
-            (mode) => this._onSTTModeChange(mode),
+            { ttsEnabled, language: getLanguage() },
             (enabled) => this._onTTSEnabledChange(enabled),
             (lang) => setLanguage(lang)
         );
@@ -124,61 +122,49 @@ class MagecApp {
 
     // ==================== Wake Word ====================
 
-    // Wake word models config - loaded from /models/wakewords.json
+    // Wake word models config - received from server
     wakeWordModels = [];
 
     async _initWakeWord() {
-        await this._loadWakeWordConfig();
         await this._loadWakeWordModel();
     }
 
-    async _loadWakeWordConfig() {
-        try {
-            const response = await fetch('/models/wakewords.json');
-            if (response.ok) {
-                const config = await response.json();
-                this.wakeWordModels = config.models || [];
-                this.settings.setValidWakeWordModels(this.wakeWordModels.map(m => m.id));
-                
-                // Render wake word model selector
-                this.ui.renderWakeWordModels(
-                    this.wakeWordModels,
-                    this.settings.wakeWordModel,
-                    (model) => this._onWakeWordModelChange(model)
-                );
-            }
-        } catch (e) {
-            console.warn('[WakeWord] Failed to load wakewords.json, using defaults');
-        }
-    }
-
-    _getWakeWordModelConfig(modelId) {
-        return this.wakeWordModels.find(m => m.id === modelId) || {
-            id: modelId,
-            name: modelId,
-            file: `${modelId}.onnx`,
-            threshold: 0.5,
-            phrase: modelId
-        };
-    }
-
     async _loadWakeWordModel() {
-        const modelId = this.settings.wakeWordModel;
-        const modelConfig = this._getWakeWordModelConfig(modelId);
-        
-        const wakeWordModelPath = `/models/${modelConfig.file}`;
-        this.wakeWordPhrase = modelConfig.phrase || modelConfig.name;
-        
         this.ui.setStatus(t('status.loadingWakeWord'), 'loading');
         this.ui.showLoadingNotification('wakeword', t('notifications.wakeWordLoading'));
         
         try {
-            this.wakeWordDetector = new OpenWakeWordDetector(
-                { ...CONFIG.wakeWord, modelPath: wakeWordModelPath, threshold: modelConfig.threshold },
+            // Use server-side wake word detection only
+            const serverDetector = new ServerWakeWordDetector(
+                {},
                 () => this._onWakeWordDetected()
             );
             
-            await this.wakeWordDetector.load();
+            // Set up callback to receive models from server
+            serverDetector.onModelsReceived = (models, activeModel) => {
+                this.wakeWordModels = models;
+                this.settings.setValidWakeWordModels(models.map(m => m.id));
+                
+                // Update phrase from active model
+                const activeConfig = models.find(m => m.id === activeModel);
+                if (activeConfig) {
+                    this.wakeWordPhrase = activeConfig.phrase || activeConfig.name;
+                }
+                
+                // Render wake word model selector
+                this.ui.renderWakeWordModels(
+                    models,
+                    activeModel,
+                    (model) => this._onWakeWordModelChange(model)
+                );
+            };
+            
+            await serverDetector.load();
+            this.wakeWordDetector = serverDetector;
+            
+            // Get phrase from active model
+            this.wakeWordPhrase = serverDetector.getActivePhrase();
+            console.log('[WakeWord] Using server-side detection, phrase:', this.wakeWordPhrase);
             
             // Apply saved wake word setting
             const wakeWordEnabled = this.settings.wakeWordEnabled;
@@ -188,8 +174,15 @@ class MagecApp {
             
             this.ui.completeLoadingNotification('wakeword', t('notifications.wakeWordReady'));
         } catch (e) {
-            console.error('[WakeWord]', e);
-            this.ui.failLoadingNotification('wakeword', t('notifications.wakeWordFailed'));
+            // Server wake word not available - disable wake word entirely
+            console.warn('[WakeWord] Server not available, wake word disabled:', e.message);
+            this.wakeWordDetector = null;
+            this.wakeWordModels = [];
+            this.ui.setWakeWordEnabled(false, '');
+            this.ui.setWakeWordToggle(false);
+            this.ui.disableWakeWordToggle();
+            this.ui.hideWakeWordModelSelector();
+            this.ui.failLoadingNotification('wakeword', t('notifications.wakeWordUnavailable'));
         }
     }
 
@@ -203,26 +196,17 @@ class MagecApp {
         this.ui.setWakeWordEnabled(enabled, this.wakeWordPhrase);
     }
 
-    async _onWakeWordModelChange(model) {
-        this.settings.wakeWordModel = model;
+    async _onWakeWordModelChange(modelId) {
+        if (!this.wakeWordDetector) return;
         
-        // Stop current detector if running
-        if (this.wakeWordDetector) {
-            this.wakeWordDetector.stop();
-            this.wakeWordDetector = null;
-        }
+        // Tell server to change model
+        this.wakeWordDetector.setModel(modelId);
+        this.settings.wakeWordModel = modelId;
         
-        // Reload with new model
-        await this._loadWakeWordModel();
-        
-        // Reconnect audio callback to new detector
-        if (this.audioCapture && this.wakeWordDetector instanceof OpenWakeWordDetector) {
-            this.audioCapture.onAudioData = (samples, sampleRate) => {
-                this.wakeWordDetector.processAudio(samples, sampleRate);
-            };
-        }
-        
-        this._setReady();
+        // Update phrase
+        const modelConfig = this.wakeWordModels.find(m => m.id === modelId);
+        this.wakeWordPhrase = modelConfig?.phrase || modelId;
+        this.ui.setWakeWordEnabled(this.settings.wakeWordEnabled, this.wakeWordPhrase);
     }
 
     // ==================== Session Management ====================
@@ -295,14 +279,14 @@ class MagecApp {
 
     async _startListening() {
         try {
-            this.audioCapture = new AudioCapture(CONFIG.wakeWord);
+            this.audioCapture = new AudioCapture();
             await this.audioCapture.start();
             
             this.waveform.setAnalyser(this.audioCapture.getAnalyser());
             this.waveform.start();
             
-            // Connect audio to OpenWakeWord detector if applicable
-            if (this.wakeWordDetector instanceof OpenWakeWordDetector) {
+            // Connect audio to server wake word detector if enabled
+            if (this.wakeWordDetector instanceof ServerWakeWordDetector) {
                 this.audioCapture.onAudioData = (samples, sampleRate) => {
                     this.wakeWordDetector.processAudio(samples, sampleRate);
                 };
@@ -369,34 +353,8 @@ class MagecApp {
     // ==================== Transcription ====================
 
     async _transcribe(blob) {
-        return this.settings.sttMode === 'server' 
-            ? this._transcribeRemote(blob) 
-            : this._transcribeLocal(blob);
-    }
-
-    async _transcribeRemote(blob) {
-        this.remoteTranscriber ??= new RemoteTranscriber(CONFIG.remote);
-        return this.remoteTranscriber.transcribe(blob);
-    }
-
-    async _transcribeLocal(blob) {
-        this.localTranscriber ??= new LocalTranscriber(CONFIG.whisper);
-        
-        if (!this.localTranscriber.isLoaded) {
-            this.ui.setStatus(t('status.loadingWhisper'), 'loading');
-            this.ui.showLoadingNotification('whisper', t('notifications.whisperLoading'));
-            
-            try {
-                await this.localTranscriber.load();
-                this.ui.completeLoadingNotification('whisper', t('notifications.whisperReady'));
-            } catch (e) {
-                console.error('[Whisper]', e);
-                this.ui.failLoadingNotification('whisper', t('notifications.whisperFailed'));
-                throw e;
-            }
-        }
-        
-        return this.localTranscriber.transcribe(blob, this.audioCapture.getAudioContext());
+        this.transcriber ??= new RemoteTranscriber(CONFIG.transcription);
+        return this.transcriber.transcribe(blob);
     }
 
     // ==================== Agent Communication ====================
@@ -443,10 +401,6 @@ class MagecApp {
     }
 
     // ==================== Settings ====================
-
-    _onSTTModeChange(mode) {
-        this.settings.sttMode = mode;
-    }
 
     _onTTSEnabledChange(enabled) {
         this.settings.ttsEnabled = enabled;

@@ -61,14 +61,6 @@ export default {
       model: "Model",
     },
 
-    stt: {
-      title: "Speech recognition",
-      server: "Server",
-      serverDesc: "More accurate",
-      browser: "Browser",
-      browserDesc: "More private",
-    },
-
     tts: {
       title: "Text to speech",
     },
@@ -89,10 +81,8 @@ export default {
     wakeWordLoading: "Loading Wake Word model...",
     wakeWordReady: "Wake Word model ready",
     wakeWordFailed: "Wake Word model failed. Check console.",
-    whisperLoading: "Loading Whisper model (local)...",
-    whisperReady: "Whisper model ready (local)",
-    whisperFailed: "Whisper model failed. Check console.",
     ttsUnavailable: "Text-to-speech unavailable. TTS server is not configured or not responding.",
+    wakeWordUnavailable: "Wake word detection unavailable. Server not configured.",
   },
 
   actions: {

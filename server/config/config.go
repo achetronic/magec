@@ -33,14 +33,15 @@ const (
 
 // Config represents the full YAML configuration file structure
 type Config struct {
-	Server        Server      `yaml:"server"`
-	Log           Log         `yaml:"log"`
-	Backends      []Backend   `yaml:"backends"`
-	Transcription BackendRef  `yaml:"transcription"`
-	LLM           BackendRef  `yaml:"llm"`
-	TTS           TTSConfig   `yaml:"tts"`
-	Memory        Memory      `yaml:"memory"`
-	MCPServers    []MCPServer `yaml:"mcpServers"`
+	Server        Server         `yaml:"server"`
+	Log           Log            `yaml:"log"`
+	Backends      []Backend      `yaml:"backends"`
+	Transcription BackendRef     `yaml:"transcription"`
+	LLM           BackendRef     `yaml:"llm"`
+	TTS           TTSConfig      `yaml:"tts"`
+	WakeWord      WakeWordConfig `yaml:"wakeWord"`
+	Memory        Memory         `yaml:"memory"`
+	MCPServers    []MCPServer    `yaml:"mcpServers"`
 }
 
 type Server struct {
@@ -76,6 +77,25 @@ type TTSConfig struct {
 	Voice    string   `yaml:"voice"`
 	Speed    float64  `yaml:"speed"`
 	Resolved *Backend `yaml:"-"` // populated by resolve()
+}
+
+// WakeWordConfig holds wake word detection configuration
+type WakeWordConfig struct {
+	Enabled bool `yaml:"enabled"`
+}
+
+// WakeWordModelsConfig is loaded from models/wakewords.yaml
+type WakeWordModelsConfig struct {
+	Models []WakeWordModel `yaml:"models"`
+}
+
+// WakeWordModel represents a wake word model configuration
+type WakeWordModel struct {
+	ID        string  `yaml:"id"`
+	Name      string  `yaml:"name"`
+	File      string  `yaml:"file"`
+	Phrase    string  `yaml:"phrase"`
+	Threshold float32 `yaml:"threshold"`
 }
 
 type Memory struct {
@@ -130,6 +150,22 @@ func Load(path string) (*Config, error) {
 	// Resolve backend references
 	if err := cfg.resolve(); err != nil {
 		return nil, err
+	}
+
+	return &cfg, nil
+}
+
+// LoadWakeWordModels loads wake word model configurations from wakewords.yaml
+func LoadWakeWordModels(modelsPath string) (*WakeWordModelsConfig, error) {
+	configPath := fmt.Sprintf("%s/wakewords.yaml", modelsPath)
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read wakewords.yaml: %w", err)
+	}
+
+	var cfg WakeWordModelsConfig
+	if err := yaml.Unmarshal(data, &cfg); err != nil {
+		return nil, fmt.Errorf("failed to parse wakewords.yaml: %w", err)
 	}
 
 	return &cfg, nil

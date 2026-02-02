@@ -32,17 +32,6 @@ export class AudioConverter {
         return wavBlob;
     }
 
-    static async blobToFloat32Array(blob, audioContext) {
-        const buffer = await audioContext.decodeAudioData(await blob.arrayBuffer());
-        let audio = buffer.getChannelData(0);
-        
-        if (buffer.sampleRate !== 16000) {
-            audio = this._resample(audio, buffer.sampleRate, 16000);
-        }
-        
-        return audio;
-    }
-
     static _resample(samples, fromRate, toRate) {
         const ratio = fromRate / toRate;
         const newLen = Math.round(samples.length / ratio);

@@ -325,6 +325,19 @@ export class UIController {
         }
     }
 
+    disableWakeWordToggle() {
+        if (this.elements.wakeWordToggle) {
+            this.elements.wakeWordToggle.disabled = true;
+        }
+    }
+
+    hideWakeWordModelSelector() {
+        const selector = document.getElementById('wakeWordModelSelect');
+        if (selector) {
+            selector.parentElement.style.display = 'none';
+        }
+    }
+
     setWakeWordPhrase(phrase) {
         if (this.elements.wakeWordToggle?.checked) {
             this.elements.wakeWordText.textContent = t('settings.wakeWord.description', { phrase });
@@ -523,8 +536,7 @@ export class UIController {
         this._setupRadioGroup('wakeWordModel', selectedModel, onChange);
     }
     
-    setupSettingsUI(settings, onSTTChange, onTTSEnabledChange, onLanguageChange) {
-        this._setupRadioGroup('sttMode', settings.sttMode, onSTTChange);
+    setupSettingsUI(settings, onTTSEnabledChange, onLanguageChange) {
         this._setupRadioGroup('language', settings.language, onLanguageChange);
         
         // TTS toggle

@@ -1,0 +1,33 @@
+# Wake Word Models Configuration
+#
+# This file defines the available wake word models for the server.
+# Models are ONNX files trained with OpenWakeWord.
+#
+# Training: https://colab.research.google.com/drive/1q1oe2zOyZp7UsB3jJiQ1IFn8z5YfjwEb
+
+models:
+  - id: oye-magec
+    name: Oye Magec
+    file: oye-magec.onnx
+    phrase: Oye Magec
+    threshold: 0.5
+    annotations:
+      language: es
+      trained_with: openwakeword
+      target_word: oyeeee___mah_hek
+      number_of_examples: 35000
+      number_of_training_steps: 25000
+      false_activation_penalty: 1500
+
+  - id: magec
+    name: Magec
+    file: magec.onnx
+    phrase: Magec
+    threshold: 0.3
+    annotations:
+      language: es
+      trained_with: openwakeword
+      target_word: mah_hek!
+      number_of_examples: 50000
+      number_of_training_steps: 40000
+      false_activation_penalty: 1500
