@@ -22,6 +22,8 @@ Connect it to your tools via MCP: control your smart home, manage files, query d
 
 Your voice, your AI, your rules.
 
+# Please ⭐️ star this repo if you find it helpful
+
 ## Why "Magec"?
 
 **Magec** (/maˈxek/) was the god of the Sun worshipped by the Guanches, the aboriginal Berber inhabitants of Tenerife in the Canary Islands. Among their pantheon of deities, Magec represented light and warmth—essential forces that sustained life on the island.
