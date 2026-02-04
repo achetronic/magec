@@ -31,10 +31,19 @@ const (
 	DefaultOpenAIURL = "https://api.openai.com/v1"
 )
 
+// AgentConfig holds agent-specific configuration
+type AgentConfig struct {
+	// SystemPrompt overrides the default agent system prompt
+	SystemPrompt string `yaml:"systemPrompt,omitempty"`
+	// SystemPromptSuffix is appended to the default (or custom) system prompt
+	SystemPromptSuffix string `yaml:"systemPromptSuffix,omitempty"`
+}
+
 // Config represents the full YAML configuration file structure
 type Config struct {
 	Server        Server         `yaml:"server"`
 	Log           Log            `yaml:"log"`
+	Agent         AgentConfig    `yaml:"agent"`
 	Backends      []Backend      `yaml:"backends"`
 	Transcription BackendRef     `yaml:"transcription"`
 	LLM           BackendRef     `yaml:"llm"`
@@ -123,10 +132,26 @@ type Postgres struct {
 	ConnectionString string `yaml:"connectionString"`
 }
 
+// MCPTransportType defines the type of MCP transport
+type MCPTransportType string
+
+const (
+	MCPTransportTypeHTTP  MCPTransportType = "http"
+	MCPTransportTypeStdio MCPTransportType = "stdio"
+)
+
+// MCPServer represents an MCP server configuration
 type MCPServer struct {
 	Name     string            `yaml:"name"`
-	Endpoint string            `yaml:"endpoint"`
-	Headers  map[string]string `yaml:"headers,omitempty"`
+	Type     MCPTransportType  `yaml:"type,omitempty"` // http (default) or stdio
+	Endpoint string            `yaml:"endpoint,omitempty"` // For HTTP transport
+	Headers  map[string]string `yaml:"headers,omitempty"`  // For HTTP transport
+	Command  string            `yaml:"command,omitempty"`  // For stdio transport
+	Args     []string          `yaml:"args,omitempty"`     // For stdio transport
+	Env      map[string]string `yaml:"env,omitempty"`      // For stdio transport
+	WorkDir  string            `yaml:"workDir,omitempty"` // For stdio transport
+	// SystemPrompt is an optional prompt to add context about how to use this MCP
+	SystemPrompt string `yaml:"systemPrompt,omitempty"`
 }
 
 // Load reads, parses, and resolves a config file with environment variable expansion

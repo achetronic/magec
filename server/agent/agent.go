@@ -18,6 +18,8 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"os"
+	"os/exec"
 	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -96,11 +98,8 @@ func New(ctx context.Context, cfg *config.Config) (*Service, error) {
 		return nil, fmt.Errorf("failed to build toolsets: %w", err)
 	}
 
-	// Build instruction based on available features
-	instruction := baseInstruction
-	if memorySvc != nil {
-		instruction += memoryInstruction
-	}
+	// Build instruction based on available features and configuration
+	instruction := buildInstruction(cfg, memorySvc)
 
 	// Root agent
 	rootAgent, err := llmagent.New(llmagent.Config{
@@ -217,12 +216,12 @@ func buildToolsets(cfg *config.Config, memorySvc memory.Service) ([]tool.Toolset
 
 	// MCP toolsets
 	for _, srv := range cfg.MCPServers {
+		transport, err := createMCPTransport(&srv)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create MCP transport %q: %w", srv.Name, err)
+		}
 		ts, err := mcptoolset.New(mcptoolset.Config{
-			Transport: &mcp.StreamableClientTransport{
-				Endpoint:   srv.Endpoint,
-				HTTPClient: httpClientWithHeaders(srv.Headers),
-				MaxRetries: 5,
-			},
+			Transport: transport,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("failed to create MCP toolset %q: %w", srv.Name, err)
@@ -231,6 +230,39 @@ func buildToolsets(cfg *config.Config, memorySvc memory.Service) ([]tool.Toolset
 	}
 
 	return toolsets, nil
+}
+
+func createMCPTransport(srv *config.MCPServer) (mcp.Transport, error) {
+	switch srv.Type {
+	case config.MCPTransportTypeStdio:
+		if srv.Command == "" {
+			return nil, fmt.Errorf("stdio transport requires 'command' field")
+		}
+		cmd := exec.Command(srv.Command, srv.Args...)
+		if srv.WorkDir != "" {
+			cmd.Dir = srv.WorkDir
+		}
+		if len(srv.Env) > 0 {
+			cmd.Env = os.Environ()
+			for k, v := range srv.Env {
+				cmd.Env = append(cmd.Env, k+"="+v)
+			}
+		}
+		return &mcp.CommandTransport{Command: cmd}, nil
+
+	case config.MCPTransportTypeHTTP, "":
+		if srv.Endpoint == "" {
+			return nil, fmt.Errorf("http transport requires 'endpoint' field")
+		}
+		return &mcp.StreamableClientTransport{
+			Endpoint:   srv.Endpoint,
+			HTTPClient: httpClientWithHeaders(srv.Headers),
+			MaxRetries: 5,
+		}, nil
+
+	default:
+		return nil, fmt.Errorf("unknown MCP transport type: %s", srv.Type)
+	}
 }
 
 func httpClientWithHeaders(headers map[string]string) *http.Client {
@@ -255,4 +287,32 @@ func (t *headerTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 		req.Header.Set(k, v)
 	}
 	return t.base.RoundTrip(req)
+}
+
+// buildInstruction constructs the full agent instruction from configuration
+func buildInstruction(cfg *config.Config, memorySvc memory.Service) string {
+	// Start with base or custom system prompt
+	instruction := baseInstruction
+	if cfg.Agent.SystemPrompt != "" {
+		instruction = cfg.Agent.SystemPrompt
+	}
+
+	// Add memory instruction if memory service is enabled
+	if memorySvc != nil {
+		instruction += memoryInstruction
+	}
+
+	// Append MCP-specific system prompts
+	for _, srv := range cfg.MCPServers {
+		if srv.SystemPrompt != "" {
+			instruction += "\n\n" + srv.SystemPrompt
+		}
+	}
+
+	// Append custom suffix
+	if cfg.Agent.SystemPromptSuffix != "" {
+		instruction += "\n\n" + cfg.Agent.SystemPromptSuffix
+	}
+
+	return instruction
 }

@@ -57,6 +57,16 @@ llm:
   backend: ollama
   model: qwen3:8b
 
+# Agent configuration
+# agent:
+#   # Override the default system prompt entirely
+#   systemPrompt: |
+#     You are a custom voice assistant.
+#     Respond briefly and naturally.
+#   # Or append additional context to the default prompt
+#   systemPromptSuffix: |
+#     Additional instructions for your specific use case.
+
 # TTS settings (optional)
 # Requires OpenAI-compatible TTS backend (OpenAI, edge-tts, chatterbox)
 # See: https://github.com/travisvn/openai-edge-tts
@@ -86,13 +96,58 @@ memory:
 
 # MCP tool servers
 mcpServers:
+  # HTTP transport (default)
   # - name: filesystem
+  #   type: http  # optional, http is default
   #   endpoint: http://localhost:8080/mcp
+  #   systemPrompt: |
+  #     This MCP provides filesystem access. Use it to read and write files.
   #
   # - name: github
   #   endpoint: https://mcp-github.example.com/mcp
   #   headers:
   #     Authorization: Bearer ${GITHUB_TOKEN}
+  #   systemPrompt: |
+  #     This MCP provides GitHub integration for repository management.
   #
+  # Stdio transport (subprocess)
+  # - name: sqlite
+  #   type: stdio
+  #   command: uvx
+  #   args:
+  #     - mcp-server-sqlite
+  #     - --db-path
+  #     - /path/to/database.db
+  #   env:
+  #     SOME_VAR: value
+  #   workDir: /optional/working/directory
+  #   systemPrompt: |
+  #     This MCP provides SQLite database access. Use it to query data.
+  #
+  # Home Assistant MCP (https://github.com/achetronic/hass-mcp)
+  # Supports both HTTP and stdio transports
+  #
+  # HTTP mode (recommended for remote/network access):
   # - name: home-assistant
-  #   endpoint: http://homeassistant.local:8070/mcp
+  #   type: http
+  #   endpoint: http://homeassistant.local:8080/mcp
+  #   # Optional: Add Authorization header if hass-mcp has JWT middleware enabled
+  #   # headers:
+  #   #   Authorization: Bearer ${HASS_MCP_TOKEN}
+  #   systemPrompt: |
+  #     This MCP provides Home Assistant smart home control.
+  #     Use it to manage lights, switches, sensors and automations.
+  #
+  # Stdio mode (for local subprocess):
+  # - name: home-assistant
+  #   type: stdio
+  #   command: hass-mcp
+  #   args:
+  #     - --config
+  #     - /path/to/hass-mcp-config.yaml
+  #   env:
+  #     HA_URL: http://homeassistant.local:8123
+  #     HA_TOKEN: ${HASS_TOKEN}
+  #   systemPrompt: |
+  #     This MCP provides Home Assistant smart home control.
+  #     Use it to manage lights, switches, sensors and automations.
