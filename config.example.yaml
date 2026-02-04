@@ -151,3 +151,18 @@ mcpServers:
   #   systemPrompt: |
   #     This MCP provides Home Assistant smart home control.
   #     Use it to manage lights, switches, sensors and automations.
+
+# Client interfaces
+# Each client connects to the agent via HTTP API
+clients:
+  # Telegram bot
+  # To create a bot: message @BotFather on Telegram, use /newbot command
+  # Get your user ID: message @userinfobot or @raw_info_bot
+  telegram:
+    enabled: false
+    token: ${TELEGRAM_BOT_TOKEN}
+    # Restrict access (empty = allow everyone - be careful with API costs!)
+    allowedUsers: []   # List of Telegram user IDs, e.g. [123456789, 987654321]
+    allowedChats: []   # List of chat/group IDs, e.g. [-100123456789]
+    # Send voice responses in addition to text (requires TTS to be configured)
+    voiceResponses: false

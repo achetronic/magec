@@ -66,7 +66,8 @@ The name honors this Canarian heritage while reflecting the assistant's purpose:
 
 ### Interface
 
-- **Lightweight client** — All heavy processing (wake word, STT, LLM) happens server-side for fast mobile experience
+- **Web GUI** — Lightweight client with all heavy processing server-side
+- **Telegram bot** — Chat via Telegram with text or voice messages
 - **Magec visualizer** — Mystical audio visualization that reacts to voice
 - **PWA support** — Install as standalone app on mobile devices
 - **Responsive design** — Works on desktop and mobile browsers
@@ -395,6 +396,34 @@ mcpServers:
     headers:
       Authorization: Bearer ${GITHUB_TOKEN}
 ```
+
+### Telegram Bot
+
+Connect to Magec via Telegram — send text or voice messages and get responses.
+
+1. **Create your bot:**
+   - Open Telegram and message [@BotFather](https://t.me/BotFather)
+   - Send `/newbot` and follow the prompts
+   - Copy the token (looks like `123456789:ABCdefGHI...`)
+
+2. **Get your user ID:**
+   - Message [@userinfobot](https://t.me/userinfobot) or [@raw_info_bot](https://t.me/raw_info_bot)
+   - Copy your numeric user ID
+
+3. **Configure Magec:**
+
+```yaml
+clients:
+  telegram:
+    enabled: true
+    token: ${TELEGRAM_BOT_TOKEN}
+    allowedUsers: [123456789]  # Your user ID (restrict access!)
+    voiceResponses: false      # Set to true if TTS is configured
+```
+
+4. **Start chatting!** — Message your bot on Telegram
+
+> **Security**: Always set `allowedUsers` to restrict who can use your bot. Without it, anyone can interact with your bot (and consume your API credits).
 
 ## Docker
 

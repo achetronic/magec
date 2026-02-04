@@ -51,6 +51,23 @@ type Config struct {
 	WakeWord      WakeWordConfig `yaml:"wakeWord"`
 	Memory        Memory         `yaml:"memory"`
 	MCPServers    []MCPServer    `yaml:"mcpServers"`
+	Clients       ClientsConfig  `yaml:"clients"`
+}
+
+// ClientsConfig holds configuration for all client interfaces
+type ClientsConfig struct {
+	Telegram TelegramConfig `yaml:"telegram"`
+	// Discord  DiscordConfig  `yaml:"discord"`  // future
+	// Slack    SlackConfig    `yaml:"slack"`    // future
+}
+
+// TelegramConfig holds Telegram bot configuration
+type TelegramConfig struct {
+	Enabled        bool    `yaml:"enabled"`
+	Token          string  `yaml:"token"`
+	AllowedUsers   []int64 `yaml:"allowedUsers,omitempty"`   // User IDs that can interact
+	AllowedChats   []int64 `yaml:"allowedChats,omitempty"`   // Chat/Group IDs where bot responds
+	VoiceResponses bool    `yaml:"voiceResponses,omitempty"` // Send voice messages in addition to text
 }
 
 type Server struct {

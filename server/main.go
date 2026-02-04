@@ -36,6 +36,7 @@ import (
 	"github.com/gorilla/mux"
 
 	"github.com/achetronic/magec/server/agent"
+	"github.com/achetronic/magec/server/clients/telegram"
 	"github.com/achetronic/magec/server/config"
 	"github.com/achetronic/magec/server/logging"
 	"github.com/achetronic/magec/server/wakeword"
@@ -149,6 +150,31 @@ func main() {
 		IdleTimeout:  60 * time.Second,
 	}
 
+	// Start Telegram client if enabled
+	var telegramClient *telegram.Client
+	if cfg.Clients.Telegram.Enabled {
+		agentURL := fmt.Sprintf("http://127.0.0.1:%d/api/v1/agent", cfg.Server.Port)
+		ttsURL := ""
+		if cfg.TTS.Resolved != nil {
+			ttsURL = fmt.Sprintf("http://127.0.0.1:%d/api/v1/tts/", cfg.Server.Port)
+		}
+
+		var err error
+		telegramClient, err = telegram.New(&cfg.Clients.Telegram, agentURL, ttsURL, &cfg.TTS, slog.Default())
+		if err != nil {
+			slog.Error("Failed to create Telegram client", "error", err)
+		} else {
+			// Start in background after server is ready
+			go func() {
+				// Wait a bit for HTTP server to start
+				time.Sleep(500 * time.Millisecond)
+				if err := telegramClient.Start(ctx); err != nil {
+					slog.Error("Telegram client error", "error", err)
+				}
+			}()
+		}
+	}
+
 	// Graceful shutdown
 	go func() {
 		sigChan := make(chan os.Signal, 1)
@@ -156,6 +182,9 @@ func main() {
 		<-sigChan
 
 		slog.Info("Shutting down...")
+		if telegramClient != nil {
+			telegramClient.Stop()
+		}
 		if wakeWordDetector != nil {
 			wakeWordDetector.Close()
 		}
