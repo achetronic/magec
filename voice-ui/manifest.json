@@ -1,7 +1,7 @@
 {
-  "name": "Magec - Asistente de Voz",
+  "name": "Magec",
   "short_name": "Magec",
-  "description": "Asistente de voz inteligente con interfaz conversacional",
+  "description": "Personal AI assistant",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

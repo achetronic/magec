@@ -32,7 +32,7 @@ make dev
 
 ```
 magec/
-├── gui/                    # Frontend (HTML/CSS/JS)
+├── voice-ui/               # Voice web interface (HTML/CSS/JS)
 │   ├── src/
 │   │   ├── app.js          # Main application (MagecApp class)
 │   │   ├── config.js       # Configuration
@@ -62,11 +62,11 @@ magec/
 
 | Component                        | Purpose                                                                                       |
 | -------------------------------- | --------------------------------------------------------------------------------------------- |
-| `gui/src/app.js`                 | Main entry - MagecApp class orchestrates audio pipeline, wake word, transcription, agent chat |
-| `gui/src/config.js`              | Frontend configuration (API endpoints, storage keys)                                          |
-| `gui/src/i18n/`                  | Translations (es.js, en.js) with `t()` function and `data-i18n` attributes                    |
-| `gui/src/ui/UIController.js`     | DOM manipulation, dynamic translations, settings panel                                        |
-| `gui/src/ui/WaveformRenderer.js` | "Magec" audio visualizer                                                                      |
+| `voice-ui/src/app.js`                 | Main entry - MagecApp class orchestrates audio pipeline, wake word, transcription, agent chat |
+| `voice-ui/src/config.js`              | Frontend configuration (API endpoints, storage keys)                                          |
+| `voice-ui/src/i18n/`                  | Translations (es.js, en.js) with `t()` function and `data-i18n` attributes                    |
+| `voice-ui/src/ui/UIController.js`     | DOM manipulation, dynamic translations, settings panel                                        |
+| `voice-ui/src/ui/WaveformRenderer.js` | "Magec" audio visualizer                                                                      |
 | `server/main.go`                 | HTTP server with ADK REST handler, Whisper proxy                                              |
 | `server/agent/agent.go`          | ADK agent with memory tools, MCP integration                                                  |
 | `server/config/config.go`        | YAML config with backend resolution and env var expansion                                     |
@@ -301,7 +301,7 @@ Magec can be installed as a standalone app:
 
 1. **No build step**: Frontend dependencies loaded from CDN. No npm/yarn required.
 
-2. **Wake word models**: OpenWakeWord ONNX models in `gui/models/`. Config in `wakewords.json`.
+2. **Wake word models**: OpenWakeWord ONNX models in `models/`. Config in `wakewords.yaml`.
 
 3. **Infrastructure required**: Redis and PostgreSQL (pgvector) must be running.
 

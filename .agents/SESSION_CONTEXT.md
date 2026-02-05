@@ -15,7 +15,7 @@ magec/
 │   ├── mel-spectrogram.onnx
 │   ├── speech-embedding.onnx
 │   └── silero-vad.onnx
-└── gui/
+└── voice-ui/
     ├── models/             # Para client-side (backwards compat)
     └── pretrained/         # Para client-side (backwards compat)
 ```
@@ -54,9 +54,9 @@ models:
 - `server/wakeword/` - Sin cambios
 
 ### Frontend
-- `gui/src/app.js` - Solo server-side, sin fallback
-- `gui/src/audio/ServerWakeWordDetector.js` - Recibe modelos del servidor
-- `gui/src/ui/UIController.js` - `disableWakeWordToggle()`, `hideWakeWordModelSelector()`
+- `voice-ui/src/app.js` - Solo server-side, sin fallback
+- `voice-ui/src/audio/ServerWakeWordDetector.js` - Recibe modelos del servidor
+- `voice-ui/src/ui/UIController.js` - `disableWakeWordToggle()`, `hideWakeWordModelSelector()`
 
 ### Configuración
 - `models/wakewords.yaml` (NUEVO) - Configuración de modelos

@@ -541,7 +541,7 @@ make dev
 
 ```
 magec/
-├── gui/                  # Frontend (HTML/CSS/JS)
+├── voice-ui/             # Voice web interface (HTML/CSS/JS)
 │   ├── src/              # Application source
 │   │   ├── app.js        # Main application (MagecApp class)
 │   │   ├── config.js     # Frontend configuration

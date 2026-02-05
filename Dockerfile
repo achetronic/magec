@@ -32,7 +32,7 @@ RUN tar -xzf /tmp/onnxruntime.tgz -C /tmp && \
     ldconfig
 
 COPY --from=builder /build/magec .
-COPY gui/ ./gui/
+COPY voice-ui/ ./voice-ui/
 
 # Models at root level (for server-side wake word detection)
 COPY models/ ./models/

@@ -139,7 +139,7 @@ func main() {
 	logRoutes(agentService.Handler())
 
 	// Static files
-	mux.Handle("/", http.FileServer(http.Dir("gui")))
+	mux.Handle("/", http.FileServer(http.Dir("voice-ui")))
 
 	addr := fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port)
 	server := &http.Server{

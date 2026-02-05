@@ -20,7 +20,7 @@
 - Handle codec limitations (MP3 chunks need enough data to decode)
 
 **Files to modify**:
-- `gui/src/audio/OpenAITTS.js`
+- `voice-ui/src/audio/OpenAITTS.js`
 
 **Reference implementation** (not yet applied):
 ```javascript
@@ -45,7 +45,7 @@ async _scheduleAudioChunk(audioBytes) {
 
 ### Improve Wake Word Detection Accuracy
 
-- Tune `threshold` parameter in `gui/src/config.js`
+- Tune `threshold` parameter in `voice-ui/src/config.js`
 - Consider adding multiple wake word model support
 - Investigate false positive/negative rates
 
@@ -75,8 +75,8 @@ Currently voice selection is server-side only. Could add UI for users to preview
 ### Multi-Language Wake Words
 
 - Support different wake word models per language
-- Auto-switch based on `gui/src/i18n/` selection
-- Models configured in `gui/models/wakewords.json`
+- Auto-switch based on `voice-ui/src/i18n/` selection
+- Models configured in `models/wakewords.yaml`
 
 ---
 
@@ -96,12 +96,12 @@ Currently voice selection is server-side only. Could add UI for users to preview
 
 ### API Security (Token Rotation)
 
-**Problem**: GUI is open (no auth), need to ensure API requests only come from the GUI.
+**Problem**: Voice UI is open (no auth), need to ensure API requests only come from the voice UI.
 
 **Recommended solution**: Session token injected at runtime
 1. Server generates random token on startup
-2. Token injected into HTML when serving GUI: `<script>window.MAGEC_TOKEN = "{{.SessionToken}}"</script>`
-3. GUI sends token in header with every request
+2. Token injected into HTML when serving voice UI: `<script>window.MAGEC_TOKEN = "{{.SessionToken}}"</script>`
+3. Voice UI sends token in header with every request
 4. Server validates token, rejects requests without it
 5. Token changes on every server restart
 
