@@ -121,6 +121,7 @@ Single YAML config file. Supports `${VAR}` for environment variable expansion.
 server:
   host: 0.0.0.0
   port: 8080
+  onnxLibraryPath: /usr/lib/libonnxruntime.so  # Optional, default shown
 
 log:
   level: info   # debug, info, warn, error
@@ -313,7 +314,7 @@ PWA-enabled web interface with:
 ### Telegram Client
 
 - **Text messages**: Processed through the agent
-- **Voice messages**: Downloaded → transcribed → processed → optional voice response
+- **Voice messages**: Downloaded → converted OGG→WAV (ffmpeg) → transcribed → processed → optional voice response
 - **Authorization**: `allowedUsers` and `allowedChats` allowlists
 - **Sessions**: Scoped by `telegram_<chatID>`
 
@@ -443,7 +444,7 @@ Pretrained models in `pretrained/`:
 
 7. **PWA over HTTP**: Requires Chrome flag for non-localhost addresses.
 
-8. **Telegram voice**: Requires TTS backend configured for voice responses.
+8. **Telegram voice**: Requires TTS backend configured for voice responses. ffmpeg required in container for OGG→WAV conversion.
 
 9. **Security**: Always set `allowedUsers` in Telegram config to restrict access.
 

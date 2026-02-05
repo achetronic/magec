@@ -497,7 +497,7 @@ After this, PWA installation and features will work over HTTP.
 | `/api/v1/agent/run_sse`   | POST      | Run agent (SSE streaming)            |
 | `/api/v1/transcription/*` | POST      | Proxy to Whisper backend             |
 | `/api/v1/tts/*`           | POST      | Proxy to TTS backend                 |
-| `/api/v1/wakeword`        | WebSocket | Wake word detection stream           |
+| `/api/v1/voice-events`  | WebSocket | Voice events stream (wake word + VAD) |
 | `/api/v1/health`          | GET       | Health check                         |
 
 ### Agent Request Example

@@ -22,6 +22,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"os/exec"
 	"slices"
 	"time"
 
@@ -431,16 +432,44 @@ func (c *Client) downloadFile(url string) ([]byte, error) {
 	return io.ReadAll(resp.Body)
 }
 
+// convertOggToWav converts OGG audio to WAV format using ffmpeg
+func (c *Client) convertOggToWav(oggData []byte) ([]byte, error) {
+	cmd := exec.Command("ffmpeg",
+		"-i", "pipe:0",
+		"-ar", "16000",
+		"-ac", "1",
+		"-f", "wav",
+		"pipe:1",
+	)
+
+	cmd.Stdin = bytes.NewReader(oggData)
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	if err := cmd.Run(); err != nil {
+		return nil, fmt.Errorf("ffmpeg conversion failed: %w, stderr: %s", err, stderr.String())
+	}
+
+	return stdout.Bytes(), nil
+}
+
 // transcribeAudio sends audio to the transcription service
 func (c *Client) transcribeAudio(audioData []byte, filePath string) (string, error) {
+	// Convert OGG to WAV (Telegram sends voice as OGG/Opus, but transcription expects WAV)
+	wavData, err := c.convertOggToWav(audioData)
+	if err != nil {
+		return "", fmt.Errorf("failed to convert audio: %w", err)
+	}
+
 	// Create multipart form
 	var buf bytes.Buffer
 	boundary := "----WebKitFormBoundary7MA4YWxkTrZu0gW"
 
 	buf.WriteString(fmt.Sprintf("--%s\r\n", boundary))
-	buf.WriteString(fmt.Sprintf("Content-Disposition: form-data; name=\"file\"; filename=\"%s\"\r\n", filePath))
-	buf.WriteString("Content-Type: audio/ogg\r\n\r\n")
-	buf.Write(audioData)
+	buf.WriteString("Content-Disposition: form-data; name=\"file\"; filename=\"audio.wav\"\r\n")
+	buf.WriteString("Content-Type: audio/wav\r\n\r\n")
+	buf.Write(wavData)
 	buf.WriteString(fmt.Sprintf("\r\n--%s\r\n", boundary))
 	buf.WriteString("Content-Disposition: form-data; name=\"model\"\r\n\r\n")
 	buf.WriteString("whisper-1")

@@ -21,8 +21,8 @@ FROM debian:bookworm-slim
 
 WORKDIR /app
 
-# Install CA certificates for TLS
-RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates && rm -rf /var/lib/apt/lists/*
+# Install CA certificates for TLS and ffmpeg for audio conversion
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates ffmpeg && rm -rf /var/lib/apt/lists/*
 
 # Install ONNX Runtime
 ADD https://github.com/microsoft/onnxruntime/releases/download/v1.23.2/onnxruntime-linux-x64-1.23.2.tgz /tmp/onnxruntime.tgz
