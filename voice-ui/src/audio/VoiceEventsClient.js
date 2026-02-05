@@ -15,48 +15,49 @@
  */
 
 /**
- * ServerWakeWordDetector - Wake word detection via WebSocket to server
+ * VoiceEventsClient - Voice events detection via WebSocket to server
+ * Handles wake word detection and VAD (Voice Activity Detection)
  * Sends audio to the server for processing, reducing mobile CPU load
  */
-export class ServerWakeWordDetector {
-    constructor(config, onDetected) {
+export class VoiceEventsClient {
+    constructor(config = {}) {
         this.config = {
             wsUrl: config.wsUrl || this._buildWsUrl(),
             ...config
         };
         
-        this.onDetected = onDetected;
-        this.onSilence = null;
-        this.onModelsReceived = null;
+        // Event callbacks
+        this.onWakeword = null;
+        this.onSpeechStart = null;
+        this.onSpeechEnd = null;
+        this.onCapabilities = null;
+        this.onError = null;
         
         this.ws = null;
         this.isConnected = false;
-        this.enabled = true;
         this.isLoaded = false;
         this.reconnectAttempts = 0;
         this.maxReconnectAttempts = 5;
         this.reconnectDelay = 1000;
         
-        // Models from server
-        this.models = [];
-        this.activeModel = null;
+        // Capabilities from server
+        this.capabilities = null;
+        this.wakewordModels = [];
+        this.activeWakeword = null;
+        this.vadEnabled = false;
+        this.vadSilenceTimeout = 2000;
         
-        // Silence detection (still done locally for responsiveness)
-        this.lastSpeechTime = 0;
-        this.silenceTimeout = null;
-        this.hasSpokenOnce = false;
-        
-        // Audio buffer for sending
+        // Audio config
         this.sampleRate = null;
     }
 
     _buildWsUrl() {
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        return `${protocol}//${window.location.host}/api/v1/wakeword`;
+        return `${protocol}//${window.location.host}/api/v1/voice-events`;
     }
 
     async load() {
-        console.log('[ServerWakeWord] Connecting to server...');
+        console.log('[VoiceEvents] Connecting to server...');
         
         return new Promise((resolve, reject) => {
             const timeout = setTimeout(() => {
@@ -67,14 +68,14 @@ export class ServerWakeWordDetector {
                 this.ws = new WebSocket(this.config.wsUrl);
                 
                 this.ws.onopen = () => {
-                    console.log('[ServerWakeWord] Connected to server');
+                    console.log('[VoiceEvents] Connected to server');
                     this.isConnected = true;
                     this.reconnectAttempts = 0;
-                    // Don't resolve yet - wait for models message
+                    // Don't resolve yet - wait for capabilities message
                 };
                 
                 this.ws.onclose = (event) => {
-                    console.log('[ServerWakeWord] Disconnected', event.code, event.reason);
+                    console.log('[VoiceEvents] Disconnected', event.code, event.reason);
                     this.isConnected = false;
                     if (this.isLoaded) {
                         this._attemptReconnect();
@@ -82,10 +83,11 @@ export class ServerWakeWordDetector {
                 };
                 
                 this.ws.onerror = (error) => {
-                    console.error('[ServerWakeWord] WebSocket error:', error);
+                    console.error('[VoiceEvents] WebSocket error:', error);
+                    this.onError?.(error);
                     if (!this.isLoaded) {
                         clearTimeout(timeout);
-                        reject(new Error('Failed to connect to wake word server'));
+                        reject(new Error('Failed to connect to voice events server'));
                     }
                 };
                 
@@ -98,7 +100,7 @@ export class ServerWakeWordDetector {
                 
             } catch (e) {
                 clearTimeout(timeout);
-                console.error('[ServerWakeWord] Failed to create WebSocket:', e);
+                console.error('[VoiceEvents] Failed to create WebSocket:', e);
                 reject(e);
             }
         });
@@ -109,15 +111,10 @@ export class ServerWakeWordDetector {
             const msg = JSON.parse(data);
             
             switch (msg.type) {
-                case 'models':
-                    this.models = msg.data.models || [];
-                    this.activeModel = msg.data.active;
-                    console.log('[ServerWakeWord] Models received:', this.models.map(m => m.id), 'active:', this.activeModel);
+                case 'capabilities':
+                    this._handleCapabilities(msg.data);
                     
-                    // Notify listener
-                    this.onModelsReceived?.(this.models, this.activeModel);
-                    
-                    // Resolve load() on first models message
+                    // Resolve load() on first capabilities message
                     if (!this.isLoaded && resolveLoad) {
                         this.isLoaded = true;
                         resolveLoad(true);
@@ -125,39 +122,72 @@ export class ServerWakeWordDetector {
                     }
                     break;
                     
-                case 'detected':
-                    console.log('[ServerWakeWord] ✅ DETECTED by server!', msg.data?.model);
-                    this.onDetected?.();
+                case 'wakeword':
+                    this.onWakeword?.(msg.data?.model);
+                    break;
+                    
+                case 'speech_start':
+                    this.onSpeechStart?.();
+                    break;
+                    
+                case 'speech_end':
+                    this.onSpeechEnd?.();
                     break;
                     
                 case 'error':
-                    console.error('[ServerWakeWord] Server error:', msg.data);
+                    console.error('[VoiceEvents] Server error:', msg.data);
+                    this.onError?.(msg.data);
                     break;
                     
                 default:
-                    console.log('[ServerWakeWord] Unknown message type:', msg.type);
+                    console.log('[VoiceEvents] Unknown message type:', msg.type);
             }
         } catch (e) {
-            console.error('[ServerWakeWord] Failed to parse message:', e);
+            console.error('[VoiceEvents] Failed to parse message:', e);
         }
         return false;
     }
 
+    _handleCapabilities(capabilities) {
+        this.capabilities = capabilities;
+        
+        // Extract wakeword info
+        if (capabilities.wakewords) {
+            this.wakewordModels = capabilities.wakewords.models || [];
+            this.activeWakeword = capabilities.wakewords.active;
+        }
+        
+        // Extract VAD info
+        if (capabilities.vad) {
+            this.vadEnabled = capabilities.vad.enabled;
+            this.vadSilenceTimeout = capabilities.vad.silenceTimeout || 2000;
+        }
+        
+        console.log('[VoiceEvents] Capabilities received:', {
+            wakewords: this.wakewordModels.map(m => m.id),
+            activeWakeword: this.activeWakeword,
+            vadEnabled: this.vadEnabled,
+            vadSilenceTimeout: this.vadSilenceTimeout
+        });
+        
+        this.onCapabilities?.(capabilities);
+    }
+
     _attemptReconnect() {
         if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-            console.error('[ServerWakeWord] Max reconnect attempts reached');
+            console.error('[VoiceEvents] Max reconnect attempts reached');
             return;
         }
         
         this.reconnectAttempts++;
         const delay = this.reconnectDelay * this.reconnectAttempts;
         
-        console.log(`[ServerWakeWord] Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts})`);
+        console.log(`[VoiceEvents] Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts})`);
         
         setTimeout(() => {
-            if (!this.isConnected && this.enabled) {
+            if (!this.isConnected) {
                 this.load().catch(e => {
-                    console.error('[ServerWakeWord] Reconnect failed:', e);
+                    console.error('[VoiceEvents] Reconnect failed:', e);
                 });
             }
         }, delay);
@@ -170,32 +200,32 @@ export class ServerWakeWordDetector {
             type: 'config',
             data: {
                 sampleRate: this.sampleRate,
-                model: this.activeModel
+                model: this.activeWakeword
             }
         };
         
         this.ws.send(JSON.stringify(config));
-        console.log('[ServerWakeWord] Sent config:', config.data);
+        console.log('[VoiceEvents] Sent config:', config.data);
     }
 
     /**
      * Get available wake word models from server
      */
-    getModels() {
-        return this.models;
+    getWakewordModels() {
+        return this.wakewordModels;
     }
 
     /**
-     * Get the currently active model ID
+     * Get the currently active wake word model ID
      */
-    getActiveModel() {
-        return this.activeModel;
+    getActiveWakeword() {
+        return this.activeWakeword;
     }
 
     /**
      * Set the active wake word model
      */
-    setModel(modelId) {
+    setWakewordModel(modelId) {
         if (!this.isConnected) return;
         
         const msg = {
@@ -204,23 +234,39 @@ export class ServerWakeWordDetector {
         };
         
         this.ws.send(JSON.stringify(msg));
-        this.activeModel = modelId;
-        console.log('[ServerWakeWord] Set model:', modelId);
+        this.activeWakeword = modelId;
+        console.log('[VoiceEvents] Set wakeword model:', modelId);
     }
 
     /**
-     * Get the phrase for the active model
+     * Get the phrase for the active wake word model
      */
     getActivePhrase() {
-        const model = this.models.find(m => m.id === this.activeModel);
-        return model?.phrase || this.activeModel;
+        const model = this.wakewordModels.find(m => m.id === this.activeWakeword);
+        return model?.phrase || this.activeWakeword;
     }
 
+    /**
+     * Check if VAD is enabled on the server
+     */
+    isVADEnabled() {
+        return this.vadEnabled;
+    }
+
+    /**
+     * Get the VAD silence timeout in milliseconds
+     */
+    getVADSilenceTimeout() {
+        return this.vadSilenceTimeout;
+    }
+
+    /**
+     * Process audio samples and send to server
+     * @param {Float32Array} audioData - Audio samples
+     * @param {number} inputSampleRate - Sample rate of the audio
+     */
     async processAudio(audioData, inputSampleRate) {
-        // Update speech detection locally
-        this._updateSpeechDetection(audioData);
-        
-        if (!this.isConnected || !this.enabled) return;
+        if (!this.isConnected) return;
         
         // Send sample rate config if changed
         if (inputSampleRate !== this.sampleRate) {
@@ -230,63 +276,21 @@ export class ServerWakeWordDetector {
         
         // Send audio as binary (Float32Array)
         if (this.ws.readyState === WebSocket.OPEN) {
-            // Convert Float32Array to ArrayBuffer and send
             this.ws.send(audioData.buffer);
         }
     }
 
-    _updateSpeechDetection(audioData) {
-        // Calculate RMS energy to detect speech
-        let sum = 0;
-        for (let i = 0; i < audioData.length; i++) {
-            sum += audioData[i] * audioData[i];
-        }
-        const rms = Math.sqrt(sum / audioData.length);
-        
-        // Threshold for speech detection
-        const speechThreshold = 0.01;
-        if (rms > speechThreshold) {
-            this.lastSpeechTime = Date.now();
-            this.hasSpokenOnce = true;
-        }
+    /**
+     * Check if connected to server
+     */
+    isReady() {
+        return this.isConnected && this.isLoaded;
     }
 
-    startSilenceDetection(silenceMs = 2000) {
-        this.hasSpokenOnce = false;
-        this.lastSpeechTime = Date.now();
-        this.silenceTimeout = setInterval(() => {
-            if (!this.hasSpokenOnce) {
-                this.lastSpeechTime = Date.now();
-                return;
-            }
-            
-            const silenceDuration = Date.now() - this.lastSpeechTime;
-            if (silenceDuration >= silenceMs) {
-                this.stopSilenceDetection();
-                this.onSilence?.();
-            }
-        }, 100);
-    }
-
-    stopSilenceDetection() {
-        if (this.silenceTimeout) {
-            clearInterval(this.silenceTimeout);
-            this.silenceTimeout = null;
-        }
-        this.hasSpokenOnce = false;
-    }
-
-    setEnabled(enabled) {
-        this.enabled = enabled;
-    }
-
-    isEnabled() {
-        return this.enabled;
-    }
-
+    /**
+     * Stop and disconnect
+     */
     stop() {
-        this.stopSilenceDetection();
-        this.enabled = false;
         this.isLoaded = false;
         
         if (this.ws) {
@@ -296,3 +300,6 @@ export class ServerWakeWordDetector {
         this.isConnected = false;
     }
 }
+
+// Keep backward compatibility alias
+export { VoiceEventsClient as ServerWakeWordDetector };

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package wakeword
+package voice
 
 import (
 	"fmt"
@@ -55,6 +55,7 @@ type ModelConfig struct {
 type DetectorConfig struct {
 	MelspecModelPath   string
 	EmbeddingModelPath string
+	VADModelPath       string
 	Models             []ModelConfig
 	OnnxLibraryPath    string
 }

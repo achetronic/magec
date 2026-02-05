@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package wakeword
+package voice
 
 import (
 	"encoding/binary"
@@ -23,6 +23,7 @@ import (
 	"math"
 	"net/http"
 	"sync"
+	"time"
 
 	"github.com/gorilla/websocket"
 )
@@ -37,12 +38,13 @@ var upgrader = websocket.Upgrader{
 
 // Message types for WebSocket communication
 const (
-	MsgTypeAudio    = "audio"
-	MsgTypeConfig   = "config"
-	MsgTypeDetected = "detected"
-	MsgTypeError    = "error"
-	MsgTypeModels   = "models"
-	MsgTypeSetModel = "setModel"
+	MsgTypeCapabilities  = "capabilities"
+	MsgTypeConfig        = "config"
+	MsgTypeSetModel      = "setModel"
+	MsgTypeWakeword      = "wakeword"
+	MsgTypeSpeechStart   = "speech_start"
+	MsgTypeSpeechEnd     = "speech_end"
+	MsgTypeError         = "error"
 )
 
 // WSMessage represents a WebSocket message
@@ -57,15 +59,31 @@ type AudioConfig struct {
 	Model      string `json:"model"`
 }
 
-// ModelInfo represents a wake word model for client
-type ModelInfo struct {
-	ID        string  `json:"id"`
-	Name      string  `json:"name"`
-	Phrase    string  `json:"phrase"`
-	Threshold float32 `json:"threshold"`
+// WakewordModelInfo represents a wake word model for client
+type WakewordModelInfo struct {
+	ID     string `json:"id"`
+	Phrase string `json:"phrase"`
 }
 
-// Handler manages WebSocket connections for wake word detection
+// WakewordsCapabilities represents wake word detection capabilities
+type WakewordsCapabilities struct {
+	Models []WakewordModelInfo `json:"models"`
+	Active string              `json:"active"`
+}
+
+// VADCapabilities represents voice activity detection capabilities
+type VADCapabilities struct {
+	Enabled        bool `json:"enabled"`
+	SilenceTimeout int  `json:"silenceTimeout"` // milliseconds
+}
+
+// Capabilities represents the full capabilities of the voice-events endpoint
+type Capabilities struct {
+	Wakewords WakewordsCapabilities `json:"wakewords"`
+	VAD       VADCapabilities       `json:"vad"`
+}
+
+// Handler manages WebSocket connections for voice event detection
 type Handler struct {
 	logger         *slog.Logger
 	detectorConfig DetectorConfig
@@ -77,11 +95,14 @@ type Handler struct {
 
 type clientState struct {
 	detector   *Detector
+	vad        *VAD
 	resampler  *Resampler
 	sampleRate int
+	vadEnabled bool
+	connMu     sync.Mutex // Mutex for writing to this connection
 }
 
-// NewHandler creates a new WebSocket handler for wake word detection
+// NewHandler creates a new WebSocket handler for voice event detection
 func NewHandler(detector *Detector, logger *slog.Logger) *Handler {
 	return &Handler{
 		logger:         logger,
@@ -105,42 +126,89 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		h.logger.Error("Failed to create detector for connection", "error", err, "remote", r.RemoteAddr)
 		conn.WriteJSON(WSMessage{
 			Type: MsgTypeError,
-			Data: map[string]string{"message": "Failed to initialize wake word detector"},
+			Data: map[string]string{"message": "Failed to initialize voice detector"},
 		})
 		return
+	}
+
+	// Create VAD if model path is configured
+	var vad *VAD
+	vadEnabled := h.detectorConfig.VADModelPath != ""
+	if vadEnabled {
+		vad = NewVAD(VADConfig{
+			ModelPath:      h.detectorConfig.VADModelPath,
+			Threshold:      VADThreshold,
+			SilenceTimeout: VADSilenceTimeout,
+		}, h.logger)
+		if err := vad.Load(); err != nil {
+			h.logger.Warn("Failed to load VAD model, continuing without VAD", "error", err)
+			vad = nil
+			vadEnabled = false
+		}
 	}
 
 	// Register connection
 	h.mu.Lock()
 	state := &clientState{
-		detector: detector,
+		detector:   detector,
+		vad:        vad,
+		vadEnabled: vadEnabled,
 	}
 	h.connections[conn] = state
 	h.mu.Unlock()
 
-	h.logger.Info("Wake word WebSocket connected", "remote", r.RemoteAddr, "activeConnections", len(h.connections))
+	h.logger.Info("Voice events WebSocket connected", "remote", r.RemoteAddr, "activeConnections", len(h.connections), "vadEnabled", vadEnabled)
 
 	defer func() {
 		h.mu.Lock()
 		delete(h.connections, conn)
 		h.mu.Unlock()
 		detector.Close()
-		h.logger.Info("Wake word WebSocket disconnected", "remote", r.RemoteAddr)
+		if vad != nil {
+			vad.Close()
+		}
+		h.logger.Info("Voice events WebSocket disconnected", "remote", r.RemoteAddr)
 	}()
 
-	// Set up detection callback for this connection
+	// Set up wake word detection callback
 	detector.SetOnDetected(func(modelID string) {
+		state.connMu.Lock()
+		defer state.connMu.Unlock()
 		msg := WSMessage{
-			Type: MsgTypeDetected,
+			Type: MsgTypeWakeword,
 			Data: map[string]string{"model": modelID},
 		}
 		if err := conn.WriteJSON(msg); err != nil {
-			h.logger.Error("Failed to send detection message", "error", err)
+			h.logger.Error("Failed to send wakeword message", "error", err)
 		}
 	})
 
-	// Send available models on connect
-	h.sendModels(conn, detector)
+	// Set up VAD callbacks
+	if vad != nil {
+		vad.SetOnSpeechStart(func() {
+			state.connMu.Lock()
+			defer state.connMu.Unlock()
+			msg := WSMessage{
+				Type: MsgTypeSpeechStart,
+			}
+			if err := conn.WriteJSON(msg); err != nil {
+				h.logger.Error("Failed to send speech_start message", "error", err)
+			}
+		})
+		vad.SetOnSpeechEnd(func() {
+			state.connMu.Lock()
+			defer state.connMu.Unlock()
+			msg := WSMessage{
+				Type: MsgTypeSpeechEnd,
+			}
+			if err := conn.WriteJSON(msg); err != nil {
+				h.logger.Error("Failed to send speech_end message", "error", err)
+			}
+		})
+	}
+
+	// Send capabilities on connect
+	h.sendCapabilities(conn, detector, vad)
 
 	// Message processing loop
 	for {
@@ -161,28 +229,34 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (h *Handler) sendModels(conn *websocket.Conn, detector *Detector) {
+func (h *Handler) sendCapabilities(conn *websocket.Conn, detector *Detector, vad *VAD) {
 	models := detector.GetModels()
-	modelInfos := make([]ModelInfo, len(models))
+	modelInfos := make([]WakewordModelInfo, len(models))
 	for i, m := range models {
-		modelInfos[i] = ModelInfo{
-			ID:        m.ID,
-			Name:      m.Name,
-			Phrase:    m.Phrase,
-			Threshold: m.Threshold,
+		modelInfos[i] = WakewordModelInfo{
+			ID:     m.ID,
+			Phrase: m.Phrase,
 		}
 	}
 
+	vadCaps := VADCapabilities{
+		Enabled:        vad != nil,
+		SilenceTimeout: int(VADSilenceTimeout / time.Millisecond),
+	}
+
 	msg := WSMessage{
-		Type: MsgTypeModels,
-		Data: map[string]interface{}{
-			"models": modelInfos,
-			"active": detector.GetActiveModel(),
+		Type: MsgTypeCapabilities,
+		Data: Capabilities{
+			Wakewords: WakewordsCapabilities{
+				Models: modelInfos,
+				Active: detector.GetActiveModel(),
+			},
+			VAD: vadCaps,
 		},
 	}
 
 	if err := conn.WriteJSON(msg); err != nil {
-		h.logger.Error("Failed to send models", "error", err)
+		h.logger.Error("Failed to send capabilities", "error", err)
 	}
 }
 
@@ -222,7 +296,7 @@ func (h *Handler) handleConfig(conn *websocket.Conn, data interface{}) {
 		// Create resampler if needed
 		if config.SampleRate != TargetSampleRate {
 			state.resampler = NewResampler(config.SampleRate, TargetSampleRate, 1280)
-			h.logger.Info("Created resampler",
+			h.logger.Debug("Created resampler",
 				"from", config.SampleRate,
 				"to", TargetSampleRate,
 			)
@@ -239,7 +313,7 @@ func (h *Handler) handleConfig(conn *websocket.Conn, data interface{}) {
 	}
 	h.mu.Unlock()
 
-	h.logger.Info("Audio config received",
+	h.logger.Debug("Audio config received",
 		"sampleRate", config.SampleRate,
 		"model", config.Model,
 	)
@@ -269,8 +343,8 @@ func (h *Handler) handleSetModel(conn *websocket.Conn, data interface{}) {
 		return
 	}
 
-	// Confirm model change
-	h.sendModels(conn, state.detector)
+	// Confirm model change by sending updated capabilities
+	h.sendCapabilities(conn, state.detector, state.vad)
 }
 
 func (h *Handler) sendError(conn *websocket.Conn, message string) {
@@ -298,29 +372,49 @@ func (h *Handler) handleBinaryMessage(conn *websocket.Conn, data []byte) {
 		samples[i] = math.Float32frombits(bits)
 	}
 
-	// Resample if needed
+	// Process audio (resample if needed)
 	if state.resampler != nil {
 		frames := state.resampler.Process(samples)
 		for _, frame := range frames {
-			// Convert to int16 and process
-			int16Samples := make([]int16, len(frame))
-			for i, s := range frame {
-				val := int(s * 32767)
-				if val > 32767 {
-					val = 32767
-				} else if val < -32768 {
-					val = -32768
-				}
-				int16Samples[i] = int16(val)
-			}
+			// Process wake word detection
+			int16Samples := floatToInt16(frame)
 			if err := state.detector.ProcessAudio(int16Samples); err != nil {
-				h.logger.Error("Audio processing error", "error", err)
+				h.logger.Error("Wake word processing error", "error", err)
+			}
+
+			// Process VAD (uses float32)
+			if state.vad != nil {
+				if err := state.vad.ProcessAudio(frame); err != nil {
+					h.logger.Error("VAD processing error", "error", err)
+				}
 			}
 		}
 	} else {
 		// Already at target sample rate
 		if err := state.detector.ProcessAudioFloat32(samples); err != nil {
-			h.logger.Error("Audio processing error", "error", err)
+			h.logger.Error("Wake word processing error", "error", err)
+		}
+
+		// Process VAD
+		if state.vad != nil {
+			if err := state.vad.ProcessAudio(samples); err != nil {
+				h.logger.Error("VAD processing error", "error", err)
+			}
 		}
 	}
+}
+
+// floatToInt16 converts float32 samples to int16
+func floatToInt16(samples []float32) []int16 {
+	result := make([]int16, len(samples))
+	for i, s := range samples {
+		val := int(s * 32767)
+		if val > 32767 {
+			val = 32767
+		} else if val < -32768 {
+			val = -32768
+		}
+		result[i] = int16(val)
+	}
+	return result
 }

@@ -39,7 +39,7 @@ import (
 	"github.com/achetronic/magec/server/clients/telegram"
 	"github.com/achetronic/magec/server/config"
 	"github.com/achetronic/magec/server/logging"
-	"github.com/achetronic/magec/server/wakeword"
+	"github.com/achetronic/magec/server/voice"
 )
 
 var configFile = flag.String("config", "config.yaml", "Path to config file")
@@ -90,47 +90,52 @@ func main() {
 		}
 	}
 
-	// Wake word WebSocket handler
+	// Voice events WebSocket handler (wake word + VAD)
 	const (
-		wakeWordModelsPath    = "models"
-		wakeWordPretrainedPath = "pretrained"
-		onnxLibraryPath       = "/usr/lib/libonnxruntime.so"
+		voiceModelsPath            = "models"
+		voicePretrainedPath        = "pretrained"
+		defaultOnnxLibraryPath     = "/usr/lib/libonnxruntime.so"
 	)
-	var wakeWordDetector *wakeword.Detector
+	onnxLibraryPath := defaultOnnxLibraryPath
+	if cfg.Server.OnnxLibraryPath != "" {
+		onnxLibraryPath = cfg.Server.OnnxLibraryPath
+	}
+	var voiceDetector *voice.Detector
 	if cfg.WakeWord.Enabled {
 		// Load wake word models configuration from wakewords.yaml
-		wakeWordModelsCfg, err := config.LoadWakeWordModels(wakeWordModelsPath)
+		wakeWordModelsCfg, err := config.LoadWakeWordModels(voiceModelsPath)
 		if err != nil {
 			slog.Error("Failed to load wakewords.yaml", "error", err)
 		} else if len(wakeWordModelsCfg.Models) == 0 {
 			slog.Warn("No wake word models configured in wakewords.yaml")
 		} else {
 			// Convert config models to detector models
-			models := make([]wakeword.ModelConfig, len(wakeWordModelsCfg.Models))
+			models := make([]voice.ModelConfig, len(wakeWordModelsCfg.Models))
 			for i, m := range wakeWordModelsCfg.Models {
-				models[i] = wakeword.ModelConfig{
+				models[i] = voice.ModelConfig{
 					ID:        m.ID,
 					Name:      m.Name,
-					File:      fmt.Sprintf("%s/%s", wakeWordModelsPath, m.File),
+					File:      fmt.Sprintf("%s/%s", voiceModelsPath, m.File),
 					Phrase:    m.Phrase,
 					Threshold: m.Threshold,
 				}
 			}
 
-			wakeWordDetector = wakeword.NewDetector(wakeword.DetectorConfig{
-				MelspecModelPath:   fmt.Sprintf("%s/mel-spectrogram.onnx", wakeWordPretrainedPath),
-				EmbeddingModelPath: fmt.Sprintf("%s/speech-embedding.onnx", wakeWordPretrainedPath),
+			voiceDetector = voice.NewDetector(voice.DetectorConfig{
+				MelspecModelPath:   fmt.Sprintf("%s/mel-spectrogram.onnx", voicePretrainedPath),
+				EmbeddingModelPath: fmt.Sprintf("%s/speech-embedding.onnx", voicePretrainedPath),
+				VADModelPath:       fmt.Sprintf("%s/silero-vad.onnx", voicePretrainedPath),
 				Models:             models,
 				OnnxLibraryPath:    onnxLibraryPath,
 			}, slog.Default())
 
-			if err := wakeWordDetector.Load(); err != nil {
-				slog.Error("Failed to load wake word models", "error", err)
-				// Don't exit - wake word is optional
+			if err := voiceDetector.Load(); err != nil {
+				slog.Error("Failed to load voice detection models", "error", err)
+				// Don't exit - voice detection is optional
 			} else {
-				wakeWordHandler := wakeword.NewHandler(wakeWordDetector, slog.Default())
-				mux.Handle("/api/v1/wakeword", wakeWordHandler)
-				slog.Info("Wake word detection enabled", "models", len(models))
+				voiceHandler := voice.NewHandler(voiceDetector, slog.Default())
+				mux.Handle("/api/v1/voice-events", voiceHandler)
+				slog.Info("Voice detection enabled", "wakeWordModels", len(models), "vadEnabled", true)
 			}
 		}
 	}
@@ -185,8 +190,8 @@ func main() {
 		if telegramClient != nil {
 			telegramClient.Stop()
 		}
-		if wakeWordDetector != nil {
-			wakeWordDetector.Close()
+		if voiceDetector != nil {
+			voiceDetector.Close()
 		}
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
@@ -219,7 +224,7 @@ func logRoutes(adkHandler http.Handler) {
 	slog.Debug("Route", "methods", []string{"POST"}, "path", "/api/v1/tts/")
 	slog.Debug("Route", "methods", []string{"GET"}, "path", "/api/v1/health")
 	slog.Debug("Route", "methods", []string{"GET"}, "path", "/ (static files)")
-	slog.Debug("Route", "methods", []string{"WebSocket"}, "path", "/api/v1/wakeword")
+	slog.Debug("Route", "methods", []string{"WebSocket"}, "path", "/api/v1/voice-events")
 }
 
 // responseRecorder wraps http.ResponseWriter to capture status code and bytes written.

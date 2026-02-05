@@ -15,7 +15,7 @@
  */
 
 import { CONFIG } from './config.js';
-import { AudioCapture, AudioRecorder, ServerWakeWordDetector, FeedbackSound, OpenAITTS } from './audio/index.js';
+import { AudioCapture, AudioRecorder, VoiceEventsClient, FeedbackSound, OpenAITTS } from './audio/index.js';
 import { RemoteTranscriber } from './transcription/index.js';
 import { UIController, WaveformRenderer } from './ui/index.js';
 import { SessionManager, SessionService } from './session/index.js';
@@ -38,7 +38,7 @@ class MagecApp {
         // Audio components (lazy initialized)
         this.audioCapture = null;
         this.audioRecorder = null;
-        this.wakeWordDetector = null;
+        this.voiceEvents = null;
         this.transcriber = null;
         
         // Audio utilities
@@ -49,6 +49,8 @@ class MagecApp {
         // State
         this.isRecording = false;
         this.wakeWordPhrase = '';
+        this.wakeWordEnabled = true;
+        this.vadEnabled = false;
     }
 
     // ==================== Initialization ====================
@@ -101,7 +103,7 @@ class MagecApp {
     _onLanguageChange() {
         // Update dynamic UI elements that aren't covered by data-i18n
         this.ui.setWakeWordEnabled(
-            this.wakeWordDetector?.isEnabled() ?? true,
+            this.wakeWordEnabled,
             this.wakeWordPhrase
         );
     }
@@ -120,64 +122,52 @@ class MagecApp {
         this.ui.setStatus(t('status.ready'), 'listening');
     }
 
-    // ==================== Wake Word ====================
+    // ==================== Voice Events (Wake Word + VAD) ====================
 
     // Wake word models config - received from server
     wakeWordModels = [];
 
     async _initWakeWord() {
-        await this._loadWakeWordModel();
+        await this._initVoiceEvents();
     }
 
-    async _loadWakeWordModel() {
+    async _initVoiceEvents() {
         this.ui.setStatus(t('status.loadingWakeWord'), 'loading');
         this.ui.showLoadingNotification('wakeword', t('notifications.wakeWordLoading'));
         
         try {
-            // Use server-side wake word detection only
-            const serverDetector = new ServerWakeWordDetector(
-                {},
-                () => this._onWakeWordDetected()
-            );
+            const voiceEvents = new VoiceEventsClient();
             
-            // Set up callback to receive models from server
-            serverDetector.onModelsReceived = (models, activeModel) => {
-                this.wakeWordModels = models;
-                this.settings.setValidWakeWordModels(models.map(m => m.id));
-                
-                // Update phrase from active model
-                const activeConfig = models.find(m => m.id === activeModel);
-                if (activeConfig) {
-                    this.wakeWordPhrase = activeConfig.phrase || activeConfig.name;
-                }
-                
-                // Render wake word model selector
-                this.ui.renderWakeWordModels(
-                    models,
-                    activeModel,
-                    (model) => this._onWakeWordModelChange(model)
-                );
-            };
+            // Set up event handlers
+            voiceEvents.onWakeword = (model) => this._onWakeWordDetected(model);
+            voiceEvents.onSpeechStart = () => this._onSpeechStart();
+            voiceEvents.onSpeechEnd = () => this._onSpeechEnd();
+            voiceEvents.onCapabilities = (caps) => this._onCapabilitiesReceived(caps);
             
-            await serverDetector.load();
-            this.wakeWordDetector = serverDetector;
+            await voiceEvents.load();
+            this.voiceEvents = voiceEvents;
+            
+            // Store VAD state
+            this.vadEnabled = voiceEvents.isVADEnabled();
+            console.log('[VoiceEvents] Connected, VAD enabled:', this.vadEnabled);
             
             // Get phrase from active model
-            this.wakeWordPhrase = serverDetector.getActivePhrase();
-            console.log('[WakeWord] Using server-side detection, phrase:', this.wakeWordPhrase);
+            this.wakeWordPhrase = voiceEvents.getActivePhrase();
+            console.log('[VoiceEvents] Using server-side detection, phrase:', this.wakeWordPhrase);
             
             // Apply saved wake word setting
-            const wakeWordEnabled = this.settings.wakeWordEnabled;
-            this.wakeWordDetector.setEnabled(wakeWordEnabled);
-            this.ui.setWakeWordEnabled(wakeWordEnabled, this.wakeWordPhrase);
-            this.ui.setWakeWordToggle(wakeWordEnabled);
+            this.wakeWordEnabled = this.settings.wakeWordEnabled;
+            this.ui.setWakeWordEnabled(this.wakeWordEnabled, this.wakeWordPhrase);
+            this.ui.setWakeWordToggle(this.wakeWordEnabled);
             
             this.ui.completeLoadingNotification('wakeword', t('notifications.wakeWordReady'));
         } catch (e) {
-            // Server wake word not available - disable wake word entirely
-            console.warn('[WakeWord] Server not available, wake word disabled:', e.message);
-            this.wakeWordDetector = null;
+            // Server not available - disable voice events entirely
+            console.warn('[VoiceEvents] Server not available:', e.message);
+            this.voiceEvents = null;
             this.wakeWordModels = [];
+            this.vadEnabled = false;
+            this.wakeWordEnabled = false;
             this.ui.setWakeWordEnabled(false, '');
             this.ui.setWakeWordToggle(false);
             this.ui.disableWakeWordToggle();
@@ -186,27 +176,69 @@ class MagecApp {
         }
     }
 
-    _onWakeWordDetected() {
+    _onCapabilitiesReceived(caps) {
+        // Update wake word models
+        if (caps.wakewords) {
+            this.wakeWordModels = caps.wakewords.models || [];
+            this.settings.setValidWakeWordModels(this.wakeWordModels.map(m => m.id));
+            
+            // Update phrase from active model
+            const activeModel = caps.wakewords.active;
+            const activeConfig = this.wakeWordModels.find(m => m.id === activeModel);
+            if (activeConfig) {
+                this.wakeWordPhrase = activeConfig.phrase || activeConfig.id;
+            }
+            
+            // Render wake word model selector
+            this.ui.renderWakeWordModels(
+                this.wakeWordModels,
+                activeModel,
+                (model) => this._onWakeWordModelChange(model)
+            );
+        }
+        
+        // Update VAD state
+        if (caps.vad) {
+            this.vadEnabled = caps.vad.enabled;
+            console.log('[VoiceEvents] VAD enabled:', this.vadEnabled, 'timeout:', caps.vad.silenceTimeout);
+        }
+    }
+
+    _onWakeWordDetected(model) {
+        if (!this.wakeWordEnabled) return;
         this._startRecording();
     }
 
+    _onSpeechStart() {
+        // Speech detected - could be used for UI feedback
+        console.log('[VoiceEvents] Speech detected');
+    }
+
+    _onSpeechEnd() {
+        // Speech ended - stop recording if we're recording and VAD is enabled
+        if (this.isRecording && this.vadEnabled) {
+            console.log('[VoiceEvents] Speech ended, stopping recording');
+            this._stopRecording();
+        }
+    }
+
     _setWakeWordEnabled(enabled) {
-        this.wakeWordDetector?.setEnabled(enabled);
+        this.wakeWordEnabled = enabled;
         this.settings.wakeWordEnabled = enabled;
         this.ui.setWakeWordEnabled(enabled, this.wakeWordPhrase);
     }
 
     async _onWakeWordModelChange(modelId) {
-        if (!this.wakeWordDetector) return;
+        if (!this.voiceEvents) return;
         
         // Tell server to change model
-        this.wakeWordDetector.setModel(modelId);
+        this.voiceEvents.setWakewordModel(modelId);
         this.settings.wakeWordModel = modelId;
         
         // Update phrase
         const modelConfig = this.wakeWordModels.find(m => m.id === modelId);
         this.wakeWordPhrase = modelConfig?.phrase || modelId;
-        this.ui.setWakeWordEnabled(this.settings.wakeWordEnabled, this.wakeWordPhrase);
+        this.ui.setWakeWordEnabled(this.wakeWordEnabled, this.wakeWordPhrase);
     }
 
     // ==================== Session Management ====================
@@ -285,10 +317,10 @@ class MagecApp {
             this.waveform.setAnalyser(this.audioCapture.getAnalyser());
             this.waveform.start();
             
-            // Connect audio to server wake word detector if enabled
-            if (this.wakeWordDetector instanceof ServerWakeWordDetector) {
+            // Connect audio to voice events server
+            if (this.voiceEvents) {
                 this.audioCapture.onAudioData = (samples, sampleRate) => {
-                    this.wakeWordDetector.processAudio(samples, sampleRate);
+                    this.voiceEvents.processAudio(samples, sampleRate);
                 };
             }
         } catch (e) {
@@ -307,17 +339,31 @@ class MagecApp {
         this.isRecording = true;
         this.tts.stop();
         this.feedbackSound.playWakeChime();
-        this.wakeWordDetector?.setEnabled(false);
+        // Temporarily disable wake word detection while recording
+        const prevWakeWordEnabled = this.wakeWordEnabled;
+        this.wakeWordEnabled = false;
         this.ui.setStatus(t('status.recording'), 'recording');
         this.ui.setRecordingState(true);
         this.waveform.setRecording(true);
         
         this.audioRecorder = new AudioRecorder(this.audioCapture.getMicStream());
-        this.audioRecorder.onRecordingComplete = (blob) => this._processRecording(blob);
+        this.audioRecorder.onRecordingComplete = (blob) => {
+            // Restore wake word enabled state
+            this.wakeWordEnabled = prevWakeWordEnabled;
+            this._processRecording(blob);
+        };
         this.audioRecorder.start();
         
-        this.wakeWordDetector.onSilence = () => this._stopRecording();
-        this.wakeWordDetector.startSilenceDetection(2000);
+        // If VAD is not enabled, use a fallback timeout
+        if (!this.vadEnabled) {
+            // Fallback: stop after 10 seconds max
+            this._recordingTimeout = setTimeout(() => {
+                if (this.isRecording) {
+                    console.log('[Recording] Fallback timeout, stopping');
+                    this._stopRecording();
+                }
+            }, 10000);
+        }
     }
 
     _stopRecording() {
@@ -328,7 +374,13 @@ class MagecApp {
         this.ui.setStatus(t('status.processing'), 'processing');
         this.ui.setRecordingState(false);
         this.waveform.setRecording(false);
-        this.wakeWordDetector?.stopSilenceDetection();
+        
+        // Clear fallback timeout
+        if (this._recordingTimeout) {
+            clearTimeout(this._recordingTimeout);
+            this._recordingTimeout = null;
+        }
+        
         this.audioRecorder?.stop();
     }
 
@@ -344,7 +396,6 @@ class MagecApp {
         } catch (e) {
             console.error('[Transcription]', e);
         } finally {
-            this.wakeWordDetector?.setEnabled(this.settings.wakeWordEnabled);
             this.ui.setRecordButtonEnabled(true);
             this._setReady();
         }

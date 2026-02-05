@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package wakeword
+package voice
 
 // Resampler converts audio from one sample rate to another using averaging
 // Based on the ricky0123/vad resampler approach

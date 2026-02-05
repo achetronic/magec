@@ -71,8 +71,9 @@ type TelegramConfig struct {
 }
 
 type Server struct {
-	Host string `yaml:"host"`
-	Port int    `yaml:"port"`
+	Host            string `yaml:"host"`
+	Port            int    `yaml:"port"`
+	OnnxLibraryPath string `yaml:"onnxLibraryPath"`
 }
 
 // Log configures the application logger

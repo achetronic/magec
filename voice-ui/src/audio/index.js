@@ -15,7 +15,7 @@
  */
 
 export { AudioConverter } from './AudioConverter.js';
-export { ServerWakeWordDetector } from './ServerWakeWordDetector.js';
+export { VoiceEventsClient, ServerWakeWordDetector } from './VoiceEventsClient.js';
 export { AudioCapture } from './AudioCapture.js';
 export { AudioRecorder } from './AudioRecorder.js';
 export { FeedbackSound } from './FeedbackSound.js';
