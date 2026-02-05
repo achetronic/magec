@@ -1,26 +1,26 @@
 # Magec
 
 <p align="center">
-  <img src="docs/img/banner.png" alt="Magec - Voice assistant from Canary Islands" width="800">
+  <img src="docs/img/banner.png" alt="Magec - Personal AI assistant from Canary Islands" width="800">
 </p>
 
 ## What is Magec?
 
-Magec is a **voice assistant that you control**. Talk to it like you would to Alexa or Siri, but with the power of modern AI models (ChatGPT, Claude, Gemini, or local models).
+Magec is a **personal AI assistant that you control**. Access it via web, voice, or chat platforms like Telegram.
 
 Connect it to your tools via MCP: control your smart home, manage files, query databases, or anything else you can imagine. It runs on your server, remembers your preferences, and gets smarter the more you use it.
 
 <p align="center">
-  <img src="docs/img/architecture.png" alt="Magec Architecture - Voice to LLMs and MCP Tools" width="800">
+  <img src="docs/img/architecture.png" alt="Magec Architecture - Personal AI with LLMs and MCP Tools" width="800">
 </p>
 
 ### How it works
 
 1. **Deploy** — Run Magec on your server or home lab
 2. **Configure** — Point it to your preferred AI model and connect any MCP tools you want (smart home, files, APIs...)
-3. **Talk** — Just say "Oye Magec" and ask for anything. That's it.
+3. **Interact** — Use the web interface, talk by voice, or chat via Telegram. Your choice.
 
-Your voice, your AI, your rules.
+Your assistant, your AI, your rules.
 
 # Please ⭐️ star this repo if you find it helpful
 
@@ -43,33 +43,28 @@ The name honors this Canarian heritage while reflecting the assistant's purpose:
 
 ## Features
 
-### Voice & Speech
+### Core
 
-- **Wake word detection** — Server-side OpenWakeWord models for hands-free activation ("Oye Magec", "Magec")
-- **Speech transcription** — Server-side transcription via OpenAI-compatible Whisper APIs (e.g. [Parakeet](https://github.com/achetronic/parakeet))
-- **Text-to-speech** — Natural voice responses via OpenAI-compatible TTS APIs (e.g. [openai-edge-tts](https://github.com/travisvn/openai-edge-tts))
-
-### AI & Intelligence
-
-- **Multi-provider LLM** — Supports OpenAI, Anthropic (Claude), Google Gemini, and local models via Ollama
-- **Configurable backends** — Define multiple AI backends and switch between them easily
-
-### Memory & Context
-
+- **Multi-provider LLM** — OpenAI, Anthropic (Claude), Google Gemini, and local models via Ollama
 - **Session memory** — Conversation history stored in Redis, survives restarts
 - **Long-term memory** — Remembers things about you across sessions using PostgreSQL
+- **MCP tools** — Connect external tools via Model Context Protocol (Home Assistant, filesystem, GitHub, databases...)
+- **YAML configuration** — Single config file for all settings
 
-### Extensibility
+### Interfaces
 
-- **MCP toolsets** — Connect external tools via Model Context Protocol (filesystem, GitHub, Home Assistant, etc.)
-- **YAML configuration** — Single config file for all settings: backends, memory, MCP servers
+- **Web** — Voice and text chat with audio visualizer, PWA support
+- **Telegram** — Text and voice messages from your phone
+- *(Future: Discord, Slack, WhatsApp, CLI...)*
 
-### Interface
+### Voice Capabilities
 
-- **Web GUI** — Lightweight client with all heavy processing server-side
-- **Telegram bot** — Chat via Telegram with text or voice messages
-- **Magec visualizer** — Mystical audio visualization that reacts to voice
-- **PWA support** — Install as standalone app on mobile devices
+- **Wake word detection** — Server-side OpenWakeWord models ("Oye Magec", "Magec")
+- **Speech-to-text** — OpenAI-compatible Whisper APIs (e.g. [Parakeet](https://github.com/achetronic/parakeet))
+- **Text-to-speech** — OpenAI-compatible TTS APIs (e.g. [openai-edge-tts](https://github.com/travisvn/openai-edge-tts))
+
+### Additional
+
 - **Responsive design** — Works on desktop and mobile browsers
 - **i18n** — Supports Spanish (default) and English
 
@@ -89,7 +84,7 @@ nano config.yaml
 docker-compose up -d
 ```
 
-Open http://localhost:8080 and say "Oye Magec"!
+Open http://localhost:8080 and start chatting!
 
 > **Note**: Edit `config.yaml` to add your OpenAI/Anthropic API key, or configure Ollama for fully local operation.
 

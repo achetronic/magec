@@ -95,6 +95,7 @@ func (c *Client) Start(ctx context.Context) error {
 
 	// Handle voice messages (must be registered before general message handler)
 	handler.HandleMessage(func(ctx *th.Context, msg telego.Message) error {
+		c.logger.Info("Voice handler triggered", "chat_id", msg.Chat.ID, "user_id", msg.From.ID)
 		return c.handleVoice(ctx, msg)
 	}, func(_ context.Context, update telego.Update) bool {
 		return update.Message != nil && update.Message.Voice != nil
@@ -102,9 +103,20 @@ func (c *Client) Start(ctx context.Context) error {
 
 	// Handle text messages (exclude voice messages)
 	handler.HandleMessage(func(ctx *th.Context, msg telego.Message) error {
+		c.logger.Info("Text handler triggered", "chat_id", msg.Chat.ID, "user_id", msg.From.ID, "text", msg.Text)
 		return c.handleMessage(ctx, msg)
 	}, func(_ context.Context, update telego.Update) bool {
-		return update.Message != nil && update.Message.Voice == nil && update.Message.Text != ""
+		match := update.Message != nil && update.Message.Voice == nil && update.Message.Text != ""
+		if update.Message != nil {
+			c.logger.Debug("Text predicate check",
+				"chat_id", update.Message.Chat.ID,
+				"user_id", update.Message.From.ID,
+				"text", update.Message.Text,
+				"has_voice", update.Message.Voice != nil,
+				"match", match,
+			)
+		}
+		return match
 	})
 
 	// Start handling (blocks until stopped)
@@ -266,19 +278,24 @@ func (c *Client) isAllowed(userID, chatID int64) bool {
 	}
 
 	// Check user allowlist
-	userAllowed := len(c.cfg.AllowedUsers) == 0 || slices.Contains(c.cfg.AllowedUsers, userID)
+	if len(c.cfg.AllowedUsers) > 0 && slices.Contains(c.cfg.AllowedUsers, userID) {
+		return true
+	}
 
 	// Check chat allowlist
-	chatAllowed := len(c.cfg.AllowedChats) == 0 || slices.Contains(c.cfg.AllowedChats, chatID)
+	if len(c.cfg.AllowedChats) > 0 && slices.Contains(c.cfg.AllowedChats, chatID) {
+		return true
+	}
 
-	return userAllowed && chatAllowed
+	return false
 }
 
 // callAgent sends a message to the ADK agent and returns the response
 func (c *Client) callAgent(userID, chatID int64, message string) (string, error) {
 	// Use chat ID as session ID for conversation continuity
+	// User is always default_user until multiuser support is added
 	sessionID := fmt.Sprintf("telegram_%d", chatID)
-	userIDStr := fmt.Sprintf("telegram_%d", userID)
+	userIDStr := "default_user"
 
 	// Ensure session exists
 	if err := c.ensureSession(userIDStr, sessionID); err != nil {

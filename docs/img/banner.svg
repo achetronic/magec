@@ -63,5 +63,5 @@
   <text x="200" y="115" font-family="system-ui, -apple-system, sans-serif" font-size="72" font-weight="bold" fill="url(#textGradient)">Magec</text>
   
   <!-- Tagline with flag -->
-  <text x="205" y="150" font-family="system-ui, -apple-system, sans-serif" font-size="18" fill="#a8a29e">Voice assistant from Canary Islands 🇮🇨</text>
+  <text x="205" y="150" font-family="system-ui, -apple-system, sans-serif" font-size="18" fill="#a8a29e">Personal AI assistant from Canary Islands 🇮🇨</text>
 </svg>
