@@ -106,8 +106,12 @@ clients:
     # Restrict access (empty = allow everyone - be careful with API costs!)
     allowedUsers: [] # List of Telegram user IDs, e.g. [123456789, 987654321]
     allowedChats: [] # List of chat/group IDs, e.g. [-100123456789]
-    # Send voice responses in addition to text (requires TTS to be configured)
-    voiceResponses: false
+    # How the bot responds: text, voice, mirror, both (default: text)
+    # text   - always reply with text only
+    # voice  - always reply with voice only (requires TTS)
+    # mirror - reply in the same format as the input (text→text, voice→voice)
+    # both   - reply with both text and voice (requires TTS)
+    responseMode: text
 
 # MCP tool servers
 mcpServers:

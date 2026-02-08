@@ -61,13 +61,21 @@ type ClientsConfig struct {
 	// Slack    SlackConfig    `yaml:"slack"`    // future
 }
 
+// Telegram response mode constants
+const (
+	TelegramResponseModeText   = "text"
+	TelegramResponseModeVoice  = "voice"
+	TelegramResponseModeMirror = "mirror"
+	TelegramResponseModeBoth   = "both"
+)
+
 // TelegramConfig holds Telegram bot configuration
 type TelegramConfig struct {
-	Enabled        bool    `yaml:"enabled"`
-	Token          string  `yaml:"token"`
-	AllowedUsers   []int64 `yaml:"allowedUsers,omitempty"`   // User IDs that can interact
-	AllowedChats   []int64 `yaml:"allowedChats,omitempty"`   // Chat/Group IDs where bot responds
-	VoiceResponses bool    `yaml:"voiceResponses,omitempty"` // Send voice messages in addition to text
+	Enabled      bool    `yaml:"enabled"`
+	Token        string  `yaml:"token"`
+	AllowedUsers []int64 `yaml:"allowedUsers,omitempty"` // User IDs that can interact
+	AllowedChats []int64 `yaml:"allowedChats,omitempty"` // Chat/Group IDs where bot responds
+	ResponseMode string  `yaml:"responseMode,omitempty"` // text, voice, mirror, both (default: text)
 }
 
 type Server struct {
@@ -241,6 +249,10 @@ func (c *Config) applyDefaults() {
 	}
 	if c.TTS.Speed == 0 {
 		c.TTS.Speed = 1.0
+	}
+
+	if c.Clients.Telegram.ResponseMode == "" {
+		c.Clients.Telegram.ResponseMode = TelegramResponseModeText
 	}
 
 	// Apply default URLs to backends

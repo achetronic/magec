@@ -2,6 +2,27 @@
 
 ## High Priority
 
+### Device Pairing Authentication
+
+**Problem**: Voice UI and API have no authentication. Need simple auth without OIDC complexity.
+
+**Solution**: Device pairing with one-time code
+1. First time user opens voice-ui, shows "Enter pairing code" screen
+2. Server generates 6-digit code on startup, logs it to console
+3. User enters code in voice-ui
+4. Server validates and returns a device token (stored in localStorage)
+5. All subsequent requests include device token in header
+6. Server validates token on each request
+7. Admin can revoke tokens or regenerate pairing code via config/API
+
+**Files to modify**:
+- `server/main.go` - Token generation, validation middleware
+- `server/config/config.go` - Store active device tokens
+- `voice-ui/src/app.js` - Pairing flow UI
+- `voice-ui/src/api/AgentClient.js` - Include token in requests
+
+---
+
 ### TTS Real-Time Streaming Playback
 
 **Problem**: Current TTS implementation waits for all audio chunks before starting playback, causing noticeable delay even with SSE streaming enabled.
@@ -42,12 +63,6 @@ async _scheduleAudioChunk(audioBytes) {
 ---
 
 ## Medium Priority
-
-### Improve Wake Word Detection Accuracy
-
-- Tune `threshold` parameter in `voice-ui/src/config.js`
-- Consider adding multiple wake word model support
-- Investigate false positive/negative rates
 
 ### Add Voice Activity Detection During TTS
 
@@ -94,18 +109,17 @@ Currently voice selection is server-side only. Could add UI for users to preview
 
 **Alternative**: SpeechBrain (heavier, ~1GB+)
 
-### API Security (Token Rotation)
+### Telegram File/Artifact Support
 
-**Problem**: Voice UI is open (no auth), need to ensure API requests only come from the voice UI.
+**Goal**: Allow users to send files via Telegram for the AI to process.
 
-**Recommended solution**: Session token injected at runtime
-1. Server generates random token on startup
-2. Token injected into HTML when serving voice UI: `<script>window.MAGEC_TOKEN = "{{.SessionToken}}"</script>`
-3. Voice UI sends token in header with every request
-4. Server validates token, rejects requests without it
-5. Token changes on every server restart
+**Depends on**: ADK artifacts implementation in `adk-utils-go`
 
-Combine with CORS strict mode and localhost binding for defense in depth.
+**Flow**:
+1. User sends file via Telegram
+2. Bot downloads file
+3. Converts to ADK artifact (base64 + mime type)
+4. Sends to agent with message
 
 ---
 
@@ -121,3 +135,7 @@ Combine with CORS strict mode and localhost binding for defense in depth.
 - [x] Canvas full vertical height with capped Magec size
 - [x] Footer clock replacing mode indicator
 - [x] Own custom wake word models trained (OpenWakeWord)
+- [x] Server-side wake word detection (moved from browser to server via WebSocket)
+- [x] Server-side VAD detection (Silero VAD via ONNX)
+- [x] Configurable ONNX library path (`server.onnxLibraryPath`)
+- [x] Telegram voice message support (OGG→WAV conversion via ffmpeg)

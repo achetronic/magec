@@ -1,0 +1,91 @@
+# Magec - Fully local deployment
+# Everything runs locally: LLM, STT, TTS, embeddings. No API keys needed.
+#
+# Usage:
+#   cp config.yaml.example config.yaml
+#   docker compose up -d
+#
+# First start will be slow: Ollama downloads qwen3:8b (~5GB) and nomic-embed-text (~274MB).
+# GPU: To use NVIDIA GPU with Ollama, uncomment the 'deploy' section in the ollama service.
+
+services:
+  magec:
+    image: ghcr.io/achetronic/magec:latest
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./config.yaml:/app/config.yaml
+    depends_on:
+      ollama-setup:
+        condition: service_completed_successfully
+      redis:
+        condition: service_started
+      postgres:
+        condition: service_started
+      parakeet:
+        condition: service_started
+      tts:
+        condition: service_started
+    restart: unless-stopped
+
+  redis:
+    image: redis:alpine
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+
+  postgres:
+    image: pgvector/pgvector:pg17
+    environment:
+      POSTGRES_USER: magec
+      POSTGRES_PASSWORD: magec
+      POSTGRES_DB: magec
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  ollama:
+    image: ollama/ollama:latest
+    volumes:
+      - ollama_data:/root/.ollama
+    # Uncomment to use NVIDIA GPU:
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [gpu]
+    restart: unless-stopped
+
+  # Init container: pulls models on first start, then exits
+  ollama-setup:
+    image: ollama/ollama:latest
+    depends_on:
+      - ollama
+    restart: "no"
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        echo "Waiting for Ollama to be ready..."
+        until curl -sf http://ollama:11434/api/tags > /dev/null 2>&1; do
+          sleep 2
+        done
+        echo "Pulling qwen3:8b (LLM)..."
+        curl -sf http://ollama:11434/api/pull -d '{"name":"qwen3:8b"}' > /dev/null
+        echo "Pulling nomic-embed-text (embeddings)..."
+        curl -sf http://ollama:11434/api/pull -d '{"name":"nomic-embed-text"}' > /dev/null
+        echo "Models ready."
+
+  parakeet:
+    image: ghcr.io/achetronic/parakeet:latest
+    restart: unless-stopped
+
+  tts:
+    image: travisvn/openai-edge-tts:latest
+    restart: unless-stopped
+
+volumes:
+  redis_data:
+  postgres_data:
+  ollama_data:

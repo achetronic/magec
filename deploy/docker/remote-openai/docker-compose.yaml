@@ -1,15 +1,24 @@
+# Magec - OpenAI cloud deployment
+# Uses OpenAI APIs for LLM, STT, TTS and embeddings. Only Redis and PostgreSQL run locally.
+# Requires: OPENAI_API_KEY environment variable.
+#
+# Usage:
+#   cp config.yaml.example config.yaml
+#   export OPENAI_API_KEY=sk-...
+#   docker compose up -d
+
 services:
   magec:
     image: ghcr.io/achetronic/magec:latest
     ports:
       - "8080:8080"
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
     volumes:
       - ./config.yaml:/app/config.yaml
     depends_on:
       - redis
       - postgres
-      - parakeet
-      - tts
     restart: unless-stopped
 
   redis:
@@ -26,14 +35,6 @@ services:
       POSTGRES_DB: magec
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    restart: unless-stopped
-
-  parakeet:
-    image: ghcr.io/achetronic/parakeet:latest
-    restart: unless-stopped
-
-  tts:
-    image: travisvn/openai-edge-tts:latest
     restart: unless-stopped
 
 volumes:

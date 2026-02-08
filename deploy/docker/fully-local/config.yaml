@@ -1,0 +1,65 @@
+# Magec - Fully local configuration
+# All services run locally. No API keys needed.
+
+server:
+  host: 0.0.0.0
+  port: 8080
+
+log:
+  level: info
+  format: console
+
+backends:
+  # LLM (Ollama - local)
+  - name: ollama
+    type: openai
+    url: http://ollama:11434/v1
+
+  # Speech-to-text (Parakeet - local)
+  - name: parakeet
+    type: openai
+    url: http://parakeet:5000/v1
+
+  # Text-to-speech (Edge TTS - local)
+  - name: edge-tts
+    type: openai
+    url: http://tts:5050/v1
+    apiKey: "dummy"
+
+transcription:
+  backend: parakeet
+  model: whisper-1
+
+llm:
+  backend: ollama
+  model: qwen3:8b
+
+tts:
+  backend: edge-tts
+  model: tts-1
+  voice: es-ES-AlvaroNeural
+  speed: 1.0
+
+wakeWord:
+  enabled: true
+
+memory:
+  session:
+    redis:
+      address: redis:6379
+      ttl: 24h
+
+  longTerm:
+    embedding:
+      backend: ollama
+      model: nomic-embed-text
+    postgres:
+      connectionString: postgres://magec:magec@postgres:5432/magec?sslmode=disable
+
+# Uncomment to enable Telegram bot:
+# clients:
+#   telegram:
+#     enabled: true
+#     token: ${TELEGRAM_BOT_TOKEN}
+#     allowedUsers: []
+#     responseMode: mirror

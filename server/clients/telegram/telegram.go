@@ -24,6 +24,8 @@ import (
 	"net/http"
 	"os/exec"
 	"slices"
+	"strings"
+	"sync"
 	"time"
 
 	"github.com/mymmrac/telego"
@@ -45,6 +47,9 @@ type Client struct {
 	ttsConfig *config.TTSConfig
 	logger    *slog.Logger
 	cancel    context.CancelFunc
+
+	responseModeOverride string
+	responseMu           sync.RWMutex
 }
 
 // New creates a new Telegram client
@@ -93,6 +98,11 @@ func (c *Client) Start(ctx context.Context) error {
 		return fmt.Errorf("failed to create bot handler: %w", err)
 	}
 	c.handler = handler
+
+	// Handle /responsemode command
+	handler.HandleMessage(func(ctx *th.Context, msg telego.Message) error {
+		return c.handleResponseModeCommand(ctx, msg)
+	}, th.CommandEqual("responsemode"))
 
 	// Handle voice messages (must be registered before general message handler)
 	handler.HandleMessage(func(ctx *th.Context, msg telego.Message) error {
@@ -165,7 +175,7 @@ func (c *Client) handleMessage(ctx *th.Context, msg telego.Message) error {
 	})
 
 	// Call agent
-	response, err := c.callAgent(msg.From.ID, msg.Chat.ID, msg.Text)
+	response, err := c.callAgent(msg, msg.Text)
 	if err != nil {
 		c.logger.Error("Failed to call agent", "error", err)
 		_, _ = ctx.Bot().SendMessage(ctx, &telego.SendMessageParams{
@@ -175,19 +185,7 @@ func (c *Client) handleMessage(ctx *th.Context, msg telego.Message) error {
 		return nil
 	}
 
-	// Send text response
-	_, err = ctx.Bot().SendMessage(ctx, &telego.SendMessageParams{
-		ChatID: tu.ID(msg.Chat.ID),
-		Text:   response,
-	})
-	if err != nil {
-		c.logger.Error("Failed to send message", "error", err)
-	}
-
-	// Send voice response if enabled
-	if c.cfg.VoiceResponses && c.ttsURL != "" {
-		c.sendVoiceResponse(ctx, msg.Chat.ID, response)
-	}
+	c.sendResponse(ctx, msg.Chat.ID, response, false)
 
 	return nil
 }
@@ -244,7 +242,7 @@ func (c *Client) handleVoice(ctx *th.Context, msg telego.Message) error {
 	c.logger.Info("Transcribed voice", "text", text)
 
 	// Call agent with transcribed text
-	response, err := c.callAgent(msg.From.ID, msg.Chat.ID, text)
+	response, err := c.callAgent(msg, text)
 	if err != nil {
 		c.logger.Error("Failed to call agent", "error", err)
 		_, _ = ctx.Bot().SendMessage(ctx, &telego.SendMessageParams{
@@ -254,20 +252,132 @@ func (c *Client) handleVoice(ctx *th.Context, msg telego.Message) error {
 		return nil
 	}
 
-	// Send text response
-	_, err = ctx.Bot().SendMessage(ctx, &telego.SendMessageParams{
-		ChatID: tu.ID(msg.Chat.ID),
-		Text:   response,
+	c.sendResponse(ctx, msg.Chat.ID, response, true)
+
+	return nil
+}
+
+// sendResponse sends the response according to the configured responseMode.
+// inputWasVoice indicates whether the original message was a voice message (used for mirror mode).
+func (c *Client) sendResponse(ctx *th.Context, chatID int64, text string, inputWasVoice bool) {
+	mode := c.getResponseMode()
+
+	sendText := false
+	sendVoice := false
+
+	switch mode {
+	case config.TelegramResponseModeVoice:
+		sendVoice = true
+	case config.TelegramResponseModeMirror:
+		if inputWasVoice {
+			sendVoice = true
+		} else {
+			sendText = true
+		}
+	case config.TelegramResponseModeBoth:
+		sendText = true
+		sendVoice = true
+	default:
+		sendText = true
+	}
+
+	if sendText {
+		_, err := ctx.Bot().SendMessage(ctx, &telego.SendMessageParams{
+			ChatID: tu.ID(chatID),
+			Text:   text,
+		})
+		if err != nil {
+			c.logger.Error("Failed to send message", "error", err)
+		}
+	}
+
+	if sendVoice && c.ttsURL != "" {
+		c.sendVoiceResponse(ctx, chatID, text)
+	}
+}
+
+// getResponseMode returns the active response mode, preferring the runtime override if set.
+func (c *Client) getResponseMode() string {
+	c.responseMu.RLock()
+	defer c.responseMu.RUnlock()
+	if c.responseModeOverride != "" {
+		return c.responseModeOverride
+	}
+	return c.cfg.ResponseMode
+}
+
+// handleResponseModeCommand handles /responsemode [text|voice|mirror|both|reset]
+func (c *Client) handleResponseModeCommand(ctx *th.Context, msg telego.Message) error {
+	if !c.isAllowed(msg.From.ID, msg.Chat.ID) {
+		return nil
+	}
+
+	validModes := []string{
+		config.TelegramResponseModeText,
+		config.TelegramResponseModeVoice,
+		config.TelegramResponseModeMirror,
+		config.TelegramResponseModeBoth,
+	}
+
+	args := strings.TrimSpace(strings.TrimPrefix(msg.Text, "/responsemode"))
+	if args == "" {
+		current := c.getResponseMode()
+		c.responseMu.RLock()
+		overridden := c.responseModeOverride != ""
+		c.responseMu.RUnlock()
+
+		status := fmt.Sprintf("*Response mode:* `%s`", current)
+		if overridden {
+			status += fmt.Sprintf(" (override, config: `%s`)", c.cfg.ResponseMode)
+		}
+		status += fmt.Sprintf("\n*Options:* `%s`, `reset`", strings.Join(validModes, "`, `"))
+
+		_, _ = ctx.Bot().SendMessage(ctx, &telego.SendMessageParams{
+			ChatID:    tu.ID(msg.Chat.ID),
+			Text:      status,
+			ParseMode: "Markdown",
+		})
+		return nil
+	}
+
+	if args == "reset" {
+		c.responseMu.Lock()
+		c.responseModeOverride = ""
+		c.responseMu.Unlock()
+		c.logger.Info("Response mode override cleared, back to config default",
+			"user_id", msg.From.ID,
+			"config_mode", c.cfg.ResponseMode,
+		)
+		_, _ = ctx.Bot().SendMessage(ctx, &telego.SendMessageParams{
+			ChatID:    tu.ID(msg.Chat.ID),
+			Text:      fmt.Sprintf("Response mode reset to config default: `%s`", c.cfg.ResponseMode),
+			ParseMode: "Markdown",
+		})
+		return nil
+	}
+
+	if !slices.Contains(validModes, args) {
+		_, _ = ctx.Bot().SendMessage(ctx, &telego.SendMessageParams{
+			ChatID:    tu.ID(msg.Chat.ID),
+			Text:      fmt.Sprintf("Invalid mode `%s`. Valid options: `%s`, `reset`", args, strings.Join(validModes, "`, `")),
+			ParseMode: "Markdown",
+		})
+		return nil
+	}
+
+	c.responseMu.Lock()
+	c.responseModeOverride = args
+	c.responseMu.Unlock()
+
+	c.logger.Info("Response mode overridden",
+		"user_id", msg.From.ID,
+		"new_mode", args,
+	)
+	_, _ = ctx.Bot().SendMessage(ctx, &telego.SendMessageParams{
+		ChatID:    tu.ID(msg.Chat.ID),
+		Text:      fmt.Sprintf("Response mode set to `%s` (until restart)", args),
+		ParseMode: "Markdown",
 	})
-	if err != nil {
-		c.logger.Error("Failed to send message", "error", err)
-	}
-
-	// Send voice response if enabled
-	if c.cfg.VoiceResponses && c.ttsURL != "" {
-		c.sendVoiceResponse(ctx, msg.Chat.ID, response)
-	}
-
 	return nil
 }
 
@@ -291,17 +401,43 @@ func (c *Client) isAllowed(userID, chatID int64) bool {
 	return false
 }
 
+// buildMessageContext creates a metadata prefix with Telegram user/chat info for the LLM.
+func (c *Client) buildMessageContext(msg telego.Message) string {
+	var parts []string
+
+	parts = append(parts, fmt.Sprintf("telegram_user_id: %d", msg.From.ID))
+
+	if msg.From.Username != "" {
+		parts = append(parts, fmt.Sprintf("telegram_username: @%s", msg.From.Username))
+	}
+
+	name := strings.TrimSpace(msg.From.FirstName + " " + msg.From.LastName)
+	if name != "" {
+		parts = append(parts, fmt.Sprintf("telegram_name: %s", name))
+	}
+
+	parts = append(parts, fmt.Sprintf("telegram_chat_id: %d", msg.Chat.ID))
+
+	if msg.Chat.Title != "" {
+		parts = append(parts, fmt.Sprintf("telegram_chat_title: %s", msg.Chat.Title))
+	}
+
+	parts = append(parts, fmt.Sprintf("telegram_chat_type: %s", msg.Chat.Type))
+
+	return fmt.Sprintf("[context: %s]\n", strings.Join(parts, ", "))
+}
+
 // callAgent sends a message to the ADK agent and returns the response
-func (c *Client) callAgent(userID, chatID int64, message string) (string, error) {
-	// Use chat ID as session ID for conversation continuity
-	// User is always default_user until multiuser support is added
-	sessionID := fmt.Sprintf("telegram_%d", chatID)
+func (c *Client) callAgent(msg telego.Message, message string) (string, error) {
+	sessionID := fmt.Sprintf("telegram_%d", msg.Chat.ID)
 	userIDStr := "default_user"
 
 	// Ensure session exists
 	if err := c.ensureSession(userIDStr, sessionID); err != nil {
 		c.logger.Warn("Failed to ensure session, continuing anyway", "error", err)
 	}
+
+	fullMessage := c.buildMessageContext(msg) + message
 
 	// Build request
 	reqBody := map[string]interface{}{
@@ -311,7 +447,7 @@ func (c *Client) callAgent(userID, chatID int64, message string) (string, error)
 		"newMessage": map[string]interface{}{
 			"role": "user",
 			"parts": []map[string]string{
-				{"text": message},
+				{"text": fullMessage},
 			},
 		},
 	}

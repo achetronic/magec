@@ -30,7 +30,7 @@ Personal AI assistant from the Canary Islands 🇮🇨 that you control.
 
 ```bash
 # Docker Compose (recommended)
-cd deploy/docker-compose
+cd deploy/docker/fully-local
 nano config.yaml  # Add your LLM API key
 docker-compose up -d
 
@@ -78,6 +78,7 @@ magec/
 ├── scripts/
 │   └── download-model.go       # Wake word model downloader
 ├── deploy/
+│   └── docker/                 # Docker Compose deployments
 │   └── docker-compose/         # Production deployment
 ├── config.example.yaml
 ├── Dockerfile
@@ -208,7 +209,7 @@ clients:
     token: ${TELEGRAM_BOT_TOKEN}
     allowedUsers: [123456789]
     allowedChats: [-100123456789]
-    voiceResponses: true
+    responseMode: both
 ```
 
 ### Backend Types
@@ -317,6 +318,28 @@ PWA-enabled web interface with:
 - **Voice messages**: Downloaded → converted OGG→WAV (ffmpeg) → transcribed → processed → optional voice response
 - **Authorization**: `allowedUsers` and `allowedChats` allowlists
 - **Sessions**: Scoped by `telegram_<chatID>`
+- **User context**: Every message sent to the LLM includes a `[context: ...]` prefix with Telegram metadata (user ID, username, display name, chat ID, chat title, chat type) so the agent always knows who is talking and from where
+- **Response mode**: Configurable via `responseMode` in YAML. Can also be changed at runtime with the `/responsemode` Telegram command (persists until pod restart)
+
+#### Telegram Commands
+
+| Command | Description |
+|---------|-------------|
+| `/responsemode` | Show current response mode |
+| `/responsemode text` | Force text-only responses |
+| `/responsemode voice` | Force voice-only responses (requires TTS) |
+| `/responsemode mirror` | Reply in the same format as the input |
+| `/responsemode both` | Reply with both text and voice |
+| `/responsemode reset` | Revert to the config file default |
+
+#### Response Modes
+
+| Mode | Behavior |
+|------|----------|
+| `text` | Always reply with text only (default) |
+| `voice` | Always reply with voice only (requires TTS) |
+| `mirror` | Reply in the same format as the input (text→text, voice→voice) |
+| `both` | Reply with both text and voice (requires TTS) |
 
 ## Development
 
@@ -386,21 +409,46 @@ llm:
   model: gemini-2.0-flash
 ```
 
-## Docker Compose Deployment
+## Docker Compose Deployments
 
-Production deployment in `deploy/docker-compose/`:
+Two ready-to-use deployments in `deploy/docker/`:
+
+### Local (`deploy/docker/fully-local/`)
+
+Fully self-hosted. No API keys needed. All AI runs locally.
 
 **Services:**
-- **magec** - Main server (ghcr.io/achetronic/magec:latest, port 8080)
+- **magec** - Main server (port 8080)
 - **redis** - Session storage
 - **postgres** - Long-term memory (pgvector)
-- **parakeet** - Speech-to-text (ghcr.io/achetronic/parakeet:latest)
-- **tts** - Text-to-speech (travisvn/openai-edge-tts:latest)
+- **ollama** - LLM (qwen3:8b) + embeddings (nomic-embed-text)
+- **ollama-setup** - Init container that pulls models on first start
+- **parakeet** - Speech-to-text
+- **tts** - Text-to-speech (openai-edge-tts)
 
 ```bash
-cd deploy/docker-compose
-docker-compose up -d
+cd deploy/docker/fully-local
+docker compose up -d
 ```
+
+### OpenAI (`deploy/docker/remote-openai/`)
+
+Only infra runs locally. LLM, STT, TTS, and embeddings use OpenAI APIs.
+
+**Services:**
+- **magec** - Main server (port 8080)
+- **redis** - Session storage
+- **postgres** - Long-term memory (pgvector)
+
+```bash
+cd deploy/docker/remote-openai
+export OPENAI_API_KEY=sk-...
+docker compose up -d
+```
+
+### Legacy (`deploy/docker/legacy/`)
+
+Original hybrid deployment. Still functional but superseded by the above.
 
 ## Dependencies
 
@@ -447,6 +495,8 @@ Pretrained models in `pretrained/`:
 8. **Telegram voice**: Requires TTS backend configured for voice responses. ffmpeg required in container for OGG→WAV conversion.
 
 9. **Security**: Always set `allowedUsers` in Telegram config to restrict access.
+
+10. **Telegram user context**: The LLM receives a `[context: telegram_user_id: ..., telegram_username: @..., ...]` prefix on every message. This is injected by the Telegram client, not configurable.
 
 ## Testing
 

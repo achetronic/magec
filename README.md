@@ -70,23 +70,34 @@ The name honors this Canarian heritage while reflecting the assistant's purpose:
 
 ## Quick Start
 
-The easiest way to run Magec is with Docker Compose:
+The easiest way to run Magec is with Docker Compose. Choose one:
+
+### Option A: Fully local (no API keys)
+
+Everything runs on your machine — LLM, speech-to-text, text-to-speech, embeddings.
 
 ```bash
-# 1. Clone the repo
 git clone https://github.com/achetronic/magec.git
-cd magec/deploy/docker-compose
+cd magec/deploy/docker/fully-local
+cp config.yaml config.yaml.bak   # optional backup
+docker compose up -d
+```
 
-# 2. Edit config (add your LLM API key)
-nano config.yaml
+> **Note**: First start downloads ~5GB of models (Ollama qwen3:8b + nomic-embed-text). Be patient.
+> To use NVIDIA GPU, uncomment the `deploy` section in `docker-compose.yaml`.
 
-# 3. Start everything
-docker-compose up -d
+### Option B: OpenAI cloud (just an API key)
+
+Only Redis and PostgreSQL run locally. LLM, STT, TTS and embeddings use OpenAI APIs.
+
+```bash
+git clone https://github.com/achetronic/magec.git
+cd magec/deploy/docker/remote-openai
+export OPENAI_API_KEY=sk-...
+docker compose up -d
 ```
 
 Open http://localhost:8080 and start chatting!
-
-> **Note**: Edit `config.yaml` to add your OpenAI/Anthropic API key, or configure Ollama for fully local operation.
 
 ## Configuration
 
@@ -169,6 +180,15 @@ memory:
 mcpServers:
   - name: home-assistant
     endpoint: http://localhost:8070/mcp
+
+# Client interfaces
+clients:
+  telegram:
+    enabled: false
+    token: ${TELEGRAM_BOT_TOKEN}
+    allowedUsers: []         # Restrict by user ID
+    allowedChats: []         # Restrict by chat/group ID
+    responseMode: text       # text, voice, mirror, both
 ```
 
 ### Backend Types
@@ -413,16 +433,40 @@ clients:
     enabled: true
     token: ${TELEGRAM_BOT_TOKEN}
     allowedUsers: [123456789]  # Your user ID (restrict access!)
-    voiceResponses: false      # Set to true if TTS is configured
+    responseMode: text         # text, voice, mirror, both
 ```
 
 4. **Start chatting!** — Message your bot on Telegram
+
+#### Response Modes
+
+| Mode | Behavior |
+|------|----------|
+| `text` | Always reply with text only (default) |
+| `voice` | Always reply with voice only (requires TTS) |
+| `mirror` | Reply in the same format as the input (text→text, voice→voice) |
+| `both` | Reply with both text and voice (requires TTS) |
+
+You can also change the mode at runtime using the `/responsemode` Telegram command (e.g. `/responsemode mirror`). Use `/responsemode reset` to revert to the config default. Changes persist until the server restarts.
+
+#### User Context
+
+Every message forwarded to the LLM includes Telegram metadata (user ID, username, display name, chat ID, chat type) so the agent always knows who is talking and from where.
 
 > **Security**: Always set `allowedUsers` to restrict who can use your bot. Without it, anyone can interact with your bot (and consume your API credits).
 
 ## Docker
 
-### Using the image
+### Deployment Options
+
+| Deployment | Location | Description |
+|---|---|---|
+| **Local** | `deploy/docker/fully-local/` | Fully self-hosted — Ollama, Parakeet, Edge TTS. No API keys needed |
+| **OpenAI** | `deploy/docker/remote-openai/` | Only Redis + PostgreSQL locally. Everything else via OpenAI API |
+
+Each folder contains a `docker-compose.yaml` and a `config.yaml` ready to use.
+
+### Using the image standalone
 
 ```bash
 docker run -d --name magec \
@@ -560,6 +604,7 @@ magec/
 ├── models/               # Wake word ONNX models + wakewords.yaml
 ├── pretrained/           # Shared models (mel-spectrogram, embeddings)
 ├── deploy/               # Deployment configurations
+│   └── docker/           # Docker Compose deployments
 │   └── docker-compose/   # One-command deployment with docker-compose
 ├── config.example.yaml   # Config template for development
 ├── Dockerfile
