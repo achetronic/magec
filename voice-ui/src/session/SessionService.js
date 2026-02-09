@@ -16,6 +16,7 @@
 
 import { CONFIG } from '../config.js';
 import { errorHandler, ErrorContext } from '../errors/index.js';
+import { stripMetadata } from '../utils/metadata.js';
 
 export class SessionService {
     constructor() {
@@ -90,7 +91,7 @@ export class SessionService {
             if (event.content?.role && event.content?.parts?.[0]?.text) {
                 messages.push({
                     role: event.content.role,
-                    text: event.content.parts[0].text
+                    text: stripMetadata(event.content.parts[0].text)
                 });
             }
         }

@@ -318,7 +318,7 @@ PWA-enabled web interface with:
 - **Voice messages**: Downloaded → converted OGG→WAV (ffmpeg) → transcribed → processed → optional voice response
 - **Authorization**: `allowedUsers` and `allowedChats` allowlists
 - **Sessions**: Scoped by `telegram_<chatID>`
-- **User context**: Every message sent to the LLM includes a `[context: ...]` prefix with Telegram metadata (user ID, username, display name, chat ID, chat title, chat type) so the agent always knows who is talking and from where
+- **User context**: Every message sent to the LLM includes a `<!--MAGEC_META:{...}:MAGEC_META-->` prefix with Telegram metadata as JSON (source, user ID, username, display name, chat ID, chat title, chat type) so the agent always knows who is talking and from where. This format is shared across all clients (Telegram, voice-ui with future OpenID JWT claims) and is stripped from user-facing views by the `stripMetadata()` utility
 - **Response mode**: Configurable via `responseMode` in YAML. Can also be changed at runtime with the `/responsemode` Telegram command (persists until pod restart)
 
 #### Telegram Commands

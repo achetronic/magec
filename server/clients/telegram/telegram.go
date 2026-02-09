@@ -402,29 +402,36 @@ func (c *Client) isAllowed(userID, chatID int64) bool {
 }
 
 // buildMessageContext creates a metadata prefix with Telegram user/chat info for the LLM.
+// The metadata is wrapped in <!--MAGEC_META:{...}:MAGEC_META--> delimiters so it can be
+// parsed by the LLM while being stripped from user-facing views.
 func (c *Client) buildMessageContext(msg telego.Message) string {
-	var parts []string
-
-	parts = append(parts, fmt.Sprintf("telegram_user_id: %d", msg.From.ID))
+	meta := map[string]interface{}{
+		"source":             "telegram",
+		"telegram_user_id":   msg.From.ID,
+		"telegram_chat_id":   msg.Chat.ID,
+		"telegram_chat_type": string(msg.Chat.Type),
+	}
 
 	if msg.From.Username != "" {
-		parts = append(parts, fmt.Sprintf("telegram_username: @%s", msg.From.Username))
+		meta["telegram_username"] = "@" + msg.From.Username
 	}
 
 	name := strings.TrimSpace(msg.From.FirstName + " " + msg.From.LastName)
 	if name != "" {
-		parts = append(parts, fmt.Sprintf("telegram_name: %s", name))
+		meta["telegram_name"] = name
 	}
-
-	parts = append(parts, fmt.Sprintf("telegram_chat_id: %d", msg.Chat.ID))
 
 	if msg.Chat.Title != "" {
-		parts = append(parts, fmt.Sprintf("telegram_chat_title: %s", msg.Chat.Title))
+		meta["telegram_chat_title"] = msg.Chat.Title
 	}
 
-	parts = append(parts, fmt.Sprintf("telegram_chat_type: %s", msg.Chat.Type))
+	jsonBytes, err := json.Marshal(meta)
+	if err != nil {
+		c.logger.Warn("Failed to marshal message context metadata", "error", err)
+		return ""
+	}
 
-	return fmt.Sprintf("[context: %s]\n", strings.Join(parts, ", "))
+	return fmt.Sprintf("<!--MAGEC_META:%s:MAGEC_META-->\n", string(jsonBytes))
 }
 
 // callAgent sends a message to the ADK agent and returns the response
