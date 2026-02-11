@@ -12,8 +12,6 @@ async function request(path, opts = {}) {
 }
 
 export const api = {
-    getOverview: () => request('/overview'),
-
     listBackends: () => request('/backends'),
     getBackend: (name) => request(`/backends/${name}`),
     createBackend: (b) => request('/backends', { method: 'POST', body: JSON.stringify(b) }),
@@ -50,10 +48,11 @@ export const api = {
     updateCron: (name, c) => request(`/crons/${name}`, { method: 'PUT', body: JSON.stringify(c) }),
     deleteCron: (name) => request(`/crons/${name}`, { method: 'DELETE' }),
 
-    listDevices: () => request('/devices'),
-    getDevice: (name) => request(`/devices/${name}`),
-    createDevice: (d) => request('/devices', { method: 'POST', body: JSON.stringify(d) }),
-    updateDevice: (name, d) => request(`/devices/${name}`, { method: 'PUT', body: JSON.stringify(d) }),
-    deleteDevice: (name) => request(`/devices/${name}`, { method: 'DELETE' }),
-    regenerateDeviceToken: (name) => request(`/devices/${name}/regenerate-token`, { method: 'POST' }),
+    listClients: () => request('/clients'),
+    getClient: (name) => request(`/clients/${name}`),
+    createClient: (c) => request('/clients', { method: 'POST', body: JSON.stringify(c) }),
+    updateClient: (name, c) => request(`/clients/${name}`, { method: 'PUT', body: JSON.stringify(c) }),
+    deleteClient: (name) => request(`/clients/${name}`, { method: 'DELETE' }),
+    regenerateClientToken: (name) => request(`/clients/${name}/regenerate-token`, { method: 'POST' }),
+    listClientTypes: () => request('/clients/types'),
 };

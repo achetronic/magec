@@ -483,6 +483,244 @@ const docTemplate = `{
                 }
             }
         },
+        "/clients": {
+            "get": {
+                "description": "Returns all configured clients (devices, Telegram bots, etc.)",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "clients"
+                ],
+                "summary": "List clients",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/store.ClientDefinition"
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Creates a new client. A unique auth token is generated automatically.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "clients"
+                ],
+                "summary": "Create client",
+                "parameters": [
+                    {
+                        "description": "Client definition (token is auto-generated)",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/store.ClientDefinition"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/store.ClientDefinition"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/clients/types": {
+            "get": {
+                "description": "Returns registered client types with config field specifications for dynamic form rendering",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "clients"
+                ],
+                "summary": "List client types",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/admin.ClientTypeInfo"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/clients/{name}": {
+            "get": {
+                "description": "Returns a client by its unique name",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "clients"
+                ],
+                "summary": "Get client",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Client name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/store.ClientDefinition"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "Updates a client by name. Token is preserved.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "clients"
+                ],
+                "summary": "Update client",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Client name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Client definition",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/store.ClientDefinition"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/store.ClientDefinition"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Deletes a client by name, revoking its access token",
+                "tags": [
+                    "clients"
+                ],
+                "summary": "Delete client",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Client name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/clients/{name}/regenerate-token": {
+            "post": {
+                "description": "Generates a new authentication token for a client, invalidating the previous one",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "clients"
+                ],
+                "summary": "Regenerate client token",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Client name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/store.ClientDefinition"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/crons": {
             "get": {
                 "description": "Returns all configured scheduled tasks",
@@ -653,221 +891,6 @@ const docTemplate = `{
                 "responses": {
                     "204": {
                         "description": "No Content"
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/admin.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/devices": {
-            "get": {
-                "description": "Returns all configured access point devices",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "devices"
-                ],
-                "summary": "List devices",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/store.Device"
-                            }
-                        }
-                    }
-                }
-            },
-            "post": {
-                "description": "Creates a new device. A unique auth token is generated automatically.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "devices"
-                ],
-                "summary": "Create device",
-                "parameters": [
-                    {
-                        "description": "Device definition (token is auto-generated)",
-                        "name": "body",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/store.Device"
-                        }
-                    }
-                ],
-                "responses": {
-                    "201": {
-                        "description": "Created",
-                        "schema": {
-                            "$ref": "#/definitions/store.Device"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/admin.ErrorResponse"
-                        }
-                    },
-                    "409": {
-                        "description": "Conflict",
-                        "schema": {
-                            "$ref": "#/definitions/admin.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/devices/{name}": {
-            "get": {
-                "description": "Returns a device by its unique name",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "devices"
-                ],
-                "summary": "Get device",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Device name",
-                        "name": "name",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/store.Device"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/admin.ErrorResponse"
-                        }
-                    }
-                }
-            },
-            "put": {
-                "description": "Updates a device by name. Token is preserved.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "devices"
-                ],
-                "summary": "Update device",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Device name",
-                        "name": "name",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "Device definition",
-                        "name": "body",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/store.Device"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/store.Device"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/admin.ErrorResponse"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/admin.ErrorResponse"
-                        }
-                    }
-                }
-            },
-            "delete": {
-                "description": "Deletes a device by name, revoking its access token",
-                "tags": [
-                    "devices"
-                ],
-                "summary": "Delete device",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Device name",
-                        "name": "name",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "204": {
-                        "description": "No Content"
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/admin.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/devices/{name}/regenerate-token": {
-            "post": {
-                "description": "Generates a new authentication token for a device, invalidating the previous one",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "devices"
-                ],
-                "summary": "Regenerate device token",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Device name",
-                        "name": "name",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/store.Device"
-                        }
                     },
                     "404": {
                         "description": "Not Found",
@@ -1295,30 +1318,28 @@ const docTemplate = `{
                     }
                 }
             }
-        },
-        "/overview": {
-            "get": {
-                "description": "Returns counts for all resource types and agent summaries",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "overview"
-                ],
-                "summary": "Dashboard overview",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    }
-                }
-            }
         }
     },
     "definitions": {
+        "admin.ClientTypeInfo": {
+            "type": "object",
+            "properties": {
+                "displayName": {
+                    "type": "string",
+                    "example": "Telegram"
+                },
+                "fields": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/client.FieldSpec"
+                    }
+                },
+                "type": {
+                    "type": "string",
+                    "example": "telegram"
+                }
+            }
+        },
         "admin.ErrorResponse": {
             "type": "object",
             "properties": {
@@ -1353,6 +1374,32 @@ const docTemplate = `{
                 "type": {
                     "type": "string",
                     "example": "redis"
+                }
+            }
+        },
+        "client.FieldSpec": {
+            "type": "object",
+            "properties": {
+                "default": {
+                    "type": "string"
+                },
+                "key": {
+                    "type": "string"
+                },
+                "label": {
+                    "type": "string"
+                },
+                "options": {
+                    "type": "string"
+                },
+                "placeholder": {
+                    "type": "string"
+                },
+                "required": {
+                    "type": "boolean"
+                },
+                "type": {
+                    "type": "string"
                 }
             }
         },
@@ -1420,9 +1467,6 @@ const docTemplate = `{
                 "systemPromptSuffix": {
                     "type": "string"
                 },
-                "telegram": {
-                    "$ref": "#/definitions/store.TelegramConfig"
-                },
                 "transcription": {
                     "$ref": "#/definitions/store.BackendRef"
                 },
@@ -1459,6 +1503,46 @@ const docTemplate = `{
                 }
             }
         },
+        "store.ClientConfig": {
+            "type": "object",
+            "properties": {
+                "discord": {
+                    "$ref": "#/definitions/store.DiscordClientConfig"
+                },
+                "slack": {
+                    "$ref": "#/definitions/store.SlackClientConfig"
+                },
+                "telegram": {
+                    "$ref": "#/definitions/store.TelegramClientConfig"
+                }
+            }
+        },
+        "store.ClientDefinition": {
+            "type": "object",
+            "properties": {
+                "allowedAgents": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "config": {
+                    "$ref": "#/definitions/store.ClientConfig"
+                },
+                "enabled": {
+                    "type": "boolean"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "token": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
+                }
+            }
+        },
         "store.CronJob": {
             "type": "object",
             "properties": {
@@ -1482,25 +1566,25 @@ const docTemplate = `{
                 }
             }
         },
-        "store.Device": {
+        "store.DiscordClientConfig": {
             "type": "object",
             "properties": {
-                "allowedAgents": {
+                "allowedChannels": {
                     "type": "array",
                     "items": {
                         "type": "string"
                     }
                 },
-                "defaultAgent": {
+                "allowedUsers": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "botToken": {
                     "type": "string"
                 },
-                "enabled": {
-                    "type": "boolean"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "token": {
+                "guildId": {
                     "type": "string"
                 }
             }
@@ -1578,6 +1662,29 @@ const docTemplate = `{
                 }
             }
         },
+        "store.SlackClientConfig": {
+            "type": "object",
+            "properties": {
+                "allowedChannels": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "allowedUsers": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "botToken": {
+                    "type": "string"
+                },
+                "signingSecret": {
+                    "type": "string"
+                }
+            }
+        },
         "store.TTSRef": {
             "type": "object",
             "properties": {
@@ -1595,7 +1702,7 @@ const docTemplate = `{
                 }
             }
         },
-        "store.TelegramConfig": {
+        "store.TelegramClientConfig": {
             "type": "object",
             "properties": {
                 "allowedChats": {
@@ -1610,13 +1717,10 @@ const docTemplate = `{
                         "type": "integer"
                     }
                 },
-                "enabled": {
-                    "type": "boolean"
-                },
-                "responseMode": {
+                "botToken": {
                     "type": "string"
                 },
-                "token": {
+                "responseMode": {
                     "type": "string"
                 }
             }

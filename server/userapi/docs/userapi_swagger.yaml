@@ -1,0 +1,196 @@
+basePath: /api/v1
+definitions:
+  userapi.AgentSummary:
+    properties:
+      id:
+        example: magec
+        type: string
+      name:
+        example: Magec
+        type: string
+    type: object
+  userapi.DeviceInfoResponse:
+    properties:
+      allowedAgents:
+        items:
+          $ref: '#/definitions/userapi.AgentSummary'
+        type: array
+      defaultAgent:
+        example: magec
+        type: string
+      name:
+        example: my-tablet
+        type: string
+      paired:
+        example: true
+        type: boolean
+    type: object
+  userapi.ErrorResponse:
+    properties:
+      error:
+        example: resource not found
+        type: string
+    type: object
+  userapi.SpeechRequest:
+    properties:
+      input:
+        example: Hello world
+        type: string
+    type: object
+host: localhost:8080
+info:
+  contact: {}
+  description: User-facing API for Magec multi-agent voice assistant. Includes device
+    pairing, voice proxies, and health checks.
+  title: Magec User API
+  version: "1.0"
+paths:
+  /device/info:
+    get:
+      description: Returns client pairing status, name, default agent, and allowed
+        agents. Requires Bearer token via Authorization header.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Authenticated client info
+          headers:
+            X-Client-Name:
+              description: Set by auth middleware
+              type: string
+          schema:
+            $ref: '#/definitions/userapi.DeviceInfoResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/userapi.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Device info
+      tags:
+      - device
+  /health:
+    get:
+      description: Returns 200 if the server is healthy
+      produces:
+      - text/plain
+      responses:
+        "200":
+          description: ok
+          schema:
+            type: string
+      summary: Health check
+      tags:
+      - system
+  /voice/{agentId}/speech:
+    post:
+      consumes:
+      - application/json
+      description: Proxies a TTS request to the speech backend configured for the
+        given agent. Returns audio data.
+      parameters:
+      - description: Agent ID
+        in: path
+        name: agentId
+        required: true
+        type: string
+      - description: Speech request with input text
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/userapi.SpeechRequest'
+      produces:
+      - application/octet-stream
+      responses:
+        "200":
+          description: Audio data
+          schema:
+            type: file
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/userapi.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/userapi.ErrorResponse'
+        "502":
+          description: Bad Gateway
+          schema:
+            $ref: '#/definitions/userapi.ErrorResponse'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/userapi.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Text-to-Speech
+      tags:
+      - voice
+  /voice/{agentId}/transcription:
+    post:
+      consumes:
+      - multipart/form-data
+      description: Proxies a transcription request to the STT backend configured for
+        the given agent. Accepts multipart audio.
+      parameters:
+      - description: Agent ID
+        in: path
+        name: agentId
+        required: true
+        type: string
+      - description: Audio file to transcribe
+        in: formData
+        name: file
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Transcription result
+          schema:
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/userapi.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/userapi.ErrorResponse'
+        "502":
+          description: Bad Gateway
+          schema:
+            $ref: '#/definitions/userapi.ErrorResponse'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/userapi.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Speech-to-Text
+      tags:
+      - voice
+  /voice/events:
+    get:
+      description: WebSocket endpoint for real-time voice events including wake word
+        detection and voice activity detection (VAD).
+      responses:
+        "101":
+          description: Switching Protocols
+          schema:
+            type: string
+      summary: Voice events WebSocket
+      tags:
+      - voice
+schemes:
+- http
+securityDefinitions:
+  BearerAuth:
+    description: 'Enter your bearer token as: Bearer <token>'
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"

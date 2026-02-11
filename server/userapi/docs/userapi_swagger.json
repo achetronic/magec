@@ -1,0 +1,292 @@
+{
+    "schemes": [
+        "http"
+    ],
+    "swagger": "2.0",
+    "info": {
+        "description": "User-facing API for Magec multi-agent voice assistant. Includes device pairing, voice proxies, and health checks.",
+        "title": "Magec User API",
+        "contact": {},
+        "version": "1.0"
+    },
+    "host": "localhost:8080",
+    "basePath": "/api/v1",
+    "paths": {
+        "/device/info": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Returns client pairing status, name, default agent, and allowed agents. Requires Bearer token via Authorization header.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "device"
+                ],
+                "summary": "Device info",
+                "responses": {
+                    "200": {
+                        "description": "Authenticated client info",
+                        "schema": {
+                            "$ref": "#/definitions/userapi.DeviceInfoResponse"
+                        },
+                        "headers": {
+                            "X-Client-Name": {
+                                "type": "string",
+                                "description": "Set by auth middleware"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/userapi.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/health": {
+            "get": {
+                "description": "Returns 200 if the server is healthy",
+                "produces": [
+                    "text/plain"
+                ],
+                "tags": [
+                    "system"
+                ],
+                "summary": "Health check",
+                "responses": {
+                    "200": {
+                        "description": "ok",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/voice/events": {
+            "get": {
+                "description": "WebSocket endpoint for real-time voice events including wake word detection and voice activity detection (VAD).",
+                "tags": [
+                    "voice"
+                ],
+                "summary": "Voice events WebSocket",
+                "responses": {
+                    "101": {
+                        "description": "Switching Protocols",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/voice/{agentId}/speech": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Proxies a TTS request to the speech backend configured for the given agent. Returns audio data.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/octet-stream"
+                ],
+                "tags": [
+                    "voice"
+                ],
+                "summary": "Text-to-Speech",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Agent ID",
+                        "name": "agentId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Speech request with input text",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/userapi.SpeechRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Audio data",
+                        "schema": {
+                            "type": "file"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/userapi.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/userapi.ErrorResponse"
+                        }
+                    },
+                    "502": {
+                        "description": "Bad Gateway",
+                        "schema": {
+                            "$ref": "#/definitions/userapi.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/userapi.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/voice/{agentId}/transcription": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Proxies a transcription request to the STT backend configured for the given agent. Accepts multipart audio.",
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "voice"
+                ],
+                "summary": "Speech-to-Text",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Agent ID",
+                        "name": "agentId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "file",
+                        "description": "Audio file to transcribe",
+                        "name": "file",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Transcription result",
+                        "schema": {
+                            "type": "object"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/userapi.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/userapi.ErrorResponse"
+                        }
+                    },
+                    "502": {
+                        "description": "Bad Gateway",
+                        "schema": {
+                            "$ref": "#/definitions/userapi.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/userapi.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "definitions": {
+        "userapi.AgentSummary": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string",
+                    "example": "magec"
+                },
+                "name": {
+                    "type": "string",
+                    "example": "Magec"
+                }
+            }
+        },
+        "userapi.DeviceInfoResponse": {
+            "type": "object",
+            "properties": {
+                "allowedAgents": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/userapi.AgentSummary"
+                    }
+                },
+                "defaultAgent": {
+                    "type": "string",
+                    "example": "magec"
+                },
+                "name": {
+                    "type": "string",
+                    "example": "my-tablet"
+                },
+                "paired": {
+                    "type": "boolean",
+                    "example": true
+                }
+            }
+        },
+        "userapi.ErrorResponse": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string",
+                    "example": "resource not found"
+                }
+            }
+        },
+        "userapi.SpeechRequest": {
+            "type": "object",
+            "properties": {
+                "input": {
+                    "type": "string",
+                    "example": "Hello world"
+                }
+            }
+        }
+    },
+    "securityDefinitions": {
+        "BearerAuth": {
+            "description": "Enter your bearer token as: Bearer \u003ctoken\u003e",
+            "type": "apiKey",
+            "name": "Authorization",
+            "in": "header"
+        }
+    }
+}

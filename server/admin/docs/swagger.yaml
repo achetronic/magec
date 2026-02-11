@@ -1,5 +1,18 @@
 basePath: /api/v1/admin
 definitions:
+  admin.ClientTypeInfo:
+    properties:
+      displayName:
+        example: Telegram
+        type: string
+      fields:
+        items:
+          $ref: '#/definitions/client.FieldSpec'
+        type: array
+      type:
+        example: telegram
+        type: string
+    type: object
   admin.ErrorResponse:
     properties:
       error:
@@ -23,6 +36,23 @@ definitions:
         type: array
       type:
         example: redis
+        type: string
+    type: object
+  client.FieldSpec:
+    properties:
+      default:
+        type: string
+      key:
+        type: string
+      label:
+        type: string
+      options:
+        type: string
+      placeholder:
+        type: string
+      required:
+        type: boolean
+      type:
         type: string
     type: object
   memory.FieldSpec:
@@ -67,8 +97,6 @@ definitions:
         type: string
       systemPromptSuffix:
         type: string
-      telegram:
-        $ref: '#/definitions/store.TelegramConfig'
       transcription:
         $ref: '#/definitions/store.BackendRef'
       tts:
@@ -92,6 +120,32 @@ definitions:
       model:
         type: string
     type: object
+  store.ClientConfig:
+    properties:
+      discord:
+        $ref: '#/definitions/store.DiscordClientConfig'
+      slack:
+        $ref: '#/definitions/store.SlackClientConfig'
+      telegram:
+        $ref: '#/definitions/store.TelegramClientConfig'
+    type: object
+  store.ClientDefinition:
+    properties:
+      allowedAgents:
+        items:
+          type: string
+        type: array
+      config:
+        $ref: '#/definitions/store.ClientConfig'
+      enabled:
+        type: boolean
+      name:
+        type: string
+      token:
+        type: string
+      type:
+        type: string
+    type: object
   store.CronJob:
     properties:
       agentId:
@@ -107,19 +161,19 @@ definitions:
       schedule:
         type: string
     type: object
-  store.Device:
+  store.DiscordClientConfig:
     properties:
-      allowedAgents:
+      allowedChannels:
         items:
           type: string
         type: array
-      defaultAgent:
+      allowedUsers:
+        items:
+          type: string
+        type: array
+      botToken:
         type: string
-      enabled:
-        type: boolean
-      name:
-        type: string
-      token:
+      guildId:
         type: string
     type: object
   store.MCPServer:
@@ -170,6 +224,21 @@ definitions:
       session:
         type: string
     type: object
+  store.SlackClientConfig:
+    properties:
+      allowedChannels:
+        items:
+          type: string
+        type: array
+      allowedUsers:
+        items:
+          type: string
+        type: array
+      botToken:
+        type: string
+      signingSecret:
+        type: string
+    type: object
   store.TTSRef:
     properties:
       backend:
@@ -181,7 +250,7 @@ definitions:
       voice:
         type: string
     type: object
-  store.TelegramConfig:
+  store.TelegramClientConfig:
     properties:
       allowedChats:
         items:
@@ -191,11 +260,9 @@ definitions:
         items:
           type: integer
         type: array
-      enabled:
-        type: boolean
-      responseMode:
+      botToken:
         type: string
-      token:
+      responseMode:
         type: string
     type: object
 host: localhost:8081
@@ -515,6 +582,165 @@ paths:
       summary: Update backend
       tags:
       - backends
+  /clients:
+    get:
+      description: Returns all configured clients (devices, Telegram bots, etc.)
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/store.ClientDefinition'
+            type: array
+      summary: List clients
+      tags:
+      - clients
+    post:
+      consumes:
+      - application/json
+      description: Creates a new client. A unique auth token is generated automatically.
+      parameters:
+      - description: Client definition (token is auto-generated)
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/store.ClientDefinition'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/store.ClientDefinition'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/admin.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/admin.ErrorResponse'
+      summary: Create client
+      tags:
+      - clients
+  /clients/{name}:
+    delete:
+      description: Deletes a client by name, revoking its access token
+      parameters:
+      - description: Client name
+        in: path
+        name: name
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/admin.ErrorResponse'
+      summary: Delete client
+      tags:
+      - clients
+    get:
+      description: Returns a client by its unique name
+      parameters:
+      - description: Client name
+        in: path
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/store.ClientDefinition'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/admin.ErrorResponse'
+      summary: Get client
+      tags:
+      - clients
+    put:
+      consumes:
+      - application/json
+      description: Updates a client by name. Token is preserved.
+      parameters:
+      - description: Client name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: Client definition
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/store.ClientDefinition'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/store.ClientDefinition'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/admin.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/admin.ErrorResponse'
+      summary: Update client
+      tags:
+      - clients
+  /clients/{name}/regenerate-token:
+    post:
+      description: Generates a new authentication token for a client, invalidating
+        the previous one
+      parameters:
+      - description: Client name
+        in: path
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/store.ClientDefinition'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/admin.ErrorResponse'
+      summary: Regenerate client token
+      tags:
+      - clients
+  /clients/types:
+    get:
+      description: Returns registered client types with config field specifications
+        for dynamic form rendering
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/admin.ClientTypeInfo'
+            type: array
+      summary: List client types
+      tags:
+      - clients
   /crons:
     get:
       description: Returns all configured scheduled tasks
@@ -634,149 +860,6 @@ paths:
       summary: Update cron job
       tags:
       - crons
-  /devices:
-    get:
-      description: Returns all configured access point devices
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            items:
-              $ref: '#/definitions/store.Device'
-            type: array
-      summary: List devices
-      tags:
-      - devices
-    post:
-      consumes:
-      - application/json
-      description: Creates a new device. A unique auth token is generated automatically.
-      parameters:
-      - description: Device definition (token is auto-generated)
-        in: body
-        name: body
-        required: true
-        schema:
-          $ref: '#/definitions/store.Device'
-      produces:
-      - application/json
-      responses:
-        "201":
-          description: Created
-          schema:
-            $ref: '#/definitions/store.Device'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/admin.ErrorResponse'
-        "409":
-          description: Conflict
-          schema:
-            $ref: '#/definitions/admin.ErrorResponse'
-      summary: Create device
-      tags:
-      - devices
-  /devices/{name}:
-    delete:
-      description: Deletes a device by name, revoking its access token
-      parameters:
-      - description: Device name
-        in: path
-        name: name
-        required: true
-        type: string
-      responses:
-        "204":
-          description: No Content
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/admin.ErrorResponse'
-      summary: Delete device
-      tags:
-      - devices
-    get:
-      description: Returns a device by its unique name
-      parameters:
-      - description: Device name
-        in: path
-        name: name
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/store.Device'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/admin.ErrorResponse'
-      summary: Get device
-      tags:
-      - devices
-    put:
-      consumes:
-      - application/json
-      description: Updates a device by name. Token is preserved.
-      parameters:
-      - description: Device name
-        in: path
-        name: name
-        required: true
-        type: string
-      - description: Device definition
-        in: body
-        name: body
-        required: true
-        schema:
-          $ref: '#/definitions/store.Device'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/store.Device'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/admin.ErrorResponse'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/admin.ErrorResponse'
-      summary: Update device
-      tags:
-      - devices
-  /devices/{name}/regenerate-token:
-    post:
-      description: Generates a new authentication token for a device, invalidating
-        the previous one
-      parameters:
-      - description: Device name
-        in: path
-        name: name
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/store.Device'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/admin.ErrorResponse'
-      summary: Regenerate device token
-      tags:
-      - devices
   /mcps:
     get:
       description: Returns all configured MCP tool servers
@@ -1055,20 +1138,6 @@ paths:
       summary: List memory provider types
       tags:
       - memory
-  /overview:
-    get:
-      description: Returns counts for all resource types and agent summaries
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            additionalProperties: true
-            type: object
-      summary: Dashboard overview
-      tags:
-      - overview
 schemes:
 - http
 swagger: "2.0"

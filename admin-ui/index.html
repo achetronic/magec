@@ -81,9 +81,9 @@
                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
                     Agents
                 </button>
-                <button data-tab="devices" class="tab-inactive flex items-center gap-1.5 px-3 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap">
+                <button data-tab="clients" class="tab-inactive flex items-center gap-1.5 px-3 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap">
                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 18h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
-                    Devices
+                    Clients
                 </button>
                 <button data-tab="crons" class="tab-inactive flex items-center gap-1.5 px-3 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap">
                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
@@ -151,13 +151,13 @@
                     <div id="agentsList" class="space-y-3"></div>
                 </section>
 
-                <!-- Devices Panel -->
-                <section id="panelDevices" class="space-y-4 hidden">
+                <!-- Clients Panel -->
+                <section id="panelClients" class="space-y-4 hidden">
                     <div class="flex items-center justify-between">
-                        <h2 class="text-sm font-semibold text-arena-200">Devices</h2>
-                        <button onclick="app.showDeviceDialog()" class="px-3 py-1.5 bg-sol-500 hover:bg-sol-600 text-piedra-950 text-xs font-medium rounded-lg transition-colors">+ New Device</button>
+                        <h2 class="text-sm font-semibold text-arena-200">Clients</h2>
+                        <button onclick="app.showClientDialog()" class="px-3 py-1.5 bg-sol-500 hover:bg-sol-600 text-piedra-950 text-xs font-medium rounded-lg transition-colors">+ New Client</button>
                     </div>
-                    <div id="devicesList" class="grid gap-3 grid-cols-1 sm:grid-cols-2"></div>
+                    <div id="clientsList" class="grid gap-3 grid-cols-1 sm:grid-cols-2"></div>
                 </section>
 
                 <!-- Crons Panel -->
@@ -288,33 +288,6 @@
                         </div>
                     </div>
                 </fieldset>
-
-                <!-- Telegram -->
-                <details class="group">
-                    <summary class="flex items-center gap-2 cursor-pointer text-sm text-arena-300 hover:text-arena-100 transition-colors">
-                        <svg class="w-4 h-4 transition-transform group-open:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5l7 7-7 7"/></svg>
-                        Telegram
-                    </summary>
-                    <div class="mt-3 space-y-3 pl-6">
-                        <label class="flex items-center gap-2">
-                            <input type="checkbox" id="agentTelegramEnabled" class="rounded border-piedra-600 bg-piedra-800 text-sol-500 focus:ring-sol-500">
-                            <span class="text-sm text-arena-300">Enabled</span>
-                        </label>
-                        <div>
-                            <label class="block text-xs text-arena-400 mb-1">Bot Token</label>
-                            <input id="agentTelegramToken" type="password" class="w-full bg-piedra-800 border border-piedra-700 rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-sol-500 focus:border-sol-500 outline-none" placeholder="123456:ABC-DEF...">
-                        </div>
-                        <div>
-                            <label class="block text-xs text-arena-400 mb-1">Response Mode</label>
-                            <select id="agentTelegramResponseMode" class="w-full bg-piedra-800 border border-piedra-700 rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-sol-500 focus:border-sol-500 outline-none">
-                                <option value="text">Text</option>
-                                <option value="voice">Voice</option>
-                                <option value="mirror">Mirror</option>
-                                <option value="both">Both</option>
-                            </select>
-                        </div>
-                    </div>
-                </details>
             </div>
             <div class="flex justify-end gap-3 p-5 border-t border-piedra-700/50 flex-shrink-0">
                 <button type="submit" value="cancel" formnovalidate class="px-4 py-2 text-sm text-arena-400 hover:text-arena-200 hover:bg-piedra-800 rounded-lg transition-colors">Cancel</button>
@@ -508,52 +481,59 @@
         </form>
     </dialog>
 
-    <!-- Device Dialog -->
-    <dialog id="deviceDialog" class="bg-piedra-900 border border-piedra-700/50 rounded-2xl p-0 w-full max-w-lg text-arena-100 shadow-2xl">
+    <!-- Client Dialog -->
+    <dialog id="clientDialog" class="bg-piedra-900 border border-piedra-700/50 rounded-2xl p-0 w-full max-w-lg text-arena-100 shadow-2xl">
         <form method="dialog" class="flex flex-col">
             <div class="flex items-center justify-between p-5 border-b border-piedra-700/50">
-                <h3 id="deviceDialogTitle" class="text-lg font-semibold">New Device</h3>
+                <h3 id="clientDialogTitle" class="text-lg font-semibold">New Client</h3>
                 <button type="submit" value="cancel" formnovalidate class="p-1.5 hover:bg-piedra-800 rounded-lg">
                     <svg class="w-5 h-5 text-arena-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M6 18L18 6M6 6l12 12"/></svg>
                 </button>
             </div>
             <div class="p-5 space-y-4">
-                <input type="hidden" id="deviceEditName">
-                <div>
-                    <label class="block text-xs text-arena-400 mb-1">Name</label>
-                    <input id="deviceName" type="text" required class="w-full bg-piedra-800 border border-piedra-700 rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-sol-500 focus:border-sol-500 outline-none" placeholder="tablet-cocina">
-                </div>
-                <div>
-                    <label class="block text-xs text-arena-400 mb-1">Default Agent</label>
-                    <select id="deviceDefaultAgent" required class="w-full bg-piedra-800 border border-piedra-700 rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-sol-500 focus:border-sol-500 outline-none"></select>
+                <input type="hidden" id="clientEditName">
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs text-arena-400 mb-1">Name</label>
+                        <input id="clientName" type="text" required class="w-full bg-piedra-800 border border-piedra-700 rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-sol-500 focus:border-sol-500 outline-none" placeholder="tablet-cocina">
+                    </div>
+                    <div>
+                        <label class="block text-xs text-arena-400 mb-1">Type</label>
+                        <select id="clientType" class="w-full bg-piedra-800 border border-piedra-700 rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-sol-500 focus:border-sol-500 outline-none"></select>
+                    </div>
                 </div>
                 <div>
                     <label class="block text-xs text-arena-400 mb-1">Allowed Agents</label>
-                    <div id="deviceAgentCheckboxes" class="flex flex-wrap gap-2"></div>
-                    <p id="deviceAgentEmpty" class="text-xs text-arena-500 mt-1 hidden">No agents defined yet</p>
-                    <p class="text-[10px] text-arena-500 mt-1">If only one is selected, the voice-UI won't show a switcher</p>
+                    <div id="clientAgentCheckboxes" class="flex flex-wrap gap-2"></div>
+                    <p id="clientAgentEmpty" class="text-xs text-arena-500 mt-1 hidden">No agents defined yet</p>
+                    <p class="text-[10px] text-arena-500 mt-1">First selected agent is the default. If only one, voice-UI won't show a switcher.</p>
                 </div>
+                <!-- Dynamic config fields -->
+                <div id="clientConfigFields" class="space-y-3"></div>
                 <label class="flex items-center gap-2">
-                    <input type="checkbox" id="deviceEnabled" checked class="rounded border-piedra-600 bg-piedra-800 text-sol-500 focus:ring-sol-500">
+                    <input type="checkbox" id="clientEnabled" checked class="rounded border-piedra-600 bg-piedra-800 text-sol-500 focus:ring-sol-500">
                     <span class="text-sm text-arena-300">Enabled</span>
                 </label>
-                <div id="deviceTokenSection" class="hidden">
+                <div id="clientTokenSection" class="hidden">
                     <label class="block text-xs text-arena-400 mb-1">Token</label>
                     <div class="flex gap-2">
-                        <input id="deviceTokenDisplay" type="text" readonly class="w-full bg-piedra-800 border border-piedra-700 rounded-lg px-3 py-2 text-sm font-mono text-arena-300 outline-none select-all">
-                        <button type="button" onclick="app.copyDeviceToken()" class="px-3 py-2 bg-piedra-800 hover:bg-piedra-700 border border-piedra-700 rounded-lg text-xs text-arena-300 transition-colors flex-shrink-0" title="Copy">
+                        <input id="clientTokenDisplay" type="password" readonly class="w-full bg-piedra-800 border border-piedra-700 rounded-lg px-3 py-2 text-sm font-mono text-arena-300 outline-none select-all">
+                        <button type="button" onclick="app.toggleTokenVisibility()" class="px-3 py-2 bg-piedra-800 hover:bg-piedra-700 border border-piedra-700 rounded-lg text-xs text-arena-300 transition-colors flex-shrink-0" title="Show/Hide">
+                            <svg id="tokenEyeIcon" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                        </button>
+                        <button type="button" onclick="app.copyClientToken()" class="px-3 py-2 bg-piedra-800 hover:bg-piedra-700 border border-piedra-700 rounded-lg text-xs text-arena-300 transition-colors flex-shrink-0" title="Copy">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
                         </button>
                         <button type="button" onclick="app.regenerateToken()" class="px-3 py-2 bg-piedra-800 hover:bg-lava-500/20 border border-piedra-700 rounded-lg text-xs text-arena-300 transition-colors flex-shrink-0" title="Regenerate">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
                         </button>
                     </div>
-                    <p class="text-[10px] text-arena-500 mt-1">Use this token as <code class="text-arena-400">Authorization: Bearer &lt;token&gt;</code> from the voice-UI</p>
+                    <p class="text-[10px] text-arena-500 mt-1">Use this token as <code class="text-arena-400">Authorization: Bearer &lt;token&gt;</code></p>
                 </div>
             </div>
             <div class="flex justify-end gap-3 p-5 border-t border-piedra-700/50">
                 <button type="submit" value="cancel" formnovalidate class="px-4 py-2 text-sm text-arena-400 hover:text-arena-200 hover:bg-piedra-800 rounded-lg transition-colors">Cancel</button>
-                <button type="button" onclick="app.saveDevice()" class="px-4 py-2 bg-sol-500 hover:bg-sol-600 text-piedra-950 text-sm font-medium rounded-lg transition-colors">Save</button>
+                <button type="button" onclick="app.saveClient()" class="px-4 py-2 bg-sol-500 hover:bg-sol-600 text-piedra-950 text-sm font-medium rounded-lg transition-colors">Save</button>
             </div>
         </form>
     </dialog>

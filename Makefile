@@ -30,7 +30,9 @@ build:
 
 swagger:
 	@cd server && go run github.com/swaggo/swag/cmd/swag init --dir ./admin --generalInfo doc.go --output ./admin/docs --parseDependency --parseInternal
-	@echo "Swagger docs generated in server/admin/docs/"
+	@echo "Admin API swagger generated in server/admin/docs/"
+	@cd server && go run github.com/swaggo/swag/cmd/swag init --dir ./userapi --generalInfo doc.go --output ./userapi/docs --parseDependency --parseInternal --instanceName userapi
+	@echo "User API swagger generated in server/userapi/docs/"
 
 dev: build
 	@./bin/magec-server -config=$(CONFIG)

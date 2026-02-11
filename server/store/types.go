@@ -12,7 +12,6 @@ type AgentDefinition struct {
 	TTS                TTSRef         `json:"tts,omitempty" yaml:"tts,omitempty"`
 	Memory             MemoryRef      `json:"memory,omitempty" yaml:"memory,omitempty"`
 	MCPServers         []string       `json:"mcpServers,omitempty" yaml:"mcpServers,omitempty"`
-	Telegram           TelegramConfig `json:"telegram,omitempty" yaml:"telegram,omitempty"`
 }
 
 // BackendDefinition represents a reusable AI backend.
@@ -73,13 +72,47 @@ type MCPServer struct {
 	SystemPrompt string            `json:"systemPrompt,omitempty" yaml:"systemPrompt,omitempty"`
 }
 
-// TelegramConfig holds Telegram bot settings for an agent.
-type TelegramConfig struct {
-	Enabled      bool    `json:"enabled" yaml:"enabled"`
-	Token        string  `json:"token,omitempty" yaml:"token,omitempty"`
+// ClientDefinition represents an access point (voice-ui, Telegram, Discord, webhook, etc.).
+// Type determines what platform-specific config is expected inside Config.
+type ClientDefinition struct {
+	Name          string       `json:"name" yaml:"name"`
+	Type          string       `json:"type" yaml:"type"`
+	Token         string       `json:"token" yaml:"token"`
+	AllowedAgents []string     `json:"allowedAgents" yaml:"allowedAgents"`
+	Enabled       bool         `json:"enabled" yaml:"enabled"`
+	Config        ClientConfig `json:"config" yaml:"config"`
+}
+
+// ClientConfig holds platform-specific configuration. Only the field matching
+// the ClientDefinition.Type should be populated.
+type ClientConfig struct {
+	Telegram *TelegramClientConfig `json:"telegram,omitempty" yaml:"telegram,omitempty"`
+	Discord  *DiscordClientConfig  `json:"discord,omitempty" yaml:"discord,omitempty"`
+	Slack    *SlackClientConfig    `json:"slack,omitempty" yaml:"slack,omitempty"`
+}
+
+// TelegramClientConfig holds Telegram bot settings for a client.
+type TelegramClientConfig struct {
+	BotToken     string  `json:"botToken,omitempty" yaml:"botToken,omitempty"`
 	AllowedUsers []int64 `json:"allowedUsers,omitempty" yaml:"allowedUsers,omitempty"`
 	AllowedChats []int64 `json:"allowedChats,omitempty" yaml:"allowedChats,omitempty"`
 	ResponseMode string  `json:"responseMode,omitempty" yaml:"responseMode,omitempty"`
+}
+
+// DiscordClientConfig holds Discord bot settings for a client.
+type DiscordClientConfig struct {
+	BotToken        string   `json:"botToken,omitempty" yaml:"botToken,omitempty"`
+	GuildID         string   `json:"guildId,omitempty" yaml:"guildId,omitempty"`
+	AllowedUsers    []string `json:"allowedUsers,omitempty" yaml:"allowedUsers,omitempty"`
+	AllowedChannels []string `json:"allowedChannels,omitempty" yaml:"allowedChannels,omitempty"`
+}
+
+// SlackClientConfig holds Slack bot settings for a client.
+type SlackClientConfig struct {
+	BotToken        string   `json:"botToken,omitempty" yaml:"botToken,omitempty"`
+	SigningSecret   string   `json:"signingSecret,omitempty" yaml:"signingSecret,omitempty"`
+	AllowedUsers    []string `json:"allowedUsers,omitempty" yaml:"allowedUsers,omitempty"`
+	AllowedChannels []string `json:"allowedChannels,omitempty" yaml:"allowedChannels,omitempty"`
 }
 
 // CronJob represents a scheduled task that sends a prompt to an agent.
@@ -92,15 +125,6 @@ type CronJob struct {
 	Enabled     bool   `json:"enabled" yaml:"enabled"`
 }
 
-// Device represents an access point (tablet, phone, kiosk) that connects to the voice-UI.
-type Device struct {
-	Name          string   `json:"name" yaml:"name"`
-	Token         string   `json:"token" yaml:"token"`
-	DefaultAgent  string   `json:"defaultAgent" yaml:"defaultAgent"`
-	AllowedAgents []string `json:"allowedAgents" yaml:"allowedAgents"`
-	Enabled       bool     `json:"enabled" yaml:"enabled"`
-}
-
 // StoreData is the top-level structure persisted to disk.
 type StoreData struct {
 	Backends        []BackendDefinition `json:"backends"`
@@ -108,5 +132,5 @@ type StoreData struct {
 	MCPServers      []MCPServer         `json:"mcpServers"`
 	Agents          []AgentDefinition   `json:"agents"`
 	CronJobs        []CronJob           `json:"cronJobs"`
-	Devices         []Device            `json:"devices"`
+	Clients         []ClientDefinition  `json:"clients"`
 }

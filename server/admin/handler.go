@@ -5,11 +5,8 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
-	httpSwagger "github.com/swaggo/http-swagger/v2"
 
 	"github.com/achetronic/magec/server/store"
-
-	_ "github.com/achetronic/magec/server/admin/docs"
 )
 
 // ErrorResponse is returned for all error responses.
@@ -73,13 +70,14 @@ func (h *Handler) buildRouter() *mux.Router {
 	r.HandleFunc("/agents/{id}/mcps/{name}", h.linkAgentMCP).Methods("PUT")
 	r.HandleFunc("/agents/{id}/mcps/{name}", h.unlinkAgentMCP).Methods("DELETE")
 
-	// Devices
-	r.HandleFunc("/devices", h.listDevices).Methods("GET")
-	r.HandleFunc("/devices", h.createDevice).Methods("POST")
-	r.HandleFunc("/devices/{name}", h.getDevice).Methods("GET")
-	r.HandleFunc("/devices/{name}", h.updateDevice).Methods("PUT")
-	r.HandleFunc("/devices/{name}", h.deleteDevice).Methods("DELETE")
-	r.HandleFunc("/devices/{name}/regenerate-token", h.regenerateDeviceToken).Methods("POST")
+	// Clients
+	r.HandleFunc("/clients", h.listClients).Methods("GET")
+	r.HandleFunc("/clients", h.createClient).Methods("POST")
+	r.HandleFunc("/clients/types", h.listClientTypes).Methods("GET")
+	r.HandleFunc("/clients/{name}", h.getClient).Methods("GET")
+	r.HandleFunc("/clients/{name}", h.updateClient).Methods("PUT")
+	r.HandleFunc("/clients/{name}", h.deleteClient).Methods("DELETE")
+	r.HandleFunc("/clients/{name}/regenerate-token", h.regenerateClientToken).Methods("POST")
 
 	// Cron Jobs
 	r.HandleFunc("/crons", h.listCronJobs).Methods("GET")
@@ -87,14 +85,6 @@ func (h *Handler) buildRouter() *mux.Router {
 	r.HandleFunc("/crons/{name}", h.getCronJob).Methods("GET")
 	r.HandleFunc("/crons/{name}", h.updateCronJob).Methods("PUT")
 	r.HandleFunc("/crons/{name}", h.deleteCronJob).Methods("DELETE")
-
-	// Overview
-	r.HandleFunc("/overview", h.getOverview).Methods("GET")
-
-	// Swagger UI
-	r.PathPrefix("/swagger/").Handler(httpSwagger.Handler(
-		httpSwagger.URL("/api/v1/admin/swagger/doc.json"),
-	))
 
 	return r
 }

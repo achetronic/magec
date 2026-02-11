@@ -9,9 +9,10 @@ class AdminApp {
         this.agents = [];
         this.mcps = [];
         this.crons = [];
-        this.devices = [];
+        this.clients = [];
         this.memory = [];
         this.memoryTypes = [];
+        this.clientTypes = [];
         this.expandedAgentId = null;
         this._setupTabs();
         this._setupMCPTypeToggle();
@@ -19,24 +20,25 @@ class AdminApp {
 
     async init() {
         try { this.memoryTypes = await api.listMemoryTypes(); } catch { this.memoryTypes = []; }
+        try { this.clientTypes = await api.listClientTypes(); } catch { this.clientTypes = []; }
         await this.refresh();
     }
 
     async refresh() {
         try {
-            [this.backends, this.agents, this.mcps, this.crons, this.devices, this.memory] = await Promise.all([
-                api.listBackends(), api.listAgents(), api.listMCPs(), api.listCrons(), api.listDevices(), api.listMemory()
+            [this.backends, this.agents, this.mcps, this.crons, this.clients, this.memory] = await Promise.all([
+                api.listBackends(), api.listAgents(), api.listMCPs(), api.listCrons(), api.listClients(), api.listMemory()
             ]);
         } catch (e) {
             console.error('Failed to load data:', e);
-            this.backends = []; this.agents = []; this.mcps = []; this.crons = []; this.devices = []; this.memory = [];
+            this.backends = []; this.agents = []; this.mcps = []; this.crons = []; this.clients = []; this.memory = [];
         }
         this._renderOverview();
         this._renderBackends();
         this._renderMemory();
         this._renderMCPs();
         this._renderAgents();
-        this._renderDevices();
+        this._renderClients();
         this._renderCrons();
     }
 
@@ -56,7 +58,7 @@ class AdminApp {
                 $('panelMemory').classList.toggle('hidden', btn.dataset.tab !== 'memory');
                 $('panelMcps').classList.toggle('hidden', btn.dataset.tab !== 'mcps');
                 $('panelAgents').classList.toggle('hidden', btn.dataset.tab !== 'agents');
-                $('panelDevices').classList.toggle('hidden', btn.dataset.tab !== 'devices');
+                $('panelClients').classList.toggle('hidden', btn.dataset.tab !== 'clients');
                 $('panelCrons').classList.toggle('hidden', btn.dataset.tab !== 'crons');
             });
         });
@@ -79,7 +81,7 @@ class AdminApp {
             `<span class="px-2 py-0.5 bg-piedra-800 rounded-full text-arena-300">${this.backends.length} backend${this.backends.length !== 1 ? 's' : ''}</span>`,
             `<span class="px-2 py-0.5 bg-piedra-800 rounded-full text-arena-300">${this.mcps.length} MCP${this.mcps.length !== 1 ? 's' : ''}</span>`,
             `<span class="px-2 py-0.5 bg-piedra-800 rounded-full text-arena-300">${this.agents.length} agent${this.agents.length !== 1 ? 's' : ''}</span>`,
-            `<span class="px-2 py-0.5 bg-piedra-800 rounded-full text-arena-300">${this.devices.length} device${this.devices.length !== 1 ? 's' : ''}</span>`,
+            `<span class="px-2 py-0.5 bg-piedra-800 rounded-full text-arena-300">${this.clients.length} client${this.clients.length !== 1 ? 's' : ''}</span>`,
             `<span class="px-2 py-0.5 bg-piedra-800 rounded-full text-arena-300">${this.crons.length} cron${this.crons.length !== 1 ? 's' : ''}</span>`,
         ].join('');
     }
@@ -117,7 +119,6 @@ class AdminApp {
                             ${a.transcription?.backend ? '<span class="px-1.5 py-0.5 bg-piedra-800 text-arena-400 text-[10px] rounded">STT</span>' : ''}
                             ${a.tts?.backend ? '<span class="px-1.5 py-0.5 bg-lava-500/15 text-lava-300 text-[10px] rounded">TTS</span>' : ''}
                             ${mcpCount ? `<span class="px-1.5 py-0.5 bg-atlantico-500/15 text-atlantico-300 text-[10px] rounded">${mcpCount} MCP${mcpCount > 1 ? 's' : ''}</span>` : ''}
-                            ${a.telegram?.enabled ? '<span class="px-1.5 py-0.5 bg-sol-500/15 text-sol-300 text-[10px] rounded">TG</span>' : ''}
                         </div>
                     </div>
                     <div class="flex items-center gap-1 flex-shrink-0">
@@ -138,7 +139,6 @@ class AdminApp {
     _renderAgentDetail(a) {
         const row = (label, value) => value ? `<div class="detail-row"><span class="label">${label}</span><span class="value">${esc(value)}</span></div>` : '';
         const mcpNames = a.mcpServers || [];
-        const tg = a.telegram || {};
         const mem = a.memory || {};
 
         return `
@@ -189,15 +189,6 @@ class AdminApp {
                 </div>
 
                 <div class="space-y-1.5">
-                    <h4 class="text-[10px] font-medium text-arena-500 uppercase tracking-wider">Telegram</h4>
-                    <div class="flex items-center gap-1.5">
-                        <span class="w-1.5 h-1.5 rounded-full ${tg.enabled ? 'bg-green-400' : 'bg-arena-600'}"></span>
-                        <span class="text-[11px] ${tg.enabled ? 'text-green-400' : 'text-arena-600'}">${tg.enabled ? 'Enabled' : 'Disabled'}</span>
-                        ${tg.enabled && tg.responseMode ? `<span class="text-[10px] text-arena-500 ml-1">(${esc(tg.responseMode)})</span>` : ''}
-                    </div>
-                </div>
-
-                <div class="space-y-1.5">
                     <h4 class="text-[10px] font-medium text-arena-500 uppercase tracking-wider">Memory</h4>
                     ${row('Session', mem.session || 'Not configured')}
                     ${row('Long-term', mem.longTerm || 'Not configured')}
@@ -217,9 +208,6 @@ class AdminApp {
         $('agentLlmModel').value = agent?.llm?.model || '';
         $('agentSystemPrompt').value = agent?.systemPrompt || '';
         $('agentSystemPromptSuffix').value = agent?.systemPromptSuffix || '';
-        $('agentTelegramEnabled').checked = agent?.telegram?.enabled || false;
-        $('agentTelegramToken').value = agent?.telegram?.token || '';
-        $('agentTelegramResponseMode').value = agent?.telegram?.responseMode || 'text';
 
         const noneOpt = '<option value="">(none)</option>';
         const backendOpts = this.backends.map(b =>
@@ -302,11 +290,6 @@ class AdminApp {
             memory: {
                 session: $('agentMemorySession').value,
                 longTerm: $('agentMemoryLongTerm').value,
-            },
-            telegram: {
-                enabled: $('agentTelegramEnabled').checked,
-                token: $('agentTelegramToken').value.trim(),
-                responseMode: $('agentTelegramResponseMode').value,
             },
         };
 
@@ -850,127 +833,192 @@ class AdminApp {
 
     // ==================== Delete Confirmation ====================
 
-    // ==================== Devices ====================
+    // ==================== Clients ====================
 
-    _renderDevices() {
-        const el = $('devicesList');
-        if (!this.devices.length) {
+    _renderClients() {
+        const el = $('clientsList');
+        if (!this.clients.length) {
             el.innerHTML = `<div class="col-span-full text-center py-12 text-arena-500">
                 <svg class="w-10 h-10 mx-auto mb-3 text-arena-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M12 18h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
-                <p class="text-sm">No devices configured</p>
-                <p class="text-xs mt-1">Create a device to pair voice-UI access points</p>
+                <p class="text-sm">No clients configured</p>
+                <p class="text-xs mt-1">Create a client to connect devices, Telegram bots, and more</p>
             </div>`;
             return;
         }
-        el.innerHTML = this.devices.map(d => {
-            const agentCount = (d.allowedAgents || []).length;
-            const defaultAgent = this.agents.find(a => a.id === d.defaultAgent);
-            const defaultLabel = defaultAgent?.name || d.defaultAgent || '?';
+        el.innerHTML = this.clients.map(c => {
+            const agents = (c.allowedAgents || []).map(id => {
+                const a = this.agents.find(a => a.id === id);
+                return a?.name || id;
+            });
+            const typeInfo = this.clientTypes.find(t => t.type === c.type);
+            const typeLabel = typeInfo?.displayName || c.type || 'device';
             return `
-            <div class="bg-piedra-900 border border-piedra-700/50 rounded-xl p-4 hover:border-piedra-600/50 transition-colors">
-                <div class="flex items-start justify-between gap-3 mb-2">
+            <div class="bg-piedra-900 border border-piedra-700/50 rounded-xl p-4 hover:border-piedra-600/50 transition-colors ${!c.enabled ? 'opacity-60' : ''}">
+                <div class="flex items-start justify-between gap-3 mb-3">
                     <div class="flex items-center gap-3 min-w-0">
-                        <div class="w-8 h-8 rounded-lg ${d.enabled ? 'bg-sol-500/15' : 'bg-piedra-800'} flex items-center justify-center flex-shrink-0">
-                            <svg class="w-4 h-4 ${d.enabled ? 'text-sol-400' : 'text-arena-500'}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 18h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+                        <div class="relative w-8 h-8 rounded-lg ${c.enabled ? 'bg-sol-500/15' : 'bg-piedra-800'} flex items-center justify-center flex-shrink-0">
+                            <span class="text-[10px] font-mono font-bold ${c.enabled ? 'text-sol-400' : 'text-arena-500'}">${esc(typeLabel.slice(0, 3).toUpperCase())}</span>
+                            <span class="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border border-piedra-900 ${c.enabled ? 'bg-green-500' : 'bg-lava-500'}" title="${c.enabled ? 'Enabled' : 'Disabled'}"></span>
                         </div>
                         <div class="min-w-0">
-                            <div class="flex items-center gap-1.5">
-                                <h3 class="font-medium text-arena-100 text-sm">${esc(d.name)}</h3>
-                                ${d.enabled ? '' : '<span class="text-[10px] px-1.5 py-0.5 rounded bg-piedra-800 text-arena-500">disabled</span>'}
-                            </div>
-                            <p class="text-[10px] text-arena-500 font-mono truncate">${esc(d.token)}</p>
+                            <h3 class="font-medium text-arena-100 text-sm">${esc(c.name)}</h3>
+                            <p class="text-[10px] text-arena-500">${esc(typeLabel)}</p>
                         </div>
                     </div>
                     <div class="flex gap-0.5 flex-shrink-0">
-                        <button onclick="app.editDevice('${esc(d.name)}')" class="p-1.5 hover:bg-piedra-800 rounded-lg" title="Edit">
+                        <button onclick="app.editClient('${esc(c.name)}')" class="p-1.5 hover:bg-piedra-800 rounded-lg" title="Edit">
                             <svg class="w-3.5 h-3.5 text-arena-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
                         </button>
-                        <button onclick="app.confirmDelete('device', '${esc(d.name)}')" class="p-1.5 hover:bg-piedra-800 rounded-lg" title="Delete">
+                        <button onclick="app.confirmDelete('client', '${esc(c.name)}')" class="p-1.5 hover:bg-piedra-800 rounded-lg" title="Delete">
                             <svg class="w-3.5 h-3.5 text-arena-400 hover:text-lava-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
                         </button>
                     </div>
                 </div>
-                <div class="flex items-center gap-2 flex-wrap">
-                    <span class="px-1.5 py-0.5 bg-sol-500/10 text-sol-300 text-[10px] rounded">${esc(defaultLabel)}</span>
-                    ${agentCount > 1 ? `<span class="text-[10px] text-arena-500">+ ${agentCount - 1} more</span>` : ''}
-                </div>
+                ${agents.length ? `<div class="flex flex-wrap gap-1">${agents.map(name => `<span class="px-1.5 py-0.5 bg-sol-500/10 text-sol-300 text-[10px] rounded">${esc(name)}</span>`).join('')}</div>` : `<p class="text-[10px] text-arena-600">No agents assigned</p>`}
             </div>`;
         }).join('');
     }
 
-    showDeviceDialog(device = null) {
-        const isEdit = !!device;
-        $('deviceDialogTitle').textContent = isEdit ? 'Edit Device' : 'New Device';
-        $('deviceEditName').value = isEdit ? device.name : '';
-        $('deviceName').value = device?.name || '';
+    showClientDialog(client = null) {
+        const isEdit = !!client;
+        $('clientDialogTitle').textContent = isEdit ? 'Edit Client' : 'New Client';
+        $('clientEditName').value = isEdit ? client.name : '';
+        $('clientName').value = client?.name || '';
+        $('clientEnabled').checked = client?.enabled ?? true;
 
-        $('deviceEnabled').checked = device?.enabled ?? true;
-
-        const agentOpts = this.agents.map(a =>
-            `<option value="${esc(a.id)}" ${a.id === device?.defaultAgent ? 'selected' : ''}>${esc(a.name || a.id)}</option>`
+        const typeSelect = $('clientType');
+        typeSelect.innerHTML = this.clientTypes.map(t =>
+            `<option value="${esc(t.type)}">${esc(t.displayName)}</option>`
         ).join('');
-        $('deviceDefaultAgent').innerHTML = agentOpts;
+        typeSelect.value = client?.type || 'device';
+        typeSelect.onchange = () => this._renderClientConfigFields(typeSelect.value, {});
 
-        const allowedAgents = device?.allowedAgents || [];
+        const allowedAgents = client?.allowedAgents || [];
         if (this.agents.length) {
-            $('deviceAgentEmpty').classList.add('hidden');
-            $('deviceAgentCheckboxes').innerHTML = this.agents.map(a => `
+            $('clientAgentEmpty').classList.add('hidden');
+            $('clientAgentCheckboxes').innerHTML = this.agents.map(a => `
                 <label class="flex items-center gap-1.5 px-2.5 py-1 bg-piedra-800 rounded-lg cursor-pointer hover:bg-piedra-700 transition-colors">
                     <input type="checkbox" value="${esc(a.id)}" ${allowedAgents.includes(a.id) ? 'checked' : ''} class="rounded border-piedra-600 bg-piedra-800 text-sol-500 focus:ring-sol-500">
                     <span class="text-xs text-arena-300">${esc(a.name || a.id)}</span>
                 </label>
             `).join('');
         } else {
-            $('deviceAgentCheckboxes').innerHTML = '';
-            $('deviceAgentEmpty').classList.remove('hidden');
+            $('clientAgentCheckboxes').innerHTML = '';
+            $('clientAgentEmpty').classList.remove('hidden');
         }
 
-        if (isEdit && device.token) {
-            $('deviceTokenSection').classList.remove('hidden');
-            $('deviceTokenDisplay').value = device.token;
+        const cfgForType = client?.config?.[client?.type] || {};
+        this._renderClientConfigFields(client?.type || 'device', cfgForType);
+
+        if (isEdit && client.token) {
+            $('clientTokenSection').classList.remove('hidden');
+            $('clientTokenDisplay').value = client.token;
+            $('clientTokenDisplay').type = 'password';
         } else {
-            $('deviceTokenSection').classList.add('hidden');
-            $('deviceTokenDisplay').value = '';
+            $('clientTokenSection').classList.add('hidden');
+            $('clientTokenDisplay').value = '';
         }
 
-        $('deviceDialog').showModal();
+        $('clientDialog').showModal();
     }
 
-    async editDevice(name) {
-        const d = this.devices.find(d => d.name === name);
-        if (d) this.showDeviceDialog(d);
+    _renderClientConfigFields(type, cfg) {
+        const typeInfo = this.clientTypes.find(t => t.type === type);
+        const fields = typeInfo?.fields || [];
+        const container = $('clientConfigFields');
+        if (!fields.length) {
+            container.innerHTML = '';
+            return;
+        }
+        container.innerHTML = fields.map(f => {
+            const val = cfg[f.key] ?? f.default ?? '';
+            if (f.type === 'select') {
+                const opts = (f.options || '').split(',');
+                return `<div>
+                    <label class="block text-xs text-arena-400 mb-1">${esc(f.label)}</label>
+                    <select id="clientCfg_${f.key}" class="w-full bg-piedra-800 border border-piedra-700 rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-sol-500 focus:border-sol-500 outline-none">
+                        ${opts.map(o => `<option value="${esc(o)}" ${o === val ? 'selected' : ''}>${esc(o)}</option>`).join('')}
+                    </select>
+                </div>`;
+            }
+            const inputType = f.type === 'password' ? 'password' : 'text';
+            return `<div>
+                <label class="block text-xs text-arena-400 mb-1">${esc(f.label)}${f.required ? ' <span class="text-lava-400">*</span>' : ''}</label>
+                <input id="clientCfg_${f.key}" type="${inputType}" class="w-full bg-piedra-800 border border-piedra-700 rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-sol-500 focus:border-sol-500 outline-none" placeholder="${esc(f.placeholder || '')}" value="${esc(String(val))}">
+            </div>`;
+        }).join('');
     }
 
-    async saveDevice() {
-        const editName = $('deviceEditName').value;
+    async editClient(name) {
+        const c = this.clients.find(c => c.name === name);
+        if (c) this.showClientDialog(c);
+    }
+
+    async saveClient() {
+        const editName = $('clientEditName').value;
         const isEdit = !!editName;
+        const type = $('clientType').value;
 
-        const selectedAgents = Array.from($('deviceAgentCheckboxes').querySelectorAll('input[type=checkbox]:checked'))
+        const selectedAgents = Array.from($('clientAgentCheckboxes').querySelectorAll('input[type=checkbox]:checked'))
             .map(cb => cb.value);
 
-        const device = {
-            name: $('deviceName').value.trim(),
-            defaultAgent: $('deviceDefaultAgent').value,
+        const typeInfo = this.clientTypes.find(t => t.type === type);
+        const config = {};
+        if (typeInfo?.fields?.length) {
+            const typeCfg = {};
+            for (const f of typeInfo.fields) {
+                const el = document.getElementById(`clientCfg_${f.key}`);
+                if (el && el.value.trim()) {
+                    if (f.key === 'allowedUsers' || f.key === 'allowedChats') {
+                        const parts = el.value.trim().split(',').map(s => s.trim()).filter(Boolean);
+                        typeCfg[f.key] = parts.map(Number).filter(n => !isNaN(n));
+                    } else {
+                        typeCfg[f.key] = el.value.trim();
+                    }
+                }
+            }
+            config[type] = typeCfg;
+        }
+
+        const client = {
+            name: $('clientName').value.trim(),
+            type,
             allowedAgents: selectedAgents,
-            enabled: $('deviceEnabled').checked,
+            enabled: $('clientEnabled').checked,
+            config,
         };
         try {
             if (isEdit) {
-                await api.updateDevice(editName, device);
+                await api.updateClient(editName, client);
             } else {
-                await api.createDevice(device);
+                await api.createClient(client);
             }
-            $('deviceDialog').close();
+            $('clientDialog').close();
             await this.refresh();
         } catch (e) {
             alert('Error: ' + e.message);
         }
     }
 
-    copyDeviceToken() {
-        const token = $('deviceTokenDisplay').value;
-        navigator.clipboard.writeText(token).then(() => {
-            const btn = $('deviceTokenDisplay').nextElementSibling;
+    toggleTokenVisibility() {
+        const input = $('clientTokenDisplay');
+        const eyeIcon = $('tokenEyeIcon');
+        if (input.type === 'password') {
+            input.type = 'text';
+            eyeIcon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"/>';
+        } else {
+            input.type = 'password';
+            eyeIcon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>';
+        }
+    }
+
+    copyClientToken() {
+        const input = $('clientTokenDisplay');
+        const wasHidden = input.type === 'password';
+        if (wasHidden) input.type = 'text';
+        navigator.clipboard.writeText(input.value).then(() => {
+            if (wasHidden) input.type = 'password';
+            const btn = event.currentTarget;
             const orig = btn.innerHTML;
             btn.innerHTML = '<span class="text-xs text-sol-400">Copied!</span>';
             setTimeout(() => { btn.innerHTML = orig; }, 1500);
@@ -978,12 +1026,12 @@ class AdminApp {
     }
 
     async regenerateToken() {
-        const name = $('deviceEditName').value;
+        const name = $('clientEditName').value;
         if (!name) return;
         if (!confirm('Regenerate token? The old token will stop working immediately.')) return;
         try {
-            const updated = await api.regenerateDeviceToken(name);
-            $('deviceTokenDisplay').value = updated.token;
+            const updated = await api.regenerateClientToken(name);
+            $('clientTokenDisplay').value = updated.token;
             await this.refresh();
         } catch (e) {
             alert('Error: ' + e.message);
@@ -993,7 +1041,7 @@ class AdminApp {
     // ==================== Delete Confirmation ====================
 
     confirmDelete(type, id) {
-        const labels = { agent: 'agent', backend: 'backend', memory: 'memory provider', mcp: 'MCP server', cron: 'cron job', device: 'device' };
+        const labels = { agent: 'agent', backend: 'backend', memory: 'memory provider', mcp: 'MCP server', cron: 'cron job', client: 'client' };
         $('confirmMessage').textContent = `Delete ${labels[type]} "${id}"? This cannot be undone.`;
         const btn = $('confirmBtn');
         btn.onclick = async () => {
@@ -1003,7 +1051,7 @@ class AdminApp {
                 else if (type === 'memory') await api.deleteMemory(id);
                 else if (type === 'mcp') await api.deleteMCP(id);
                 else if (type === 'cron') await api.deleteCron(id);
-                else if (type === 'device') await api.deleteDevice(id);
+                else if (type === 'client') await api.deleteClient(id);
                 $('confirmDialog').close();
                 await this.refresh();
             } catch (e) {

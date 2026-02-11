@@ -31,7 +31,7 @@ func New(filePath string) (*Store, error) {
 			MCPServers:      []MCPServer{},
 			Agents:          []AgentDefinition{},
 			CronJobs:        []CronJob{},
-			Devices:         []Device{},
+			Clients:         []ClientDefinition{},
 		},
 	}
 
@@ -455,7 +455,7 @@ func (s *Store) DeleteCronJob(name string) error {
 	return fmt.Errorf("cron job %q not found", name)
 }
 
-// --- Devices ---
+// --- Clients ---
 
 func generateToken() string {
 	b := make([]byte, 20)
@@ -463,95 +463,95 @@ func generateToken() string {
 	return "mgc_" + hex.EncodeToString(b)
 }
 
-func (s *Store) ListDevices() []Device {
+func (s *Store) ListClients() []ClientDefinition {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	result := make([]Device, len(s.data.Devices))
-	copy(result, s.data.Devices)
+	result := make([]ClientDefinition, len(s.data.Clients))
+	copy(result, s.data.Clients)
 	return result
 }
 
-func (s *Store) GetDevice(name string) (Device, bool) {
+func (s *Store) GetClient(name string) (ClientDefinition, bool) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	for _, d := range s.data.Devices {
-		if d.Name == name {
-			return d, true
+	for _, c := range s.data.Clients {
+		if c.Name == name {
+			return c, true
 		}
 	}
-	return Device{}, false
+	return ClientDefinition{}, false
 }
 
-func (s *Store) GetDeviceByToken(token string) (Device, bool) {
+func (s *Store) GetClientByToken(token string) (ClientDefinition, bool) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	for _, d := range s.data.Devices {
-		if d.Token == token {
-			return d, true
+	for _, c := range s.data.Clients {
+		if c.Token == token {
+			return c, true
 		}
 	}
-	return Device{}, false
+	return ClientDefinition{}, false
 }
 
-func (s *Store) CreateDevice(d Device) (Device, error) {
+func (s *Store) CreateClient(c ClientDefinition) (ClientDefinition, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	for _, existing := range s.data.Devices {
-		if existing.Name == d.Name {
-			return Device{}, fmt.Errorf("device %q already exists", d.Name)
+	for _, existing := range s.data.Clients {
+		if existing.Name == c.Name {
+			return ClientDefinition{}, fmt.Errorf("client %q already exists", c.Name)
 		}
 	}
-	d.Token = generateToken()
-	if d.AllowedAgents == nil {
-		d.AllowedAgents = []string{}
+	c.Token = generateToken()
+	if c.AllowedAgents == nil {
+		c.AllowedAgents = []string{}
 	}
-	s.data.Devices = append(s.data.Devices, d)
-	return d, s.persist()
+	s.data.Clients = append(s.data.Clients, c)
+	return c, s.persist()
 }
 
-func (s *Store) UpdateDevice(name string, d Device) error {
+func (s *Store) UpdateClient(name string, c ClientDefinition) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	for i, existing := range s.data.Devices {
+	for i, existing := range s.data.Clients {
 		if existing.Name == name {
-			d.Name = name
-			d.Token = existing.Token
-			if d.AllowedAgents == nil {
-				d.AllowedAgents = []string{}
+			c.Name = name
+			c.Token = existing.Token
+			if c.AllowedAgents == nil {
+				c.AllowedAgents = []string{}
 			}
-			s.data.Devices[i] = d
+			s.data.Clients[i] = c
 			return s.persist()
 		}
 	}
-	return fmt.Errorf("device %q not found", name)
+	return fmt.Errorf("client %q not found", name)
 }
 
-func (s *Store) DeleteDevice(name string) error {
+func (s *Store) DeleteClient(name string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	for i, existing := range s.data.Devices {
+	for i, existing := range s.data.Clients {
 		if existing.Name == name {
-			s.data.Devices = append(s.data.Devices[:i], s.data.Devices[i+1:]...)
+			s.data.Clients = append(s.data.Clients[:i], s.data.Clients[i+1:]...)
 			return s.persist()
 		}
 	}
-	return fmt.Errorf("device %q not found", name)
+	return fmt.Errorf("client %q not found", name)
 }
 
-func (s *Store) RegenerateDeviceToken(name string) (Device, error) {
+func (s *Store) RegenerateClientToken(name string) (ClientDefinition, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	for i, existing := range s.data.Devices {
+	for i, existing := range s.data.Clients {
 		if existing.Name == name {
-			s.data.Devices[i].Token = generateToken()
-			return s.data.Devices[i], s.persist()
+			s.data.Clients[i].Token = generateToken()
+			return s.data.Clients[i], s.persist()
 		}
 	}
-	return Device{}, fmt.Errorf("device %q not found", name)
+	return ClientDefinition{}, fmt.Errorf("client %q not found", name)
 }
 
 // --- Rename with cascade ---
@@ -672,13 +672,10 @@ func (s *Store) RenameAgent(oldID, newID string) error {
 		return fmt.Errorf("agent %q not found", oldID)
 	}
 
-	for i := range s.data.Devices {
-		if s.data.Devices[i].DefaultAgent == oldID {
-			s.data.Devices[i].DefaultAgent = newID
-		}
-		for j, id := range s.data.Devices[i].AllowedAgents {
+	for i := range s.data.Clients {
+		for j, id := range s.data.Clients[i].AllowedAgents {
 			if id == oldID {
-				s.data.Devices[i].AllowedAgents[j] = newID
+				s.data.Clients[i].AllowedAgents[j] = newID
 			}
 		}
 	}
@@ -692,22 +689,22 @@ func (s *Store) RenameAgent(oldID, newID string) error {
 	return s.persist()
 }
 
-// RenameDevice renames a device (no cascading references).
-func (s *Store) RenameDevice(oldName, newName string) error {
+// RenameClient renames a client (no cascading references).
+func (s *Store) RenameClient(oldName, newName string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	found := false
-	for i, d := range s.data.Devices {
-		if d.Name == oldName {
-			s.data.Devices[i].Name = newName
+	for i, c := range s.data.Clients {
+		if c.Name == oldName {
+			s.data.Clients[i].Name = newName
 			found = true
-		} else if d.Name == newName {
-			return fmt.Errorf("device %q already exists", newName)
+		} else if c.Name == newName {
+			return fmt.Errorf("client %q already exists", newName)
 		}
 	}
 	if !found {
-		return fmt.Errorf("device %q not found", oldName)
+		return fmt.Errorf("client %q not found", oldName)
 	}
 
 	return s.persist()
@@ -796,10 +793,58 @@ func (s *Store) loadFromDisk() error {
 	if storeData.CronJobs == nil {
 		storeData.CronJobs = []CronJob{}
 	}
-	if storeData.Devices == nil {
-		storeData.Devices = []Device{}
+	if storeData.Clients == nil {
+		storeData.Clients = []ClientDefinition{}
 	}
+
+	s.migrateDevicesToClients(data, &storeData)
 
 	s.data = storeData
 	return nil
+}
+
+// migrateDevicesToClients converts legacy "devices" entries to ClientDefinition.
+func (s *Store) migrateDevicesToClients(rawData []byte, storeData *StoreData) {
+	if len(storeData.Clients) > 0 {
+		return
+	}
+
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(rawData, &raw); err != nil {
+		return
+	}
+	devicesRaw, ok := raw["devices"]
+	if !ok {
+		return
+	}
+
+	type legacyDevice struct {
+		Name          string   `json:"name"`
+		Token         string   `json:"token"`
+		DefaultAgent  string   `json:"defaultAgent"`
+		AllowedAgents []string `json:"allowedAgents"`
+		Enabled       bool     `json:"enabled"`
+	}
+
+	var devices []legacyDevice
+	if err := json.Unmarshal(devicesRaw, &devices); err != nil {
+		return
+	}
+
+	for _, d := range devices {
+		agents := d.AllowedAgents
+		if len(agents) == 0 && d.DefaultAgent != "" {
+			agents = []string{d.DefaultAgent}
+		}
+		if agents == nil {
+			agents = []string{}
+		}
+		storeData.Clients = append(storeData.Clients, ClientDefinition{
+			Name:          d.Name,
+			Type:          "device",
+			Token:         d.Token,
+			AllowedAgents: agents,
+			Enabled:       d.Enabled,
+		})
+	}
 }

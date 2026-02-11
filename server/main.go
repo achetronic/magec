@@ -40,8 +40,16 @@ import (
 	"github.com/achetronic/magec/server/config"
 	"github.com/achetronic/magec/server/logging"
 	"github.com/achetronic/magec/server/store"
+	"github.com/achetronic/magec/server/userapi"
 	"github.com/achetronic/magec/server/voice"
 
+	httpSwagger "github.com/swaggo/http-swagger/v2"
+
+	_ "github.com/achetronic/magec/server/userapi/docs"
+
+	_ "github.com/achetronic/magec/server/admin/docs"
+	_ "github.com/achetronic/magec/server/client/device"
+	_ "github.com/achetronic/magec/server/client/telegram"
 	_ "github.com/achetronic/magec/server/memory/postgres"
 	_ "github.com/achetronic/magec/server/memory/redis"
 )
@@ -75,6 +83,9 @@ func main() {
 
 	adminMux := http.NewServeMux()
 	adminMux.Handle("/api/v1/admin/", http.StripPrefix("/api/v1/admin", adminHandler))
+	adminMux.Handle("/swagger/", httpSwagger.Handler(
+		httpSwagger.URL("/swagger/doc.json"),
+	))
 	adminMux.Handle("/", http.FileServer(http.Dir("admin-ui")))
 
 	adminAddr := fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.AdminPort)
@@ -101,47 +112,14 @@ func main() {
 	httpMux.Handle("/api/v1/agent/", agentRouter)
 	httpMux.Handle("/api/v1/voice/", newVoiceHandler(dataStore, agentRouter))
 
-	httpMux.HandleFunc("/api/v1/health", func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("ok"))
-	})
+	userAPI := userapi.New(dataStore)
+	httpMux.HandleFunc("/api/v1/health", userAPI.Health)
+	httpMux.HandleFunc("/api/v1/device/info", userAPI.DeviceInfo)
 
-	httpMux.HandleFunc("/api/v1/device/info", func(w http.ResponseWriter, r *http.Request) {
-		deviceName := r.Header.Get("X-Device-Name")
-		if deviceName == "" {
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(map[string]interface{}{
-				"paired": false,
-			})
-			return
-		}
-		device, ok := dataStore.GetDevice(deviceName)
-		if !ok {
-			http.Error(w, `{"error":"device not found"}`, http.StatusNotFound)
-			return
-		}
-		agents := dataStore.ListAgents()
-		allowedDetails := make([]map[string]string, 0, len(device.AllowedAgents))
-		for _, agentID := range device.AllowedAgents {
-			for _, a := range agents {
-				if a.ID == agentID {
-					allowedDetails = append(allowedDetails, map[string]string{
-						"id":   a.ID,
-						"name": a.Name,
-					})
-					break
-				}
-			}
-		}
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"paired":        true,
-			"name":          device.Name,
-			"defaultAgent":  device.DefaultAgent,
-			"allowedAgents": allowedDetails,
-		})
-	})
+	httpMux.Handle("/swagger/", httpSwagger.Handler(
+		httpSwagger.URL("/swagger/doc.json"),
+		httpSwagger.InstanceName("userapi"),
+	))
 
 	// Voice events WebSocket handler (wake word + VAD)
 	const (
@@ -204,34 +182,49 @@ func main() {
 	addr := fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port)
 	server := &http.Server{
 		Addr:         addr,
-		Handler:      accessLogMiddleware(corsMiddleware(deviceAuthMiddleware(httpMux, dataStore))),
+		Handler:      accessLogMiddleware(corsMiddleware(clientAuthMiddleware(httpMux, dataStore))),
 		ReadTimeout:  30 * time.Second,
 		WriteTimeout: 120 * time.Second,
 		IdleTimeout:  60 * time.Second,
 	}
 
-	// Start Telegram client if default agent has it enabled
-	var telegramClient *telegram.Client
-	defaultAgent := agentRouter.defaultAgent()
-	if defaultAgent != nil && defaultAgent.Telegram.Enabled {
-		agentURL := fmt.Sprintf("http://127.0.0.1:%d/api/v1/agent", cfg.Server.Port)
-		ttsURL := ""
-		if agentRouter.hasTTSBackend() {
-			ttsURL = fmt.Sprintf("http://127.0.0.1:%d/api/v1/voice/%s/speech", cfg.Server.Port, defaultAgent.ID)
+	// Start Telegram clients from store
+	var telegramClients []*telegram.Client
+	for _, cl := range dataStore.ListClients() {
+		if cl.Type != "telegram" || !cl.Enabled || cl.Config.Telegram == nil {
+			continue
+		}
+		if len(cl.AllowedAgents) == 0 {
+			slog.Warn("Telegram client has no allowed agents, skipping", "client", cl.Name)
+			continue
+		}
+		agentID := cl.AllowedAgents[0]
+		agentDef, ok := dataStore.GetAgent(agentID)
+		if !ok {
+			slog.Warn("Telegram client references unknown agent, skipping", "client", cl.Name, "agent", agentID)
+			continue
 		}
 
-		var err error
-		telegramClient, err = telegram.New(defaultAgent.Telegram, agentURL, ttsURL, defaultAgent.TTS, slog.Default())
-		if err != nil {
-			slog.Error("Failed to create Telegram client", "error", err)
-		} else {
-			go func() {
-				time.Sleep(500 * time.Millisecond)
-				if err := telegramClient.Start(ctx); err != nil {
-					slog.Error("Telegram client error", "error", err)
-				}
-			}()
+		agentURL := fmt.Sprintf("http://127.0.0.1:%d/api/v1/agent", cfg.Server.Port)
+		ttsURL := ""
+		if agentDef.TTS.Backend != "" {
+			if b, ok := dataStore.GetBackend(agentDef.TTS.Backend); ok && b.URL != "" {
+				ttsURL = fmt.Sprintf("http://127.0.0.1:%d/api/v1/voice/%s/speech", cfg.Server.Port, agentID)
+			}
 		}
+
+		tgClient, err := telegram.New(*cl.Config.Telegram, agentURL, ttsURL, agentDef.TTS, slog.Default())
+		if err != nil {
+			slog.Error("Failed to create Telegram client", "client", cl.Name, "error", err)
+			continue
+		}
+		telegramClients = append(telegramClients, tgClient)
+		go func(name string) {
+			time.Sleep(500 * time.Millisecond)
+			if err := tgClient.Start(ctx); err != nil {
+				slog.Error("Telegram client error", "client", name, "error", err)
+			}
+		}(cl.Name)
 	}
 
 	// Graceful shutdown
@@ -241,8 +234,8 @@ func main() {
 		<-sigChan
 
 		slog.Info("Shutting down...")
-		if telegramClient != nil {
-			telegramClient.Stop()
+		for _, tc := range telegramClients {
+			tc.Stop()
 		}
 		if voiceDetector != nil {
 			voiceDetector.Close()
@@ -309,10 +302,10 @@ func accessLogMiddleware(next http.Handler) http.Handler {
 	})
 }
 
-// deviceAuthMiddleware protects API endpoints on port 8080 with device token auth.
+// clientAuthMiddleware protects API endpoints on port 8080 with client token auth.
 // Static files, health checks, CORS preflight, and voice-events pass through.
-// If no devices exist in the store, all requests pass through (open mode).
-func deviceAuthMiddleware(next http.Handler, dataStore *store.Store) http.Handler {
+// If no clients exist in the store, all requests pass through (open mode).
+func clientAuthMiddleware(next http.Handler, dataStore *store.Store) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		path := r.URL.Path
 
@@ -324,8 +317,8 @@ func deviceAuthMiddleware(next http.Handler, dataStore *store.Store) http.Handle
 			return
 		}
 
-		devices := dataStore.ListDevices()
-		if len(devices) == 0 {
+		clients := dataStore.ListClients()
+		if len(clients) == 0 {
 			next.ServeHTTP(w, r)
 			return
 		}
@@ -335,14 +328,13 @@ func deviceAuthMiddleware(next http.Handler, dataStore *store.Store) http.Handle
 
 		if hasToken {
 			token = strings.TrimPrefix(token, "Bearer ")
-			device, ok := dataStore.GetDeviceByToken(token)
-			if !ok || !device.Enabled {
+			cl, ok := dataStore.GetClientByToken(token)
+			if !ok || !cl.Enabled {
 				w.Header().Set("Content-Type", "application/json")
-				http.Error(w, `{"error":"invalid or disabled device token"}`, http.StatusUnauthorized)
+				http.Error(w, `{"error":"invalid or disabled client token"}`, http.StatusUnauthorized)
 				return
 			}
-			r.Header.Set("X-Device-Name", device.Name)
-			r.Header.Set("X-Device-Default-Agent", device.DefaultAgent)
+			r.Header.Set("X-Client-Name", cl.Name)
 			next.ServeHTTP(w, r)
 			return
 		}
@@ -524,8 +516,6 @@ func serveTranscriptionProxy(w http.ResponseWriter, r *http.Request, agentDef st
 type agentRouterHandler struct {
 	mu           sync.RWMutex
 	agentHandler http.Handler
-	defAgent     *store.AgentDefinition
-	hasTTS       bool
 }
 
 func (h *agentRouterHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -540,31 +530,8 @@ func (h *agentRouterHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (h *agentRouterHandler) defaultAgent() *store.AgentDefinition {
-	h.mu.RLock()
-	defer h.mu.RUnlock()
-	return h.defAgent
-}
-
-func (h *agentRouterHandler) hasTTSBackend() bool {
-	h.mu.RLock()
-	defer h.mu.RUnlock()
-	return h.hasTTS
-}
-
 func (h *agentRouterHandler) rebuild(ctx context.Context, dataStore *store.Store) {
 	storeData := dataStore.Data()
-
-	var defaultAgent *store.AgentDefinition
-	for i, a := range storeData.Agents {
-		if a.ID == "default" {
-			defaultAgent = &storeData.Agents[i]
-			break
-		}
-	}
-	if defaultAgent == nil && len(storeData.Agents) > 0 {
-		defaultAgent = &storeData.Agents[0]
-	}
 
 	var agentHandler http.Handler
 	if len(storeData.Agents) > 0 {
@@ -578,20 +545,7 @@ func (h *agentRouterHandler) rebuild(ctx context.Context, dataStore *store.Store
 		slog.Warn("No agents defined in store")
 	}
 
-	hasTTS := false
-	if defaultAgent != nil && defaultAgent.TTS.Backend != "" {
-		backendMap := make(map[string]store.BackendDefinition, len(storeData.Backends))
-		for _, b := range storeData.Backends {
-			backendMap[b.Name] = b
-		}
-		if b, ok := backendMap[defaultAgent.TTS.Backend]; ok && b.URL != "" {
-			hasTTS = true
-		}
-	}
-
 	h.mu.Lock()
 	h.agentHandler = agentHandler
-	h.defAgent = defaultAgent
-	h.hasTTS = hasTTS
 	h.mu.Unlock()
 }

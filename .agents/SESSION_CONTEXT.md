@@ -2,58 +2,61 @@
 
 ## Estado Actual
 
-Todo funciona. El servidor compila y corre en `:8080` (voice-ui) y `:8081` (admin-ui). Multi-agente, hot-reload, rename con cascade, device auth, y voice endpoints — todo implementado y verificado.
+Todo funciona. El servidor compila y corre en `:8080` (voice-ui) y `:8081` (admin-ui). Multi-agente, hot-reload, rename con cascade, client auth, y voice endpoints — todo implementado y verificado.
 
-## Trabajo Completado en Sesiones Recientes
+## Trabajo Completado en Esta Sesión
 
-### Multi-agente (servidor)
-- `agent.New()` acepta `[]store.AgentDefinition`, crea un LLM agent por definición
-- ADK `NewMultiLoader(root, ...others)` enruta por `appName`
+### Client entity (reemplaza Device + Telegram config de agente)
 
-### Multi-agente (voice-ui)
-- `AgentClient.js`, `SessionService.js`, `OpenAITTS.js`, `RemoteTranscriber.js` tienen `setAgent(agentId)`
-- `app.js` propaga el agente al cambiar en el dropdown + crea nueva sesión
-- `config.js`: `appName` cambiado de `'magec_agent'` a `'default'`
+- Nueva entidad `ClientDefinition` en `store/types.go` con `Name`, `Type`, `Token`, `AllowedAgents`, `Enabled`, `Config`
+- `ClientConfig` struct con campos opcionales por plataforma: `Telegram`, `Discord`, `Slack`
+- `TelegramClientConfig`, `DiscordClientConfig`, `SlackClientConfig` structs tipados
+- `TelegramConfig` eliminado de `AgentDefinition` — la config de Telegram ahora vive en `Client.Config.Telegram`
+- `Device` struct eliminado, reemplazado por `ClientDefinition`
+- `StoreData.Devices` → `StoreData.Clients`
+- CRUD completo en store: `ListClients`, `GetClient`, `GetClientByToken`, `CreateClient`, `UpdateClient`, `DeleteClient`, `RegenerateClientToken`, `RenameClient`
+- Migración automática `Device` → `Client` en `loadFromDisk()` para store.json legacy
+- `allowedAgents[0]` es el default agent implícito (no hay campo `defaultAgent` separado)
 
-### Hot-reload de agentes
-- Store tiene `OnChange()` channel que se dispara en cada `persist()`
-- `agentRouterHandler` con `sync.RWMutex` reconstruye el agente con debounce de 500ms
+### Client type registry (`server/client/`)
+- Patrón idéntico a `server/memory/`: `Provider` interface + registro global
+- `Provider.ConfigFields()` retorna specs de campos para formularios dinámicos
+- Tipos: `device` (sin config extra), `telegram` (botToken, allowedUsers, allowedChats, responseMode)
+- Blank imports en `main.go` para auto-registro
 
-### Voice endpoints rediseñados
-- `/api/v1/voice/{agentId}/speech` — proxy TTS (resuelve backend dinámicamente por agente)
-- `/api/v1/voice/{agentId}/transcription` — proxy STT (resuelve backend dinámicamente por agente)
-- `/api/v1/voice/events` — WebSocket (era `/api/v1/voice-events`)
-- Los proxies ahora envían el `apiKey` del backend como `Authorization: Bearer` al upstream
+### Admin API actualizada
+- `/clients` CRUD reemplaza `/devices`
+- `GET /clients/types` retorna tipos registrados con field specs (como `/memory/types`)
+- `POST /clients/{name}/regenerate-token` regenera token
+- Validación de tipo contra registry en create
+- Overview: `clientsCount` en vez de `devicesCount`
 
-### Rename con cascade
-- 6 métodos: `RenameBackend`, `RenameMemoryProvider`, `RenameMCPServer`, `RenameAgent`, `RenameDevice`, `RenameCronJob`
-- Mapa de cascada:
-  - Backend → Agent.LLM/TTS/Transcription.Backend + MemoryProvider.Embedding.Backend
-  - MemoryProvider → Agent.Memory.Session/LongTerm
-  - MCPServer → Agent.MCPServers[]
-  - Agent → Device.DefaultAgent + Device.AllowedAgents[] + CronJob.AgentID
-- Admin handlers detectan rename: si `body.Name != urlName`, llaman `store.Rename*()` primero
+### Auth middleware
+- `deviceAuthMiddleware` → `clientAuthMiddleware`
+- `X-Device-Name` header → `X-Client-Name`
+- Misma lógica: si no hay clients → open mode, si hay → requiere Bearer token
+- `/api/v1/device/info` mantiene URL para backward compat con voice-ui
 
-### Wake word model name
-- Campo `Name` añadido a `WakewordModelInfo` en `voice/handler.go`
-- Mensaje de capabilities incluye `name`, `id`, y `phrase`
+### Telegram startup
+- Ya no se lee de `defaultAgent.Telegram` en main.go
+- Itera `ListClients()`, filtra `type == "telegram"`, arranca un bot por client
+- Cada bot de Telegram se asocia al primer agente del client (`allowedAgents[0]`)
 
-### Bug fix: 401 en voice speech
-- El 401 NO venía del `deviceAuthMiddleware` — el device auth pasaba bien
-- El error `"Missing or invalid API key"` venía del backend TTS upstream (OpenAI Edge TTS)
-- Fix: `serveSpeechProxy` y `serveTranscriptionProxy` ahora envían `Authorization: Bearer <apiKey>` al upstream
+### Admin UI
+- Tab "Devices" → "Clients"
+- Formulario dinámico basado en `type`: al seleccionar "telegram" aparecen los campos de Telegram (fetched desde `/clients/types`)
+- Sección de Telegram eliminada del diálogo de agente
+- Badge "TG" eliminado de la vista de agente
 
-### Admin UI modal fix
-- Cancel/close buttons tenían `type="submit"` dentro de `<form method="dialog">`
-- Los inputs `required` impedían cerrar el modal con Cancel/X si estaban vacíos
-- Fix: `formnovalidate` en los 12 botones de cancel/close
+### Rename cascade
+- `RenameAgent` actualiza `Client.AllowedAgents[]` (antes era `Device.DefaultAgent` + `Device.AllowedAgents[]`)
 
 ## Estado del Store Actual
 
 - Agents: `magec` (Magec), `itahisa` (Itahisa) — ambos usan `Ollama` con `qwen2.5:7b`
 - Backends: `Ollama` (openai, localhost:11434), `Parakeet TDT`, `OpenAI Edge TTS`
 - Memory: `Redis` (session), `Postgres` (longterm con nomic-embed-text)
-- Devices: `opo` con token `mgc_...`, defaultAgent `magec`, allowedAgents `[magec, itahisa]`
+- Clients: migrado automáticamente desde Devices al cargar store.json legacy
 
 ## Comandos
 
@@ -71,6 +74,8 @@ make swagger                  # Regenerar Swagger docs
 
 ## Siguiente Sesión
 
-1. Probar el flujo completo de voz con cambio de agentes (voice-ui)
-2. Verificar que TTS y transcripción usan los backends correctos por agente
-3. Cualquier otra tarea que el usuario decida
+1. Regenerar Swagger docs (`make swagger`) para reflejar Client endpoints
+2. Probar flujo completo: crear client tipo device en admin-ui, emparejar voice-ui
+3. Probar flujo Telegram: crear client tipo telegram en admin-ui, verificar que el bot arranca
+4. Implementar Command entity (prompts con triggers cron/webhook) — futuro
+5. Actualizar AGENTS.md con la nueva arquitectura de Client

@@ -49,7 +49,7 @@ const appName = "magec_agent"
 type Client struct {
 	bot       *telego.Bot
 	handler   *th.BotHandler
-	cfg       store.TelegramConfig
+	cfg       store.TelegramClientConfig
 	agentURL  string
 	ttsURL    string
 	ttsConfig store.TTSRef
@@ -61,12 +61,12 @@ type Client struct {
 }
 
 // New creates a new Telegram client
-func New(cfg store.TelegramConfig, agentURL string, ttsURL string, ttsConfig store.TTSRef, logger *slog.Logger) (*Client, error) {
-	if cfg.Token == "" {
-		return nil, fmt.Errorf("telegram token is required")
+func New(cfg store.TelegramClientConfig, agentURL string, ttsURL string, ttsConfig store.TTSRef, logger *slog.Logger) (*Client, error) {
+	if cfg.BotToken == "" {
+		return nil, fmt.Errorf("telegram bot token is required")
 	}
 
-	bot, err := telego.NewBot(cfg.Token)
+	bot, err := telego.NewBot(cfg.BotToken)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create telegram bot: %w", err)
 	}
@@ -229,7 +229,7 @@ func (c *Client) handleVoice(ctx *th.Context, msg telego.Message) error {
 	}
 
 	// Download file content
-	fileURL := fmt.Sprintf("https://api.telegram.org/file/bot%s/%s", c.cfg.Token, file.FilePath)
+	fileURL := fmt.Sprintf("https://api.telegram.org/file/bot%s/%s", c.cfg.BotToken, file.FilePath)
 	audioData, err := c.downloadFile(fileURL)
 	if err != nil {
 		c.logger.Error("Failed to download voice file", "error", err)
