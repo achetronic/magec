@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-const STORAGE_KEY = 'magec_settings';
+const STORAGE_PREFIX = 'magec_settings';
 
 const DEFAULT_SETTINGS = {
     tts: {
@@ -27,14 +27,30 @@ const DEFAULT_SETTINGS = {
 };
 
 export class SettingsManager {
-    constructor() {
+    constructor(agentId = null) {
+        this._agentId = agentId;
         this._settings = this._load();
         this._validWakeWordModels = null;
     }
 
+    get agentId() {
+        return this._agentId;
+    }
+
+    switchAgent(agentId) {
+        this._agentId = agentId;
+        this._settings = this._load();
+    }
+
+    _storageKey() {
+        return this._agentId
+            ? `${STORAGE_PREFIX}_${this._agentId}`
+            : STORAGE_PREFIX;
+    }
+
     _load() {
         try {
-            const stored = localStorage.getItem(STORAGE_KEY);
+            const stored = localStorage.getItem(this._storageKey());
             if (stored) {
                 const parsed = JSON.parse(stored);
                 return this._merge(DEFAULT_SETTINGS, parsed);
@@ -42,7 +58,11 @@ export class SettingsManager {
         } catch (e) {
             console.warn('Failed to load settings:', e);
         }
-        return { ...DEFAULT_SETTINGS };
+        return this._deepCopy(DEFAULT_SETTINGS);
+    }
+
+    _deepCopy(obj) {
+        return JSON.parse(JSON.stringify(obj));
     }
 
     setValidWakeWordModels(modelIds) {
@@ -76,7 +96,7 @@ export class SettingsManager {
 
     _save() {
         try {
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(this._settings));
+            localStorage.setItem(this._storageKey(), JSON.stringify(this._settings));
         } catch (e) {
             console.warn('Failed to save settings:', e);
         }

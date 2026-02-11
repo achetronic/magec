@@ -32,7 +32,15 @@ import (
 	th "github.com/mymmrac/telego/telegohandler"
 	tu "github.com/mymmrac/telego/telegoutil"
 
-	"github.com/achetronic/magec/server/config"
+	"github.com/achetronic/magec/server/store"
+)
+
+// Response mode constants
+const (
+	ResponseModeText   = "text"
+	ResponseModeVoice  = "voice"
+	ResponseModeMirror = "mirror"
+	ResponseModeBoth   = "both"
 )
 
 const appName = "magec_agent"
@@ -41,10 +49,10 @@ const appName = "magec_agent"
 type Client struct {
 	bot       *telego.Bot
 	handler   *th.BotHandler
-	cfg       *config.TelegramConfig
+	cfg       store.TelegramConfig
 	agentURL  string
 	ttsURL    string
-	ttsConfig *config.TTSConfig
+	ttsConfig store.TTSRef
 	logger    *slog.Logger
 	cancel    context.CancelFunc
 
@@ -53,7 +61,7 @@ type Client struct {
 }
 
 // New creates a new Telegram client
-func New(cfg *config.TelegramConfig, agentURL string, ttsURL string, ttsConfig *config.TTSConfig, logger *slog.Logger) (*Client, error) {
+func New(cfg store.TelegramConfig, agentURL string, ttsURL string, ttsConfig store.TTSRef, logger *slog.Logger) (*Client, error) {
 	if cfg.Token == "" {
 		return nil, fmt.Errorf("telegram token is required")
 	}
@@ -266,15 +274,15 @@ func (c *Client) sendResponse(ctx *th.Context, chatID int64, text string, inputW
 	sendVoice := false
 
 	switch mode {
-	case config.TelegramResponseModeVoice:
+	case ResponseModeVoice:
 		sendVoice = true
-	case config.TelegramResponseModeMirror:
+	case ResponseModeMirror:
 		if inputWasVoice {
 			sendVoice = true
 		} else {
 			sendText = true
 		}
-	case config.TelegramResponseModeBoth:
+	case ResponseModeBoth:
 		sendText = true
 		sendVoice = true
 	default:
@@ -313,10 +321,10 @@ func (c *Client) handleResponseModeCommand(ctx *th.Context, msg telego.Message) 
 	}
 
 	validModes := []string{
-		config.TelegramResponseModeText,
-		config.TelegramResponseModeVoice,
-		config.TelegramResponseModeMirror,
-		config.TelegramResponseModeBoth,
+		ResponseModeText,
+		ResponseModeVoice,
+		ResponseModeMirror,
+		ResponseModeBoth,
 	}
 
 	args := strings.TrimSpace(strings.TrimPrefix(msg.Text, "/responsemode"))
@@ -684,7 +692,7 @@ func (c *Client) generateTTS(text string) ([]byte, error) {
 		"model":           c.ttsConfig.Model,
 		"voice":           c.ttsConfig.Voice,
 		"speed":           c.ttsConfig.Speed,
-		"response_format": "opus", // Telegram supports opus in ogg container
+		"response_format": "opus",
 	}
 
 	jsonBody, err := json.Marshal(reqBody)

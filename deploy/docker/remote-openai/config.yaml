@@ -1,53 +1,13 @@
 # Magec - OpenAI cloud configuration
-# All AI services use OpenAI APIs. Set OPENAI_API_KEY before starting.
+#
+# This file configures server infrastructure only.
+# Agents, backends, MCPs, and memory are managed via the Admin UI at http://localhost:8081
 
 server:
   host: 0.0.0.0
   port: 8080
+  adminPort: 8081
 
 log:
   level: info
   format: console
-
-backends:
-  - name: openai
-    type: openai
-    apiKey: ${OPENAI_API_KEY}
-
-transcription:
-  backend: openai
-  model: whisper-1
-
-llm:
-  backend: openai
-  model: gpt-4o-mini
-
-tts:
-  backend: openai
-  model: tts-1
-  voice: alloy
-  speed: 1.0
-
-wakeWord:
-  enabled: true
-
-memory:
-  session:
-    redis:
-      address: redis:6379
-      ttl: 24h
-
-  longTerm:
-    embedding:
-      backend: openai
-      model: text-embedding-3-small
-    postgres:
-      connectionString: postgres://magec:magec@postgres:5432/magec?sslmode=disable
-
-# Uncomment to enable Telegram bot:
-# clients:
-#   telegram:
-#     enabled: true
-#     token: ${TELEGRAM_BOT_TOKEN}
-#     allowedUsers: []
-#     responseMode: mirror

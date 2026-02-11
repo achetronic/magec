@@ -25,6 +25,10 @@ export class SessionService {
         this.userId = CONFIG.agent.defaultUserId;
     }
 
+    setAgent(agentId) {
+        this.appName = agentId;
+    }
+
     async listSessions() {
         const response = await errorHandler.wrapFetch(
             fetch(`${this.baseUrl}/apps/${this.appName}/users/${this.userId}/sessions`),

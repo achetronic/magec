@@ -1,0 +1,1074 @@
+basePath: /api/v1/admin
+definitions:
+  admin.ErrorResponse:
+    properties:
+      error:
+        example: resource not found
+        type: string
+    type: object
+  admin.MemoryTypeInfo:
+    properties:
+      categories:
+        example:
+        - session
+        items:
+          type: string
+        type: array
+      displayName:
+        example: Redis
+        type: string
+      fields:
+        items:
+          $ref: '#/definitions/memory.FieldSpec'
+        type: array
+      type:
+        example: redis
+        type: string
+    type: object
+  memory.FieldSpec:
+    properties:
+      default:
+        type: string
+      key:
+        type: string
+      label:
+        type: string
+      placeholder:
+        type: string
+      required:
+        type: boolean
+      type:
+        type: string
+    type: object
+  memory.HealthResult:
+    properties:
+      detail:
+        type: string
+      healthy:
+        type: boolean
+    type: object
+  store.AgentDefinition:
+    properties:
+      description:
+        type: string
+      id:
+        type: string
+      llm:
+        $ref: '#/definitions/store.BackendRef'
+      mcpServers:
+        items:
+          type: string
+        type: array
+      memory:
+        $ref: '#/definitions/store.MemoryRef'
+      name:
+        type: string
+      systemPrompt:
+        type: string
+      systemPromptSuffix:
+        type: string
+      telegram:
+        $ref: '#/definitions/store.TelegramConfig'
+      transcription:
+        $ref: '#/definitions/store.BackendRef'
+      tts:
+        $ref: '#/definitions/store.TTSRef'
+    type: object
+  store.BackendDefinition:
+    properties:
+      apiKey:
+        type: string
+      name:
+        type: string
+      type:
+        type: string
+      url:
+        type: string
+    type: object
+  store.BackendRef:
+    properties:
+      backend:
+        type: string
+      model:
+        type: string
+    type: object
+  store.CronJob:
+    properties:
+      agentId:
+        type: string
+      description:
+        type: string
+      enabled:
+        type: boolean
+      name:
+        type: string
+      prompt:
+        type: string
+      schedule:
+        type: string
+    type: object
+  store.Device:
+    properties:
+      allowedAgents:
+        items:
+          type: string
+        type: array
+      defaultAgent:
+        type: string
+      enabled:
+        type: boolean
+      name:
+        type: string
+      token:
+        type: string
+    type: object
+  store.MCPServer:
+    properties:
+      args:
+        items:
+          type: string
+        type: array
+      command:
+        type: string
+      endpoint:
+        type: string
+      env:
+        additionalProperties:
+          type: string
+        type: object
+      headers:
+        additionalProperties:
+          type: string
+        type: object
+      name:
+        type: string
+      systemPrompt:
+        type: string
+      type:
+        type: string
+      workDir:
+        type: string
+    type: object
+  store.MemoryProvider:
+    properties:
+      category:
+        type: string
+      config:
+        additionalProperties: true
+        type: object
+      embedding:
+        $ref: '#/definitions/store.BackendRef'
+      name:
+        type: string
+      type:
+        type: string
+    type: object
+  store.MemoryRef:
+    properties:
+      longTerm:
+        type: string
+      session:
+        type: string
+    type: object
+  store.TTSRef:
+    properties:
+      backend:
+        type: string
+      model:
+        type: string
+      speed:
+        type: number
+      voice:
+        type: string
+    type: object
+  store.TelegramConfig:
+    properties:
+      allowedChats:
+        items:
+          type: integer
+        type: array
+      allowedUsers:
+        items:
+          type: integer
+        type: array
+      enabled:
+        type: boolean
+      responseMode:
+        type: string
+      token:
+        type: string
+    type: object
+host: localhost:8081
+info:
+  contact: {}
+  description: Administration API for managing Magec multi-agent voice assistant resources.
+  title: Magec Admin API
+  version: "1.0"
+paths:
+  /agents:
+    get:
+      description: Returns all configured agents
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/store.AgentDefinition'
+            type: array
+      summary: List agents
+      tags:
+      - agents
+    post:
+      consumes:
+      - application/json
+      description: Creates a new agent definition
+      parameters:
+      - description: Agent definition
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/store.AgentDefinition'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/store.AgentDefinition'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/admin.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/admin.ErrorResponse'
+      summary: Create agent
+      tags:
+      - agents
+  /agents/{id}:
+    delete:
+      description: Deletes an agent by ID
+      parameters:
+      - description: Agent ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/admin.ErrorResponse'
+      summary: Delete agent
+      tags:
+      - agents
+    get:
+      description: Returns an agent by its unique ID
+      parameters:
+      - description: Agent ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/store.AgentDefinition'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/admin.ErrorResponse'
+      summary: Get agent
+      tags:
+      - agents
+    put:
+      consumes:
+      - application/json
+      description: Updates an agent by ID
+      parameters:
+      - description: Agent ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Agent definition
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/store.AgentDefinition'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/store.AgentDefinition'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/admin.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/admin.ErrorResponse'
+      summary: Update agent
+      tags:
+      - agents
+  /agents/{id}/mcps:
+    get:
+      description: Returns the MCP servers linked to a specific agent
+      parameters:
+      - description: Agent ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/store.MCPServer'
+            type: array
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/admin.ErrorResponse'
+      summary: List agent MCPs
+      tags:
+      - agents
+  /agents/{id}/mcps/{name}:
+    delete:
+      description: Removes the association between an MCP server and an agent
+      parameters:
+      - description: Agent ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: MCP server name
+        in: path
+        name: name
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/admin.ErrorResponse'
+      summary: Unlink MCP from agent
+      tags:
+      - agents
+    put:
+      description: Associates a global MCP server with an agent
+      parameters:
+      - description: Agent ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: MCP server name
+        in: path
+        name: name
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/admin.ErrorResponse'
+      summary: Link MCP to agent
+      tags:
+      - agents
+  /backends:
+    get:
+      description: Returns all configured AI backends
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/store.BackendDefinition'
+            type: array
+      summary: List backends
+      tags:
+      - backends
+    post:
+      consumes:
+      - application/json
+      description: Creates a new AI backend
+      parameters:
+      - description: Backend definition
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/store.BackendDefinition'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/store.BackendDefinition'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/admin.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/admin.ErrorResponse'
+      summary: Create backend
+      tags:
+      - backends
+  /backends/{name}:
+    delete:
+      description: Deletes a backend by name
+      parameters:
+      - description: Backend name
+        in: path
+        name: name
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/admin.ErrorResponse'
+      summary: Delete backend
+      tags:
+      - backends
+    get:
+      description: Returns a backend by its unique name
+      parameters:
+      - description: Backend name
+        in: path
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/store.BackendDefinition'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/admin.ErrorResponse'
+      summary: Get backend
+      tags:
+      - backends
+    put:
+      consumes:
+      - application/json
+      description: Updates a backend by name
+      parameters:
+      - description: Backend name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: Backend definition
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/store.BackendDefinition'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/store.BackendDefinition'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/admin.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/admin.ErrorResponse'
+      summary: Update backend
+      tags:
+      - backends
+  /crons:
+    get:
+      description: Returns all configured scheduled tasks
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/store.CronJob'
+            type: array
+      summary: List cron jobs
+      tags:
+      - crons
+    post:
+      consumes:
+      - application/json
+      description: Creates a new scheduled task that sends a prompt to an agent
+      parameters:
+      - description: Cron job definition
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/store.CronJob'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/store.CronJob'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/admin.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/admin.ErrorResponse'
+      summary: Create cron job
+      tags:
+      - crons
+  /crons/{name}:
+    delete:
+      description: Deletes a cron job by name
+      parameters:
+      - description: Cron job name
+        in: path
+        name: name
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/admin.ErrorResponse'
+      summary: Delete cron job
+      tags:
+      - crons
+    get:
+      description: Returns a cron job by its unique name
+      parameters:
+      - description: Cron job name
+        in: path
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/store.CronJob'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/admin.ErrorResponse'
+      summary: Get cron job
+      tags:
+      - crons
+    put:
+      consumes:
+      - application/json
+      description: Updates a cron job by name
+      parameters:
+      - description: Cron job name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: Cron job definition
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/store.CronJob'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/store.CronJob'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/admin.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/admin.ErrorResponse'
+      summary: Update cron job
+      tags:
+      - crons
+  /devices:
+    get:
+      description: Returns all configured access point devices
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/store.Device'
+            type: array
+      summary: List devices
+      tags:
+      - devices
+    post:
+      consumes:
+      - application/json
+      description: Creates a new device. A unique auth token is generated automatically.
+      parameters:
+      - description: Device definition (token is auto-generated)
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/store.Device'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/store.Device'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/admin.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/admin.ErrorResponse'
+      summary: Create device
+      tags:
+      - devices
+  /devices/{name}:
+    delete:
+      description: Deletes a device by name, revoking its access token
+      parameters:
+      - description: Device name
+        in: path
+        name: name
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/admin.ErrorResponse'
+      summary: Delete device
+      tags:
+      - devices
+    get:
+      description: Returns a device by its unique name
+      parameters:
+      - description: Device name
+        in: path
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/store.Device'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/admin.ErrorResponse'
+      summary: Get device
+      tags:
+      - devices
+    put:
+      consumes:
+      - application/json
+      description: Updates a device by name. Token is preserved.
+      parameters:
+      - description: Device name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: Device definition
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/store.Device'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/store.Device'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/admin.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/admin.ErrorResponse'
+      summary: Update device
+      tags:
+      - devices
+  /devices/{name}/regenerate-token:
+    post:
+      description: Generates a new authentication token for a device, invalidating
+        the previous one
+      parameters:
+      - description: Device name
+        in: path
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/store.Device'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/admin.ErrorResponse'
+      summary: Regenerate device token
+      tags:
+      - devices
+  /mcps:
+    get:
+      description: Returns all configured MCP tool servers
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/store.MCPServer'
+            type: array
+      summary: List MCP servers
+      tags:
+      - mcps
+    post:
+      consumes:
+      - application/json
+      description: Creates a new MCP tool server
+      parameters:
+      - description: MCP server definition
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/store.MCPServer'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/store.MCPServer'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/admin.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/admin.ErrorResponse'
+      summary: Create MCP server
+      tags:
+      - mcps
+  /mcps/{name}:
+    delete:
+      description: Deletes an MCP server by name
+      parameters:
+      - description: MCP server name
+        in: path
+        name: name
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/admin.ErrorResponse'
+      summary: Delete MCP server
+      tags:
+      - mcps
+    get:
+      description: Returns an MCP server by its unique name
+      parameters:
+      - description: MCP server name
+        in: path
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/store.MCPServer'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/admin.ErrorResponse'
+      summary: Get MCP server
+      tags:
+      - mcps
+    put:
+      consumes:
+      - application/json
+      description: Updates an MCP server by name
+      parameters:
+      - description: MCP server name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: MCP server definition
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/store.MCPServer'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/store.MCPServer'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/admin.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/admin.ErrorResponse'
+      summary: Update MCP server
+      tags:
+      - mcps
+  /memory:
+    get:
+      description: Returns all configured memory providers (session and long-term)
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/store.MemoryProvider'
+            type: array
+      summary: List memory providers
+      tags:
+      - memory
+    post:
+      consumes:
+      - application/json
+      description: Creates a new memory provider. Type must be registered and support
+        the given category.
+      parameters:
+      - description: Memory provider definition
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/store.MemoryProvider'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/store.MemoryProvider'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/admin.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/admin.ErrorResponse'
+      summary: Create memory provider
+      tags:
+      - memory
+  /memory/{name}:
+    delete:
+      description: Deletes a memory provider by name
+      parameters:
+      - description: Provider name
+        in: path
+        name: name
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/admin.ErrorResponse'
+      summary: Delete memory provider
+      tags:
+      - memory
+    get:
+      description: Returns a memory provider by its unique name
+      parameters:
+      - description: Provider name
+        in: path
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/store.MemoryProvider'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/admin.ErrorResponse'
+      summary: Get memory provider
+      tags:
+      - memory
+    put:
+      consumes:
+      - application/json
+      description: Updates a memory provider by name
+      parameters:
+      - description: Provider name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: Memory provider definition
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/store.MemoryProvider'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/store.MemoryProvider'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/admin.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/admin.ErrorResponse'
+      summary: Update memory provider
+      tags:
+      - memory
+  /memory/{name}/health:
+    get:
+      description: Pings the memory provider with a 5-second timeout to verify connectivity
+      parameters:
+      - description: Provider name
+        in: path
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/memory.HealthResult'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/admin.ErrorResponse'
+      summary: Health check
+      tags:
+      - memory
+  /memory/types:
+    get:
+      description: Returns registered provider types with supported categories and
+        config field specifications for dynamic form rendering
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/admin.MemoryTypeInfo'
+            type: array
+      summary: List memory provider types
+      tags:
+      - memory
+  /overview:
+    get:
+      description: Returns counts for all resource types and agent summaries
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Dashboard overview
+      tags:
+      - overview
+schemes:
+- http
+swagger: "2.0"

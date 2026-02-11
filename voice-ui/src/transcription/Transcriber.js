@@ -21,6 +21,15 @@ export class RemoteTranscriber {
     constructor(config) {
         this.config = config;
         this.saveAudio = false;
+        this._agentId = 'default';
+    }
+
+    setAgent(agentId) {
+        this._agentId = agentId;
+    }
+
+    _transcriptionUrl() {
+        return `/api/v1/voice/${this._agentId}/transcription`;
     }
 
     setSaveAudio(save) {
@@ -41,7 +50,7 @@ export class RemoteTranscriber {
 
         let response;
         try {
-            response = await fetch(this.config.url, {
+            response = await fetch(this._transcriptionUrl(), {
                 method: 'POST',
                 body: formData
             });

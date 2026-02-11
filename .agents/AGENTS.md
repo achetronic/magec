@@ -31,7 +31,6 @@ Personal AI assistant from the Canary Islands 🇮🇨 that you control.
 ```bash
 # Docker Compose (recommended)
 cd deploy/docker/fully-local
-nano config.yaml  # Add your LLM API key
 docker-compose up -d
 
 # OR from source
@@ -39,7 +38,8 @@ make infra        # Start PostgreSQL + Redis
 make dev          # Build and run
 ```
 
-Open http://localhost:8080 and start chatting.
+Open http://localhost:8081 to configure agents and backends via the Admin UI.
+Then open http://localhost:8080 to start chatting.
 
 ## Architecture
 
@@ -48,7 +48,21 @@ magec/
 ├── server/                     # Go backend (core)
 │   ├── main.go                 # HTTP server, routing, middleware
 │   ├── agent/agent.go          # ADK agent with memory, MCP tools
-│   ├── config/config.go        # YAML config parsing, backend resolution
+│   ├── admin/                  # Admin REST API (multi-agent management)
+│   │   ├── handler.go          # Router + helpers
+│   │   ├── agents.go           # Agent CRUD handlers
+│   │   ├── backends.go         # Backend CRUD handlers
+│   │   ├── memory.go           # Memory provider CRUD + health check + /types
+│   │   └── overview.go         # Overview/health handler
+│   ├── store/                  # In-memory data store with JSON persistence
+│   │   ├── store.go            # Store struct, CRUD operations, persistence
+│   │   └── types.go            # AgentDefinition, BackendDefinition, MemoryProvider, etc.
+│   ├── memory/                 # Extensible memory provider registry
+│   │   ├── provider.go         # Provider interface, Category type, HealthResult
+│   │   ├── registry.go         # Global registry: Register(), Get(), All(), ValidTypeForCategory()
+│   │   ├── redis/redis.go      # Redis provider (session), Ping via ParseURL
+│   │   └── postgres/postgres.go # Postgres provider (longterm), Ping via sql.Open
+│   ├── config/config.go        # YAML config parsing (server + log only)
 │   ├── logging/logging.go      # Structured logging (slog)
 │   ├── voice/                  # Server-side voice detection (wake word + VAD)
 │   │   ├── detector.go         # ONNX-based OpenWakeWord inference
@@ -73,6 +87,12 @@ magec/
 │   ├── assets/                 # PWA icons
 │   ├── manifest.json           # PWA manifest
 │   └── index.html
+├── admin-ui/                   # Admin web interface (separate port)
+│   ├── src/
+│   │   ├── app.js              # Admin dashboard (CRUD for agents, backends, MCPs)
+│   │   └── api.js              # Admin API client
+│   ├── assets/                 # Shared logo
+│   └── index.html
 ├── models/                     # Wake word ONNX models + wakewords.yaml
 ├── pretrained/                 # Shared ONNX models (mel-spec, VAD, embeddings)
 ├── scripts/
@@ -90,11 +110,15 @@ magec/
 
 | Component | Purpose |
 |-----------|---------|
-| `server/main.go` | HTTP server with ADK REST handler, Whisper/TTS proxies, WebSocket voice-events |
-| `server/agent/agent.go` | ADK agent with memory tools, MCP integration |
+| `server/main.go` | HTTP server (port 8080) + admin server (port 8081), routing, middleware |
+| `server/agent/agent.go` | Multi-agent ADK setup. `New()` accepts `[]AgentDefinition`, creates one LLM agent per definition, routes via `NewMultiLoader` |
+| `server/admin/` | Admin REST API for managing agents, backends, MCPs, and memory providers at runtime |
+| `server/memory/` | Extensible provider registry — interface + init() auto-registration pattern |
+| `server/store/` | In-memory data store with JSON persistence (`data/store.json`). All resources managed via admin API |
 | `server/voice/` | Server-side voice detection (wake word + VAD) via ONNX |
 | `server/clients/telegram/` | Telegram bot with voice message support |
-| `server/config/config.go` | YAML config with backend resolution and env var expansion |
+| `server/config/config.go` | YAML config for server infrastructure only (ports, log) |
+| `admin-ui/` | Admin dashboard SPA (Tailwind, same color palette as voice-ui), served on admin port |
 | `voice-ui/src/app.js` | Main entry - MagecApp class orchestrates audio pipeline |
 | `voice-ui/src/audio/` | AudioCapture, AudioRecorder, AudioConverter, FeedbackSound, OpenAITTS, VoiceEventsClient |
 | `voice-ui/src/api/AgentClient.js` | Agent API client (sessions, messages) |
@@ -103,114 +127,101 @@ magec/
 
 ## HTTP Endpoints
 
+### Main Server (port 8080)
+
 | Method | Path | Description |
 |--------|------|-------------|
-| GET/POST | `/api/v1/agent/*` | ADK REST API (sessions, run, events) |
+| GET/POST | `/api/v1/agent/*` | ADK REST API (sessions, run, events). Uses `appName` to route to correct agent |
 | POST | `/api/v1/agent/run` | Run agent (blocking) |
 | POST | `/api/v1/agent/run_sse` | Run agent (SSE streaming) |
-| POST | `/api/v1/transcription/*` | Proxy to Whisper backend |
-| POST | `/api/v1/tts/*` | Proxy to TTS backend |
-| WebSocket | `/api/v1/voice-events` | Voice events stream (wake word + VAD) |
+| POST | `/api/v1/voice/{agentId}/speech` | TTS proxy (resolves backend dynamically per agent from store) |
+| POST | `/api/v1/voice/{agentId}/transcription` | STT proxy (resolves backend dynamically per agent from store) |
+| WebSocket | `/api/v1/voice/events` | Voice events stream (wake word + VAD) |
+| GET | `/api/v1/device/info` | Device info (paired status, allowed agents) |
 | GET | `/api/v1/health` | Health check |
 | GET | `/` | Static files from `voice-ui/` |
 
-## Configuration (YAML)
+### Admin Server (port 8081)
 
-Single YAML config file. Supports `${VAR}` for environment variable expansion.
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/` | Admin UI (static files from `admin-ui/`) |
+| GET | `/api/v1/admin/swagger/` | Swagger UI (interactive API docs) |
+| GET | `/api/v1/admin/overview` | Overview: agent/backend/MCP counts + agent summaries |
+| GET | `/api/v1/admin/backends` | List all backends |
+| POST | `/api/v1/admin/backends` | Create a backend |
+| GET | `/api/v1/admin/backends/{name}` | Get a backend by name |
+| PUT | `/api/v1/admin/backends/{name}` | Update a backend |
+| DELETE | `/api/v1/admin/backends/{name}` | Delete a backend |
+| GET | `/api/v1/admin/memory` | List all memory providers |
+| POST | `/api/v1/admin/memory` | Create a memory provider |
+| GET | `/api/v1/admin/memory/types` | List registered provider types + supported categories |
+| GET | `/api/v1/admin/memory/{name}` | Get a memory provider by name |
+| PUT | `/api/v1/admin/memory/{name}` | Update a memory provider |
+| DELETE | `/api/v1/admin/memory/{name}` | Delete a memory provider |
+| GET | `/api/v1/admin/memory/{name}/health` | Real-time health check (Ping) for a provider |
+| GET | `/api/v1/admin/mcps` | List all MCP servers (global) |
+| POST | `/api/v1/admin/mcps` | Create an MCP server |
+| GET | `/api/v1/admin/mcps/{name}` | Get an MCP server by name |
+| PUT | `/api/v1/admin/mcps/{name}` | Update an MCP server |
+| DELETE | `/api/v1/admin/mcps/{name}` | Delete an MCP server |
+| GET | `/api/v1/admin/agents` | List all agents |
+| POST | `/api/v1/admin/agents` | Create an agent |
+| GET | `/api/v1/admin/agents/{id}` | Get an agent by ID |
+| PUT | `/api/v1/admin/agents/{id}` | Update an agent |
+| DELETE | `/api/v1/admin/agents/{id}` | Delete an agent |
+| GET | `/api/v1/admin/agents/{id}/mcps` | List resolved MCPs for an agent |
+| PUT | `/api/v1/admin/agents/{id}/mcps/{name}` | Link an MCP to an agent |
+| DELETE | `/api/v1/admin/agents/{id}/mcps/{name}` | Unlink an MCP from an agent |
+| GET | `/api/v1/admin/devices` | List all devices |
+| POST | `/api/v1/admin/devices` | Create a device |
+| GET | `/api/v1/admin/devices/{name}` | Get a device by name |
+| PUT | `/api/v1/admin/devices/{name}` | Update a device |
+| DELETE | `/api/v1/admin/devices/{name}` | Delete a device |
+| POST | `/api/v1/admin/devices/{name}/regenerate-token` | Regenerate device auth token |
+| GET | `/api/v1/admin/crons` | List all cron jobs |
+| POST | `/api/v1/admin/crons` | Create a cron job |
+| GET | `/api/v1/admin/crons/{name}` | Get a cron job by name |
+| PUT | `/api/v1/admin/crons/{name}` | Update a cron job |
+| DELETE | `/api/v1/admin/crons/{name}` | Delete a cron job |
+
+See [MULTI_AGENT_ADMIN_API.md](MULTI_AGENT_ADMIN_API.md) for full API reference with request/response schemas.
+
+## Configuration
+
+Magec uses a **split configuration** model:
+
+- **`config.yaml`** — Server infrastructure only (ports, logging). Read at startup.
+- **Admin API + Store** — All resources (agents, backends, MCPs, memory providers, devices, crons). Managed via the Admin UI at `:8081` or the REST API. Persisted to `data/store.json`.
+
+### config.yaml (Infrastructure)
 
 ```yaml
 server:
   host: 0.0.0.0
   port: 8080
+  adminPort: 8081  # Admin UI + API (default: 8081)
   onnxLibraryPath: /usr/lib/libonnxruntime.so  # Optional, default shown
 
 log:
   level: info   # debug, info, warn, error
   format: console  # console, json
-
-# Reusable AI backends
-backends:
-  - name: ollama
-    type: openai
-    url: http://localhost:11434/v1
-
-  - name: openai
-    type: openai
-    apiKey: ${OPENAI_API_KEY}
-
-  - name: anthropic
-    type: anthropic
-    apiKey: ${ANTHROPIC_API_KEY}
-
-  - name: parakeet
-    type: openai
-    url: http://127.0.0.1:5000/v1
-
-# Server-side wake word detection
-wakeWord:
-  enabled: true
-
-transcription:
-  backend: parakeet
-  model: whisper-1
-
-llm:
-  backend: ollama
-  model: qwen3:8b
-
-# Optional: customize agent behavior
-agent:
-  systemPrompt: "Custom system prompt..."
-  systemPromptSuffix: "Additional instructions..."
-
-# Optional: text-to-speech
-tts:
-  backend: openai
-  model: tts-1
-  voice: alloy        # or es-ES-AlvaroNeural for edge-tts
-  speed: 1.0
-
-memory:
-  session:
-    redis:
-      address: localhost:6379
-      password: ""
-      db: 0
-      ttl: 24h
-
-  longTerm:
-    embedding:
-      backend: ollama
-      model: nomic-embed-text
-    postgres:
-      connectionString: postgres://postgres:postgres@localhost:5432/magec?sslmode=disable
-
-# MCP tool servers (HTTP or stdio)
-mcpServers:
-  - name: home-assistant
-    type: http
-    endpoint: http://localhost:8070/mcp
-    headers:
-      Authorization: Bearer ${HASS_TOKEN}
-    systemPrompt: "Home automation tools"
-
-  - name: local-tool
-    type: stdio
-    command: /path/to/tool
-    args: ["--flag"]
-    env:
-      KEY: value
-    workDir: /path/to/dir
-
-# Clients
-clients:
-  telegram:
-    enabled: true
-    token: ${TELEGRAM_BOT_TOKEN}
-    allowedUsers: [123456789]
-    allowedChats: [-100123456789]
-    responseMode: both
 ```
+
+### Store Resources (Admin API)
+
+All of the following are managed at runtime via `http://localhost:8081`:
+
+| Resource | Description |
+|----------|-------------|
+| **Backends** | Reusable AI backends (OpenAI, Ollama, Anthropic, Gemini) |
+| **Memory Providers** | Redis (session), PostgreSQL (long-term) |
+| **MCP Servers** | External tool servers (HTTP or stdio) |
+| **Agents** | Independent units with own LLM, memory, tools, prompts |
+| **Devices** | Voice-UI access points with token-based auth |
+| **Cron Jobs** | Scheduled prompts to agents |
+
+On first run with no `data/store.json`, the store starts empty. Configure everything via the Admin UI.
 
 ### Backend Types
 
@@ -224,12 +235,18 @@ clients:
 
 ### Go Conventions
 
-- **YAML config**: Single source of truth, env var expansion with `${VAR}`
-- **Backend resolution**: Config resolves backend references at load time
+- **YAML config**: Server infrastructure only (ports, log), env var expansion with `${VAR}`
+- **Store-based resources**: All agents, backends, MCPs, memory, devices, crons managed via admin API
+- **No YAML seed**: Store starts empty on first run; configure via Admin UI at `:8081`
+- **Multi-agent ADK**: `agent.New()` accepts `[]AgentDefinition`, creates one LLM agent per definition, `NewMultiLoader` routes by `appName`
+- **Hot-reload**: Store `OnChange()` channel fires on `persist()`. `agentRouterHandler` rebuilds agent on store changes with 500ms debounce
 - **ADK REST handler**: `adkrest.NewHandler()` provides full ADK API
 - **Memory tools**: Agent has `search_memory` and `save_to_memory` tools
 - **Agent instruction**: Reads memories at conversation start
-- **WebSocket voice-events**: Server handles all ONNX inference (wake word + VAD), clients stream audio
+- **Voice endpoints**: `/api/v1/voice/{agentId}/speech` and `/transcription` resolve backends dynamically per agent. API keys forwarded to upstream
+- **WebSocket voice-events**: Server handles all ONNX inference (wake word + VAD), clients stream audio at `/api/v1/voice/events`
+- **Device auth middleware**: Token-based auth on port 8080. Whitelist: health, voice/events, device/info, OPTIONS, static files
+- **Rename with cascade**: All 6 resource types support renaming via PUT. Cascading reference updates done atomically under write lock
 
 ### JavaScript Conventions (voice-ui)
 
@@ -239,6 +256,8 @@ clients:
 - **Storage keys**: `magec_settings`, `magec_language`, `magec_sessions`
 - **Color palette**: piedra (grays), atlantico (cyan), lava (red), sol (yellow/orange), arena (text)
 - **Centralized errors**: All API errors flow through ErrorHandler → notifications
+- **Multi-agent**: `setAgent(agentId)` propagated to `AgentClient`, `SessionService`, `OpenAITTS`, `RemoteTranscriber`
+- **Agent switching**: Dropdown triggers new session creation + endpoint reconfiguration
 
 ### Audio Processing Pipeline (voice-ui)
 
@@ -248,12 +267,12 @@ clients:
 4. **Conversion** → AudioConverter resamples to 16kHz WAV
 5. **Transcription** → RemoteTranscriber POSTs to Whisper API
 6. **Agent interaction** → AgentClient POSTs to ADK `/run` endpoint
-7. **TTS** → OpenAITTS plays response via `/api/v1/tts/speech`
+7. **TTS** → OpenAITTS plays response via `/api/v1/voice/{agentId}/speech`
 
 ### Voice Events (Server-side)
 
 ```
-Client (WebSocket)          Server (/api/v1/voice-events)
+Client (WebSocket)          Server (/api/v1/voice/events)
        │                              │
        │<── capabilities ─────────────│ (on connect)
        │    {wakewords, vad}          │
@@ -279,7 +298,7 @@ Client (WebSocket)          Server (/api/v1/voice-events)
   "type": "capabilities",
   "data": {
     "wakewords": {
-      "models": [{"id": "oye-magec", "phrase": "Oye Magec"}],
+      "models": [{"id": "oye-magec", "name": "Oye Magec", "phrase": "Oye Magec"}],
       "active": "oye-magec"
     },
     "vad": {
@@ -319,7 +338,7 @@ PWA-enabled web interface with:
 - **Authorization**: `allowedUsers` and `allowedChats` allowlists
 - **Sessions**: Scoped by `telegram_<chatID>`
 - **User context**: Every message sent to the LLM includes a `<!--MAGEC_META:{...}:MAGEC_META-->` prefix with Telegram metadata as JSON (source, user ID, username, display name, chat ID, chat title, chat type) so the agent always knows who is talking and from where. This format is shared across all clients (Telegram, voice-ui with future OpenID JWT claims) and is stripped from user-facing views by the `stripMetadata()` utility
-- **Response mode**: Configurable via `responseMode` in YAML. Can also be changed at runtime with the `/responsemode` Telegram command (persists until pod restart)
+- **Response mode**: Configurable via `responseMode` in the agent's Telegram settings (admin API). Can also be changed at runtime with the `/responsemode` Telegram command (persists until pod restart)
 
 #### Telegram Commands
 
@@ -348,6 +367,7 @@ PWA-enabled web interface with:
 ```bash
 make build              # Build to bin/magec-server
 make dev                # Build and run with config.yaml
+make swagger            # Regenerate Swagger docs from annotations
 make clean              # Remove build artifacts
 make download-model     # Download wake word + pretrained models (interactive)
 ```
@@ -363,51 +383,15 @@ make infra-stop         # Stop postgres + redis
 make infra-clean        # Remove all containers and volumes
 ```
 
-### Provider Examples
+### Backend Types
 
-**Ollama (local):**
-```yaml
-backends:
-  - name: ollama
-    type: openai
-    url: http://localhost:11434/v1
-llm:
-  backend: ollama
-  model: qwen3:8b
-```
+Backends are created via the Admin API (`POST /api/v1/admin/backends`).
 
-**OpenAI:**
-```yaml
-backends:
-  - name: openai
-    type: openai
-    apiKey: ${OPENAI_API_KEY}
-llm:
-  backend: openai
-  model: gpt-4o-mini
-```
-
-**Anthropic:**
-```yaml
-backends:
-  - name: anthropic
-    type: anthropic
-    apiKey: ${ANTHROPIC_API_KEY}
-llm:
-  backend: anthropic
-  model: claude-sonnet-4-20250514
-```
-
-**Gemini:**
-```yaml
-backends:
-  - name: gemini
-    type: gemini
-    apiKey: ${GEMINI_API_KEY}
-llm:
-  backend: gemini
-  model: gemini-2.0-flash
-```
+| Type | Description | Required Fields |
+|------|-------------|-----------------|
+| `openai` | OpenAI-compatible API (OpenAI, Ollama, LM Studio, etc.) | `url` and/or `apiKey` |
+| `anthropic` | Anthropic Claude API | `apiKey` |
+| `gemini` | Google Gemini API | `apiKey` |
 
 ## Docker Compose Deployments
 
@@ -418,7 +402,7 @@ Two ready-to-use deployments in `deploy/docker/`:
 Fully self-hosted. No API keys needed. All AI runs locally.
 
 **Services:**
-- **magec** - Main server (port 8080)
+- **magec** - Main server (port 8080) + Admin UI (port 8081)
 - **redis** - Session storage
 - **postgres** - Long-term memory (pgvector)
 - **ollama** - LLM (qwen3:8b) + embeddings (nomic-embed-text)
@@ -436,7 +420,7 @@ docker compose up -d
 Only infra runs locally. LLM, STT, TTS, and embeddings use OpenAI APIs.
 
 **Services:**
-- **magec** - Main server (port 8080)
+- **magec** - Main server (port 8080) + Admin UI (port 8081)
 - **redis** - Session storage
 - **postgres** - Long-term memory (pgvector)
 
@@ -498,17 +482,36 @@ Pretrained models in `pretrained/`:
 
 10. **Telegram user context**: The LLM receives a `[context: telegram_user_id: ..., telegram_username: @..., ...]` prefix on every message. This is injected by the Telegram client, not configurable.
 
+11. **Memory providers use connectionString**: Both Redis and Postgres use a universal `connectionString` field (`redis://...`, `postgres://...`). Provider-specific extra fields (like `ttl` for Redis) live in the `config` map alongside the connection string.
+
+12. **Memory provider registry**: Providers register via `init()` + blank imports in `main.go`. Adding a new type = new package under `server/memory/<name>/` + blank import. The `Provider` interface requires `Type()`, `DisplayName()`, `SupportedCategories()`, `ConfigFields()`, and `Ping(ctx, config)`.
+
+13. **Schema-driven memory forms**: The admin UI renders memory provider forms dynamically from `ConfigFields()` specs returned by `/memory/types`. Zero hardcoded fields per provider type — new providers get forms for free.
+
+14. **Category is per-instance, not per-type**: `MemoryProvider.Category` (string in store) vs `Provider.SupportedCategories()` (capability). A single type like Redis could serve both session and long-term roles.
+
+15. **Voice endpoint proxy forwards API keys**: `serveSpeechProxy` and `serveTranscriptionProxy` forward the backend's `apiKey` as `Authorization: Bearer` to the upstream. Without this, backends that require API keys (like OpenAI Edge TTS) return 401.
+
+16. **Rename cascade**: Renaming a resource (e.g., a backend) via PUT with a different name in the body triggers cascading updates across all referencing resources. The cascade map: Backend → Agent.LLM/TTS/Transcription.Backend + MemoryProvider.Embedding.Backend; MemoryProvider → Agent.Memory.Session/LongTerm; MCPServer → Agent.MCPServers[]; Agent → Device.DefaultAgent + Device.AllowedAgents[] + CronJob.AgentID.
+
+17. **Hot-reload**: Store changes (via admin API) fire `OnChange()` channel → `agentRouterHandler` rebuilds the ADK agent with 500ms debounce. No server restart needed for config changes.
+
+18. **Multi-agent routing**: ADK uses `appName` in requests to route to the correct agent via `NewMultiLoader`. Voice-UI must send the correct `appName` matching the agent ID in the store.
+
+19. **Admin UI dialog validation**: Cancel/close buttons use `formnovalidate` to bypass HTML5 validation on required fields. Without this, dialogs with required empty fields cannot be dismissed.
+
 ## Testing
 
 Manual testing workflow:
 
 1. Start infrastructure: `make infra`
 2. Start server: `make dev`
-3. Open http://localhost:8080
-4. Allow microphone access
-5. Say wake word or tap the orb to start recording
-6. Speak - recording stops automatically when you stop talking (VAD)
-7. Verify agent responds
+3. Open http://localhost:8081 to configure backends and agents via Admin UI
+4. Open http://localhost:8080
+5. Allow microphone access
+6. Say wake word or tap the orb to start recording
+7. Speak - recording stops automatically when you stop talking (VAD)
+8. Verify agent responds
 
 ## Related Resources
 

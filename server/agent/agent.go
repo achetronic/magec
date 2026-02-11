@@ -17,9 +17,13 @@ package agent
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -42,9 +46,8 @@ import (
 	toolsmemory "github.com/achetronic/adk-utils-go/tools/memory"
 
 	"github.com/achetronic/magec/server/config"
+	"github.com/achetronic/magec/server/store"
 )
-
-const appName = "magec_agent"
 
 const baseInstruction = `You are Magec, a helpful voice assistant that helps users with various tasks.
 Keep responses concise and natural for voice interaction.
@@ -69,57 +72,94 @@ type Service struct {
 	handler http.Handler
 }
 
-// New creates a new agent service from config.
-func New(ctx context.Context, cfg *config.Config) (*Service, error) {
-	// Session service (Redis or in-memory fallback)
-	sessionSvc, err := createSessionService(cfg)
+// New creates a new agent service from all store agents.
+// Each agent definition becomes an ADK agent, loaded via a multi-loader
+// so that appName in requests selects which agent handles the call.
+func New(ctx context.Context, agents []store.AgentDefinition, backends []store.BackendDefinition, memoryProviders []store.MemoryProvider, mcpServers []store.MCPServer) (*Service, error) {
+	if len(agents) == 0 {
+		return nil, fmt.Errorf("no agents defined")
+	}
+
+	backendMap := make(map[string]store.BackendDefinition, len(backends))
+	for _, b := range backends {
+		backendMap[b.Name] = b
+	}
+
+	memoryProviderMap := make(map[string]store.MemoryProvider, len(memoryProviders))
+	for _, m := range memoryProviders {
+		memoryProviderMap[m.Name] = m
+	}
+
+	mcpServerMap := make(map[string]store.MCPServer, len(mcpServers))
+	for _, m := range mcpServers {
+		mcpServerMap[m.Name] = m
+	}
+
+	var rootAgent agent.Agent
+	var otherAgents []agent.Agent
+	var firstSessionSvc session.Service
+	var firstMemorySvc memory.Service
+
+	for i, agentDef := range agents {
+		sessionSvc, err := createSessionService(agentDef, memoryProviderMap)
+		if err != nil {
+			return nil, fmt.Errorf("agent %q session: %w", agentDef.ID, err)
+		}
+
+		memorySvc, err := createMemoryService(ctx, agentDef, memoryProviderMap, backendMap)
+		if err != nil {
+			return nil, fmt.Errorf("agent %q memory: %w", agentDef.ID, err)
+		}
+
+		llmBackend, ok := backendMap[agentDef.LLM.Backend]
+		if !ok {
+			return nil, fmt.Errorf("agent %q: LLM backend %q not found", agentDef.ID, agentDef.LLM.Backend)
+		}
+		llmModel, err := createLLM(ctx, llmBackend, agentDef.LLM.Model)
+		if err != nil {
+			return nil, fmt.Errorf("agent %q: failed to create LLM: %w", agentDef.ID, err)
+		}
+
+		toolsets, err := buildToolsets(agentDef, mcpServerMap, memorySvc)
+		if err != nil {
+			return nil, fmt.Errorf("agent %q: failed to build toolsets: %w", agentDef.ID, err)
+		}
+
+		instruction := buildInstruction(agentDef, mcpServerMap, memorySvc)
+
+		adkAgent, err := llmagent.New(llmagent.Config{
+			Name:        agentDef.ID,
+			Model:       llmModel,
+			Description: agentDef.Name,
+			Instruction: instruction,
+			Toolsets:    toolsets,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("agent %q: failed to create: %w", agentDef.ID, err)
+		}
+
+		if i == 0 {
+			rootAgent = adkAgent
+			firstSessionSvc = sessionSvc
+			firstMemorySvc = memorySvc
+		} else {
+			otherAgents = append(otherAgents, adkAgent)
+		}
+
+		slog.Info("Agent initialized", "id", agentDef.ID, "name", agentDef.Name)
+	}
+
+	loader, err := agent.NewMultiLoader(rootAgent, otherAgents...)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create multi-loader: %w", err)
 	}
 
-	// Long-term memory service (optional)
-	memorySvc, err := createMemoryService(ctx, cfg)
-	if err != nil {
-		return nil, err
-	}
-
-	// LLM model
-	if cfg.LLM.Resolved == nil {
-		return nil, fmt.Errorf("LLM backend not resolved")
-	}
-	llmModel, err := createLLM(ctx, cfg.LLM.Resolved, cfg.LLM.Model)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create LLM: %w", err)
-	}
-
-	// Toolsets
-	toolsets, err := buildToolsets(cfg, memorySvc)
-	if err != nil {
-		return nil, fmt.Errorf("failed to build toolsets: %w", err)
-	}
-
-	// Build instruction based on available features and configuration
-	instruction := buildInstruction(cfg, memorySvc)
-
-	// Root agent
-	rootAgent, err := llmagent.New(llmagent.Config{
-		Name:        appName,
-		Model:       llmModel,
-		Description: "Voice assistant agent.",
-		Instruction: instruction,
-		Toolsets:    toolsets,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to create agent: %w", err)
-	}
-
-	// REST handler
 	launcherCfg := &launcher.Config{
-		SessionService: sessionSvc,
-		AgentLoader:    agent.NewSingleLoader(rootAgent),
+		SessionService: firstSessionSvc,
+		AgentLoader:    loader,
 	}
-	if memorySvc != nil {
-		launcherCfg.MemoryService = memorySvc
+	if firstMemorySvc != nil {
+		launcherCfg.MemoryService = firstMemorySvc
 	}
 
 	return &Service{
@@ -132,21 +172,35 @@ func (s *Service) Handler() http.Handler {
 	return s.handler
 }
 
-func createSessionService(cfg *config.Config) (session.Service, error) {
-	if cfg.Memory.Session.Redis.Address == "" {
+func createSessionService(agentDef store.AgentDefinition, memoryProviders map[string]store.MemoryProvider) (session.Service, error) {
+	if agentDef.Memory.Session == "" {
 		return session.InMemoryService(), nil
 	}
 
-	// Parse TTL duration
-	ttl, err := time.ParseDuration(cfg.Memory.Session.Redis.TTL)
-	if err != nil {
-		ttl = 24 * time.Hour // fallback default
+	provider, ok := memoryProviders[agentDef.Memory.Session]
+	if !ok {
+		return session.InMemoryService(), nil
 	}
 
+	connStr, _ := provider.Config["connectionString"].(string)
+	if connStr == "" {
+		return session.InMemoryService(), nil
+	}
+
+	ttlStr, _ := provider.Config["ttl"].(string)
+	if ttlStr == "" {
+		ttlStr = "24h"
+	}
+	ttl, err := time.ParseDuration(ttlStr)
+	if err != nil {
+		ttl = 24 * time.Hour
+	}
+
+	addr, password, db := parseRedisURL(connStr)
 	svc, err := sessionredis.NewRedisSessionService(sessionredis.RedisSessionServiceConfig{
-		Addr:     cfg.Memory.Session.Redis.Address,
-		Password: cfg.Memory.Session.Redis.Password,
-		DB:       cfg.Memory.Session.Redis.DB,
+		Addr:     addr,
+		Password: password,
+		DB:       db,
 		TTL:      ttl,
 	})
 	if err != nil {
@@ -155,17 +209,59 @@ func createSessionService(cfg *config.Config) (session.Service, error) {
 	return svc, nil
 }
 
-func createMemoryService(ctx context.Context, cfg *config.Config) (memory.Service, error) {
-	ltm := cfg.Memory.LongTerm
-	if ltm.Postgres.ConnectionString == "" || ltm.Embedding.Resolved == nil {
-		return nil, nil // Memory disabled
+// parseRedisURL parses a redis:// URL into addr, password, db components.
+func parseRedisURL(rawURL string) (addr, password string, db int) {
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return rawURL, "", 0
+	}
+	addr = u.Host
+	if addr == "" {
+		addr = "localhost:6379"
+	}
+	if !strings.Contains(addr, ":") {
+		addr += ":6379"
+	}
+	if u.User != nil {
+		password, _ = u.User.Password()
+	}
+	if len(u.Path) > 1 {
+		if n, err := strconv.Atoi(u.Path[1:]); err == nil {
+			db = n
+		}
+	}
+	return
+}
+
+func createMemoryService(ctx context.Context, agentDef store.AgentDefinition, memoryProviders map[string]store.MemoryProvider, backends map[string]store.BackendDefinition) (memory.Service, error) {
+	if agentDef.Memory.LongTerm == "" {
+		return nil, nil
+	}
+
+	provider, ok := memoryProviders[agentDef.Memory.LongTerm]
+	if !ok {
+		return nil, nil
+	}
+
+	connStr, _ := provider.Config["connectionString"].(string)
+	if connStr == "" {
+		return nil, nil
+	}
+
+	if provider.Embedding == nil || provider.Embedding.Backend == "" {
+		return nil, nil
+	}
+
+	embeddingBackend, ok := backends[provider.Embedding.Backend]
+	if !ok {
+		return nil, nil
 	}
 
 	svc, err := memorypostgres.NewPostgresMemoryService(ctx, memorypostgres.PostgresMemoryServiceConfig{
-		ConnString: ltm.Postgres.ConnectionString,
+		ConnString: connStr,
 		EmbeddingModel: memorypostgres.NewOpenAICompatibleEmbedding(memorypostgres.OpenAICompatibleEmbeddingConfig{
-			BaseURL: ltm.Embedding.Resolved.URL,
-			Model:   ltm.Embedding.Model,
+			BaseURL: embeddingBackend.URL,
+			Model:   provider.Embedding.Model,
 		}),
 	})
 	if err != nil {
@@ -174,7 +270,7 @@ func createMemoryService(ctx context.Context, cfg *config.Config) (memory.Servic
 	return svc, nil
 }
 
-func createLLM(ctx context.Context, backend *config.Backend, modelName string) (model.LLM, error) {
+func createLLM(ctx context.Context, backend store.BackendDefinition, modelName string) (model.LLM, error) {
 	switch backend.Type {
 	case config.BackendTypeOpenAI:
 		return genaiopenai.New(genaiopenai.Config{
@@ -199,14 +295,13 @@ func createLLM(ctx context.Context, backend *config.Backend, modelName string) (
 	}
 }
 
-func buildToolsets(cfg *config.Config, memorySvc memory.Service) ([]tool.Toolset, error) {
+func buildToolsets(agentDef store.AgentDefinition, mcpServerMap map[string]store.MCPServer, memorySvc memory.Service) ([]tool.Toolset, error) {
 	var toolsets []tool.Toolset
 
-	// Memory toolset (if enabled)
 	if memorySvc != nil {
 		ts, err := toolsmemory.NewToolset(toolsmemory.ToolsetConfig{
 			MemoryService: memorySvc,
-			AppName:       appName,
+			AppName:       agentDef.ID,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("failed to create memory toolset: %w", err)
@@ -214,8 +309,11 @@ func buildToolsets(cfg *config.Config, memorySvc memory.Service) ([]tool.Toolset
 		toolsets = append(toolsets, ts)
 	}
 
-	// MCP toolsets
-	for _, srv := range cfg.MCPServers {
+	for _, mcpName := range agentDef.MCPServers {
+		srv, ok := mcpServerMap[mcpName]
+		if !ok {
+			continue
+		}
 		transport, err := createMCPTransport(&srv)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create MCP transport %q: %w", srv.Name, err)
@@ -232,9 +330,9 @@ func buildToolsets(cfg *config.Config, memorySvc memory.Service) ([]tool.Toolset
 	return toolsets, nil
 }
 
-func createMCPTransport(srv *config.MCPServer) (mcp.Transport, error) {
+func createMCPTransport(srv *store.MCPServer) (mcp.Transport, error) {
 	switch srv.Type {
-	case config.MCPTransportTypeStdio:
+	case "stdio":
 		if srv.Command == "" {
 			return nil, fmt.Errorf("stdio transport requires 'command' field")
 		}
@@ -250,7 +348,7 @@ func createMCPTransport(srv *config.MCPServer) (mcp.Transport, error) {
 		}
 		return &mcp.CommandTransport{Command: cmd}, nil
 
-	case config.MCPTransportTypeHTTP, "":
+	case "http", "":
 		if srv.Endpoint == "" {
 			return nil, fmt.Errorf("http transport requires 'endpoint' field")
 		}
@@ -289,29 +387,24 @@ func (t *headerTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	return t.base.RoundTrip(req)
 }
 
-// buildInstruction constructs the full agent instruction from configuration
-func buildInstruction(cfg *config.Config, memorySvc memory.Service) string {
-	// Start with base or custom system prompt
+func buildInstruction(agentDef store.AgentDefinition, mcpServerMap map[string]store.MCPServer, memorySvc memory.Service) string {
 	instruction := baseInstruction
-	if cfg.Agent.SystemPrompt != "" {
-		instruction = cfg.Agent.SystemPrompt
+	if agentDef.SystemPrompt != "" {
+		instruction = agentDef.SystemPrompt
 	}
 
-	// Add memory instruction if memory service is enabled
 	if memorySvc != nil {
 		instruction += memoryInstruction
 	}
 
-	// Append MCP-specific system prompts
-	for _, srv := range cfg.MCPServers {
-		if srv.SystemPrompt != "" {
+	for _, mcpName := range agentDef.MCPServers {
+		if srv, ok := mcpServerMap[mcpName]; ok && srv.SystemPrompt != "" {
 			instruction += "\n\n" + srv.SystemPrompt
 		}
 	}
 
-	// Append custom suffix
-	if cfg.Agent.SystemPromptSuffix != "" {
-		instruction += "\n\n" + cfg.Agent.SystemPromptSuffix
+	if agentDef.SystemPromptSuffix != "" {
+		instruction += "\n\n" + agentDef.SystemPromptSuffix
 	}
 
 	return instruction

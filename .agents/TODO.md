@@ -2,27 +2,6 @@
 
 ## High Priority
 
-### Device Pairing Authentication
-
-**Problem**: Voice UI and API have no authentication. Need simple auth without OIDC complexity.
-
-**Solution**: Device pairing with one-time code
-1. First time user opens voice-ui, shows "Enter pairing code" screen
-2. Server generates 6-digit code on startup, logs it to console
-3. User enters code in voice-ui
-4. Server validates and returns a device token (stored in localStorage)
-5. All subsequent requests include device token in header
-6. Server validates token on each request
-7. Admin can revoke tokens or regenerate pairing code via config/API
-
-**Files to modify**:
-- `server/main.go` - Token generation, validation middleware
-- `server/config/config.go` - Store active device tokens
-- `voice-ui/src/app.js` - Pairing flow UI
-- `voice-ui/src/api/AgentClient.js` - Include token in requests
-
----
-
 ### TTS Real-Time Streaming Playback
 
 **Problem**: Current TTS implementation waits for all audio chunks before starting playback, causing noticeable delay even with SSE streaming enabled.
@@ -75,6 +54,17 @@ async _scheduleAudioChunk(audioBytes) {
 
 ---
 
+### Admin API Authentication
+
+**Problem**: The admin API on port 8081 has no authentication. Anyone with network access can modify agents, backends, and devices.
+
+**Possible solutions**:
+- Basic auth (simple, config-based)
+- API key in header
+- Session-based login
+
+---
+
 ## Low Priority
 
 ### Add More TTS Voices Configuration UI
@@ -96,6 +86,31 @@ Currently voice selection is server-side only. Could add UI for users to preview
 ---
 
 ## Future Ideas
+
+### Admin UI Framework Migration (Vue/Lit/Preact)
+
+**Problem**: The admin UI (~1000 lines of vanilla JS) is getting verbose. While schema-driven forms solved the dynamic field rendering problem without a framework, the codebase will become harder to maintain as more resource types and features are added.
+
+**When to migrate**: When admin-ui/src/app.js exceeds ~2000 lines, or when complex UI interactions are needed (drag-and-drop, real-time sync, nested component state).
+
+**Candidates**:
+- **Vue 3** (via CDN, no build step needed) — good templating, reactivity
+- **Lit** (web components, very lightweight) — no build step, native browser
+- **Preact** (via CDN) — React-compatible, tiny footprint
+
+**Key constraint**: Avoid introducing a build step (no node_modules, no bundler) if possible. CDN-first approach preferred.
+
+### Credential Management for Connection Strings
+
+**Problem**: Connection strings contain credentials in plain text (`redis://:password@...`, `postgres://user:pass@...`). Currently stored directly in `data/store.json` and visible in the admin UI.
+
+**Possible approaches**:
+- Environment variable expansion in connection strings (`redis://:${REDIS_PASS}@localhost:6379/0`)
+- Separate secrets store (encrypted at rest)
+- Reference external secret managers (Vault, K8s secrets)
+- At minimum: mask passwords in API responses, only show `****` in UI
+
+**Status**: TODO — identified during memory provider implementation.
 
 ### Speaker Identification
 
@@ -121,6 +136,12 @@ Currently voice selection is server-side only. Could add UI for users to preview
 3. Converts to ADK artifact (base64 + mime type)
 4. Sends to agent with message
 
+### Database Persistence for Store
+
+**Problem**: `data/store.json` is a single JSON file. Works fine for small setups but won't scale for multi-user or HA deployments.
+
+**When**: When considering horizontal scaling or backup/restore requirements.
+
 ---
 
 ## Completed
@@ -139,3 +160,21 @@ Currently voice selection is server-side only. Could add UI for users to preview
 - [x] Server-side VAD detection (Silero VAD via ONNX)
 - [x] Configurable ONNX library path (`server.onnxLibraryPath`)
 - [x] Telegram voice message support (OGG→WAV conversion via ffmpeg)
+- [x] Multi-agent admin API (store, CRUD, admin UI)
+- [x] Device pairing authentication (voice-ui)
+- [x] Memory Providers: extensible registry system (`server/memory/`)
+- [x] Memory Providers: Redis (session) + Postgres (longterm) with health check
+- [x] Memory Providers: universal `connectionString` for all providers
+- [x] Memory Providers: admin UI with split Session/Long-Term sections
+- [x] Memory Providers: dynamic form with per-type extra fields + embedding for longterm
+- [x] Store-based agent creation: `agent.New()` accepts store types directly (no config dependency)
+- [x] Config split: YAML for infra only (server, log, wakeWord), all resources via admin API/store
+- [x] Multi-agent support (server): `agent.New()` accepts `[]AgentDefinition`, `NewMultiLoader` routes by `appName`
+- [x] Multi-agent support (voice-ui): `setAgent(agentId)` on AgentClient, SessionService, OpenAITTS, RemoteTranscriber
+- [x] Hot-reload agents on store changes: `OnChange()` channel + `agentRouterHandler` rebuild with 500ms debounce
+- [x] Voice endpoint redesign: `/api/v1/voice/{agentId}/speech` and `/transcription` (per-agent backend resolution)
+- [x] Voice proxy API key forwarding: `serveSpeechProxy` and `serveTranscriptionProxy` forward backend `apiKey`
+- [x] Rename with cascade: All 6 resource types support renaming via PUT with cascading reference updates
+- [x] Admin UI rename enabled: Name/ID fields editable in edit mode
+- [x] Wake word model name in capabilities: `Name` field added to WebSocket capabilities message
+- [x] Admin UI modal fix: `formnovalidate` on cancel/close buttons to bypass HTML5 validation

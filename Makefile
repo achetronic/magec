@@ -1,4 +1,4 @@
-.PHONY: help build dev clean download-model postgres redis ollama infra infra-stop infra-clean
+.PHONY: help build dev clean download-model swagger postgres redis ollama infra infra-stop infra-clean
 
 CONFIG ?= config.yaml
 
@@ -10,6 +10,7 @@ help:
 	@echo "Development:"
 	@echo "  build                Build the server binary"
 	@echo "  dev                  Start development server (CONFIG=config.yaml)"
+	@echo "  swagger              Regenerate Swagger docs from annotations"
 	@echo "  clean                Remove generated files"
 	@echo ""
 	@echo "Models:"
@@ -26,6 +27,10 @@ help:
 build:
 	@mkdir -p bin
 	@cd server && go build -o ../bin/magec-server .
+
+swagger:
+	@cd server && go run github.com/swaggo/swag/cmd/swag init --dir ./admin --generalInfo doc.go --output ./admin/docs --parseDependency --parseInternal
+	@echo "Swagger docs generated in server/admin/docs/"
 
 dev: build
 	@./bin/magec-server -config=$(CONFIG)

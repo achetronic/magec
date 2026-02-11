@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Magec Admin</title>
+    <link rel="icon" type="image/svg+xml" href="/assets/logo.svg">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        piedra: {
+                            950: '#121214', 900: '#1a1a1d', 850: '#212125',
+                            800: '#2a2a2f', 700: '#3d3d44', 600: '#52525b', 500: '#6b6b76',
+                        },
+                        atlantico: {
+                            300: '#7dd3e8', 400: '#38bcd8', 500: '#0891b2', 600: '#0e7490',
+                        },
+                        lava: {
+                            300: '#fca5a5', 400: '#f87171', 500: '#dc2626', 600: '#b91c1c',
+                        },
+                        sol: {
+                            50: '#fffbeb', 100: '#fef3c7', 200: '#fde68a', 300: '#fcd34d',
+                            400: '#fbbf24', 500: '#f59e0b', 600: '#d97706',
+                        },
+                        arena: {
+                            50: '#fafaf9', 100: '#f5f5f4', 200: '#e7e5e4', 300: '#d6d3d1',
+                            400: '#a8a29e', 500: '#78716c', 600: '#57534e',
+                        },
+                    },
+                }
+            }
+        }
+    </script>
+    <style>
+        .tab-active { border-color: #f59e0b; color: #fafaf9; }
+        .tab-inactive { border-color: transparent; color: #a8a29e; }
+        .tab-inactive:hover { color: #d6d3d1; border-color: #3d3d44; }
+        dialog::backdrop { background: rgba(18, 18, 20, 0.8); }
+        .detail-row { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; }
+        .detail-row .label { font-size: 0.6875rem; color: #78716c; flex-shrink: 0; }
+        .detail-row .value { font-size: 0.6875rem; color: #e7e5e4; text-align: right; word-break: break-all; }
+    </style>
+</head>
+<body class="h-full bg-piedra-950 text-arena-100 antialiased">
+    <div class="h-full flex flex-col">
+
+        <!-- Header -->
+        <header class="border-b border-piedra-700/50 bg-piedra-900/90 flex-shrink-0">
+            <div class="max-w-5xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
+                <div class="flex items-center gap-2.5">
+                    <img src="assets/logo.svg" alt="Magec" class="w-7 h-7">
+                    <div>
+                        <h1 class="text-base font-semibold text-arena-50 leading-tight">Magec</h1>
+                        <p class="text-[10px] text-arena-500">Admin</p>
+                    </div>
+                </div>
+                <div id="overviewBadges" class="flex items-center gap-2 text-[11px]"></div>
+            </div>
+        </header>
+
+        <!-- Tabs -->
+        <nav class="border-b border-piedra-700/50 bg-piedra-900/50 flex-shrink-0 overflow-x-auto">
+            <div class="max-w-5xl mx-auto px-4 sm:px-6 flex gap-1">
+                <button data-tab="backends" class="tab-active flex items-center gap-1.5 px-3 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01"/></svg>
+                    Backends
+                </button>
+                <button data-tab="memory" class="tab-inactive flex items-center gap-1.5 px-3 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4"/></svg>
+                    Memory
+                </button>
+                <button data-tab="mcps" class="tab-inactive flex items-center gap-1.5 px-3 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                    MCP Servers
+                </button>
+                <button data-tab="agents" class="tab-inactive flex items-center gap-1.5 px-3 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                    Agents
+                </button>
+                <button data-tab="devices" class="tab-inactive flex items-center gap-1.5 px-3 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 18h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+                    Devices
+                </button>
+                <button data-tab="crons" class="tab-inactive flex items-center gap-1.5 px-3 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                    Crons
+                </button>
+            </div>
+        </nav>
+
+        <!-- Content -->
+        <main class="flex-1 overflow-y-auto">
+            <div class="max-w-5xl mx-auto px-4 sm:px-6 py-5">
+
+                <!-- Backends Panel -->
+                <section id="panelBackends" class="space-y-4">
+                    <div class="flex items-center justify-between">
+                        <h2 class="text-sm font-semibold text-arena-200">Backends</h2>
+                        <button onclick="app.showBackendDialog()" class="px-3 py-1.5 bg-sol-500 hover:bg-sol-600 text-piedra-950 text-xs font-medium rounded-lg transition-colors">+ New Backend</button>
+                    </div>
+                    <div id="backendsList" class="grid gap-3 grid-cols-1 sm:grid-cols-2"></div>
+                </section>
+
+                <!-- Memory Panel -->
+                <section id="panelMemory" class="space-y-6 hidden">
+                    <!-- Session Memory -->
+                    <div class="space-y-3">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                <h2 class="text-sm font-semibold text-arena-200">Session Memory</h2>
+                                <span id="memorySessionBadges" class="flex gap-1"></span>
+                            </div>
+                            <button onclick="app.newSessionProvider()" class="px-3 py-1.5 bg-sol-500 hover:bg-sol-600 text-piedra-950 text-xs font-medium rounded-lg transition-colors">+ New Provider</button>
+                        </div>
+                        <p class="text-[11px] text-arena-500 -mt-1">Short-lived conversation state with TTL-based expiration.</p>
+                        <div id="memorySessionList" class="grid gap-3 grid-cols-1 sm:grid-cols-2"></div>
+                    </div>
+                    <!-- Long-Term Memory -->
+                    <div class="space-y-3">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                <h2 class="text-sm font-semibold text-arena-200">Long-Term Memory</h2>
+                                <span id="memoryLongTermBadges" class="flex gap-1"></span>
+                            </div>
+                            <button onclick="app.newLongTermProvider()" class="px-3 py-1.5 bg-sol-500 hover:bg-sol-600 text-piedra-950 text-xs font-medium rounded-lg transition-colors">+ New Provider</button>
+                        </div>
+                        <p class="text-[11px] text-arena-500 -mt-1">Persistent facts and preferences with vector embeddings for semantic recall.</p>
+                        <div id="memoryLongTermList" class="grid gap-3 grid-cols-1 sm:grid-cols-2"></div>
+                    </div>
+                </section>
+
+                <!-- MCPs Panel -->
+                <section id="panelMcps" class="space-y-4 hidden">
+                    <div class="flex items-center justify-between">
+                        <h2 class="text-sm font-semibold text-arena-200">MCP Servers</h2>
+                        <button onclick="app.showMCPDialog()" class="px-3 py-1.5 bg-sol-500 hover:bg-sol-600 text-piedra-950 text-xs font-medium rounded-lg transition-colors">+ New MCP</button>
+                    </div>
+                    <div id="mcpsList" class="grid gap-3 grid-cols-1 sm:grid-cols-2"></div>
+                </section>
+
+                <!-- Agents Panel -->
+                <section id="panelAgents" class="space-y-4 hidden">
+                    <div class="flex items-center justify-between">
+                        <h2 class="text-sm font-semibold text-arena-200">Agents</h2>
+                        <button onclick="app.showAgentDialog()" class="px-3 py-1.5 bg-sol-500 hover:bg-sol-600 text-piedra-950 text-xs font-medium rounded-lg transition-colors">+ New Agent</button>
+                    </div>
+                    <div id="agentsList" class="space-y-3"></div>
+                </section>
+
+                <!-- Devices Panel -->
+                <section id="panelDevices" class="space-y-4 hidden">
+                    <div class="flex items-center justify-between">
+                        <h2 class="text-sm font-semibold text-arena-200">Devices</h2>
+                        <button onclick="app.showDeviceDialog()" class="px-3 py-1.5 bg-sol-500 hover:bg-sol-600 text-piedra-950 text-xs font-medium rounded-lg transition-colors">+ New Device</button>
+                    </div>
+                    <div id="devicesList" class="grid gap-3 grid-cols-1 sm:grid-cols-2"></div>
+                </section>
+
+                <!-- Crons Panel -->
+                <section id="panelCrons" class="space-y-4 hidden">
+                    <div class="flex items-center justify-between">
+                        <h2 class="text-sm font-semibold text-arena-200">Cron Jobs</h2>
+                        <button onclick="app.showCronDialog()" class="px-3 py-1.5 bg-sol-500 hover:bg-sol-600 text-piedra-950 text-xs font-medium rounded-lg transition-colors">+ New Cron</button>
+                    </div>
+                    <div id="cronsList" class="grid gap-3 grid-cols-1 sm:grid-cols-2"></div>
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <!-- Agent Dialog -->
+    <dialog id="agentDialog" class="bg-piedra-900 border border-piedra-700/50 rounded-2xl p-0 w-full max-w-2xl text-arena-100 shadow-2xl">
+        <form method="dialog" class="flex flex-col max-h-[85vh]">
+            <div class="flex items-center justify-between p-5 border-b border-piedra-700/50 flex-shrink-0">
+                <h3 id="agentDialogTitle" class="text-lg font-semibold">New Agent</h3>
+                <button type="submit" value="cancel" formnovalidate class="p-1.5 hover:bg-piedra-800 rounded-lg">
+                    <svg class="w-5 h-5 text-arena-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+            </div>
+            <div class="p-5 space-y-4 overflow-y-auto flex-1">
+                <input type="hidden" id="agentEditId">
+
+                <!-- Identity -->
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs text-arena-400 mb-1">ID</label>
+                        <input id="agentId" type="text" required class="w-full bg-piedra-800 border border-piedra-700 rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-sol-500 focus:border-sol-500 outline-none" placeholder="my-agent">
+                    </div>
+                    <div>
+                        <label class="block text-xs text-arena-400 mb-1">Name</label>
+                        <input id="agentName" type="text" class="w-full bg-piedra-800 border border-piedra-700 rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-sol-500 focus:border-sol-500 outline-none" placeholder="My Agent">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs text-arena-400 mb-1">Description</label>
+                    <input id="agentDescription" type="text" class="w-full bg-piedra-800 border border-piedra-700 rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-sol-500 focus:border-sol-500 outline-none" placeholder="What this agent does...">
+                </div>
+
+                <!-- LLM -->
+                <fieldset class="border border-piedra-700/40 rounded-xl p-4 space-y-3">
+                    <legend class="text-xs font-medium text-arena-400 px-1.5">LLM</legend>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs text-arena-400 mb-1">Backend</label>
+                            <select id="agentLlmBackend" class="w-full bg-piedra-800 border border-piedra-700 rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-sol-500 focus:border-sol-500 outline-none"></select>
+                        </div>
+                        <div>
+                            <label class="block text-xs text-arena-400 mb-1">Model</label>
+                            <input id="agentLlmModel" type="text" class="w-full bg-piedra-800 border border-piedra-700 rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-sol-500 focus:border-sol-500 outline-none" placeholder="qwen3:8b">
+                        </div>
+                    </div>
+                </fieldset>
+
+                <!-- Transcription -->
+                <fieldset class="border border-piedra-700/40 rounded-xl p-4 space-y-3">
+                    <legend class="text-xs font-medium text-arena-400 px-1.5">Transcription (STT)</legend>
+                    <p class="text-[11px] text-arena-500 -mt-1">OpenAI Whisper-compatible backend. Leave empty to disable.</p>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs text-arena-400 mb-1">Backend</label>
+                            <select id="agentTranscriptionBackend" class="w-full bg-piedra-800 border border-piedra-700 rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-sol-500 focus:border-sol-500 outline-none"></select>
+                        </div>
+                        <div>
+                            <label class="block text-xs text-arena-400 mb-1">Model</label>
+                            <input id="agentTranscriptionModel" type="text" class="w-full bg-piedra-800 border border-piedra-700 rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-sol-500 focus:border-sol-500 outline-none" placeholder="whisper-1">
+                        </div>
+                    </div>
+                </fieldset>
+
+                <!-- TTS -->
+                <fieldset class="border border-piedra-700/40 rounded-xl p-4 space-y-3">
+                    <legend class="text-xs font-medium text-arena-400 px-1.5">Text-to-Speech (TTS)</legend>
+                    <p class="text-[11px] text-arena-500 -mt-1">OpenAI TTS-compatible backend. Leave empty to disable voice output.</p>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs text-arena-400 mb-1">Backend</label>
+                            <select id="agentTtsBackend" class="w-full bg-piedra-800 border border-piedra-700 rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-sol-500 focus:border-sol-500 outline-none"></select>
+                        </div>
+                        <div>
+                            <label class="block text-xs text-arena-400 mb-1">Model</label>
+                            <input id="agentTtsModel" type="text" class="w-full bg-piedra-800 border border-piedra-700 rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-sol-500 focus:border-sol-500 outline-none" placeholder="tts-1">
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs text-arena-400 mb-1">Voice</label>
+                            <input id="agentTtsVoice" type="text" class="w-full bg-piedra-800 border border-piedra-700 rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-sol-500 focus:border-sol-500 outline-none" placeholder="alloy">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-arena-400 mb-1">Speed</label>
+                            <input id="agentTtsSpeed" type="number" min="0.25" max="4.0" step="0.05" class="w-full bg-piedra-800 border border-piedra-700 rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-sol-500 focus:border-sol-500 outline-none" placeholder="1.0">
+                        </div>
+                    </div>
+                </fieldset>
+
+                <!-- System Prompt -->
+                <div>
+                    <label class="block text-xs text-arena-400 mb-1">System Prompt</label>
+                    <textarea id="agentSystemPrompt" rows="3" class="w-full bg-piedra-800 border border-piedra-700 rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-sol-500 focus:border-sol-500 outline-none resize-y" placeholder="Custom system prompt (leave empty for default)..."></textarea>
+                </div>
+                <div>
+                    <label class="block text-xs text-arena-400 mb-1">System Prompt Suffix</label>
+                    <textarea id="agentSystemPromptSuffix" rows="2" class="w-full bg-piedra-800 border border-piedra-700 rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-sol-500 focus:border-sol-500 outline-none resize-y" placeholder="Additional instructions..."></textarea>
+                </div>
+
+                <!-- MCP Linking -->
+                <div>
+                    <label class="block text-xs text-arena-400 mb-1">MCP Servers</label>
+                    <div id="agentMcpCheckboxes" class="flex flex-wrap gap-2"></div>
+                    <p id="agentMcpEmpty" class="text-xs text-arena-500 mt-1 hidden">No MCP servers defined yet</p>
+                </div>
+
+                <!-- Memory -->
+                <fieldset class="border border-piedra-700/40 rounded-xl p-4 space-y-3">
+                    <legend class="text-xs font-medium text-arena-400 px-1.5">Memory</legend>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs text-arena-400 mb-1">Session</label>
+                            <select id="agentMemorySession" class="w-full bg-piedra-800 border border-piedra-700 rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-sol-500 focus:border-sol-500 outline-none"></select>
+                        </div>
+                        <div>
+                            <label class="block text-xs text-arena-400 mb-1">Long-term</label>
+                            <select id="agentMemoryLongTerm" class="w-full bg-piedra-800 border border-piedra-700 rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-sol-500 focus:border-sol-500 outline-none"></select>
+                        </div>
+                    </div>
+                </fieldset>
+
+                <!-- Telegram -->
+                <details class="group">
+                    <summary class="flex items-center gap-2 cursor-pointer text-sm text-arena-300 hover:text-arena-100 transition-colors">
+                        <svg class="w-4 h-4 transition-transform group-open:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5l7 7-7 7"/></svg>
+                        Telegram
+                    </summary>
+                    <div class="mt-3 space-y-3 pl-6">
+                        <label class="flex items-center gap-2">
+                            <input type="checkbox" id="agentTelegramEnabled" class="rounded border-piedra-600 bg-piedra-800 text-sol-500 focus:ring-sol-500">
+                            <span class="text-sm text-arena-300">Enabled</span>
+                        </label>
+                        <div>
+                            <label class="block text-xs text-arena-400 mb-1">Bot Token</label>
+                            <input id="agentTelegramToken" type="password" class="w-full bg-piedra-800 border border-piedra-700 rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-sol-500 focus:border-sol-500 outline-none" placeholder="123456:ABC-DEF...">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-arena-400 mb-1">Response Mode</label>
+                            <select id="agentTelegramResponseMode" class="w-full bg-piedra-800 border border-piedra-700 rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-sol-500 focus:border-sol-500 outline-none">
+                                <option value="text">Text</option>
+                                <option value="voice">Voice</option>
+                                <option value="mirror">Mirror</option>
+                                <option value="both">Both</option>
+                            </select>
+                        </div>
+                    </div>
+                </details>
+            </div>
+            <div class="flex justify-end gap-3 p-5 border-t border-piedra-700/50 flex-shrink-0">
+                <button type="submit" value="cancel" formnovalidate class="px-4 py-2 text-sm text-arena-400 hover:text-arena-200 hover:bg-piedra-800 rounded-lg transition-colors">Cancel</button>
+                <button type="button" onclick="app.saveAgent()" class="px-4 py-2 bg-sol-500 hover:bg-sol-600 text-piedra-950 text-sm font-medium rounded-lg transition-colors">Save</button>
+            </div>
+        </form>
+    </dialog>
+
+    <!-- Memory Dialog -->
+    <dialog id="memoryDialog" class="bg-piedra-900 border border-piedra-700/50 rounded-2xl p-0 w-full max-w-lg text-arena-100 shadow-2xl">
+        <form method="dialog" class="flex flex-col">
+            <div class="flex items-center justify-between p-5 border-b border-piedra-700/50">
+                <h3 id="memoryDialogTitle" class="text-lg font-semibold">New Memory Provider</h3>
+                <button type="submit" value="cancel" formnovalidate class="p-1.5 hover:bg-piedra-800 rounded-lg">
+                    <svg class="w-5 h-5 text-arena-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+            </div>
+            <div class="p-5 space-y-4">
+                <input type="hidden" id="memoryEditName">
+                <input type="hidden" id="memoryCategory">
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs text-arena-400 mb-1">Name</label>
+                        <input id="memoryName" type="text" required class="w-full bg-piedra-800 border border-piedra-700 rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-sol-500 focus:border-sol-500 outline-none" placeholder="redis-session">
+                    </div>
+                    <div>
+                        <label class="block text-xs text-arena-400 mb-1">Type</label>
+                        <select id="memoryType" class="w-full bg-piedra-800 border border-piedra-700 rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-sol-500 focus:border-sol-500 outline-none">
+                        </select>
+                    </div>
+                </div>
+                <!-- Config fields (rendered dynamically from server field spec) -->
+                <div id="memoryConfigFields" class="space-y-3"></div>
+                <!-- Embedding (longterm only) -->
+                <fieldset id="memoryEmbeddingFields" class="hidden border border-piedra-700/40 rounded-xl p-4 space-y-3">
+                    <legend class="text-xs font-medium text-arena-400 px-1.5">Embedding</legend>
+                    <p class="text-[11px] text-arena-500 -mt-1">Required for semantic search in long-term memory.</p>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs text-arena-400 mb-1">Backend</label>
+                            <select id="memoryEmbeddingBackend" class="w-full bg-piedra-800 border border-piedra-700 rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-sol-500 focus:border-sol-500 outline-none"></select>
+                        </div>
+                        <div>
+                            <label class="block text-xs text-arena-400 mb-1">Model</label>
+                            <input id="memoryEmbeddingModel" type="text" class="w-full bg-piedra-800 border border-piedra-700 rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-sol-500 focus:border-sol-500 outline-none" placeholder="nomic-embed-text">
+                        </div>
+                    </div>
+                </fieldset>
+            </div>
+            <div class="flex justify-between gap-3 p-5 border-t border-piedra-700/50">
+                <button type="button" onclick="app.testMemoryConnection()" id="memoryTestBtn" class="flex items-center gap-1.5 px-3 py-2 text-xs text-arena-400 hover:text-arena-200 hover:bg-piedra-800 rounded-lg border border-piedra-700 transition-colors">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                    <span id="memoryTestLabel">Test Connection</span>
+                </button>
+                <div class="flex gap-3">
+                    <button type="submit" value="cancel" formnovalidate class="px-4 py-2 text-sm text-arena-400 hover:text-arena-200 hover:bg-piedra-800 rounded-lg transition-colors">Cancel</button>
+                    <button type="button" onclick="app.saveMemory()" class="px-4 py-2 bg-sol-500 hover:bg-sol-600 text-piedra-950 text-sm font-medium rounded-lg transition-colors">Save</button>
+                </div>
+            </div>
+        </form>
+    </dialog>
+
+    <!-- Backend Dialog -->
+    <dialog id="backendDialog" class="bg-piedra-900 border border-piedra-700/50 rounded-2xl p-0 w-full max-w-lg text-arena-100 shadow-2xl">
+        <form method="dialog" class="flex flex-col">
+            <div class="flex items-center justify-between p-5 border-b border-piedra-700/50">
+                <h3 id="backendDialogTitle" class="text-lg font-semibold">New Backend</h3>
+                <button type="submit" value="cancel" formnovalidate class="p-1.5 hover:bg-piedra-800 rounded-lg">
+                    <svg class="w-5 h-5 text-arena-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+            </div>
+            <div class="p-5 space-y-4">
+                <input type="hidden" id="backendEditName">
+                <div>
+                    <label class="block text-xs text-arena-400 mb-1">Name</label>
+                    <input id="backendName" type="text" required class="w-full bg-piedra-800 border border-piedra-700 rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-sol-500 focus:border-sol-500 outline-none" placeholder="ollama">
+                </div>
+                <div>
+                    <label class="block text-xs text-arena-400 mb-1">Type</label>
+                    <select id="backendType" class="w-full bg-piedra-800 border border-piedra-700 rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-sol-500 focus:border-sol-500 outline-none">
+                        <option value="openai">OpenAI-compatible</option>
+                        <option value="anthropic">Anthropic</option>
+                        <option value="gemini">Gemini</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs text-arena-400 mb-1">URL</label>
+                    <input id="backendUrl" type="text" class="w-full bg-piedra-800 border border-piedra-700 rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-sol-500 focus:border-sol-500 outline-none" placeholder="http://localhost:11434/v1">
+                </div>
+                <div>
+                    <label class="block text-xs text-arena-400 mb-1">API Key</label>
+                    <input id="backendApiKey" type="password" class="w-full bg-piedra-800 border border-piedra-700 rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-sol-500 focus:border-sol-500 outline-none" placeholder="sk-...">
+                </div>
+            </div>
+            <div class="flex justify-end gap-3 p-5 border-t border-piedra-700/50">
+                <button type="submit" value="cancel" formnovalidate class="px-4 py-2 text-sm text-arena-400 hover:text-arena-200 hover:bg-piedra-800 rounded-lg transition-colors">Cancel</button>
+                <button type="button" onclick="app.saveBackend()" class="px-4 py-2 bg-sol-500 hover:bg-sol-600 text-piedra-950 text-sm font-medium rounded-lg transition-colors">Save</button>
+            </div>
+        </form>
+    </dialog>
+
+    <!-- MCP Dialog -->
+    <dialog id="mcpDialog" class="bg-piedra-900 border border-piedra-700/50 rounded-2xl p-0 w-full max-w-lg text-arena-100 shadow-2xl">
+        <form method="dialog" class="flex flex-col">
+            <div class="flex items-center justify-between p-5 border-b border-piedra-700/50">
+                <h3 id="mcpDialogTitle" class="text-lg font-semibold">New MCP Server</h3>
+                <button type="submit" value="cancel" formnovalidate class="p-1.5 hover:bg-piedra-800 rounded-lg">
+                    <svg class="w-5 h-5 text-arena-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+            </div>
+            <div class="p-5 space-y-4">
+                <input type="hidden" id="mcpEditName">
+                <div>
+                    <label class="block text-xs text-arena-400 mb-1">Name</label>
+                    <input id="mcpName" type="text" required class="w-full bg-piedra-800 border border-piedra-700 rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-sol-500 focus:border-sol-500 outline-none" placeholder="home-assistant">
+                </div>
+                <div>
+                    <label class="block text-xs text-arena-400 mb-1">Type</label>
+                    <select id="mcpType" class="w-full bg-piedra-800 border border-piedra-700 rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-sol-500 focus:border-sol-500 outline-none">
+                        <option value="http">HTTP</option>
+                        <option value="stdio">Stdio</option>
+                    </select>
+                </div>
+                <div id="mcpHttpFields">
+                    <label class="block text-xs text-arena-400 mb-1">Endpoint</label>
+                    <input id="mcpEndpoint" type="text" class="w-full bg-piedra-800 border border-piedra-700 rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-sol-500 focus:border-sol-500 outline-none" placeholder="http://localhost:8080/mcp">
+                </div>
+                <div id="mcpStdioFields" class="hidden space-y-3">
+                    <div>
+                        <label class="block text-xs text-arena-400 mb-1">Command</label>
+                        <input id="mcpCommand" type="text" class="w-full bg-piedra-800 border border-piedra-700 rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-sol-500 focus:border-sol-500 outline-none" placeholder="uvx">
+                    </div>
+                    <div>
+                        <label class="block text-xs text-arena-400 mb-1">Args (comma-separated)</label>
+                        <input id="mcpArgs" type="text" class="w-full bg-piedra-800 border border-piedra-700 rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-sol-500 focus:border-sol-500 outline-none" placeholder="mcp-server-sqlite, --db-path, /data/db">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs text-arena-400 mb-1">System Prompt</label>
+                    <textarea id="mcpSystemPrompt" rows="2" class="w-full bg-piedra-800 border border-piedra-700 rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-sol-500 focus:border-sol-500 outline-none resize-y" placeholder="Instructions for the LLM about this MCP..."></textarea>
+                </div>
+            </div>
+            <div class="flex justify-end gap-3 p-5 border-t border-piedra-700/50">
+                <button type="submit" value="cancel" formnovalidate class="px-4 py-2 text-sm text-arena-400 hover:text-arena-200 hover:bg-piedra-800 rounded-lg transition-colors">Cancel</button>
+                <button type="button" onclick="app.saveMCP()" class="px-4 py-2 bg-sol-500 hover:bg-sol-600 text-piedra-950 text-sm font-medium rounded-lg transition-colors">Save</button>
+            </div>
+        </form>
+    </dialog>
+
+    <!-- Cron Dialog -->
+    <dialog id="cronDialog" class="bg-piedra-900 border border-piedra-700/50 rounded-2xl p-0 w-full max-w-lg text-arena-100 shadow-2xl">
+        <form method="dialog" class="flex flex-col">
+            <div class="flex items-center justify-between p-5 border-b border-piedra-700/50">
+                <h3 id="cronDialogTitle" class="text-lg font-semibold">New Cron Job</h3>
+                <button type="submit" value="cancel" formnovalidate class="p-1.5 hover:bg-piedra-800 rounded-lg">
+                    <svg class="w-5 h-5 text-arena-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+            </div>
+            <div class="p-5 space-y-4">
+                <input type="hidden" id="cronEditName">
+                <div>
+                    <label class="block text-xs text-arena-400 mb-1">Name</label>
+                    <input id="cronName" type="text" required class="w-full bg-piedra-800 border border-piedra-700 rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-sol-500 focus:border-sol-500 outline-none" placeholder="daily-summary">
+                </div>
+                <div>
+                    <label class="block text-xs text-arena-400 mb-1">Description</label>
+                    <input id="cronDescription" type="text" class="w-full bg-piedra-800 border border-piedra-700 rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-sol-500 focus:border-sol-500 outline-none" placeholder="What this job does...">
+                </div>
+                <div>
+                    <label class="block text-xs text-arena-400 mb-1">Schedule (cron expression)</label>
+                    <input id="cronSchedule" type="text" required class="w-full bg-piedra-800 border border-piedra-700 rounded-lg px-3 py-2 text-sm font-mono focus:ring-1 focus:ring-sol-500 focus:border-sol-500 outline-none" placeholder="0 9 * * *">
+                    <p class="text-[10px] text-arena-500 mt-1">min hour day month weekday — e.g. <code class="text-arena-400">0 9 * * 1-5</code> = weekdays at 9:00</p>
+                </div>
+                <div>
+                    <label class="block text-xs text-arena-400 mb-1">Agent</label>
+                    <select id="cronAgentId" required class="w-full bg-piedra-800 border border-piedra-700 rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-sol-500 focus:border-sol-500 outline-none"></select>
+                </div>
+                <div>
+                    <label class="block text-xs text-arena-400 mb-1">Prompt</label>
+                    <textarea id="cronPrompt" rows="3" required class="w-full bg-piedra-800 border border-piedra-700 rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-sol-500 focus:border-sol-500 outline-none resize-y" placeholder="The message to send to the agent..."></textarea>
+                </div>
+                <label class="flex items-center gap-2">
+                    <input type="checkbox" id="cronEnabled" checked class="rounded border-piedra-600 bg-piedra-800 text-sol-500 focus:ring-sol-500">
+                    <span class="text-sm text-arena-300">Enabled</span>
+                </label>
+            </div>
+            <div class="flex justify-end gap-3 p-5 border-t border-piedra-700/50">
+                <button type="submit" value="cancel" formnovalidate class="px-4 py-2 text-sm text-arena-400 hover:text-arena-200 hover:bg-piedra-800 rounded-lg transition-colors">Cancel</button>
+                <button type="button" onclick="app.saveCron()" class="px-4 py-2 bg-sol-500 hover:bg-sol-600 text-piedra-950 text-sm font-medium rounded-lg transition-colors">Save</button>
+            </div>
+        </form>
+    </dialog>
+
+    <!-- Device Dialog -->
+    <dialog id="deviceDialog" class="bg-piedra-900 border border-piedra-700/50 rounded-2xl p-0 w-full max-w-lg text-arena-100 shadow-2xl">
+        <form method="dialog" class="flex flex-col">
+            <div class="flex items-center justify-between p-5 border-b border-piedra-700/50">
+                <h3 id="deviceDialogTitle" class="text-lg font-semibold">New Device</h3>
+                <button type="submit" value="cancel" formnovalidate class="p-1.5 hover:bg-piedra-800 rounded-lg">
+                    <svg class="w-5 h-5 text-arena-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+            </div>
+            <div class="p-5 space-y-4">
+                <input type="hidden" id="deviceEditName">
+                <div>
+                    <label class="block text-xs text-arena-400 mb-1">Name</label>
+                    <input id="deviceName" type="text" required class="w-full bg-piedra-800 border border-piedra-700 rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-sol-500 focus:border-sol-500 outline-none" placeholder="tablet-cocina">
+                </div>
+                <div>
+                    <label class="block text-xs text-arena-400 mb-1">Default Agent</label>
+                    <select id="deviceDefaultAgent" required class="w-full bg-piedra-800 border border-piedra-700 rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-sol-500 focus:border-sol-500 outline-none"></select>
+                </div>
+                <div>
+                    <label class="block text-xs text-arena-400 mb-1">Allowed Agents</label>
+                    <div id="deviceAgentCheckboxes" class="flex flex-wrap gap-2"></div>
+                    <p id="deviceAgentEmpty" class="text-xs text-arena-500 mt-1 hidden">No agents defined yet</p>
+                    <p class="text-[10px] text-arena-500 mt-1">If only one is selected, the voice-UI won't show a switcher</p>
+                </div>
+                <label class="flex items-center gap-2">
+                    <input type="checkbox" id="deviceEnabled" checked class="rounded border-piedra-600 bg-piedra-800 text-sol-500 focus:ring-sol-500">
+                    <span class="text-sm text-arena-300">Enabled</span>
+                </label>
+                <div id="deviceTokenSection" class="hidden">
+                    <label class="block text-xs text-arena-400 mb-1">Token</label>
+                    <div class="flex gap-2">
+                        <input id="deviceTokenDisplay" type="text" readonly class="w-full bg-piedra-800 border border-piedra-700 rounded-lg px-3 py-2 text-sm font-mono text-arena-300 outline-none select-all">
+                        <button type="button" onclick="app.copyDeviceToken()" class="px-3 py-2 bg-piedra-800 hover:bg-piedra-700 border border-piedra-700 rounded-lg text-xs text-arena-300 transition-colors flex-shrink-0" title="Copy">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                        </button>
+                        <button type="button" onclick="app.regenerateToken()" class="px-3 py-2 bg-piedra-800 hover:bg-lava-500/20 border border-piedra-700 rounded-lg text-xs text-arena-300 transition-colors flex-shrink-0" title="Regenerate">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                        </button>
+                    </div>
+                    <p class="text-[10px] text-arena-500 mt-1">Use this token as <code class="text-arena-400">Authorization: Bearer &lt;token&gt;</code> from the voice-UI</p>
+                </div>
+            </div>
+            <div class="flex justify-end gap-3 p-5 border-t border-piedra-700/50">
+                <button type="submit" value="cancel" formnovalidate class="px-4 py-2 text-sm text-arena-400 hover:text-arena-200 hover:bg-piedra-800 rounded-lg transition-colors">Cancel</button>
+                <button type="button" onclick="app.saveDevice()" class="px-4 py-2 bg-sol-500 hover:bg-sol-600 text-piedra-950 text-sm font-medium rounded-lg transition-colors">Save</button>
+            </div>
+        </form>
+    </dialog>
+
+    <!-- Confirm Dialog -->
+    <dialog id="confirmDialog" class="bg-piedra-900 border border-piedra-700/50 rounded-2xl p-0 w-full max-w-sm text-arena-100 shadow-2xl">
+        <div class="p-5 space-y-4">
+            <p id="confirmMessage" class="text-sm text-arena-200"></p>
+            <div class="flex justify-end gap-3">
+                <button onclick="document.getElementById('confirmDialog').close()" class="px-4 py-2 text-sm text-arena-400 hover:text-arena-200 hover:bg-piedra-800 rounded-lg transition-colors">Cancel</button>
+                <button id="confirmBtn" class="px-4 py-2 bg-lava-500 hover:bg-lava-600 text-white text-sm font-medium rounded-lg transition-colors">Delete</button>
+            </div>
+        </div>
+    </dialog>
+
+    <script type="module" src="src/app.js"></script>
+</body>
+</html>

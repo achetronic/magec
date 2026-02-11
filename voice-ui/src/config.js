@@ -16,12 +16,11 @@
 
 export const CONFIG = {
     transcription: {
-        url: '/api/v1/transcription/v1/audio/transcriptions',
         model: 'parakeet'
     },
     agent: {
         baseUrl: '/api/v1/agent',
-        appName: 'magec_agent',
+        appName: 'default',
         defaultUserId: 'default_user'
     },
     session: {

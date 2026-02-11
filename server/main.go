@@ -30,16 +30,20 @@ import (
 	"os"
 	"os/signal"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
-	"github.com/gorilla/mux"
-
+	"github.com/achetronic/magec/server/admin"
 	"github.com/achetronic/magec/server/agent"
 	"github.com/achetronic/magec/server/clients/telegram"
 	"github.com/achetronic/magec/server/config"
 	"github.com/achetronic/magec/server/logging"
+	"github.com/achetronic/magec/server/store"
 	"github.com/achetronic/magec/server/voice"
+
+	_ "github.com/achetronic/magec/server/memory/postgres"
+	_ "github.com/achetronic/magec/server/memory/redis"
 )
 
 var configFile = flag.String("config", "config.yaml", "Path to config file")
@@ -58,120 +62,170 @@ func main() {
 
 	ctx := context.Background()
 
-	agentService, err := agent.New(ctx, cfg)
+	// Initialize store with JSON persistence
+	dataStore, err := store.New("data/store.json")
 	if err != nil {
-		slog.Error("Failed to initialize agent", "error", err)
+		slog.Error("Failed to initialize store", "error", err)
 		os.Exit(1)
 	}
-	slog.Info("Agent initialized")
+	slog.Info("Store initialized", "agents", len(dataStore.Data().Agents), "backends", len(dataStore.Data().Backends))
 
-	mux := http.NewServeMux()
+	// Admin API — start first so it's available even if agent init fails
+	adminHandler := admin.New(dataStore)
 
-	// All API routes under /api/v1/
-	mux.Handle("/api/v1/agent/", http.StripPrefix("/api/v1/agent", agentService.Handler()))
+	adminMux := http.NewServeMux()
+	adminMux.Handle("/api/v1/admin/", http.StripPrefix("/api/v1/admin", adminHandler))
+	adminMux.Handle("/", http.FileServer(http.Dir("admin-ui")))
 
-	if cfg.Transcription.Resolved != nil {
-		if target, err := url.Parse(cfg.Transcription.Resolved.URL); err == nil {
-			mux.Handle("/api/v1/transcription/", newTranscriptionProxy(target))
-			slog.Debug("Transcription proxy enabled", "target", target.String())
-		}
+	adminAddr := fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.AdminPort)
+	adminServer := &http.Server{
+		Addr:         adminAddr,
+		Handler:      accessLogMiddleware(corsMiddleware(adminMux)),
+		ReadTimeout:  30 * time.Second,
+		WriteTimeout: 30 * time.Second,
+		IdleTimeout:  60 * time.Second,
 	}
 
-	mux.HandleFunc("/api/v1/health", func(w http.ResponseWriter, r *http.Request) {
+	go func() {
+		slog.Info("Admin server started", "addr", adminAddr, "url", fmt.Sprintf("http://%s", adminAddr))
+		if err := adminServer.ListenAndServe(); err != http.ErrServerClosed {
+			slog.Error("Admin server error", "error", err)
+		}
+	}()
+
+	// Swappable handler for agent-related routes (hot-reloaded on store changes)
+	agentRouter := &agentRouterHandler{}
+	agentRouter.rebuild(ctx, dataStore)
+
+	httpMux := http.NewServeMux()
+	httpMux.Handle("/api/v1/agent/", agentRouter)
+	httpMux.Handle("/api/v1/voice/", newVoiceHandler(dataStore, agentRouter))
+
+	httpMux.HandleFunc("/api/v1/health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("ok"))
 	})
 
-	// TTS proxy
-	if cfg.TTS.Resolved != nil {
-		if target, err := url.Parse(cfg.TTS.Resolved.URL); err == nil {
-			mux.Handle("/api/v1/tts/", newTTSProxy(target, &cfg.TTS))
-			slog.Debug("TTS proxy enabled", "target", target.String())
+	httpMux.HandleFunc("/api/v1/device/info", func(w http.ResponseWriter, r *http.Request) {
+		deviceName := r.Header.Get("X-Device-Name")
+		if deviceName == "" {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"paired": false,
+			})
+			return
 		}
-	}
+		device, ok := dataStore.GetDevice(deviceName)
+		if !ok {
+			http.Error(w, `{"error":"device not found"}`, http.StatusNotFound)
+			return
+		}
+		agents := dataStore.ListAgents()
+		allowedDetails := make([]map[string]string, 0, len(device.AllowedAgents))
+		for _, agentID := range device.AllowedAgents {
+			for _, a := range agents {
+				if a.ID == agentID {
+					allowedDetails = append(allowedDetails, map[string]string{
+						"id":   a.ID,
+						"name": a.Name,
+					})
+					break
+				}
+			}
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"paired":        true,
+			"name":          device.Name,
+			"defaultAgent":  device.DefaultAgent,
+			"allowedAgents": allowedDetails,
+		})
+	})
 
 	// Voice events WebSocket handler (wake word + VAD)
 	const (
-		voiceModelsPath            = "models"
-		voicePretrainedPath        = "pretrained"
-		defaultOnnxLibraryPath     = "/usr/lib/libonnxruntime.so"
+		voiceModelsPath        = "models"
+		voicePretrainedPath    = "pretrained"
+		defaultOnnxLibraryPath = "/usr/lib/libonnxruntime.so"
 	)
 	onnxLibraryPath := defaultOnnxLibraryPath
 	if cfg.Server.OnnxLibraryPath != "" {
 		onnxLibraryPath = cfg.Server.OnnxLibraryPath
 	}
 	var voiceDetector *voice.Detector
-	if cfg.WakeWord.Enabled {
-		// Load wake word models configuration from wakewords.yaml
-		wakeWordModelsCfg, err := config.LoadWakeWordModels(voiceModelsPath)
-		if err != nil {
-			slog.Error("Failed to load wakewords.yaml", "error", err)
-		} else if len(wakeWordModelsCfg.Models) == 0 {
-			slog.Warn("No wake word models configured in wakewords.yaml")
+	wakeWordModelsCfg, err := config.LoadWakeWordModels(voiceModelsPath)
+	if err != nil {
+		slog.Warn("Wake word models not available", "error", err)
+	} else if len(wakeWordModelsCfg.Models) == 0 {
+		slog.Warn("No wake word models configured in wakewords.yaml")
+	} else {
+		models := make([]voice.ModelConfig, len(wakeWordModelsCfg.Models))
+		for i, m := range wakeWordModelsCfg.Models {
+			models[i] = voice.ModelConfig{
+				ID:        m.ID,
+				Name:      m.Name,
+				File:      fmt.Sprintf("%s/%s", voiceModelsPath, m.File),
+				Phrase:    m.Phrase,
+				Threshold: m.Threshold,
+			}
+		}
+
+		voiceDetector = voice.NewDetector(voice.DetectorConfig{
+			MelspecModelPath:   fmt.Sprintf("%s/mel-spectrogram.onnx", voicePretrainedPath),
+			EmbeddingModelPath: fmt.Sprintf("%s/speech-embedding.onnx", voicePretrainedPath),
+			VADModelPath:       fmt.Sprintf("%s/silero-vad.onnx", voicePretrainedPath),
+			Models:             models,
+			OnnxLibraryPath:    onnxLibraryPath,
+		}, slog.Default())
+
+		if err := voiceDetector.Load(); err != nil {
+			slog.Warn("Failed to load voice detection models", "error", err)
 		} else {
-			// Convert config models to detector models
-			models := make([]voice.ModelConfig, len(wakeWordModelsCfg.Models))
-			for i, m := range wakeWordModelsCfg.Models {
-				models[i] = voice.ModelConfig{
-					ID:        m.ID,
-					Name:      m.Name,
-					File:      fmt.Sprintf("%s/%s", voiceModelsPath, m.File),
-					Phrase:    m.Phrase,
-					Threshold: m.Threshold,
-				}
-			}
-
-			voiceDetector = voice.NewDetector(voice.DetectorConfig{
-				MelspecModelPath:   fmt.Sprintf("%s/mel-spectrogram.onnx", voicePretrainedPath),
-				EmbeddingModelPath: fmt.Sprintf("%s/speech-embedding.onnx", voicePretrainedPath),
-				VADModelPath:       fmt.Sprintf("%s/silero-vad.onnx", voicePretrainedPath),
-				Models:             models,
-				OnnxLibraryPath:    onnxLibraryPath,
-			}, slog.Default())
-
-			if err := voiceDetector.Load(); err != nil {
-				slog.Error("Failed to load voice detection models", "error", err)
-				// Don't exit - voice detection is optional
-			} else {
-				voiceHandler := voice.NewHandler(voiceDetector, slog.Default())
-				mux.Handle("/api/v1/voice-events", voiceHandler)
-				slog.Info("Voice detection enabled", "wakeWordModels", len(models), "vadEnabled", true)
-			}
+			voiceHandler := voice.NewHandler(voiceDetector, slog.Default())
+			httpMux.Handle("/api/v1/voice/events", voiceHandler)
+			slog.Info("Voice detection enabled", "wakeWordModels", len(models), "vadEnabled", true)
 		}
 	}
 
-	// Log registered routes
-	logRoutes(agentService.Handler())
+	// Watch for store changes and hot-reload the agent
+	storeChanged := dataStore.OnChange()
+	go func() {
+		for range storeChanged {
+			time.Sleep(500 * time.Millisecond)
+			slog.Info("Store changed, reloading agent...")
+			agentRouter.rebuild(ctx, dataStore)
+		}
+	}()
 
 	// Static files
-	mux.Handle("/", http.FileServer(http.Dir("voice-ui")))
+	httpMux.Handle("/", http.FileServer(http.Dir("voice-ui")))
 
 	addr := fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port)
 	server := &http.Server{
 		Addr:         addr,
-		Handler:      accessLogMiddleware(corsMiddleware(mux)),
+		Handler:      accessLogMiddleware(corsMiddleware(deviceAuthMiddleware(httpMux, dataStore))),
 		ReadTimeout:  30 * time.Second,
 		WriteTimeout: 120 * time.Second,
 		IdleTimeout:  60 * time.Second,
 	}
 
-	// Start Telegram client if enabled
+	// Start Telegram client if default agent has it enabled
 	var telegramClient *telegram.Client
-	if cfg.Clients.Telegram.Enabled {
+	defaultAgent := agentRouter.defaultAgent()
+	if defaultAgent != nil && defaultAgent.Telegram.Enabled {
 		agentURL := fmt.Sprintf("http://127.0.0.1:%d/api/v1/agent", cfg.Server.Port)
 		ttsURL := ""
-		if cfg.TTS.Resolved != nil {
-			ttsURL = fmt.Sprintf("http://127.0.0.1:%d/api/v1/tts/", cfg.Server.Port)
+		if agentRouter.hasTTSBackend() {
+			ttsURL = fmt.Sprintf("http://127.0.0.1:%d/api/v1/voice/%s/speech", cfg.Server.Port, defaultAgent.ID)
 		}
 
 		var err error
-		telegramClient, err = telegram.New(&cfg.Clients.Telegram, agentURL, ttsURL, &cfg.TTS, slog.Default())
+		telegramClient, err = telegram.New(defaultAgent.Telegram, agentURL, ttsURL, defaultAgent.TTS, slog.Default())
 		if err != nil {
 			slog.Error("Failed to create Telegram client", "error", err)
 		} else {
-			// Start in background after server is ready
 			go func() {
-				// Wait a bit for HTTP server to start
 				time.Sleep(500 * time.Millisecond)
 				if err := telegramClient.Start(ctx); err != nil {
 					slog.Error("Telegram client error", "error", err)
@@ -195,6 +249,7 @@ func main() {
 		}
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
+		adminServer.Shutdown(ctx)
 		server.Shutdown(ctx)
 	}()
 
@@ -203,28 +258,6 @@ func main() {
 		slog.Error("Server error", "error", err)
 		os.Exit(1)
 	}
-}
-
-// logRoutes logs all registered API routes at debug level.
-func logRoutes(adkHandler http.Handler) {
-	slog.Debug("Registered routes:")
-
-	// ADK routes
-	if router, ok := adkHandler.(*mux.Router); ok {
-		router.Walk(func(route *mux.Route, _ *mux.Router, _ []*mux.Route) error {
-			if path, err := route.GetPathTemplate(); err == nil {
-				methods, _ := route.GetMethods()
-				slog.Debug("Route", "methods", methods, "path", "/api/v1/agent"+path)
-			}
-			return nil
-		})
-	}
-
-	slog.Debug("Route", "methods", []string{"POST"}, "path", "/api/v1/transcription/")
-	slog.Debug("Route", "methods", []string{"POST"}, "path", "/api/v1/tts/")
-	slog.Debug("Route", "methods", []string{"GET"}, "path", "/api/v1/health")
-	slog.Debug("Route", "methods", []string{"GET"}, "path", "/ (static files)")
-	slog.Debug("Route", "methods", []string{"WebSocket"}, "path", "/api/v1/voice-events")
 }
 
 // responseRecorder wraps http.ResponseWriter to capture status code and bytes written.
@@ -276,6 +309,54 @@ func accessLogMiddleware(next http.Handler) http.Handler {
 	})
 }
 
+// deviceAuthMiddleware protects API endpoints on port 8080 with device token auth.
+// Static files, health checks, CORS preflight, and voice-events pass through.
+// If no devices exist in the store, all requests pass through (open mode).
+func deviceAuthMiddleware(next http.Handler, dataStore *store.Store) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		path := r.URL.Path
+
+		if r.Method == http.MethodOptions ||
+			path == "/api/v1/health" ||
+			path == "/api/v1/voice/events" ||
+			!strings.HasPrefix(path, "/api/") {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		devices := dataStore.ListDevices()
+		if len(devices) == 0 {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		token := r.Header.Get("Authorization")
+		hasToken := strings.HasPrefix(token, "Bearer ")
+
+		if hasToken {
+			token = strings.TrimPrefix(token, "Bearer ")
+			device, ok := dataStore.GetDeviceByToken(token)
+			if !ok || !device.Enabled {
+				w.Header().Set("Content-Type", "application/json")
+				http.Error(w, `{"error":"invalid or disabled device token"}`, http.StatusUnauthorized)
+				return
+			}
+			r.Header.Set("X-Device-Name", device.Name)
+			r.Header.Set("X-Device-Default-Agent", device.DefaultAgent)
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		if path == "/api/v1/device/info" {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		http.Error(w, `{"error":"missing or invalid Authorization header"}`, http.StatusUnauthorized)
+	})
+}
+
 // corsMiddleware adds CORS headers to all responses.
 func corsMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -291,88 +372,226 @@ func corsMiddleware(next http.Handler) http.Handler {
 	})
 }
 
-// newTranscriptionProxy creates a reverse proxy for the transcription API.
-func newTranscriptionProxy(target *url.URL) http.Handler {
-	return &httputil.ReverseProxy{
+// newVoiceHandler creates a handler for /api/v1/voice/ routes.
+// Routes:
+//   - /api/v1/voice/{agentId}/speech        → TTS proxy (resolved per-agent from store)
+//   - /api/v1/voice/{agentId}/transcription  → STT proxy (resolved per-agent from store)
+//   - /api/v1/voice/events                   → handled separately by WebSocket mux entry
+func newVoiceHandler(dataStore *store.Store, agentRouter *agentRouterHandler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Strip prefix: /api/v1/voice/  →  {agentId}/speech or {agentId}/transcription
+		path := strings.TrimPrefix(r.URL.Path, "/api/v1/voice/")
+
+		parts := strings.SplitN(path, "/", 2)
+		if len(parts) != 2 {
+			http.Error(w, `{"error":"invalid voice endpoint"}`, http.StatusBadRequest)
+			return
+		}
+		agentID := parts[0]
+		action := parts[1]
+
+		agentDef, ok := dataStore.GetAgent(agentID)
+		if !ok {
+			http.Error(w, `{"error":"agent not found"}`, http.StatusNotFound)
+			return
+		}
+
+		switch action {
+		case "speech":
+			serveSpeechProxy(w, r, agentDef, dataStore)
+		case "transcription":
+			serveTranscriptionProxy(w, r, agentDef, dataStore)
+		default:
+			http.Error(w, `{"error":"unknown voice action"}`, http.StatusBadRequest)
+		}
+	})
+}
+
+func serveSpeechProxy(w http.ResponseWriter, r *http.Request, agentDef store.AgentDefinition, dataStore *store.Store) {
+	if agentDef.TTS.Backend == "" {
+		http.Error(w, `{"error":"TTS not configured for this agent"}`, http.StatusServiceUnavailable)
+		return
+	}
+
+	backend, ok := dataStore.GetBackend(agentDef.TTS.Backend)
+	if !ok || backend.URL == "" {
+		http.Error(w, `{"error":"TTS backend not found"}`, http.StatusServiceUnavailable)
+		return
+	}
+
+	target, err := url.Parse(backend.URL)
+	if err != nil {
+		http.Error(w, `{"error":"invalid TTS backend URL"}`, http.StatusInternalServerError)
+		return
+	}
+
+	var inputBody map[string]interface{}
+	if r.Body != nil {
+		body, err := io.ReadAll(r.Body)
+		r.Body.Close()
+		if err != nil {
+			http.Error(w, "Failed to read request body", http.StatusBadRequest)
+			return
+		}
+		if len(body) > 0 {
+			if err := json.Unmarshal(body, &inputBody); err != nil {
+				http.Error(w, "Invalid JSON body", http.StatusBadRequest)
+				return
+			}
+		}
+	}
+	if inputBody == nil {
+		inputBody = make(map[string]interface{})
+	}
+
+	inputBody["model"] = agentDef.TTS.Model
+	inputBody["voice"] = agentDef.TTS.Voice
+	inputBody["speed"] = agentDef.TTS.Speed
+
+	newBody, err := json.Marshal(inputBody)
+	if err != nil {
+		http.Error(w, "Failed to build request", http.StatusInternalServerError)
+		return
+	}
+
+	proxyURL := *target
+	proxyURL.Path = "/v1/audio/speech"
+
+	proxyReq, err := http.NewRequestWithContext(r.Context(), "POST", proxyURL.String(), bytes.NewReader(newBody))
+	if err != nil {
+		http.Error(w, "Failed to create proxy request", http.StatusInternalServerError)
+		return
+	}
+	proxyReq.Header.Set("Content-Type", "application/json")
+	if backend.APIKey != "" {
+		proxyReq.Header.Set("Authorization", "Bearer "+backend.APIKey)
+	}
+
+	client := &http.Client{Timeout: 60 * time.Second}
+	resp, err := client.Do(proxyReq)
+	if err != nil {
+		slog.Error("TTS proxy error", "error", err)
+		http.Error(w, "TTS service unavailable", http.StatusBadGateway)
+		return
+	}
+	defer resp.Body.Close()
+
+	for k, v := range resp.Header {
+		w.Header()[k] = v
+	}
+	w.WriteHeader(resp.StatusCode)
+	io.Copy(w, resp.Body)
+}
+
+func serveTranscriptionProxy(w http.ResponseWriter, r *http.Request, agentDef store.AgentDefinition, dataStore *store.Store) {
+	if agentDef.Transcription.Backend == "" {
+		http.Error(w, `{"error":"transcription not configured for this agent"}`, http.StatusServiceUnavailable)
+		return
+	}
+
+	backend, ok := dataStore.GetBackend(agentDef.Transcription.Backend)
+	if !ok || backend.URL == "" {
+		http.Error(w, `{"error":"transcription backend not found"}`, http.StatusServiceUnavailable)
+		return
+	}
+
+	target, err := url.Parse(backend.URL)
+	if err != nil {
+		http.Error(w, `{"error":"invalid transcription backend URL"}`, http.StatusInternalServerError)
+		return
+	}
+
+	proxy := &httputil.ReverseProxy{
 		Director: func(req *http.Request) {
 			req.URL.Scheme = target.Scheme
 			req.URL.Host = target.Host
-			// /api/v1/transcription/audio/transcriptions -> /v1/audio/transcriptions
-			req.URL.Path = strings.TrimPrefix(req.URL.Path, "/api/v1/transcription")
+			req.URL.Path = "/v1/audio/transcriptions"
 			req.Host = target.Host
+			if backend.APIKey != "" {
+				req.Header.Set("Authorization", "Bearer "+backend.APIKey)
+			}
 		},
 		ErrorHandler: func(w http.ResponseWriter, r *http.Request, err error) {
 			slog.Error("Transcription proxy error", "error", err, "path", r.URL.Path)
 			http.Error(w, "Transcription service unavailable", http.StatusBadGateway)
 		},
 	}
+	proxy.ServeHTTP(w, r)
 }
 
-// newTTSProxy creates a reverse proxy for the TTS API (OpenAI-compatible).
-// It injects the configured model, voice, speed, and format into the request body.
-func newTTSProxy(target *url.URL, ttsCfg *config.TTSConfig) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Read original body
-		var inputBody map[string]interface{}
-		if r.Body != nil {
-			body, err := io.ReadAll(r.Body)
-			r.Body.Close()
-			if err != nil {
-				http.Error(w, "Failed to read request body", http.StatusBadRequest)
-				return
-			}
-			if len(body) > 0 {
-				if err := json.Unmarshal(body, &inputBody); err != nil {
-					http.Error(w, "Invalid JSON body", http.StatusBadRequest)
-					return
-				}
-			}
-		}
-		if inputBody == nil {
-			inputBody = make(map[string]interface{})
-		}
+// agentRouterHandler is a hot-swappable HTTP handler that routes agent requests.
+// It is rebuilt whenever the store changes.
+type agentRouterHandler struct {
+	mu           sync.RWMutex
+	agentHandler http.Handler
+	defAgent     *store.AgentDefinition
+	hasTTS       bool
+}
 
-		// Inject config values (server config takes precedence)
-		inputBody["model"] = ttsCfg.Model
-		inputBody["voice"] = ttsCfg.Voice
-		inputBody["speed"] = ttsCfg.Speed
+func (h *agentRouterHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	h.mu.RLock()
+	handler := h.agentHandler
+	h.mu.RUnlock()
 
-		// Marshal new body
-		newBody, err := json.Marshal(inputBody)
+	if handler != nil {
+		handler.ServeHTTP(w, r)
+	} else {
+		http.Error(w, `{"error":"no agent configured"}`, http.StatusServiceUnavailable)
+	}
+}
+
+func (h *agentRouterHandler) defaultAgent() *store.AgentDefinition {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	return h.defAgent
+}
+
+func (h *agentRouterHandler) hasTTSBackend() bool {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	return h.hasTTS
+}
+
+func (h *agentRouterHandler) rebuild(ctx context.Context, dataStore *store.Store) {
+	storeData := dataStore.Data()
+
+	var defaultAgent *store.AgentDefinition
+	for i, a := range storeData.Agents {
+		if a.ID == "default" {
+			defaultAgent = &storeData.Agents[i]
+			break
+		}
+	}
+	if defaultAgent == nil && len(storeData.Agents) > 0 {
+		defaultAgent = &storeData.Agents[0]
+	}
+
+	var agentHandler http.Handler
+	if len(storeData.Agents) > 0 {
+		svc, err := agent.New(ctx, storeData.Agents, storeData.Backends, storeData.MemoryProviders, storeData.MCPServers)
 		if err != nil {
-			http.Error(w, "Failed to build request", http.StatusInternalServerError)
-			return
+			slog.Warn("Failed to initialize agents", "error", err)
+		} else {
+			agentHandler = http.StripPrefix("/api/v1/agent", svc.Handler())
 		}
+	} else {
+		slog.Warn("No agents defined in store")
+	}
 
-		// Create proxied request
-		proxyURL := *target
-		proxyURL.Path = "/v1/audio/speech"
-		
-		proxyReq, err := http.NewRequestWithContext(r.Context(), "POST", proxyURL.String(), bytes.NewReader(newBody))
-		if err != nil {
-			http.Error(w, "Failed to create proxy request", http.StatusInternalServerError)
-			return
+	hasTTS := false
+	if defaultAgent != nil && defaultAgent.TTS.Backend != "" {
+		backendMap := make(map[string]store.BackendDefinition, len(storeData.Backends))
+		for _, b := range storeData.Backends {
+			backendMap[b.Name] = b
 		}
-		proxyReq.Header.Set("Content-Type", "application/json")
-		if ttsCfg.Resolved != nil && ttsCfg.Resolved.APIKey != "" {
-			proxyReq.Header.Set("Authorization", "Bearer "+ttsCfg.Resolved.APIKey)
+		if b, ok := backendMap[defaultAgent.TTS.Backend]; ok && b.URL != "" {
+			hasTTS = true
 		}
+	}
 
-		// Forward request
-		client := &http.Client{Timeout: 60 * time.Second}
-		resp, err := client.Do(proxyReq)
-		if err != nil {
-			slog.Error("TTS proxy error", "error", err)
-			http.Error(w, "TTS service unavailable", http.StatusBadGateway)
-			return
-		}
-		defer resp.Body.Close()
-
-		// Copy response headers and body
-		for k, v := range resp.Header {
-			w.Header()[k] = v
-		}
-		w.WriteHeader(resp.StatusCode)
-		io.Copy(w, resp.Body)
-	})
+	h.mu.Lock()
+	h.agentHandler = agentHandler
+	h.defAgent = defaultAgent
+	h.hasTTS = hasTTS
+	h.mu.Unlock()
 }

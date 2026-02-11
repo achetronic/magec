@@ -10,7 +10,7 @@ server:
   host: 0.0.0.0 # Use 127.0.0.1 to restrict to localhost only
   port: 8080
   adminPort: 8081 # Admin UI + API (separate port for security)
-  # onnxLibraryPath: /usr/lib/libonnxruntime.so  # Custom ONNX library path
+  onnxLibraryPath: /home/albyhernandez/Documents/Github/achetronic/magec/bin/lib/onnxruntime-linux-x64-1.23.2/lib/libonnxruntime.so.1.23.2
 
 log:
   level: info # debug, info, warn, error

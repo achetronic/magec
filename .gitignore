@@ -29,3 +29,6 @@ pretrained/*.onnx
 
 # Test audio
 test/
+
+# Runtime data (admin store)
+data/

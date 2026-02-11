@@ -53,7 +53,7 @@ export class VoiceEventsClient {
 
     _buildWsUrl() {
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        return `${protocol}//${window.location.host}/api/v1/voice-events`;
+        return `${protocol}//${window.location.host}/api/v1/voice/events`;
     }
 
     async load() {

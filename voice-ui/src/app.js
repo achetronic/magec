@@ -19,7 +19,7 @@ import { AudioCapture, AudioRecorder, VoiceEventsClient, FeedbackSound, OpenAITT
 import { RemoteTranscriber } from './transcription/index.js';
 import { UIController, WaveformRenderer } from './ui/index.js';
 import { SessionManager, SessionService } from './session/index.js';
-import { AgentClient } from './api/index.js';
+import { AgentClient, deviceAuth } from './api/index.js';
 import { SettingsManager } from './settings/index.js';
 import { errorHandler } from './errors/index.js';
 import { initLanguage, setLanguage, getLanguage, t, onLanguageChange } from './i18n/index.js';
@@ -56,24 +56,162 @@ class MagecApp {
     // ==================== Initialization ====================
 
     async init() {
-        // Initialize i18n
         initLanguage();
-        
-        // Keep screen awake on mobile
+
+        const needsPairing = await this._checkDevicePairing();
+        if (needsPairing) {
+            this._showPairingScreen();
+            return;
+        }
+
+        this._startApp();
+    }
+
+    async _checkDevicePairing() {
+        const paired = await deviceAuth.checkPairing();
+        if (paired) return false;
+        if (!deviceAuth.token) {
+            const infoRes = await fetch('/api/v1/device/info');
+            if (infoRes.ok) {
+                const info = await infoRes.json();
+                if (!info.paired && info.paired !== undefined) {
+                    return true;
+                }
+            }
+            return false;
+        }
+        return true;
+    }
+
+    _showPairingScreen() {
+        const screen = document.getElementById('pairingScreen');
+        const mainApp = document.getElementById('mainApp');
+        const input = document.getElementById('pairingTokenInput');
+        const btn = document.getElementById('pairingConnectBtn');
+        const error = document.getElementById('pairingError');
+
+        screen.classList.remove('hidden');
+        mainApp.classList.add('hidden');
+
+        input.addEventListener('input', () => {
+            btn.disabled = !input.value.trim();
+            error.classList.add('hidden');
+        });
+
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !btn.disabled) btn.click();
+        });
+
+        btn.addEventListener('click', async () => {
+            btn.disabled = true;
+            btn.textContent = 'Conectando...';
+            error.classList.add('hidden');
+
+            const ok = await deviceAuth.pair(input.value.trim());
+            if (ok) {
+                screen.classList.add('hidden');
+                mainApp.classList.remove('hidden');
+                this._startApp();
+            } else {
+                error.classList.remove('hidden');
+                btn.disabled = false;
+                btn.textContent = 'Emparejar';
+                input.value = '';
+                input.focus();
+            }
+        });
+
+        input.focus();
+    }
+
+    async _startApp() {
         this.wakeLock.enable();
-        
-        // Connect error handler to UI notifications
+
         errorHandler.setNotificationCallback((type, message) => {
             this.ui.addNotification(type, message, { showConsoleHint: true });
         });
-        
+
+        this._selectedAgent = deviceAuth.defaultAgent || null;
+        this.settings = new SettingsManager(this._selectedAgent);
+
+        if (this._selectedAgent) {
+            this.agentClient.setAgent(this._selectedAgent);
+            this.sessionService.setAgent(this._selectedAgent);
+            this.tts.setAgent(this._selectedAgent);
+        }
+
         this._setupEventHandlers();
         this._initSettings();
+        this._setupAgentSwitcher();
         await this._checkTTSAvailability();
         await this._initWakeWord();
         await this._initSession();
         this._setReady();
         await this._startListening();
+    }
+
+    _setupAgentSwitcher() {
+        const agents = deviceAuth.allowedAgents;
+        const switcher = document.getElementById('agentSwitcher');
+        const btn = document.getElementById('agentSwitcherBtn');
+        const dropdown = document.getElementById('agentDropdown');
+        const list = document.getElementById('agentDropdownList');
+        if (!switcher || !btn || !dropdown || !list) return;
+
+        if (!agents || agents.length <= 1) {
+            switcher.classList.add('hidden');
+            return;
+        }
+
+        switcher.classList.remove('hidden');
+        this._selectedAgent = deviceAuth.defaultAgent;
+
+        const renderList = () => {
+            list.innerHTML = agents.map(a => {
+                const active = a.id === this._selectedAgent;
+                return `
+                <button data-agent-id="${a.id}" class="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-left transition-colors ${active ? 'bg-sol-500/10' : 'hover:bg-piedra-800'}">
+                    <div class="w-6 h-6 rounded-md ${active ? 'bg-sol-500/20' : 'bg-piedra-800'} flex items-center justify-center flex-shrink-0">
+                        <span class="text-[10px] font-bold ${active ? 'text-sol-400' : 'text-arena-500'}">${(a.name || a.id).charAt(0).toUpperCase()}</span>
+                    </div>
+                    <div class="min-w-0 flex-1">
+                        <p class="text-xs ${active ? 'text-arena-100 font-medium' : 'text-arena-300'} truncate">${a.name || a.id}</p>
+                    </div>
+                    ${active ? '<svg class="w-3.5 h-3.5 text-sol-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>' : ''}
+                </button>`;
+            }).join('');
+
+            list.querySelectorAll('[data-agent-id]').forEach(el => {
+                el.addEventListener('click', () => {
+                    this._selectedAgent = el.dataset.agentId;
+                    this.agentClient.setAgent(this._selectedAgent);
+                    this.sessionService.setAgent(this._selectedAgent);
+                    this.tts.setAgent(this._selectedAgent);
+                    if (this.transcriber) this.transcriber.setAgent(this._selectedAgent);
+                    this.settings.switchAgent(this._selectedAgent);
+                    this._applySettingsToUI();
+                    dropdown.classList.add('hidden');
+                    renderList();
+                    this.sessionManager.newSession();
+                    console.log('[Device] Agent switched to:', this._selectedAgent);
+                });
+            });
+        };
+
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const isOpen = !dropdown.classList.contains('hidden');
+            dropdown.classList.toggle('hidden', isOpen);
+            if (!isOpen) renderList();
+        });
+
+        document.addEventListener('click', (e) => {
+            if (!switcher.contains(e.target)) {
+                dropdown.classList.add('hidden');
+            }
+        });
+
+        renderList();
     }
 
     _setupEventHandlers() {
@@ -98,6 +236,15 @@ class MagecApp {
             (enabled) => this._onTTSEnabledChange(enabled),
             (lang) => setLanguage(lang)
         );
+    }
+
+    _applySettingsToUI() {
+        const ttsToggle = document.getElementById('ttsToggle');
+        if (ttsToggle) ttsToggle.checked = this.settings.ttsEnabled;
+
+        this.wakeWordEnabled = this.settings.wakeWordEnabled;
+        this.ui.setWakeWordToggle(this.wakeWordEnabled);
+        this.ui.setWakeWordEnabled(this.wakeWordEnabled, this.wakeWordPhrase);
     }
 
     _onLanguageChange() {
@@ -404,7 +551,10 @@ class MagecApp {
     // ==================== Transcription ====================
 
     async _transcribe(blob) {
-        this.transcriber ??= new RemoteTranscriber(CONFIG.transcription);
+        if (!this.transcriber) {
+            this.transcriber = new RemoteTranscriber(CONFIG.transcription);
+            if (this._selectedAgent) this.transcriber.setAgent(this._selectedAgent);
+        }
         return this.transcriber.transcribe(blob);
     }
 

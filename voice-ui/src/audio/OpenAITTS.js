@@ -25,6 +25,15 @@ export class OpenAITTS {
         this._speaking = false;
         this._abortController = null;
         this._available = null; // null = unknown, true/false after check
+        this._agentId = 'default';
+    }
+
+    setAgent(agentId) {
+        this._agentId = agentId;
+    }
+
+    _speechUrl() {
+        return `/api/v1/voice/${this._agentId}/speech`;
     }
 
     /**
@@ -33,7 +42,7 @@ export class OpenAITTS {
      */
     async checkAvailable() {
         try {
-            const response = await fetch('/api/v1/tts/speech', {
+            const response = await fetch(this._speechUrl(), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ input: 'test' }),
@@ -81,7 +90,7 @@ export class OpenAITTS {
         this._abortController = new AbortController();
 
         try {
-            const response = await fetch('/api/v1/tts/speech', {
+            const response = await fetch(this._speechUrl(), {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

@@ -62,6 +62,7 @@ type AudioConfig struct {
 // WakewordModelInfo represents a wake word model for client
 type WakewordModelInfo struct {
 	ID     string `json:"id"`
+	Name   string `json:"name"`
 	Phrase string `json:"phrase"`
 }
 
@@ -235,6 +236,7 @@ func (h *Handler) sendCapabilities(conn *websocket.Conn, detector *Detector, vad
 	for i, m := range models {
 		modelInfos[i] = WakewordModelInfo{
 			ID:     m.ID,
+			Name:   m.Name,
 			Phrase: m.Phrase,
 		}
 	}
