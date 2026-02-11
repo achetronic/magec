@@ -905,12 +905,26 @@ class AdminApp {
         const allowedAgents = client?.allowedAgents || [];
         if (this.agents.length) {
             $('clientAgentEmpty').classList.add('hidden');
-            $('clientAgentCheckboxes').innerHTML = this.agents.map(a => `
-                <label class="flex items-center gap-1.5 px-2.5 py-1 bg-piedra-800 rounded-lg cursor-pointer hover:bg-piedra-700 transition-colors">
-                    <input type="checkbox" value="${esc(a.id)}" ${allowedAgents.includes(a.id) ? 'checked' : ''} class="rounded border-piedra-600 bg-piedra-800 text-sol-500 focus:ring-sol-500">
-                    <span class="text-xs text-arena-300">${esc(a.name || a.id)}</span>
-                </label>
-            `).join('');
+            $('clientAgentCheckboxes').innerHTML = this.agents.map(a => {
+                const checked = allowedAgents.includes(a.id);
+                return `
+                <label class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border cursor-pointer transition-all text-xs
+                    ${checked ? 'bg-sol-500/10 border-sol-500/40 text-sol-300' : 'bg-piedra-800/60 border-piedra-700/50 text-arena-400 hover:border-piedra-600'}">
+                    <input type="checkbox" value="${esc(a.id)}" ${checked ? 'checked' : ''} class="hidden">
+                    <span>${esc(a.name || a.id)}</span>
+                </label>`;
+            }).join('');
+            $('clientAgentCheckboxes').addEventListener('change', (e) => {
+                if (e.target.type !== 'checkbox') return;
+                const label = e.target.closest('label');
+                const on = e.target.checked;
+                label.classList.toggle('bg-sol-500/10', on);
+                label.classList.toggle('border-sol-500/40', on);
+                label.classList.toggle('text-sol-300', on);
+                label.classList.toggle('bg-piedra-800/60', !on);
+                label.classList.toggle('border-piedra-700/50', !on);
+                label.classList.toggle('text-arena-400', !on);
+            });
         } else {
             $('clientAgentCheckboxes').innerHTML = '';
             $('clientAgentEmpty').classList.remove('hidden');

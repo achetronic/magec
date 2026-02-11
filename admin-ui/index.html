@@ -513,28 +513,35 @@
             </div>
             <div class="p-5 space-y-4">
                 <input type="hidden" id="clientEditName">
-                <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-xs text-arena-400 mb-1">Name</label>
-                        <input id="clientName" type="text" required class="w-full bg-piedra-800 border border-piedra-700 rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-sol-500 focus:border-sol-500 outline-none" placeholder="tablet-cocina">
+                <div class="flex items-center gap-4">
+                    <div class="grid grid-cols-2 gap-4 flex-1">
+                        <div>
+                            <label class="block text-xs text-arena-400 mb-1">Name</label>
+                            <input id="clientName" type="text" required class="w-full bg-piedra-800 border border-piedra-700 rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-sol-500 focus:border-sol-500 outline-none" placeholder="tablet-cocina">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-arena-400 mb-1">Type</label>
+                            <select id="clientType" class="w-full bg-piedra-800 border border-piedra-700 rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-sol-500 focus:border-sol-500 outline-none"></select>
+                        </div>
                     </div>
-                    <div>
-                        <label class="block text-xs text-arena-400 mb-1">Type</label>
-                        <select id="clientType" class="w-full bg-piedra-800 border border-piedra-700 rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-sol-500 focus:border-sol-500 outline-none"></select>
-                    </div>
+                    <label class="flex flex-col items-center gap-1 cursor-pointer flex-shrink-0 pt-1">
+                        <span class="text-[10px] text-arena-500">Enabled</span>
+                        <div class="relative">
+                            <input type="checkbox" id="clientEnabled" checked class="sr-only peer">
+                            <div class="w-9 h-5 bg-piedra-700 rounded-full peer-checked:bg-sol-500/60 transition-colors"></div>
+                            <div class="absolute left-0.5 top-0.5 w-4 h-4 bg-arena-400 rounded-full peer-checked:translate-x-4 peer-checked:bg-white transition-transform"></div>
+                        </div>
+                    </label>
                 </div>
                 <div>
                     <label class="block text-xs text-arena-400 mb-1">Allowed Agents</label>
-                    <div id="clientAgentCheckboxes" class="flex flex-wrap gap-2"></div>
+                    <div id="clientAgentCheckboxes" class="flex flex-wrap gap-1.5"></div>
                     <p id="clientAgentEmpty" class="text-xs text-arena-500 mt-1 hidden">No agents defined yet</p>
-                    <p class="text-[10px] text-arena-500 mt-1">First selected agent is the default. If only one, voice-UI won't show a switcher.</p>
+                    <p class="text-[10px] text-arena-500 mt-1">First selected agent is the default.</p>
                 </div>
                 <!-- Dynamic config fields -->
                 <div id="clientConfigFields" class="space-y-3"></div>
-                <label class="flex items-center gap-2">
-                    <input type="checkbox" id="clientEnabled" checked class="rounded border-piedra-600 bg-piedra-800 text-sol-500 focus:ring-sol-500">
-                    <span class="text-sm text-arena-300">Enabled</span>
-                </label>
+
                 <div id="clientTokenSection" class="hidden">
                     <label class="block text-xs text-arena-400 mb-1">Token</label>
                     <div class="flex gap-2">
