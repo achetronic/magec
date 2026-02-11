@@ -207,7 +207,6 @@ class AdminApp {
         $('agentDescription').value = agent?.description || '';
         $('agentLlmModel').value = agent?.llm?.model || '';
         $('agentSystemPrompt').value = agent?.systemPrompt || '';
-        $('agentSystemPromptSuffix').value = agent?.systemPromptSuffix || '';
 
         const noneOpt = '<option value="">(none)</option>';
         const backendOpts = this.backends.map(b =>
@@ -254,6 +253,17 @@ class AdminApp {
         $('agentMemoryLongTerm').innerHTML = noneMemOpt + longTermOpts;
         $('agentMemoryLongTerm').value = agent?.memory?.longTerm || '';
 
+        const hasPrompt = !!agent?.systemPrompt;
+        const hasMem = !!(agent?.memory?.session || agent?.memory?.longTerm);
+        const hasMcp = !!agentMcpNames.length;
+        const hasVoice = !!(agent?.transcription?.backend || agent?.tts?.backend);
+        const details = document.querySelectorAll('#agentDialog details');
+        details.forEach(d => d.removeAttribute('open'));
+        if (hasPrompt && details[0]) details[0].setAttribute('open', '');
+        if (hasMem && details[1]) details[1].setAttribute('open', '');
+        if (hasMcp && details[2]) details[2].setAttribute('open', '');
+        if (hasVoice && details[3]) details[3].setAttribute('open', '');
+
         $('agentDialog').showModal();
     }
 
@@ -274,7 +284,6 @@ class AdminApp {
             name: $('agentName').value.trim() || $('agentId').value.trim(),
             description: $('agentDescription').value.trim(),
             systemPrompt: $('agentSystemPrompt').value.trim(),
-            systemPromptSuffix: $('agentSystemPromptSuffix').value.trim(),
             llm: { backend: $('agentLlmBackend').value, model: $('agentLlmModel').value.trim() },
             transcription: {
                 backend: $('agentTranscriptionBackend').value,

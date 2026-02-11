@@ -6,7 +6,6 @@ type AgentDefinition struct {
 	Name               string         `json:"name" yaml:"name"`
 	Description        string         `json:"description,omitempty" yaml:"description,omitempty"`
 	SystemPrompt       string         `json:"systemPrompt,omitempty" yaml:"systemPrompt,omitempty"`
-	SystemPromptSuffix string         `json:"systemPromptSuffix,omitempty" yaml:"systemPromptSuffix,omitempty"`
 	LLM                BackendRef     `json:"llm" yaml:"llm"`
 	Transcription      BackendRef     `json:"transcription,omitempty" yaml:"transcription,omitempty"`
 	TTS                TTSRef         `json:"tts,omitempty" yaml:"tts,omitempty"`

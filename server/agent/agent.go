@@ -403,9 +403,5 @@ func buildInstruction(agentDef store.AgentDefinition, mcpServerMap map[string]st
 		}
 	}
 
-	if agentDef.SystemPromptSuffix != "" {
-		instruction += "\n\n" + agentDef.SystemPromptSuffix
-	}
-
 	return instruction
 }

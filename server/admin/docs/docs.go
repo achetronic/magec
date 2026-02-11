@@ -1464,9 +1464,6 @@ const docTemplate = `{
                 "systemPrompt": {
                     "type": "string"
                 },
-                "systemPromptSuffix": {
-                    "type": "string"
-                },
                 "transcription": {
                     "$ref": "#/definitions/store.BackendRef"
                 },

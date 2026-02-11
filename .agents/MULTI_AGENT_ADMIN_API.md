@@ -54,7 +54,7 @@ Store (in-memory + JSON persistence)
 ├── MCPServers[]        — servidores MCP reutilizables (globales)
 ├── Agents[]            — cada agente es una unidad independiente
 │   ├── id, name, description
-│   ├── systemPrompt, systemPromptSuffix
+│   ├── systemPrompt
 │   ├── llm: {backend, model}
 │   ├── transcription: {backend, model}
 │   ├── tts: {backend, model, voice, speed}

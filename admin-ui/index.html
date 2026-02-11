@@ -200,7 +200,21 @@
                     <input id="agentDescription" type="text" class="w-full bg-piedra-800 border border-piedra-700 rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-sol-500 focus:border-sol-500 outline-none" placeholder="What this agent does...">
                 </div>
 
-                <!-- LLM -->
+                <!-- System Prompt -->
+                <details class="group border border-piedra-700/40 rounded-xl">
+                    <summary class="flex items-center justify-between px-4 py-3 cursor-pointer select-none text-xs font-medium text-arena-400 hover:text-arena-300 transition-colors">
+                        <span>System Prompt</span>
+                        <svg class="w-4 h-4 text-arena-500 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 9l-7 7-7-7"/></svg>
+                    </summary>
+                    <div class="px-4 pb-4 space-y-3">
+                        <div>
+                            <label class="block text-xs text-arena-400 mb-1">System Prompt</label>
+                            <textarea id="agentSystemPrompt" rows="3" class="w-full bg-piedra-800 border border-piedra-700 rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-sol-500 focus:border-sol-500 outline-none resize-y" placeholder="Custom system prompt (leave empty for default)..."></textarea>
+                        </div>
+                    </div>
+                </details>
+
+                <!-- LLM (always visible — required) -->
                 <fieldset class="border border-piedra-700/40 rounded-xl p-4 space-y-3">
                     <legend class="text-xs font-medium text-arena-400 px-1.5">LLM</legend>
                     <div class="grid grid-cols-2 gap-3">
@@ -215,79 +229,86 @@
                     </div>
                 </fieldset>
 
-                <!-- Transcription -->
-                <fieldset class="border border-piedra-700/40 rounded-xl p-4 space-y-3">
-                    <legend class="text-xs font-medium text-arena-400 px-1.5">Transcription (STT)</legend>
-                    <p class="text-[11px] text-arena-500 -mt-1">OpenAI Whisper-compatible backend. Leave empty to disable.</p>
-                    <div class="grid grid-cols-2 gap-3">
-                        <div>
-                            <label class="block text-xs text-arena-400 mb-1">Backend</label>
-                            <select id="agentTranscriptionBackend" class="w-full bg-piedra-800 border border-piedra-700 rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-sol-500 focus:border-sol-500 outline-none"></select>
-                        </div>
-                        <div>
-                            <label class="block text-xs text-arena-400 mb-1">Model</label>
-                            <input id="agentTranscriptionModel" type="text" class="w-full bg-piedra-800 border border-piedra-700 rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-sol-500 focus:border-sol-500 outline-none" placeholder="whisper-1">
-                        </div>
-                    </div>
-                </fieldset>
-
-                <!-- TTS -->
-                <fieldset class="border border-piedra-700/40 rounded-xl p-4 space-y-3">
-                    <legend class="text-xs font-medium text-arena-400 px-1.5">Text-to-Speech (TTS)</legend>
-                    <p class="text-[11px] text-arena-500 -mt-1">OpenAI TTS-compatible backend. Leave empty to disable voice output.</p>
-                    <div class="grid grid-cols-2 gap-3">
-                        <div>
-                            <label class="block text-xs text-arena-400 mb-1">Backend</label>
-                            <select id="agentTtsBackend" class="w-full bg-piedra-800 border border-piedra-700 rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-sol-500 focus:border-sol-500 outline-none"></select>
-                        </div>
-                        <div>
-                            <label class="block text-xs text-arena-400 mb-1">Model</label>
-                            <input id="agentTtsModel" type="text" class="w-full bg-piedra-800 border border-piedra-700 rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-sol-500 focus:border-sol-500 outline-none" placeholder="tts-1">
-                        </div>
-                    </div>
-                    <div class="grid grid-cols-2 gap-3">
-                        <div>
-                            <label class="block text-xs text-arena-400 mb-1">Voice</label>
-                            <input id="agentTtsVoice" type="text" class="w-full bg-piedra-800 border border-piedra-700 rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-sol-500 focus:border-sol-500 outline-none" placeholder="alloy">
-                        </div>
-                        <div>
-                            <label class="block text-xs text-arena-400 mb-1">Speed</label>
-                            <input id="agentTtsSpeed" type="number" min="0.25" max="4.0" step="0.05" class="w-full bg-piedra-800 border border-piedra-700 rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-sol-500 focus:border-sol-500 outline-none" placeholder="1.0">
-                        </div>
-                    </div>
-                </fieldset>
-
-                <!-- System Prompt -->
-                <div>
-                    <label class="block text-xs text-arena-400 mb-1">System Prompt</label>
-                    <textarea id="agentSystemPrompt" rows="3" class="w-full bg-piedra-800 border border-piedra-700 rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-sol-500 focus:border-sol-500 outline-none resize-y" placeholder="Custom system prompt (leave empty for default)..."></textarea>
-                </div>
-                <div>
-                    <label class="block text-xs text-arena-400 mb-1">System Prompt Suffix</label>
-                    <textarea id="agentSystemPromptSuffix" rows="2" class="w-full bg-piedra-800 border border-piedra-700 rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-sol-500 focus:border-sol-500 outline-none resize-y" placeholder="Additional instructions..."></textarea>
-                </div>
-
-                <!-- MCP Linking -->
-                <div>
-                    <label class="block text-xs text-arena-400 mb-1">MCP Servers</label>
-                    <div id="agentMcpCheckboxes" class="flex flex-wrap gap-2"></div>
-                    <p id="agentMcpEmpty" class="text-xs text-arena-500 mt-1 hidden">No MCP servers defined yet</p>
-                </div>
-
                 <!-- Memory -->
-                <fieldset class="border border-piedra-700/40 rounded-xl p-4 space-y-3">
-                    <legend class="text-xs font-medium text-arena-400 px-1.5">Memory</legend>
-                    <div class="grid grid-cols-2 gap-3">
-                        <div>
-                            <label class="block text-xs text-arena-400 mb-1">Session</label>
-                            <select id="agentMemorySession" class="w-full bg-piedra-800 border border-piedra-700 rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-sol-500 focus:border-sol-500 outline-none"></select>
-                        </div>
-                        <div>
-                            <label class="block text-xs text-arena-400 mb-1">Long-term</label>
-                            <select id="agentMemoryLongTerm" class="w-full bg-piedra-800 border border-piedra-700 rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-sol-500 focus:border-sol-500 outline-none"></select>
+                <details class="group border border-piedra-700/40 rounded-xl">
+                    <summary class="flex items-center justify-between px-4 py-3 cursor-pointer select-none text-xs font-medium text-arena-400 hover:text-arena-300 transition-colors">
+                        <span>Memory</span>
+                        <svg class="w-4 h-4 text-arena-500 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 9l-7 7-7-7"/></svg>
+                    </summary>
+                    <div class="px-4 pb-4 space-y-3">
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-xs text-arena-400 mb-1">Session</label>
+                                <select id="agentMemorySession" class="w-full bg-piedra-800 border border-piedra-700 rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-sol-500 focus:border-sol-500 outline-none"></select>
+                            </div>
+                            <div>
+                                <label class="block text-xs text-arena-400 mb-1">Long-term</label>
+                                <select id="agentMemoryLongTerm" class="w-full bg-piedra-800 border border-piedra-700 rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-sol-500 focus:border-sol-500 outline-none"></select>
+                            </div>
                         </div>
                     </div>
-                </fieldset>
+                </details>
+
+                <!-- MCP Servers -->
+                <details class="group border border-piedra-700/40 rounded-xl">
+                    <summary class="flex items-center justify-between px-4 py-3 cursor-pointer select-none text-xs font-medium text-arena-400 hover:text-arena-300 transition-colors">
+                        <span>MCP Servers</span>
+                        <svg class="w-4 h-4 text-arena-500 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 9l-7 7-7-7"/></svg>
+                    </summary>
+                    <div class="px-4 pb-4">
+                        <div id="agentMcpCheckboxes" class="flex flex-wrap gap-2"></div>
+                        <p id="agentMcpEmpty" class="text-xs text-arena-500 mt-1 hidden">No MCP servers defined yet</p>
+                    </div>
+                </details>
+
+                <!-- Voice (STT + TTS) -->
+                <details class="group border border-piedra-700/40 rounded-xl">
+                    <summary class="flex items-center justify-between px-4 py-3 cursor-pointer select-none text-xs font-medium text-arena-400 hover:text-arena-300 transition-colors">
+                        <span>Voice (STT / TTS)</span>
+                        <svg class="w-4 h-4 text-arena-500 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 9l-7 7-7-7"/></svg>
+                    </summary>
+                    <div class="px-4 pb-4 space-y-4">
+                        <div class="space-y-3">
+                            <h4 class="text-[10px] font-medium text-arena-500 uppercase tracking-wider">Transcription (STT)</h4>
+                            <p class="text-[11px] text-arena-500 -mt-1">OpenAI Whisper-compatible backend. Leave empty to disable.</p>
+                            <div class="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label class="block text-xs text-arena-400 mb-1">Backend</label>
+                                    <select id="agentTranscriptionBackend" class="w-full bg-piedra-800 border border-piedra-700 rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-sol-500 focus:border-sol-500 outline-none"></select>
+                                </div>
+                                <div>
+                                    <label class="block text-xs text-arena-400 mb-1">Model</label>
+                                    <input id="agentTranscriptionModel" type="text" class="w-full bg-piedra-800 border border-piedra-700 rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-sol-500 focus:border-sol-500 outline-none" placeholder="whisper-1">
+                                </div>
+                            </div>
+                        </div>
+                        <hr class="border-piedra-700/30">
+                        <div class="space-y-3">
+                            <h4 class="text-[10px] font-medium text-arena-500 uppercase tracking-wider">Text-to-Speech (TTS)</h4>
+                            <p class="text-[11px] text-arena-500 -mt-1">OpenAI TTS-compatible backend. Leave empty to disable voice output.</p>
+                            <div class="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label class="block text-xs text-arena-400 mb-1">Backend</label>
+                                    <select id="agentTtsBackend" class="w-full bg-piedra-800 border border-piedra-700 rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-sol-500 focus:border-sol-500 outline-none"></select>
+                                </div>
+                                <div>
+                                    <label class="block text-xs text-arena-400 mb-1">Model</label>
+                                    <input id="agentTtsModel" type="text" class="w-full bg-piedra-800 border border-piedra-700 rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-sol-500 focus:border-sol-500 outline-none" placeholder="tts-1">
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label class="block text-xs text-arena-400 mb-1">Voice</label>
+                                    <input id="agentTtsVoice" type="text" class="w-full bg-piedra-800 border border-piedra-700 rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-sol-500 focus:border-sol-500 outline-none" placeholder="alloy">
+                                </div>
+                                <div>
+                                    <label class="block text-xs text-arena-400 mb-1">Speed</label>
+                                    <input id="agentTtsSpeed" type="number" min="0.25" max="4.0" step="0.05" class="w-full bg-piedra-800 border border-piedra-700 rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-sol-500 focus:border-sol-500 outline-none" placeholder="1.0">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </details>
             </div>
             <div class="flex justify-end gap-3 p-5 border-t border-piedra-700/50 flex-shrink-0">
                 <button type="submit" value="cancel" formnovalidate class="px-4 py-2 text-sm text-arena-400 hover:text-arena-200 hover:bg-piedra-800 rounded-lg transition-colors">Cancel</button>
