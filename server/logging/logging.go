@@ -38,6 +38,7 @@ func Setup(level, format string) {
 	slog.SetDefault(slog.New(handler))
 }
 
+// parseLevel converts a level string to the corresponding slog.Level.
 func parseLevel(level string) slog.Level {
 	switch strings.ToLower(level) {
 	case "debug":

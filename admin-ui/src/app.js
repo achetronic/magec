@@ -115,7 +115,7 @@ class AdminApp {
                             <span class="text-[10px] text-arena-500 font-mono">${esc(a.id)}</span>
                         </div>
                         <div class="flex items-center gap-1.5 mt-1 flex-wrap">
-                            <span class="px-1.5 py-0.5 bg-piedra-800 text-arena-300 text-[10px] rounded">${esc(a.llm?.backend || '?')} / ${esc(a.llm?.model || '?')}</span>
+                            <span class="px-1.5 py-0.5 bg-piedra-800 text-arena-300 text-[10px] rounded">${esc(this._backendLabel(a.llm?.backend))} / ${esc(a.llm?.model || '?')}</span>
                             ${a.transcription?.backend ? '<span class="px-1.5 py-0.5 bg-piedra-800 text-arena-400 text-[10px] rounded">STT</span>' : ''}
                             ${a.tts?.backend ? '<span class="px-1.5 py-0.5 bg-lava-500/15 text-lava-300 text-[10px] rounded">TTS</span>' : ''}
                             ${mcpCount ? `<span class="px-1.5 py-0.5 bg-atlantico-500/15 text-atlantico-300 text-[10px] rounded">${mcpCount} MCP${mcpCount > 1 ? 's' : ''}</span>` : ''}
@@ -138,7 +138,7 @@ class AdminApp {
 
     _renderAgentDetail(a) {
         const row = (label, value) => value ? `<div class="detail-row"><span class="label">${label}</span><span class="value">${esc(value)}</span></div>` : '';
-        const mcpNames = a.mcpServers || [];
+        const mcpIds = a.mcpServers || [];
         const mem = a.memory || {};
 
         return `
@@ -149,21 +149,21 @@ class AdminApp {
 
                 <div class="space-y-1.5">
                     <h4 class="text-[10px] font-medium text-arena-500 uppercase tracking-wider">LLM</h4>
-                    ${row('Backend', a.llm?.backend)}
+                    ${row('Backend', this._backendLabel(a.llm?.backend))}
                     ${row('Model', a.llm?.model)}
                 </div>
 
                 <div class="space-y-1.5">
                     <h4 class="text-[10px] font-medium text-arena-500 uppercase tracking-wider">Transcription (STT)</h4>
                     ${a.transcription?.backend
-                        ? row('Backend', a.transcription.backend) + row('Model', a.transcription.model)
+                        ? row('Backend', this._backendLabel(a.transcription.backend)) + row('Model', a.transcription.model)
                         : '<p class="text-[11px] text-arena-600">Disabled</p>'}
                 </div>
 
                 <div class="space-y-1.5">
                     <h4 class="text-[10px] font-medium text-arena-500 uppercase tracking-wider">TTS</h4>
                     ${a.tts?.backend
-                        ? row('Backend', a.tts.backend) + row('Model', a.tts.model) + row('Voice', a.tts.voice) + row('Speed', a.tts.speed ? a.tts.speed + 'x' : '')
+                        ? row('Backend', this._backendLabel(a.tts.backend)) + row('Model', a.tts.model) + row('Voice', a.tts.voice) + row('Speed', a.tts.speed ? a.tts.speed + 'x' : '')
                         : '<p class="text-[11px] text-arena-600">Disabled</p>'}
                 </div>
 
@@ -178,11 +178,11 @@ class AdminApp {
             <div class="space-y-4">
                 <div class="space-y-1.5">
                     <h4 class="text-[10px] font-medium text-arena-500 uppercase tracking-wider">MCP Servers</h4>
-                    ${mcpNames.length ? mcpNames.map(name => {
-                        const mcp = this.mcps.find(m => m.name === name);
+                    ${mcpIds.length ? mcpIds.map(id => {
+                        const mcp = this.mcps.find(m => m.id === id);
                         return `<div class="flex items-center gap-2 p-1.5 bg-piedra-800/50 rounded-lg">
                             <svg class="w-3 h-3 text-atlantico-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
-                            <span class="text-[11px] text-arena-200">${esc(name)}</span>
+                            <span class="text-[11px] text-arena-200">${esc(mcp?.name || id)}</span>
                             <span class="text-[10px] text-arena-500">${esc(mcp?.type || 'http')}</span>
                         </div>`;
                     }).join('') : '<p class="text-[11px] text-arena-600">None linked</p>'}
@@ -190,11 +190,23 @@ class AdminApp {
 
                 <div class="space-y-1.5">
                     <h4 class="text-[10px] font-medium text-arena-500 uppercase tracking-wider">Memory</h4>
-                    ${row('Session', mem.session || 'Not configured')}
-                    ${row('Long-term', mem.longTerm || 'Not configured')}
+                    ${row('Session', this._memoryLabel(mem.session) || 'Not configured')}
+                    ${row('Long-term', this._memoryLabel(mem.longTerm) || 'Not configured')}
                 </div>
             </div>
         </div>`;
+    }
+
+    _backendLabel(id) {
+        if (!id) return '';
+        const b = this.backends.find(b => b.id === id);
+        return b?.name || id;
+    }
+
+    _memoryLabel(id) {
+        if (!id) return '';
+        const m = this.memory.find(m => m.id === id);
+        return m?.name || id;
     }
 
     showAgentDialog(agent = null) {
@@ -210,7 +222,7 @@ class AdminApp {
 
         const noneOpt = '<option value="">(none)</option>';
         const backendOpts = this.backends.map(b =>
-            `<option value="${esc(b.name)}">${esc(b.name)} (${esc(b.type)})</option>`
+            `<option value="${esc(b.id)}">${esc(b.name)} (${esc(b.type)})</option>`
         ).join('');
 
         $('agentLlmBackend').innerHTML = backendOpts;
@@ -227,12 +239,12 @@ class AdminApp {
         $('agentTtsSpeed').value = agent?.tts?.speed || '';
 
         const mcpContainer = $('agentMcpCheckboxes');
-        const agentMcpNames = agent?.mcpServers || [];
+        const agentMcpIds = agent?.mcpServers || [];
         if (this.mcps.length) {
             $('agentMcpEmpty').classList.add('hidden');
             mcpContainer.innerHTML = this.mcps.map(m => `
                 <label class="flex items-center gap-1.5 px-2.5 py-1 bg-piedra-800 rounded-lg cursor-pointer hover:bg-piedra-700 transition-colors">
-                    <input type="checkbox" value="${esc(m.name)}" ${agentMcpNames.includes(m.name) ? 'checked' : ''} class="rounded border-piedra-600 bg-piedra-800 text-sol-500 focus:ring-sol-500">
+                    <input type="checkbox" value="${esc(m.id)}" ${agentMcpNames.includes(m.id) ? 'checked' : ''} class="rounded border-piedra-600 bg-piedra-800 text-sol-500 focus:ring-sol-500">
                     <span class="text-xs text-arena-300">${esc(m.name)}</span>
                 </label>
             `).join('');
@@ -243,10 +255,10 @@ class AdminApp {
 
         const noneMemOpt = '<option value="">(none)</option>';
         const sessionOpts = this.memory.filter(m => m.category === 'session').map(m =>
-            `<option value="${esc(m.name)}">${esc(m.name)}</option>`
+            `<option value="${esc(m.id)}">${esc(m.name)}</option>`
         ).join('');
         const longTermOpts = this.memory.filter(m => m.category === 'longterm').map(m =>
-            `<option value="${esc(m.name)}">${esc(m.name)}</option>`
+            `<option value="${esc(m.id)}">${esc(m.name)}</option>`
         ).join('');
         $('agentMemorySession').innerHTML = noneMemOpt + sessionOpts;
         $('agentMemorySession').value = agent?.memory?.session || '';
@@ -255,7 +267,7 @@ class AdminApp {
 
         const hasPrompt = !!agent?.systemPrompt;
         const hasMem = !!(agent?.memory?.session || agent?.memory?.longTerm);
-        const hasMcp = !!agentMcpNames.length;
+        const hasMcp = !!agentMcpIds.length;
         const hasVoice = !!(agent?.transcription?.backend || agent?.tts?.backend);
         const details = document.querySelectorAll('#agentDialog details');
         details.forEach(d => d.removeAttribute('open'));
@@ -280,8 +292,7 @@ class AdminApp {
             .map(cb => cb.value);
 
         const agent = {
-            id: $('agentId').value.trim(),
-            name: $('agentName').value.trim() || $('agentId').value.trim(),
+            name: $('agentName').value.trim(),
             description: $('agentDescription').value.trim(),
             systemPrompt: $('agentSystemPrompt').value.trim(),
             llm: { backend: $('agentLlmBackend').value, model: $('agentLlmModel').value.trim() },
@@ -330,11 +341,10 @@ class AdminApp {
             if (a.llm?.backend) (usedBy[a.llm.backend] ??= new Set()).add(label);
             if (a.transcription?.backend) (usedBy[a.transcription.backend] ??= new Set()).add(label);
             if (a.tts?.backend) (usedBy[a.tts.backend] ??= new Set()).add(label);
-            if (a.memory?.longTerm?.embedding?.backend) (usedBy[a.memory.longTerm.embedding.backend] ??= new Set()).add(label);
         }
 
         el.innerHTML = this.backends.map(b => {
-            const agents = [...(usedBy[b.name] || [])];
+            const agents = [...(usedBy[b.id] || [])];
             return `
             <div class="bg-piedra-900 border border-piedra-700/50 rounded-xl p-4 hover:border-piedra-600/50 transition-colors">
                 <div class="flex items-start justify-between gap-3 mb-2">
@@ -348,10 +358,10 @@ class AdminApp {
                         </div>
                     </div>
                     <div class="flex gap-0.5 flex-shrink-0">
-                        <button onclick="app.editBackend('${esc(b.name)}')" class="p-1.5 hover:bg-piedra-800 rounded-lg" title="Edit">
+                        <button onclick="app.editBackend('${esc(b.id)}')" class="p-1.5 hover:bg-piedra-800 rounded-lg" title="Edit">
                             <svg class="w-3.5 h-3.5 text-arena-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
                         </button>
-                        <button onclick="app.confirmDelete('backend', '${esc(b.name)}')" class="p-1.5 hover:bg-piedra-800 rounded-lg" title="Delete">
+                        <button onclick="app.confirmDelete('backend', '${esc(b.id)}')" class="p-1.5 hover:bg-piedra-800 rounded-lg" title="Delete">
                             <svg class="w-3.5 h-3.5 text-arena-400 hover:text-lava-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
                         </button>
                     </div>
@@ -364,7 +374,7 @@ class AdminApp {
     showBackendDialog(backend = null) {
         const isEdit = !!backend;
         $('backendDialogTitle').textContent = isEdit ? 'Edit Backend' : 'New Backend';
-        $('backendEditName').value = isEdit ? backend.name : '';
+        $('backendEditName').value = isEdit ? backend.id : '';
         $('backendName').value = backend?.name || '';
 
         $('backendType').value = backend?.type || 'openai';
@@ -373,14 +383,14 @@ class AdminApp {
         $('backendDialog').showModal();
     }
 
-    async editBackend(name) {
-        const b = this.backends.find(b => b.name === name);
+    async editBackend(id) {
+        const b = this.backends.find(b => b.id === id);
         if (b) this.showBackendDialog(b);
     }
 
     async saveBackend() {
-        const editName = $('backendEditName').value;
-        const isEdit = !!editName;
+        const editId = $('backendEditName').value;
+        const isEdit = !!editId;
         const backend = {
             name: $('backendName').value.trim(),
             type: $('backendType').value,
@@ -389,7 +399,7 @@ class AdminApp {
         };
         try {
             if (isEdit) {
-                await api.updateBackend(editName, backend);
+                await api.updateBackend(editId, backend);
             } else {
                 await api.createBackend(backend);
             }
@@ -427,14 +437,14 @@ class AdminApp {
         const longTermProviders = this.memory.filter(m => m.category === 'longterm');
 
         const renderCard = (m) => {
-            const agents = [...(usedBy[m.name] || [])];
+            const agents = [...(usedBy[m.id] || [])];
             const typeInfo = this.memoryTypes.find(t => t.type === m.type);
             const isSession = m.category === 'session';
             const displayName = typeInfo?.displayName || m.type;
             const abbr = displayName.substring(0, 3).toUpperCase();
             const cfg = m.config || {};
             const subtitle = cfg.connectionString || 'not configured';
-            const safeId = m.name.replace(/[^a-zA-Z0-9_-]/g, '_');
+            const safeId = m.id;
             return `
             <div class="bg-piedra-900 border border-piedra-700/50 rounded-xl p-4 hover:border-piedra-600/50 transition-colors">
                 <div class="flex items-start justify-between gap-3 mb-2">
@@ -452,18 +462,18 @@ class AdminApp {
                         </div>
                     </div>
                     <div class="flex gap-0.5 flex-shrink-0">
-                        <button onclick="app.testMemoryHealth('${esc(m.name)}')" class="p-1.5 hover:bg-piedra-800 rounded-lg" title="Test Connection">
+                        <button onclick="app.testMemoryHealth('${esc(m.id)}')" class="p-1.5 hover:bg-piedra-800 rounded-lg" title="Test Connection">
                             <svg class="w-3.5 h-3.5 text-arena-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
                         </button>
-                        <button onclick="app.editMemory('${esc(m.name)}')" class="p-1.5 hover:bg-piedra-800 rounded-lg" title="Edit">
+                        <button onclick="app.editMemory('${esc(m.id)}')" class="p-1.5 hover:bg-piedra-800 rounded-lg" title="Edit">
                             <svg class="w-3.5 h-3.5 text-arena-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
                         </button>
-                        <button onclick="app.confirmDelete('memory', '${esc(m.name)}')" class="p-1.5 hover:bg-piedra-800 rounded-lg" title="Delete">
+                        <button onclick="app.confirmDelete('memory', '${esc(m.id)}')" class="p-1.5 hover:bg-piedra-800 rounded-lg" title="Delete">
                             <svg class="w-3.5 h-3.5 text-arena-400 hover:text-lava-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
                         </button>
                     </div>
                 </div>
-                ${m.embedding?.backend ? `<p class="text-[10px] text-arena-400 mb-2">Embedding: ${esc(m.embedding.backend)} / ${esc(m.embedding.model || '?')}</p>` : ''}
+                ${m.embedding?.backend ? `<p class="text-[10px] text-arena-400 mb-2">Embedding: ${esc(this._backendLabel(m.embedding.backend))} / ${esc(m.embedding.model || '?')}</p>` : ''}
                 ${cfg.ttl ? `<p class="text-[10px] text-arena-400 mb-2">TTL: ${esc(cfg.ttl)}</p>` : ''}
                 ${agents.length ? `<div class="flex flex-wrap gap-1">${agents.map(n => `<span class="px-1.5 py-0.5 bg-sol-500/10 text-sol-300 text-[10px] rounded">${esc(n)}</span>`).join('')}</div>` : `<p class="text-[10px] text-arena-600">Not used by any agent</p>`}
             </div>`;
@@ -480,8 +490,8 @@ class AdminApp {
             : emptyMsg('No long-term providers configured');
 
         for (const m of this.memory) {
-            const safeId = m.name.replace(/[^a-zA-Z0-9_-]/g, '_');
-            api.checkMemoryHealth(m.name).then(res => {
+            const safeId = m.id;
+            api.checkMemoryHealth(m.id).then(res => {
                 const dot = document.getElementById(`memHealth_${safeId}`);
                 if (!dot) return;
                 dot.className = `absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border border-piedra-900 ${res.healthy ? 'bg-green-500' : 'bg-lava-500'}`;
@@ -495,15 +505,15 @@ class AdminApp {
         }
     }
 
-    async testMemoryHealth(name) {
-        const safeId = name.replace(/[^a-zA-Z0-9_-]/g, '_');
+    async testMemoryHealth(id) {
+        const safeId = id;
         const dot = document.getElementById(`memHealth_${safeId}`);
         if (dot) {
             dot.className = 'absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border border-piedra-900 bg-piedra-600 animate-pulse';
             dot.title = 'Testing...';
         }
         try {
-            const res = await api.checkMemoryHealth(name);
+            const res = await api.checkMemoryHealth(id);
             if (dot) {
                 dot.className = `absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border border-piedra-900 ${res.healthy ? 'bg-green-500' : 'bg-lava-500'}`;
                 dot.title = res.detail || (res.healthy ? 'Connected' : 'Unreachable');
@@ -531,7 +541,7 @@ class AdminApp {
         const type = mem?.type || typesInCategory[0]?.type || 'redis';
         const categoryLabel = category === 'session' ? 'Session Provider' : 'Long-Term Provider';
         $('memoryDialogTitle').textContent = isEdit ? `Edit ${categoryLabel}` : `New ${categoryLabel}`;
-        $('memoryEditName').value = isEdit ? mem.name : '';
+        $('memoryEditName').value = isEdit ? mem.id : '';
         $('memoryCategory').value = category;
         $('memoryName').value = mem?.name || '';
 
@@ -546,7 +556,7 @@ class AdminApp {
 
         $('memoryEmbeddingModel').value = mem?.embedding?.model || '';
         const backendOpts = '<option value="">(none)</option>' + this.backends.map(b =>
-            `<option value="${esc(b.name)}">${esc(b.name)}</option>`
+            `<option value="${esc(b.id)}">${esc(b.name)}</option>`
         ).join('');
         $('memoryEmbeddingBackend').innerHTML = backendOpts;
         $('memoryEmbeddingBackend').value = mem?.embedding?.backend || '';
@@ -576,14 +586,14 @@ class AdminApp {
         $('memoryEmbeddingFields').classList.toggle('hidden', category !== 'longterm');
     }
 
-    async editMemory(name) {
-        const m = this.memory.find(m => m.name === name);
+    async editMemory(id) {
+        const m = this.memory.find(m => m.id === id);
         if (m) this.showMemoryDialog(m);
     }
 
     async testMemoryConnection() {
-        const editName = $('memoryEditName').value;
-        const isEdit = !!editName;
+        const editId = $('memoryEditName').value;
+        const isEdit = !!editId;
 
         if (!isEdit) {
             $('memoryTestLabel').textContent = 'Save first to test';
@@ -596,7 +606,7 @@ class AdminApp {
         label.textContent = 'Testing...';
 
         try {
-            const res = await api.checkMemoryHealth(editName);
+            const res = await api.checkMemoryHealth(editId);
             if (res.healthy) {
                 label.textContent = '✓ Connected';
                 btn.classList.add('text-green-400', 'border-green-500/30');
@@ -615,8 +625,8 @@ class AdminApp {
     }
 
     async saveMemory() {
-        const editName = $('memoryEditName').value;
-        const isEdit = !!editName;
+        const editId = $('memoryEditName').value;
+        const isEdit = !!editId;
         const type = $('memoryType').value;
         const category = $('memoryCategory').value;
         const mem = { name: $('memoryName').value.trim(), type, category };
@@ -634,7 +644,7 @@ class AdminApp {
         }
         try {
             if (isEdit) {
-                await api.updateMemory(editName, mem);
+                await api.updateMemory(editId, mem);
             } else {
                 await api.createMemory(mem);
             }
@@ -656,13 +666,13 @@ class AdminApp {
 
         const agentsByMcp = {};
         for (const a of this.agents) {
-            for (const name of (a.mcpServers || [])) {
-                (agentsByMcp[name] ??= []).push(a.name || a.id);
+            for (const id of (a.mcpServers || [])) {
+                (agentsByMcp[id] ??= []).push(a.name || a.id);
             }
         }
 
         el.innerHTML = this.mcps.map(m => {
-            const agents = agentsByMcp[m.name] || [];
+            const agents = agentsByMcp[m.id] || [];
             return `
             <div class="bg-piedra-900 border border-piedra-700/50 rounded-xl p-4 hover:border-piedra-600/50 transition-colors">
                 <div class="flex items-start justify-between gap-3 mb-2">
@@ -679,10 +689,10 @@ class AdminApp {
                         </div>
                     </div>
                     <div class="flex gap-0.5 flex-shrink-0">
-                        <button onclick="app.editMCP('${esc(m.name)}')" class="p-1.5 hover:bg-piedra-800 rounded-lg" title="Edit">
+                        <button onclick="app.editMCP('${esc(m.id)}')" class="p-1.5 hover:bg-piedra-800 rounded-lg" title="Edit">
                             <svg class="w-3.5 h-3.5 text-arena-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
                         </button>
-                        <button onclick="app.confirmDelete('mcp', '${esc(m.name)}')" class="p-1.5 hover:bg-piedra-800 rounded-lg" title="Delete">
+                        <button onclick="app.confirmDelete('mcp', '${esc(m.id)}')" class="p-1.5 hover:bg-piedra-800 rounded-lg" title="Delete">
                             <svg class="w-3.5 h-3.5 text-arena-400 hover:text-lava-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
                         </button>
                     </div>
@@ -696,7 +706,7 @@ class AdminApp {
     showMCPDialog(mcp = null) {
         const isEdit = !!mcp;
         $('mcpDialogTitle').textContent = isEdit ? 'Edit MCP Server' : 'New MCP Server';
-        $('mcpEditName').value = isEdit ? mcp.name : '';
+        $('mcpEditName').value = isEdit ? mcp.id : '';
         $('mcpName').value = mcp?.name || '';
 
         $('mcpType').value = mcp?.type || 'http';
@@ -711,14 +721,14 @@ class AdminApp {
         $('mcpDialog').showModal();
     }
 
-    async editMCP(name) {
-        const m = this.mcps.find(m => m.name === name);
+    async editMCP(id) {
+        const m = this.mcps.find(m => m.id === id);
         if (m) this.showMCPDialog(m);
     }
 
     async saveMCP() {
-        const editName = $('mcpEditName').value;
-        const isEdit = !!editName;
+        const editId = $('mcpEditName').value;
+        const isEdit = !!editId;
         const type = $('mcpType').value;
         const mcp = {
             name: $('mcpName').value.trim(),
@@ -734,7 +744,7 @@ class AdminApp {
         }
         try {
             if (isEdit) {
-                await api.updateMCP(editName, mcp);
+                await api.updateMCP(editId, mcp);
             } else {
                 await api.createMCP(mcp);
             }
@@ -776,10 +786,10 @@ class AdminApp {
                         </div>
                     </div>
                     <div class="flex gap-0.5 flex-shrink-0">
-                        <button onclick="app.editCron('${esc(c.name)}')" class="p-1.5 hover:bg-piedra-800 rounded-lg" title="Edit">
+                        <button onclick="app.editCron('${esc(c.id)}')" class="p-1.5 hover:bg-piedra-800 rounded-lg" title="Edit">
                             <svg class="w-3.5 h-3.5 text-arena-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
                         </button>
-                        <button onclick="app.confirmDelete('cron', '${esc(c.name)}')" class="p-1.5 hover:bg-piedra-800 rounded-lg" title="Delete">
+                        <button onclick="app.confirmDelete('cron', '${esc(c.id)}')" class="p-1.5 hover:bg-piedra-800 rounded-lg" title="Delete">
                             <svg class="w-3.5 h-3.5 text-arena-400 hover:text-lava-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
                         </button>
                     </div>
@@ -796,7 +806,7 @@ class AdminApp {
     showCronDialog(cron = null) {
         const isEdit = !!cron;
         $('cronDialogTitle').textContent = isEdit ? 'Edit Cron Job' : 'New Cron Job';
-        $('cronEditName').value = isEdit ? cron.name : '';
+        $('cronEditName').value = isEdit ? cron.id : '';
         $('cronName').value = cron?.name || '';
 
         $('cronDescription').value = cron?.description || '';
@@ -811,14 +821,14 @@ class AdminApp {
         $('cronDialog').showModal();
     }
 
-    async editCron(name) {
-        const c = this.crons.find(c => c.name === name);
+    async editCron(id) {
+        const c = this.crons.find(c => c.id === id);
         if (c) this.showCronDialog(c);
     }
 
     async saveCron() {
-        const editName = $('cronEditName').value;
-        const isEdit = !!editName;
+        const editId = $('cronEditName').value;
+        const isEdit = !!editId;
         const cron = {
             name: $('cronName').value.trim(),
             description: $('cronDescription').value.trim(),
@@ -829,7 +839,7 @@ class AdminApp {
         };
         try {
             if (isEdit) {
-                await api.updateCron(editName, cron);
+                await api.updateCron(editId, cron);
             } else {
                 await api.createCron(cron);
             }
@@ -875,10 +885,10 @@ class AdminApp {
                         </div>
                     </div>
                     <div class="flex gap-0.5 flex-shrink-0">
-                        <button onclick="app.editClient('${esc(c.name)}')" class="p-1.5 hover:bg-piedra-800 rounded-lg" title="Edit">
+                        <button onclick="app.editClient('${esc(c.id)}')" class="p-1.5 hover:bg-piedra-800 rounded-lg" title="Edit">
                             <svg class="w-3.5 h-3.5 text-arena-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
                         </button>
-                        <button onclick="app.confirmDelete('client', '${esc(c.name)}')" class="p-1.5 hover:bg-piedra-800 rounded-lg" title="Delete">
+                        <button onclick="app.confirmDelete('client', '${esc(c.id)}')" class="p-1.5 hover:bg-piedra-800 rounded-lg" title="Delete">
                             <svg class="w-3.5 h-3.5 text-arena-400 hover:text-lava-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
                         </button>
                     </div>
@@ -891,7 +901,7 @@ class AdminApp {
     showClientDialog(client = null) {
         const isEdit = !!client;
         $('clientDialogTitle').textContent = isEdit ? 'Edit Client' : 'New Client';
-        $('clientEditName').value = isEdit ? client.name : '';
+        $('clientEditName').value = isEdit ? client.id : '';
         $('clientName').value = client?.name || '';
         $('clientEnabled').checked = client?.enabled ?? true;
 
@@ -972,14 +982,14 @@ class AdminApp {
         }).join('');
     }
 
-    async editClient(name) {
-        const c = this.clients.find(c => c.name === name);
+    async editClient(id) {
+        const c = this.clients.find(c => c.id === id);
         if (c) this.showClientDialog(c);
     }
 
     async saveClient() {
-        const editName = $('clientEditName').value;
-        const isEdit = !!editName;
+        const editId = $('clientEditName').value;
+        const isEdit = !!editId;
         const type = $('clientType').value;
 
         const selectedAgents = Array.from($('clientAgentCheckboxes').querySelectorAll('input[type=checkbox]:checked'))
@@ -1012,7 +1022,7 @@ class AdminApp {
         };
         try {
             if (isEdit) {
-                await api.updateClient(editName, client);
+                await api.updateClient(editId, client);
             } else {
                 await api.createClient(client);
             }
@@ -1049,11 +1059,11 @@ class AdminApp {
     }
 
     async regenerateToken() {
-        const name = $('clientEditName').value;
-        if (!name) return;
+        const id = $('clientEditName').value;
+        if (!id) return;
         if (!confirm('Regenerate token? The old token will stop working immediately.')) return;
         try {
-            const updated = await api.regenerateClientToken(name);
+            const updated = await api.regenerateClientToken(id);
             $('clientTokenDisplay').value = updated.token;
             await this.refresh();
         } catch (e) {

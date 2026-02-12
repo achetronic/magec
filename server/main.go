@@ -25,7 +25,6 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
-	"net/http/httputil"
 	"net/url"
 	"os"
 	"os/signal"
@@ -198,22 +197,28 @@ func main() {
 			slog.Warn("Telegram client has no allowed agents, skipping", "client", cl.Name)
 			continue
 		}
-		agentID := cl.AllowedAgents[0]
-		agentDef, ok := dataStore.GetAgent(agentID)
-		if !ok {
-			slog.Warn("Telegram client references unknown agent, skipping", "client", cl.Name, "agent", agentID)
+
+		agentURL := fmt.Sprintf("http://127.0.0.1:%d/api/v1/agent", cfg.Server.Port)
+
+		var allowedAgents []telegram.AgentInfo
+		for _, agentID := range cl.AllowedAgents {
+			agentDef, ok := dataStore.GetAgent(agentID)
+			if !ok {
+				slog.Warn("Telegram client references unknown agent, skipping agent", "client", cl.Name, "agent", agentID)
+				continue
+			}
+			allowedAgents = append(allowedAgents, telegram.AgentInfo{
+				ID:   agentID,
+				Name: agentDef.Name,
+			})
+		}
+
+		if len(allowedAgents) == 0 {
+			slog.Warn("Telegram client has no valid agents after resolution, skipping", "client", cl.Name)
 			continue
 		}
 
-		agentURL := fmt.Sprintf("http://127.0.0.1:%d/api/v1/agent", cfg.Server.Port)
-		ttsURL := ""
-		if agentDef.TTS.Backend != "" {
-			if b, ok := dataStore.GetBackend(agentDef.TTS.Backend); ok && b.URL != "" {
-				ttsURL = fmt.Sprintf("http://127.0.0.1:%d/api/v1/voice/%s/speech", cfg.Server.Port, agentID)
-			}
-		}
-
-		tgClient, err := telegram.New(*cl.Config.Telegram, agentURL, ttsURL, agentDef.TTS, slog.Default())
+		tgClient, err := telegram.New(cl, agentURL, allowedAgents, slog.Default())
 		if err != nil {
 			slog.Error("Failed to create Telegram client", "client", cl.Name, "error", err)
 			continue
@@ -253,25 +258,28 @@ func main() {
 	}
 }
 
-// responseRecorder wraps http.ResponseWriter to capture status code and bytes written.
+// responseRecorder wraps http.ResponseWriter to capture the status code and
+// number of bytes written, used by the access log middleware.
 type responseRecorder struct {
 	http.ResponseWriter
 	status int
 	bytes  int
 }
 
+// WriteHeader captures the status code before delegating to the underlying writer.
 func (r *responseRecorder) WriteHeader(code int) {
 	r.status = code
 	r.ResponseWriter.WriteHeader(code)
 }
 
+// Write captures the number of bytes written before delegating to the underlying writer.
 func (r *responseRecorder) Write(b []byte) (int, error) {
 	n, err := r.ResponseWriter.Write(b)
 	r.bytes += n
 	return n, err
 }
 
-// Hijack implements http.Hijacker for WebSocket support.
+// Hijack implements http.Hijacker so the recorder doesn't break WebSocket upgrades.
 func (r *responseRecorder) Hijack() (net.Conn, *bufio.ReadWriter, error) {
 	if hj, ok := r.ResponseWriter.(http.Hijacker); ok {
 		return hj.Hijack()
@@ -279,7 +287,8 @@ func (r *responseRecorder) Hijack() (net.Conn, *bufio.ReadWriter, error) {
 	return nil, nil, fmt.Errorf("ResponseWriter does not implement http.Hijacker")
 }
 
-// accessLogMiddleware logs all HTTP requests with method, path, status, duration and size.
+// accessLogMiddleware logs every HTTP request with method, path, status code,
+// duration, and response size. WebSocket upgrades are logged but not wrapped.
 func accessLogMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
@@ -334,7 +343,7 @@ func clientAuthMiddleware(next http.Handler, dataStore *store.Store) http.Handle
 				http.Error(w, `{"error":"invalid or disabled client token"}`, http.StatusUnauthorized)
 				return
 			}
-			r.Header.Set("X-Client-Name", cl.Name)
+			r.Header.Set("X-Client-ID", cl.ID)
 			next.ServeHTTP(w, r)
 			return
 		}
@@ -349,7 +358,8 @@ func clientAuthMiddleware(next http.Handler, dataStore *store.Store) http.Handle
 	})
 }
 
-// corsMiddleware adds CORS headers to all responses.
+// corsMiddleware adds permissive CORS headers to all responses and handles
+// OPTIONS preflight requests.
 func corsMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
@@ -364,11 +374,10 @@ func corsMiddleware(next http.Handler) http.Handler {
 	})
 }
 
-// newVoiceHandler creates a handler for /api/v1/voice/ routes.
-// Routes:
-//   - /api/v1/voice/{agentId}/speech        → TTS proxy (resolved per-agent from store)
-//   - /api/v1/voice/{agentId}/transcription  → STT proxy (resolved per-agent from store)
-//   - /api/v1/voice/events                   → handled separately by WebSocket mux entry
+// newVoiceHandler creates a router for /api/v1/voice/{agentId}/{action} routes.
+// It extracts the agent ID and action from the URL path, resolves the agent
+// from the store, and dispatches to the speech (TTS) or transcription (STT) proxy.
+// The /api/v1/voice/events WebSocket endpoint is handled separately.
 func newVoiceHandler(dataStore *store.Store, agentRouter *agentRouterHandler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Strip prefix: /api/v1/voice/  →  {agentId}/speech or {agentId}/transcription
@@ -399,6 +408,10 @@ func newVoiceHandler(dataStore *store.Store, agentRouter *agentRouterHandler) ht
 	})
 }
 
+// serveSpeechProxy forwards a TTS request to the backend configured for the agent.
+// It reads only "input" and "response_format" from the client body, injects
+// model/voice/speed from the agent's store config, and proxies the request
+// to the backend's /v1/audio/speech endpoint.
 func serveSpeechProxy(w http.ResponseWriter, r *http.Request, agentDef store.AgentDefinition, dataStore *store.Store) {
 	if agentDef.TTS.Backend == "" {
 		http.Error(w, `{"error":"TTS not configured for this agent"}`, http.StatusServiceUnavailable)
@@ -417,7 +430,7 @@ func serveSpeechProxy(w http.ResponseWriter, r *http.Request, agentDef store.Age
 		return
 	}
 
-	var inputBody map[string]interface{}
+	var clientBody map[string]interface{}
 	if r.Body != nil {
 		body, err := io.ReadAll(r.Body)
 		r.Body.Close()
@@ -426,21 +439,27 @@ func serveSpeechProxy(w http.ResponseWriter, r *http.Request, agentDef store.Age
 			return
 		}
 		if len(body) > 0 {
-			if err := json.Unmarshal(body, &inputBody); err != nil {
+			if err := json.Unmarshal(body, &clientBody); err != nil {
 				http.Error(w, "Invalid JSON body", http.StatusBadRequest)
 				return
 			}
 		}
 	}
-	if inputBody == nil {
-		inputBody = make(map[string]interface{})
+	if clientBody == nil {
+		clientBody = make(map[string]interface{})
 	}
 
-	inputBody["model"] = agentDef.TTS.Model
-	inputBody["voice"] = agentDef.TTS.Voice
-	inputBody["speed"] = agentDef.TTS.Speed
+	proxyBody := map[string]interface{}{
+		"input": clientBody["input"],
+		"model": agentDef.TTS.Model,
+		"voice": agentDef.TTS.Voice,
+		"speed": agentDef.TTS.Speed,
+	}
+	if rf, ok := clientBody["response_format"]; ok {
+		proxyBody["response_format"] = rf
+	}
 
-	newBody, err := json.Marshal(inputBody)
+	newBody, err := json.Marshal(proxyBody)
 	if err != nil {
 		http.Error(w, "Failed to build request", http.StatusInternalServerError)
 		return
@@ -475,6 +494,10 @@ func serveSpeechProxy(w http.ResponseWriter, r *http.Request, agentDef store.Age
 	io.Copy(w, resp.Body)
 }
 
+// serveTranscriptionProxy forwards a speech-to-text request to the backend
+// configured for the agent. It injects the transcription model from the agent's
+// store config into the multipart form before proxying to the backend's
+// /v1/audio/transcriptions endpoint.
 func serveTranscriptionProxy(w http.ResponseWriter, r *http.Request, agentDef store.AgentDefinition, dataStore *store.Store) {
 	if agentDef.Transcription.Backend == "" {
 		http.Error(w, `{"error":"transcription not configured for this agent"}`, http.StatusServiceUnavailable)
@@ -493,31 +516,83 @@ func serveTranscriptionProxy(w http.ResponseWriter, r *http.Request, agentDef st
 		return
 	}
 
-	proxy := &httputil.ReverseProxy{
-		Director: func(req *http.Request) {
-			req.URL.Scheme = target.Scheme
-			req.URL.Host = target.Host
-			req.URL.Path = "/v1/audio/transcriptions"
-			req.Host = target.Host
-			if backend.APIKey != "" {
-				req.Header.Set("Authorization", "Bearer "+backend.APIKey)
-			}
-		},
-		ErrorHandler: func(w http.ResponseWriter, r *http.Request, err error) {
-			slog.Error("Transcription proxy error", "error", err, "path", r.URL.Path)
-			http.Error(w, "Transcription service unavailable", http.StatusBadGateway)
-		},
+	body, err := io.ReadAll(r.Body)
+	r.Body.Close()
+	if err != nil {
+		http.Error(w, "Failed to read request body", http.StatusBadRequest)
+		return
 	}
-	proxy.ServeHTTP(w, r)
+
+	contentType := r.Header.Get("Content-Type")
+
+	var proxyBody bytes.Buffer
+	if agentDef.Transcription.Model != "" && strings.Contains(contentType, "multipart/form-data") {
+		boundary := ""
+		for _, param := range strings.Split(contentType, ";") {
+			param = strings.TrimSpace(param)
+			if strings.HasPrefix(param, "boundary=") {
+				boundary = strings.TrimPrefix(param, "boundary=")
+				break
+			}
+		}
+		if boundary == "" {
+			http.Error(w, "Missing multipart boundary", http.StatusBadRequest)
+			return
+		}
+
+		closingBoundary := fmt.Sprintf("\r\n--%s--", boundary)
+		trimmed := bytes.TrimSuffix(body, []byte(closingBoundary))
+		trimmed = bytes.TrimSuffix(trimmed, []byte(fmt.Sprintf("--%s--\r\n", boundary)))
+		trimmed = bytes.TrimSuffix(trimmed, []byte(fmt.Sprintf("--%s--", boundary)))
+
+		proxyBody.Write(trimmed)
+		proxyBody.WriteString(fmt.Sprintf("\r\n--%s\r\n", boundary))
+		proxyBody.WriteString("Content-Disposition: form-data; name=\"model\"\r\n\r\n")
+		proxyBody.WriteString(agentDef.Transcription.Model)
+		proxyBody.WriteString(fmt.Sprintf("\r\n--%s--\r\n", boundary))
+	} else {
+		proxyBody.Write(body)
+	}
+
+	proxyURL := *target
+	proxyURL.Path = "/v1/audio/transcriptions"
+
+	proxyReq, err := http.NewRequestWithContext(r.Context(), "POST", proxyURL.String(), &proxyBody)
+	if err != nil {
+		http.Error(w, "Failed to create proxy request", http.StatusInternalServerError)
+		return
+	}
+	proxyReq.Header.Set("Content-Type", contentType)
+	if backend.APIKey != "" {
+		proxyReq.Header.Set("Authorization", "Bearer "+backend.APIKey)
+	}
+
+	client := &http.Client{Timeout: 60 * time.Second}
+	resp, err := client.Do(proxyReq)
+	if err != nil {
+		slog.Error("Transcription proxy error", "error", err)
+		http.Error(w, "Transcription service unavailable", http.StatusBadGateway)
+		return
+	}
+	defer resp.Body.Close()
+
+	for k, v := range resp.Header {
+		w.Header()[k] = v
+	}
+	w.WriteHeader(resp.StatusCode)
+	io.Copy(w, resp.Body)
 }
 
-// agentRouterHandler is a hot-swappable HTTP handler that routes agent requests.
-// It is rebuilt whenever the store changes.
+// agentRouterHandler is an HTTP handler that can be atomically swapped at
+// runtime. It wraps the ADK agent handler and is rebuilt every time the store
+// changes (agents added, removed, or modified).
 type agentRouterHandler struct {
 	mu           sync.RWMutex
 	agentHandler http.Handler
 }
 
+// ServeHTTP delegates to the current agent handler, or returns 503 if no
+// agents are configured.
 func (h *agentRouterHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	h.mu.RLock()
 	handler := h.agentHandler
@@ -530,6 +605,8 @@ func (h *agentRouterHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// rebuild recreates the ADK agent handler from the current store data and
+// swaps it in atomically. Called on startup and whenever the store changes.
 func (h *agentRouterHandler) rebuild(ctx context.Context, dataStore *store.Store) {
 	storeData := dataStore.Data()
 

@@ -22,18 +22,18 @@ func (h *Handler) listClients(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, clients)
 }
 
-// getClient returns a single client by name.
+// getClient returns a single client by ID.
 // @Summary      Get client
-// @Description  Returns a client by its unique name
+// @Description  Returns a client by its unique ID
 // @Tags         clients
 // @Produce      json
-// @Param        name  path      string  true  "Client name"
+// @Param        id    path      string  true  "Client ID"
 // @Success      200   {object}  store.ClientDefinition
 // @Failure      404   {object}  ErrorResponse
-// @Router       /clients/{name} [get]
+// @Router       /clients/{id} [get]
 func (h *Handler) getClient(w http.ResponseWriter, r *http.Request) {
-	name := mux.Vars(r)["name"]
-	c, ok := h.store.GetClient(name)
+	id := mux.Vars(r)["id"]
+	c, ok := h.store.GetClient(id)
 	if !ok {
 		writeError(w, http.StatusNotFound, "client not found")
 		return
@@ -84,29 +84,22 @@ func (h *Handler) createClient(w http.ResponseWriter, r *http.Request) {
 
 // updateClient updates an existing client.
 // @Summary      Update client
-// @Description  Updates a client by name. Token is preserved.
+// @Description  Updates a client by ID. Token and ID are preserved.
 // @Tags         clients
 // @Accept       json
 // @Produce      json
-// @Param        name  path      string                  true  "Client name"
+// @Param        id    path      string                  true  "Client ID"
 // @Param        body  body      store.ClientDefinition  true  "Client definition"
 // @Success      200   {object}  store.ClientDefinition
 // @Failure      400   {object}  ErrorResponse
 // @Failure      404   {object}  ErrorResponse
-// @Router       /clients/{name} [put]
+// @Router       /clients/{id} [put]
 func (h *Handler) updateClient(w http.ResponseWriter, r *http.Request) {
-	name := mux.Vars(r)["name"]
+	id := mux.Vars(r)["id"]
 	var c store.ClientDefinition
 	if err := json.NewDecoder(r.Body).Decode(&c); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid JSON: "+err.Error())
 		return
-	}
-	if c.Name != "" && c.Name != name {
-		if err := h.store.RenameClient(name, c.Name); err != nil {
-			writeError(w, http.StatusConflict, err.Error())
-			return
-		}
-		name = c.Name
 	}
 	if c.Type != "" {
 		if err := validateClientConfig(c); err != nil {
@@ -114,25 +107,25 @@ func (h *Handler) updateClient(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	if err := h.store.UpdateClient(name, c); err != nil {
+	if err := h.store.UpdateClient(id, c); err != nil {
 		writeError(w, http.StatusNotFound, err.Error())
 		return
 	}
-	updated, _ := h.store.GetClient(name)
+	updated, _ := h.store.GetClient(id)
 	writeJSON(w, http.StatusOK, updated)
 }
 
 // deleteClient deletes a client.
 // @Summary      Delete client
-// @Description  Deletes a client by name, revoking its access token
+// @Description  Deletes a client by ID, revoking its access token
 // @Tags         clients
-// @Param        name  path  string  true  "Client name"
+// @Param        id  path  string  true  "Client ID"
 // @Success      204
 // @Failure      404  {object}  ErrorResponse
-// @Router       /clients/{name} [delete]
+// @Router       /clients/{id} [delete]
 func (h *Handler) deleteClient(w http.ResponseWriter, r *http.Request) {
-	name := mux.Vars(r)["name"]
-	if err := h.store.DeleteClient(name); err != nil {
+	id := mux.Vars(r)["id"]
+	if err := h.store.DeleteClient(id); err != nil {
 		writeError(w, http.StatusNotFound, err.Error())
 		return
 	}
@@ -144,13 +137,13 @@ func (h *Handler) deleteClient(w http.ResponseWriter, r *http.Request) {
 // @Description  Generates a new authentication token for a client, invalidating the previous one
 // @Tags         clients
 // @Produce      json
-// @Param        name  path      string  true  "Client name"
+// @Param        id    path      string  true  "Client ID"
 // @Success      200   {object}  store.ClientDefinition
 // @Failure      404   {object}  ErrorResponse
-// @Router       /clients/{name}/regenerate-token [post]
+// @Router       /clients/{id}/regenerate-token [post]
 func (h *Handler) regenerateClientToken(w http.ResponseWriter, r *http.Request) {
-	name := mux.Vars(r)["name"]
-	cl, err := h.store.RegenerateClientToken(name)
+	id := mux.Vars(r)["id"]
+	cl, err := h.store.RegenerateClientToken(id)
 	if err != nil {
 		writeError(w, http.StatusNotFound, err.Error())
 		return

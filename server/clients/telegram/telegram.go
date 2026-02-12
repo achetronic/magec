@@ -35,7 +35,9 @@ import (
 	"github.com/achetronic/magec/server/store"
 )
 
-// Response mode constants
+// Response modes control how the bot replies to messages.
+// "text" sends only text, "voice" sends only audio, "mirror" matches the input
+// format (voice reply to voice, text reply to text), and "both" sends both.
 const (
 	ResponseModeText   = "text"
 	ResponseModeVoice  = "voice"
@@ -43,45 +45,64 @@ const (
 	ResponseModeBoth   = "both"
 )
 
-const appName = "magec_agent"
-
-// Client represents a Telegram bot client that connects to the ADK agent
-type Client struct {
-	bot       *telego.Bot
-	handler   *th.BotHandler
-	cfg       store.TelegramClientConfig
-	agentURL  string
-	ttsURL    string
-	ttsConfig store.TTSRef
-	logger    *slog.Logger
-	cancel    context.CancelFunc
-
-	responseModeOverride string
-	responseMu           sync.RWMutex
+// AgentInfo is a lightweight reference to an agent that the Telegram client
+// is allowed to talk to. It only carries display information; all runtime
+// config (TTS, transcription, LLM) is resolved server-side by the proxies.
+type AgentInfo struct {
+	ID   string
+	Name string
 }
 
-// New creates a new Telegram client
-func New(cfg store.TelegramClientConfig, agentURL string, ttsURL string, ttsConfig store.TTSRef, logger *slog.Logger) (*Client, error) {
-	if cfg.BotToken == "" {
+// Client is a Telegram bot that receives messages via long-polling and
+// forwards them to the magec agent API. It supports multi-agent switching
+// per chat, voice transcription, TTS responses, and runtime commands.
+type Client struct {
+	// Config: injected at creation, read-only after New().
+	clientDef store.ClientDefinition
+	agentURL  string
+	agents    []AgentInfo
+	logger    *slog.Logger
+
+	// Runtime: created during Start(), managed internally.
+	bot     *telego.Bot
+	handler *th.BotHandler
+	cancel  context.CancelFunc
+
+	// Mutable state: per-chat agent selection and response mode override.
+	activeAgentMu sync.RWMutex
+	activeAgent   map[int64]string // chatID -> agentID
+
+	responseMu           sync.RWMutex
+	responseModeOverride string
+}
+
+// New creates a Telegram client ready to be started. It validates the bot token
+// and prepares the internal state, but does not connect to Telegram yet.
+func New(clientDef store.ClientDefinition, agentURL string, agents []AgentInfo, logger *slog.Logger) (*Client, error) {
+	if clientDef.Config.Telegram == nil {
+		return nil, fmt.Errorf("telegram config is required")
+	}
+	if clientDef.Config.Telegram.BotToken == "" {
 		return nil, fmt.Errorf("telegram bot token is required")
 	}
 
-	bot, err := telego.NewBot(cfg.BotToken)
+	bot, err := telego.NewBot(clientDef.Config.Telegram.BotToken)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create telegram bot: %w", err)
 	}
 
 	return &Client{
-		bot:       bot,
-		cfg:       cfg,
-		agentURL:  agentURL,
-		ttsURL:    ttsURL,
-		ttsConfig: ttsConfig,
-		logger:    logger,
+		bot:         bot,
+		clientDef:   clientDef,
+		agentURL:    agentURL,
+		agents:      agents,
+		activeAgent: make(map[int64]string),
+		logger:      logger,
 	}, nil
 }
 
-// Start begins the long polling loop
+// Start connects to Telegram via long-polling, registers all command and message
+// handlers, and blocks until the context is cancelled or Stop is called.
 func (c *Client) Start(ctx context.Context) error {
 	// Get bot info
 	botUser, err := c.bot.GetMe(ctx)
@@ -106,6 +127,21 @@ func (c *Client) Start(ctx context.Context) error {
 		return fmt.Errorf("failed to create bot handler: %w", err)
 	}
 	c.handler = handler
+
+	// Handle /start command
+	handler.HandleMessage(func(ctx *th.Context, msg telego.Message) error {
+		return c.handleStartCommand(ctx, msg)
+	}, th.CommandEqual("start"))
+
+	// Handle /help command
+	handler.HandleMessage(func(ctx *th.Context, msg telego.Message) error {
+		return c.handleHelpCommand(ctx, msg)
+	}, th.CommandEqual("help"))
+
+	// Handle /agent command
+	handler.HandleMessage(func(ctx *th.Context, msg telego.Message) error {
+		return c.handleAgentCommand(ctx, msg)
+	}, th.CommandEqual("agent"))
 
 	// Handle /responsemode command
 	handler.HandleMessage(func(ctx *th.Context, msg telego.Message) error {
@@ -144,7 +180,7 @@ func (c *Client) Start(ctx context.Context) error {
 	return nil
 }
 
-// Stop gracefully stops the bot
+// Stop cancels the long-polling loop and shuts down the message handler.
 func (c *Client) Stop() {
 	if c.cancel != nil {
 		c.cancel()
@@ -155,7 +191,166 @@ func (c *Client) Stop() {
 	c.logger.Info("Telegram bot stopped")
 }
 
-// handleMessage processes incoming text messages
+// getActiveAgentID returns the agent ID currently selected for a chat.
+// If the user hasn't switched agents with /agent, it returns the default.
+func (c *Client) getActiveAgentID(chatID int64) string {
+	c.activeAgentMu.RLock()
+	defer c.activeAgentMu.RUnlock()
+	if id, ok := c.activeAgent[chatID]; ok {
+		return id
+	}
+	return c.clientDef.AllowedAgents[0]
+}
+
+// setActiveAgentID changes which agent a specific chat is talking to.
+func (c *Client) setActiveAgentID(chatID int64, agentID string) {
+	c.activeAgentMu.Lock()
+	defer c.activeAgentMu.Unlock()
+	c.activeAgent[chatID] = agentID
+}
+
+// getAgentInfo looks up an agent by ID in the allowed agents list.
+// Returns nil if the agent is not in the list.
+func (c *Client) getAgentInfo(agentID string) *AgentInfo {
+	for i := range c.agents {
+		if c.agents[i].ID == agentID {
+			return &c.agents[i]
+		}
+	}
+	return nil
+}
+
+// getActiveAgentInfo is a shortcut that combines getActiveAgentID and getAgentInfo
+// to return the full AgentInfo for the chat's currently selected agent.
+func (c *Client) getActiveAgentInfo(chatID int64) *AgentInfo {
+	return c.getAgentInfo(c.getActiveAgentID(chatID))
+}
+
+// handleStartCommand responds to /start with a welcome message showing the
+// active agent name and a hint to use /help.
+func (c *Client) handleStartCommand(ctx *th.Context, msg telego.Message) error {
+	if !c.isAllowed(msg.From.ID, msg.Chat.ID) {
+		return nil
+	}
+
+	agent := c.getActiveAgentInfo(msg.Chat.ID)
+	agentName := c.getActiveAgentID(msg.Chat.ID)
+	if agent != nil {
+		agentName = agent.Name
+	}
+
+	text := fmt.Sprintf("👋 *Welcome!* You are now talking to *%s*.\n\nType /help to see available commands.", agentName)
+	_, _ = ctx.Bot().SendMessage(ctx, &telego.SendMessageParams{
+		ChatID:    tu.ID(msg.Chat.ID),
+		Text:      text,
+		ParseMode: "Markdown",
+	})
+	return nil
+}
+
+// handleHelpCommand responds to /help with a list of all supported bot commands.
+func (c *Client) handleHelpCommand(ctx *th.Context, msg telego.Message) error {
+	if !c.isAllowed(msg.From.ID, msg.Chat.ID) {
+		return nil
+	}
+
+	text := "*Available commands:*\n\n" +
+		"/help — Show this help message\n" +
+		"/agent — Show or switch the active agent\n" +
+		"/responsemode — Show or change the response mode\n" +
+		"/start — Show the welcome message"
+
+	_, _ = ctx.Bot().SendMessage(ctx, &telego.SendMessageParams{
+		ChatID:    tu.ID(msg.Chat.ID),
+		Text:      text,
+		ParseMode: "Markdown",
+	})
+	return nil
+}
+
+// handleAgentCommand responds to /agent. Without arguments it shows the active
+// agent and lists all available ones. With an agent ID it switches the chat to
+// that agent, creating a new session for it.
+func (c *Client) handleAgentCommand(ctx *th.Context, msg telego.Message) error {
+	if !c.isAllowed(msg.From.ID, msg.Chat.ID) {
+		return nil
+	}
+
+	args := strings.TrimSpace(strings.TrimPrefix(msg.Text, "/agent"))
+
+	if args == "" {
+		currentID := c.getActiveAgentID(msg.Chat.ID)
+		current := c.getAgentInfo(currentID)
+		currentLabel := currentID
+		if current != nil && current.Name != "" {
+			currentLabel = fmt.Sprintf("%s (`%s`)", current.Name, currentID)
+		}
+
+		var agentList string
+		for _, a := range c.agents {
+			marker := "  "
+			if a.ID == currentID {
+				marker = "▸ "
+			}
+			label := a.ID
+			if a.Name != "" {
+				label = fmt.Sprintf("%s (`%s`)", a.Name, a.ID)
+			}
+			agentList += fmt.Sprintf("%s%s\n", marker, label)
+		}
+
+		text := fmt.Sprintf("*Active agent:* %s\n\n*Available agents:*\n%s\nUsage: `/agent <id>`", currentLabel, agentList)
+		_, _ = ctx.Bot().SendMessage(ctx, &telego.SendMessageParams{
+			ChatID:    tu.ID(msg.Chat.ID),
+			Text:      text,
+			ParseMode: "Markdown",
+		})
+		return nil
+	}
+
+	found := false
+	for _, a := range c.agents {
+		if a.ID == args {
+			found = true
+			break
+		}
+	}
+	if !found {
+		var ids []string
+		for _, a := range c.agents {
+			ids = append(ids, "`"+a.ID+"`")
+		}
+		_, _ = ctx.Bot().SendMessage(ctx, &telego.SendMessageParams{
+			ChatID:    tu.ID(msg.Chat.ID),
+			Text:      fmt.Sprintf("Unknown agent `%s`. Available: %s", args, strings.Join(ids, ", ")),
+			ParseMode: "Markdown",
+		})
+		return nil
+	}
+
+	c.setActiveAgentID(msg.Chat.ID, args)
+	agent := c.getAgentInfo(args)
+	label := args
+	if agent != nil && agent.Name != "" {
+		label = agent.Name
+	}
+
+	c.logger.Info("Agent switched",
+		"chat_id", msg.Chat.ID,
+		"user_id", msg.From.ID,
+		"agent", args,
+	)
+
+	_, _ = ctx.Bot().SendMessage(ctx, &telego.SendMessageParams{
+		ChatID:    tu.ID(msg.Chat.ID),
+		Text:      fmt.Sprintf("Switched to agent *%s* (`%s`)", label, args),
+		ParseMode: "Markdown",
+	})
+	return nil
+}
+
+// handleMessage processes a regular text message: checks permissions, sends a
+// typing indicator, forwards the text to the active agent, and sends the response.
 func (c *Client) handleMessage(ctx *th.Context, msg telego.Message) error {
 	if msg.Text == "" {
 		return nil
@@ -198,7 +393,9 @@ func (c *Client) handleMessage(ctx *th.Context, msg telego.Message) error {
 	return nil
 }
 
-// handleVoice processes incoming voice messages
+// handleVoice processes a voice message: downloads the audio from Telegram,
+// transcribes it via the magec transcription proxy, sends the resulting text
+// to the active agent, and replies with the response.
 func (c *Client) handleVoice(ctx *th.Context, msg telego.Message) error {
 	if msg.Voice == nil {
 		return nil
@@ -229,7 +426,7 @@ func (c *Client) handleVoice(ctx *th.Context, msg telego.Message) error {
 	}
 
 	// Download file content
-	fileURL := fmt.Sprintf("https://api.telegram.org/file/bot%s/%s", c.cfg.BotToken, file.FilePath)
+	fileURL := fmt.Sprintf("https://api.telegram.org/file/bot%s/%s", c.clientDef.Config.Telegram.BotToken, file.FilePath)
 	audioData, err := c.downloadFile(fileURL)
 	if err != nil {
 		c.logger.Error("Failed to download voice file", "error", err)
@@ -237,7 +434,8 @@ func (c *Client) handleVoice(ctx *th.Context, msg telego.Message) error {
 	}
 
 	// Transcribe audio
-	text, err := c.transcribeAudio(audioData, file.FilePath)
+	agentID := c.getActiveAgentID(msg.Chat.ID)
+	text, err := c.transcribeAudio(audioData, file.FilePath, agentID)
 	if err != nil {
 		c.logger.Error("Failed to transcribe audio", "error", err)
 		_, _ = ctx.Bot().SendMessage(ctx, &telego.SendMessageParams{
@@ -265,8 +463,9 @@ func (c *Client) handleVoice(ctx *th.Context, msg telego.Message) error {
 	return nil
 }
 
-// sendResponse sends the response according to the configured responseMode.
-// inputWasVoice indicates whether the original message was a voice message (used for mirror mode).
+// sendResponse delivers the agent's reply to the chat. Depending on the active
+// response mode it sends text, voice (TTS), or both. In mirror mode it matches
+// the format of the original message (voice in → voice out, text in → text out).
 func (c *Client) sendResponse(ctx *th.Context, chatID int64, text string, inputWasVoice bool) {
 	mode := c.getResponseMode()
 
@@ -299,22 +498,26 @@ func (c *Client) sendResponse(ctx *th.Context, chatID int64, text string, inputW
 		}
 	}
 
-	if sendVoice && c.ttsURL != "" {
-		c.sendVoiceResponse(ctx, chatID, text)
+	if sendVoice {
+		agentID := c.getActiveAgentID(chatID)
+		c.sendVoiceResponse(ctx, chatID, text, agentID)
 	}
 }
 
-// getResponseMode returns the active response mode, preferring the runtime override if set.
+// getResponseMode returns the current response mode. If the user has set a
+// runtime override via /responsemode it takes precedence over the config default.
 func (c *Client) getResponseMode() string {
 	c.responseMu.RLock()
 	defer c.responseMu.RUnlock()
 	if c.responseModeOverride != "" {
 		return c.responseModeOverride
 	}
-	return c.cfg.ResponseMode
+	return c.clientDef.Config.Telegram.ResponseMode
 }
 
-// handleResponseModeCommand handles /responsemode [text|voice|mirror|both|reset]
+// handleResponseModeCommand responds to /responsemode. Without arguments it shows
+// the current mode. With a mode name it overrides the config default for the
+// rest of the session. "reset" clears the override back to the config value.
 func (c *Client) handleResponseModeCommand(ctx *th.Context, msg telego.Message) error {
 	if !c.isAllowed(msg.From.ID, msg.Chat.ID) {
 		return nil
@@ -336,7 +539,7 @@ func (c *Client) handleResponseModeCommand(ctx *th.Context, msg telego.Message) 
 
 		status := fmt.Sprintf("*Response mode:* `%s`", current)
 		if overridden {
-			status += fmt.Sprintf(" (override, config: `%s`)", c.cfg.ResponseMode)
+			status += fmt.Sprintf(" (override, config: `%s`)", c.clientDef.Config.Telegram.ResponseMode)
 		}
 		status += fmt.Sprintf("\n*Options:* `%s`, `reset`", strings.Join(validModes, "`, `"))
 
@@ -354,11 +557,11 @@ func (c *Client) handleResponseModeCommand(ctx *th.Context, msg telego.Message) 
 		c.responseMu.Unlock()
 		c.logger.Info("Response mode override cleared, back to config default",
 			"user_id", msg.From.ID,
-			"config_mode", c.cfg.ResponseMode,
+			"config_mode", c.clientDef.Config.Telegram.ResponseMode,
 		)
 		_, _ = ctx.Bot().SendMessage(ctx, &telego.SendMessageParams{
 			ChatID:    tu.ID(msg.Chat.ID),
-			Text:      fmt.Sprintf("Response mode reset to config default: `%s`", c.cfg.ResponseMode),
+			Text:      fmt.Sprintf("Response mode reset to config default: `%s`", c.clientDef.Config.Telegram.ResponseMode),
 			ParseMode: "Markdown",
 		})
 		return nil
@@ -389,29 +592,38 @@ func (c *Client) handleResponseModeCommand(ctx *th.Context, msg telego.Message) 
 	return nil
 }
 
-// isAllowed checks if the user/chat is authorized
+// setAuthHeader adds the Bearer token to requests sent to the magec API.
+// This authenticates the Telegram client against the clientAuthMiddleware.
+func (c *Client) setAuthHeader(req *http.Request) {
+	if c.clientDef.Token != "" {
+		req.Header.Set("Authorization", "Bearer "+c.clientDef.Token)
+	}
+}
+
+// isAllowed checks whether a Telegram user or chat is permitted to interact
+// with this bot. If no allowlists are configured, all users are allowed.
 func (c *Client) isAllowed(userID, chatID int64) bool {
 	// If no restrictions, allow all
-	if len(c.cfg.AllowedUsers) == 0 && len(c.cfg.AllowedChats) == 0 {
+	if len(c.clientDef.Config.Telegram.AllowedUsers) == 0 && len(c.clientDef.Config.Telegram.AllowedChats) == 0 {
 		return true
 	}
 
 	// Check user allowlist
-	if len(c.cfg.AllowedUsers) > 0 && slices.Contains(c.cfg.AllowedUsers, userID) {
+	if len(c.clientDef.Config.Telegram.AllowedUsers) > 0 && slices.Contains(c.clientDef.Config.Telegram.AllowedUsers, userID) {
 		return true
 	}
 
 	// Check chat allowlist
-	if len(c.cfg.AllowedChats) > 0 && slices.Contains(c.cfg.AllowedChats, chatID) {
+	if len(c.clientDef.Config.Telegram.AllowedChats) > 0 && slices.Contains(c.clientDef.Config.Telegram.AllowedChats, chatID) {
 		return true
 	}
 
 	return false
 }
 
-// buildMessageContext creates a metadata prefix with Telegram user/chat info for the LLM.
-// The metadata is wrapped in <!--MAGEC_META:{...}:MAGEC_META--> delimiters so it can be
-// parsed by the LLM while being stripped from user-facing views.
+// buildMessageContext prepends invisible metadata to the user's message so the
+// LLM knows who is writing and from which chat. The metadata is wrapped in
+// <!--MAGEC_META:{...}:MAGEC_META--> delimiters.
 func (c *Client) buildMessageContext(msg telego.Message) string {
 	meta := map[string]interface{}{
 		"source":             "telegram",
@@ -442,13 +654,16 @@ func (c *Client) buildMessageContext(msg telego.Message) string {
 	return fmt.Sprintf("<!--MAGEC_META:%s:MAGEC_META-->\n", string(jsonBytes))
 }
 
-// callAgent sends a message to the ADK agent and returns the response
+// callAgent sends a user message to the active agent via the magec API and
+// returns the text response. It ensures a session exists for the chat+agent
+// pair before making the request.
 func (c *Client) callAgent(msg telego.Message, message string) (string, error) {
-	sessionID := fmt.Sprintf("telegram_%d", msg.Chat.ID)
+	agentID := c.getActiveAgentID(msg.Chat.ID)
+	sessionID := fmt.Sprintf("telegram_%d_%s", msg.Chat.ID, agentID)
 	userIDStr := "default_user"
 
 	// Ensure session exists
-	if err := c.ensureSession(userIDStr, sessionID); err != nil {
+	if err := c.ensureSession(agentID, userIDStr, sessionID); err != nil {
 		c.logger.Warn("Failed to ensure session, continuing anyway", "error", err)
 	}
 
@@ -456,7 +671,7 @@ func (c *Client) callAgent(msg telego.Message, message string) (string, error) {
 
 	// Build request
 	reqBody := map[string]interface{}{
-		"appName":   appName,
+		"appName":   agentID,
 		"userId":    userIDStr,
 		"sessionId": sessionID,
 		"newMessage": map[string]interface{}{
@@ -481,6 +696,7 @@ func (c *Client) callAgent(msg telego.Message, message string) (string, error) {
 		return "", fmt.Errorf("failed to create request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
+	c.setAuthHeader(req)
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -503,9 +719,11 @@ func (c *Client) callAgent(msg telego.Message, message string) (string, error) {
 	return c.extractResponseText(events), nil
 }
 
-// ensureSession creates a session if it doesn't exist
-func (c *Client) ensureSession(userID, sessionID string) error {
-	url := fmt.Sprintf("%s/apps/%s/users/%s/sessions/%s", c.agentURL, appName, userID, sessionID)
+// ensureSession calls the ADK session endpoint to create a session for the
+// given agent, user, and session ID. If the session already exists (409) it
+// silently succeeds.
+func (c *Client) ensureSession(agentID, userID, sessionID string) error {
+	url := fmt.Sprintf("%s/apps/%s/users/%s/sessions/%s", c.agentURL, agentID, userID, sessionID)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -515,6 +733,7 @@ func (c *Client) ensureSession(userID, sessionID string) error {
 		return err
 	}
 	req.Header.Set("Content-Type", "application/json")
+	c.setAuthHeader(req)
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -530,7 +749,8 @@ func (c *Client) ensureSession(userID, sessionID string) error {
 	return nil
 }
 
-// extractResponseText extracts the text content from ADK response events
+// extractResponseText walks the ADK response events and concatenates all text
+// parts into a single string. Returns a fallback message if no text was found.
 func (c *Client) extractResponseText(events []map[string]interface{}) string {
 	var result string
 
@@ -564,7 +784,8 @@ func (c *Client) extractResponseText(events []map[string]interface{}) string {
 	return result
 }
 
-// downloadFile downloads a file from the given URL
+// downloadFile fetches a file by URL. Used to download voice messages from
+// the Telegram file API (not from magec, so no auth header is added).
 func (c *Client) downloadFile(url string) ([]byte, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
@@ -583,7 +804,8 @@ func (c *Client) downloadFile(url string) ([]byte, error) {
 	return io.ReadAll(resp.Body)
 }
 
-// convertOggToWav converts OGG audio to WAV format using ffmpeg
+// convertOggToWav shells out to ffmpeg to convert Telegram's OGG/Opus voice
+// files into 16 kHz mono WAV, which is the format expected by transcription backends.
 func (c *Client) convertOggToWav(oggData []byte) ([]byte, error) {
 	cmd := exec.Command("ffmpeg",
 		"-i", "pipe:0",
@@ -605,8 +827,10 @@ func (c *Client) convertOggToWav(oggData []byte) ([]byte, error) {
 	return stdout.Bytes(), nil
 }
 
-// transcribeAudio sends audio to the transcription service
-func (c *Client) transcribeAudio(audioData []byte, filePath string) (string, error) {
+// transcribeAudio converts a voice message to text. It first re-encodes the
+// audio to WAV, then sends it to the magec transcription proxy which routes
+// it to the backend configured for the active agent.
+func (c *Client) transcribeAudio(audioData []byte, filePath string, agentID string) (string, error) {
 	// Convert OGG to WAV (Telegram sends voice as OGG/Opus, but transcription expects WAV)
 	wavData, err := c.convertOggToWav(audioData)
 	if err != nil {
@@ -621,9 +845,6 @@ func (c *Client) transcribeAudio(audioData []byte, filePath string) (string, err
 	buf.WriteString("Content-Disposition: form-data; name=\"file\"; filename=\"audio.wav\"\r\n")
 	buf.WriteString("Content-Type: audio/wav\r\n\r\n")
 	buf.Write(wavData)
-	buf.WriteString(fmt.Sprintf("\r\n--%s\r\n", boundary))
-	buf.WriteString("Content-Disposition: form-data; name=\"model\"\r\n\r\n")
-	buf.WriteString("whisper-1")
 	buf.WriteString(fmt.Sprintf("\r\n--%s--\r\n", boundary))
 
 	// Call transcription service
@@ -631,13 +852,14 @@ func (c *Client) transcribeAudio(audioData []byte, filePath string) (string, err
 	defer cancel()
 
 	// Use the internal transcription endpoint
-	transcriptionURL := c.agentURL[:len(c.agentURL)-len("/agent")] + "/transcription/v1/audio/transcriptions"
+	transcriptionURL := strings.TrimSuffix(c.agentURL, "/agent") + "/voice/" + agentID + "/transcription"
 
 	req, err := http.NewRequestWithContext(ctx, "POST", transcriptionURL, &buf)
 	if err != nil {
 		return "", err
 	}
 	req.Header.Set("Content-Type", fmt.Sprintf("multipart/form-data; boundary=%s", boundary))
+	c.setAuthHeader(req)
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -660,8 +882,9 @@ func (c *Client) transcribeAudio(audioData []byte, filePath string) (string, err
 	return result.Text, nil
 }
 
-// sendVoiceResponse generates TTS audio and sends it as a voice message
-func (c *Client) sendVoiceResponse(ctx *th.Context, chatID int64, text string) {
+// sendVoiceResponse generates speech audio for the given text via the magec
+// TTS proxy and sends it back to the chat as a Telegram voice message.
+func (c *Client) sendVoiceResponse(ctx *th.Context, chatID int64, text string, agentID string) {
 	// Send recording indicator
 	_ = ctx.Bot().SendChatAction(ctx, &telego.SendChatActionParams{
 		ChatID: tu.ID(chatID),
@@ -669,7 +892,7 @@ func (c *Client) sendVoiceResponse(ctx *th.Context, chatID int64, text string) {
 	})
 
 	// Generate TTS
-	audioData, err := c.generateTTS(text)
+	audioData, err := c.generateTTS(text, agentID)
 	if err != nil {
 		c.logger.Error("Failed to generate TTS", "error", err)
 		return
@@ -685,13 +908,12 @@ func (c *Client) sendVoiceResponse(ctx *th.Context, chatID int64, text string) {
 	}
 }
 
-// generateTTS calls the TTS service to generate audio
-func (c *Client) generateTTS(text string) ([]byte, error) {
+// generateTTS calls the magec TTS proxy for the given agent. It only sends the
+// text and desired format; the proxy injects model, voice, and speed from the
+// agent's store config.
+func (c *Client) generateTTS(text string, agentID string) ([]byte, error) {
 	reqBody := map[string]interface{}{
 		"input":           text,
-		"model":           c.ttsConfig.Model,
-		"voice":           c.ttsConfig.Voice,
-		"speed":           c.ttsConfig.Speed,
 		"response_format": "opus",
 	}
 
@@ -700,14 +922,17 @@ func (c *Client) generateTTS(text string) ([]byte, error) {
 		return nil, err
 	}
 
+	ttsURL := strings.TrimSuffix(c.agentURL, "/agent") + "/voice/" + agentID + "/speech"
+
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
-	req, err := http.NewRequestWithContext(ctx, "POST", c.ttsURL, bytes.NewReader(jsonBody))
+	req, err := http.NewRequestWithContext(ctx, "POST", ttsURL, bytes.NewReader(jsonBody))
 	if err != nil {
 		return nil, err
 	}
 	req.Header.Set("Content-Type", "application/json")
+	c.setAuthHeader(req)
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {

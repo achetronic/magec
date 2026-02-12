@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"sync"
 )
@@ -74,55 +75,51 @@ func (s *Store) ListBackends() []BackendDefinition {
 	return result
 }
 
-func (s *Store) GetBackend(name string) (BackendDefinition, bool) {
+func (s *Store) GetBackend(id string) (BackendDefinition, bool) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	for _, b := range s.data.Backends {
-		if b.Name == name {
+		if b.ID == id {
 			return b, true
 		}
 	}
 	return BackendDefinition{}, false
 }
 
-func (s *Store) CreateBackend(b BackendDefinition) error {
+func (s *Store) CreateBackend(b BackendDefinition) (BackendDefinition, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	for _, existing := range s.data.Backends {
-		if existing.Name == b.Name {
-			return fmt.Errorf("backend %q already exists", b.Name)
-		}
-	}
+	b.ID = generateID()
 	s.data.Backends = append(s.data.Backends, b)
-	return s.persist()
+	return b, s.persist()
 }
 
-func (s *Store) UpdateBackend(name string, b BackendDefinition) error {
+func (s *Store) UpdateBackend(id string, b BackendDefinition) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	for i, existing := range s.data.Backends {
-		if existing.Name == name {
-			b.Name = name
+		if existing.ID == id {
+			b.ID = id
 			s.data.Backends[i] = b
 			return s.persist()
 		}
 	}
-	return fmt.Errorf("backend %q not found", name)
+	return fmt.Errorf("backend %q not found", id)
 }
 
-func (s *Store) DeleteBackend(name string) error {
+func (s *Store) DeleteBackend(id string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	for i, existing := range s.data.Backends {
-		if existing.Name == name {
+		if existing.ID == id {
 			s.data.Backends = append(s.data.Backends[:i], s.data.Backends[i+1:]...)
 			return s.persist()
 		}
 	}
-	return fmt.Errorf("backend %q not found", name)
+	return fmt.Errorf("backend %q not found", id)
 }
 
 // --- Memory Providers ---
@@ -135,55 +132,51 @@ func (s *Store) ListMemoryProviders() []MemoryProvider {
 	return result
 }
 
-func (s *Store) GetMemoryProvider(name string) (MemoryProvider, bool) {
+func (s *Store) GetMemoryProvider(id string) (MemoryProvider, bool) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	for _, m := range s.data.MemoryProviders {
-		if m.Name == name {
+		if m.ID == id {
 			return m, true
 		}
 	}
 	return MemoryProvider{}, false
 }
 
-func (s *Store) CreateMemoryProvider(m MemoryProvider) error {
+func (s *Store) CreateMemoryProvider(m MemoryProvider) (MemoryProvider, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	for _, existing := range s.data.MemoryProviders {
-		if existing.Name == m.Name {
-			return fmt.Errorf("memory provider %q already exists", m.Name)
-		}
-	}
+	m.ID = generateID()
 	s.data.MemoryProviders = append(s.data.MemoryProviders, m)
-	return s.persist()
+	return m, s.persist()
 }
 
-func (s *Store) UpdateMemoryProvider(name string, m MemoryProvider) error {
+func (s *Store) UpdateMemoryProvider(id string, m MemoryProvider) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	for i, existing := range s.data.MemoryProviders {
-		if existing.Name == name {
-			m.Name = name
+		if existing.ID == id {
+			m.ID = id
 			s.data.MemoryProviders[i] = m
 			return s.persist()
 		}
 	}
-	return fmt.Errorf("memory provider %q not found", name)
+	return fmt.Errorf("memory provider %q not found", id)
 }
 
-func (s *Store) DeleteMemoryProvider(name string) error {
+func (s *Store) DeleteMemoryProvider(id string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	for i, existing := range s.data.MemoryProviders {
-		if existing.Name == name {
+		if existing.ID == id {
 			s.data.MemoryProviders = append(s.data.MemoryProviders[:i], s.data.MemoryProviders[i+1:]...)
 			return s.persist()
 		}
 	}
-	return fmt.Errorf("memory provider %q not found", name)
+	return fmt.Errorf("memory provider %q not found", id)
 }
 
 // --- MCP Servers (global) ---
@@ -196,55 +189,51 @@ func (s *Store) ListMCPServers() []MCPServer {
 	return result
 }
 
-func (s *Store) GetMCPServer(name string) (MCPServer, bool) {
+func (s *Store) GetMCPServer(id string) (MCPServer, bool) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	for _, m := range s.data.MCPServers {
-		if m.Name == name {
+		if m.ID == id {
 			return m, true
 		}
 	}
 	return MCPServer{}, false
 }
 
-func (s *Store) CreateMCPServer(m MCPServer) error {
+func (s *Store) CreateMCPServer(m MCPServer) (MCPServer, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	for _, existing := range s.data.MCPServers {
-		if existing.Name == m.Name {
-			return fmt.Errorf("MCP server %q already exists", m.Name)
-		}
-	}
+	m.ID = generateID()
 	s.data.MCPServers = append(s.data.MCPServers, m)
-	return s.persist()
+	return m, s.persist()
 }
 
-func (s *Store) UpdateMCPServer(name string, m MCPServer) error {
+func (s *Store) UpdateMCPServer(id string, m MCPServer) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	for i, existing := range s.data.MCPServers {
-		if existing.Name == name {
-			m.Name = name
+		if existing.ID == id {
+			m.ID = id
 			s.data.MCPServers[i] = m
 			return s.persist()
 		}
 	}
-	return fmt.Errorf("MCP server %q not found", name)
+	return fmt.Errorf("MCP server %q not found", id)
 }
 
-func (s *Store) DeleteMCPServer(name string) error {
+func (s *Store) DeleteMCPServer(id string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	for i, existing := range s.data.MCPServers {
-		if existing.Name == name {
+		if existing.ID == id {
 			s.data.MCPServers = append(s.data.MCPServers[:i], s.data.MCPServers[i+1:]...)
 			return s.persist()
 		}
 	}
-	return fmt.Errorf("MCP server %q not found", name)
+	return fmt.Errorf("MCP server %q not found", id)
 }
 
 // --- Agents ---
@@ -268,20 +257,16 @@ func (s *Store) GetAgent(id string) (AgentDefinition, bool) {
 	return AgentDefinition{}, false
 }
 
-func (s *Store) CreateAgent(a AgentDefinition) error {
+func (s *Store) CreateAgent(a AgentDefinition) (AgentDefinition, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	for _, existing := range s.data.Agents {
-		if existing.ID == a.ID {
-			return fmt.Errorf("agent %q already exists", a.ID)
-		}
-	}
+	a.ID = generateID()
 	if a.MCPServers == nil {
 		a.MCPServers = []string{}
 	}
 	s.data.Agents = append(s.data.Agents, a)
-	return s.persist()
+	return a, s.persist()
 }
 
 func (s *Store) UpdateAgent(id string, a AgentDefinition) error {
@@ -317,27 +302,27 @@ func (s *Store) DeleteAgent(id string) error {
 // --- Agent MCP linking ---
 
 // LinkAgentMCP adds an MCP server reference to an agent.
-func (s *Store) LinkAgentMCP(agentID, mcpName string) error {
+func (s *Store) LinkAgentMCP(agentID, mcpID string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	mcpExists := false
 	for _, m := range s.data.MCPServers {
-		if m.Name == mcpName {
+		if m.ID == mcpID {
 			mcpExists = true
 			break
 		}
 	}
 	if !mcpExists {
-		return fmt.Errorf("MCP server %q not found", mcpName)
+		return fmt.Errorf("MCP server %q not found", mcpID)
 	}
 
 	for i, a := range s.data.Agents {
 		if a.ID == agentID {
-			if slices.Contains(a.MCPServers, mcpName) {
-				return fmt.Errorf("MCP %q already linked to agent %q", mcpName, agentID)
+			if slices.Contains(a.MCPServers, mcpID) {
+				return fmt.Errorf("MCP %q already linked to agent %q", mcpID, agentID)
 			}
-			s.data.Agents[i].MCPServers = append(s.data.Agents[i].MCPServers, mcpName)
+			s.data.Agents[i].MCPServers = append(s.data.Agents[i].MCPServers, mcpID)
 			return s.persist()
 		}
 	}
@@ -345,15 +330,15 @@ func (s *Store) LinkAgentMCP(agentID, mcpName string) error {
 }
 
 // UnlinkAgentMCP removes an MCP server reference from an agent.
-func (s *Store) UnlinkAgentMCP(agentID, mcpName string) error {
+func (s *Store) UnlinkAgentMCP(agentID, mcpID string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	for i, a := range s.data.Agents {
 		if a.ID == agentID {
-			idx := slices.Index(a.MCPServers, mcpName)
+			idx := slices.Index(a.MCPServers, mcpID)
 			if idx == -1 {
-				return fmt.Errorf("MCP %q not linked to agent %q", mcpName, agentID)
+				return fmt.Errorf("MCP %q not linked to agent %q", mcpID, agentID)
 			}
 			s.data.Agents[i].MCPServers = slices.Delete(a.MCPServers, idx, idx+1)
 			return s.persist()
@@ -367,11 +352,11 @@ func (s *Store) ResolveAgentMCPs(agentID string) ([]MCPServer, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	var agentMCPNames []string
+	var agentMCPIDs []string
 	found := false
 	for _, a := range s.data.Agents {
 		if a.ID == agentID {
-			agentMCPNames = a.MCPServers
+			agentMCPIDs = a.MCPServers
 			found = true
 			break
 		}
@@ -382,12 +367,12 @@ func (s *Store) ResolveAgentMCPs(agentID string) ([]MCPServer, error) {
 
 	mcpMap := make(map[string]MCPServer, len(s.data.MCPServers))
 	for _, m := range s.data.MCPServers {
-		mcpMap[m.Name] = m
+		mcpMap[m.ID] = m
 	}
 
-	result := make([]MCPServer, 0, len(agentMCPNames))
-	for _, name := range agentMCPNames {
-		if m, ok := mcpMap[name]; ok {
+	result := make([]MCPServer, 0, len(agentMCPIDs))
+	for _, id := range agentMCPIDs {
+		if m, ok := mcpMap[id]; ok {
 			result = append(result, m)
 		}
 	}
@@ -404,59 +389,56 @@ func (s *Store) ListCronJobs() []CronJob {
 	return result
 }
 
-func (s *Store) GetCronJob(name string) (CronJob, bool) {
+func (s *Store) GetCronJob(id string) (CronJob, bool) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	for _, c := range s.data.CronJobs {
-		if c.Name == name {
+		if c.ID == id {
 			return c, true
 		}
 	}
 	return CronJob{}, false
 }
 
-func (s *Store) CreateCronJob(c CronJob) error {
+func (s *Store) CreateCronJob(c CronJob) (CronJob, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	for _, existing := range s.data.CronJobs {
-		if existing.Name == c.Name {
-			return fmt.Errorf("cron job %q already exists", c.Name)
-		}
-	}
+	c.ID = generateID()
 	s.data.CronJobs = append(s.data.CronJobs, c)
-	return s.persist()
+	return c, s.persist()
 }
 
-func (s *Store) UpdateCronJob(name string, c CronJob) error {
+func (s *Store) UpdateCronJob(id string, c CronJob) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	for i, existing := range s.data.CronJobs {
-		if existing.Name == name {
-			c.Name = name
+		if existing.ID == id {
+			c.ID = id
 			s.data.CronJobs[i] = c
 			return s.persist()
 		}
 	}
-	return fmt.Errorf("cron job %q not found", name)
+	return fmt.Errorf("cron job %q not found", id)
 }
 
-func (s *Store) DeleteCronJob(name string) error {
+func (s *Store) DeleteCronJob(id string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	for i, existing := range s.data.CronJobs {
-		if existing.Name == name {
+		if existing.ID == id {
 			s.data.CronJobs = append(s.data.CronJobs[:i], s.data.CronJobs[i+1:]...)
 			return s.persist()
 		}
 	}
-	return fmt.Errorf("cron job %q not found", name)
+	return fmt.Errorf("cron job %q not found", id)
 }
 
 // --- Clients ---
 
+// generateToken creates a random API token with the "mgc_" prefix.
 func generateToken() string {
 	b := make([]byte, 20)
 	rand.Read(b)
@@ -471,17 +453,18 @@ func (s *Store) ListClients() []ClientDefinition {
 	return result
 }
 
-func (s *Store) GetClient(name string) (ClientDefinition, bool) {
+func (s *Store) GetClient(id string) (ClientDefinition, bool) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	for _, c := range s.data.Clients {
-		if c.Name == name {
+		if c.ID == id {
 			return c, true
 		}
 	}
 	return ClientDefinition{}, false
 }
 
+// GetClientByToken looks up a client by its API token. Used by the auth middleware.
 func (s *Store) GetClientByToken(token string) (ClientDefinition, bool) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -497,11 +480,7 @@ func (s *Store) CreateClient(c ClientDefinition) (ClientDefinition, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	for _, existing := range s.data.Clients {
-		if existing.Name == c.Name {
-			return ClientDefinition{}, fmt.Errorf("client %q already exists", c.Name)
-		}
-	}
+	c.ID = generateID()
 	c.Token = generateToken()
 	if c.AllowedAgents == nil {
 		c.AllowedAgents = []string{}
@@ -510,13 +489,13 @@ func (s *Store) CreateClient(c ClientDefinition) (ClientDefinition, error) {
 	return c, s.persist()
 }
 
-func (s *Store) UpdateClient(name string, c ClientDefinition) error {
+func (s *Store) UpdateClient(id string, c ClientDefinition) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	for i, existing := range s.data.Clients {
-		if existing.Name == name {
-			c.Name = name
+		if existing.ID == id {
+			c.ID = id
 			c.Token = existing.Token
 			if c.AllowedAgents == nil {
 				c.AllowedAgents = []string{}
@@ -525,214 +504,40 @@ func (s *Store) UpdateClient(name string, c ClientDefinition) error {
 			return s.persist()
 		}
 	}
-	return fmt.Errorf("client %q not found", name)
+	return fmt.Errorf("client %q not found", id)
 }
 
-func (s *Store) DeleteClient(name string) error {
+func (s *Store) DeleteClient(id string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	for i, existing := range s.data.Clients {
-		if existing.Name == name {
+		if existing.ID == id {
 			s.data.Clients = append(s.data.Clients[:i], s.data.Clients[i+1:]...)
 			return s.persist()
 		}
 	}
-	return fmt.Errorf("client %q not found", name)
+	return fmt.Errorf("client %q not found", id)
 }
 
-func (s *Store) RegenerateClientToken(name string) (ClientDefinition, error) {
+// RegenerateClientToken replaces a client's API token with a new random one.
+func (s *Store) RegenerateClientToken(id string) (ClientDefinition, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	for i, existing := range s.data.Clients {
-		if existing.Name == name {
+		if existing.ID == id {
 			s.data.Clients[i].Token = generateToken()
 			return s.data.Clients[i], s.persist()
 		}
 	}
-	return ClientDefinition{}, fmt.Errorf("client %q not found", name)
-}
-
-// --- Rename with cascade ---
-
-// RenameBackend renames a backend and updates all references in agents and memory providers.
-func (s *Store) RenameBackend(oldName, newName string) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	found := false
-	for i, b := range s.data.Backends {
-		if b.Name == oldName {
-			s.data.Backends[i].Name = newName
-			found = true
-		} else if b.Name == newName {
-			return fmt.Errorf("backend %q already exists", newName)
-		}
-	}
-	if !found {
-		return fmt.Errorf("backend %q not found", oldName)
-	}
-
-	for i := range s.data.Agents {
-		if s.data.Agents[i].LLM.Backend == oldName {
-			s.data.Agents[i].LLM.Backend = newName
-		}
-		if s.data.Agents[i].Transcription.Backend == oldName {
-			s.data.Agents[i].Transcription.Backend = newName
-		}
-		if s.data.Agents[i].TTS.Backend == oldName {
-			s.data.Agents[i].TTS.Backend = newName
-		}
-	}
-
-	for i := range s.data.MemoryProviders {
-		if s.data.MemoryProviders[i].Embedding != nil && s.data.MemoryProviders[i].Embedding.Backend == oldName {
-			s.data.MemoryProviders[i].Embedding.Backend = newName
-		}
-	}
-
-	return s.persist()
-}
-
-// RenameMemoryProvider renames a memory provider and updates all agent references.
-func (s *Store) RenameMemoryProvider(oldName, newName string) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	found := false
-	for i, m := range s.data.MemoryProviders {
-		if m.Name == oldName {
-			s.data.MemoryProviders[i].Name = newName
-			found = true
-		} else if m.Name == newName {
-			return fmt.Errorf("memory provider %q already exists", newName)
-		}
-	}
-	if !found {
-		return fmt.Errorf("memory provider %q not found", oldName)
-	}
-
-	for i := range s.data.Agents {
-		if s.data.Agents[i].Memory.Session == oldName {
-			s.data.Agents[i].Memory.Session = newName
-		}
-		if s.data.Agents[i].Memory.LongTerm == oldName {
-			s.data.Agents[i].Memory.LongTerm = newName
-		}
-	}
-
-	return s.persist()
-}
-
-// RenameMCPServer renames an MCP server and updates all agent references.
-func (s *Store) RenameMCPServer(oldName, newName string) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	found := false
-	for i, m := range s.data.MCPServers {
-		if m.Name == oldName {
-			s.data.MCPServers[i].Name = newName
-			found = true
-		} else if m.Name == newName {
-			return fmt.Errorf("MCP server %q already exists", newName)
-		}
-	}
-	if !found {
-		return fmt.Errorf("MCP server %q not found", oldName)
-	}
-
-	for i := range s.data.Agents {
-		for j, name := range s.data.Agents[i].MCPServers {
-			if name == oldName {
-				s.data.Agents[i].MCPServers[j] = newName
-			}
-		}
-	}
-
-	return s.persist()
-}
-
-// RenameAgent renames an agent and updates all references in devices and cron jobs.
-func (s *Store) RenameAgent(oldID, newID string) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	found := false
-	for i, a := range s.data.Agents {
-		if a.ID == oldID {
-			s.data.Agents[i].ID = newID
-			found = true
-		} else if a.ID == newID {
-			return fmt.Errorf("agent %q already exists", newID)
-		}
-	}
-	if !found {
-		return fmt.Errorf("agent %q not found", oldID)
-	}
-
-	for i := range s.data.Clients {
-		for j, id := range s.data.Clients[i].AllowedAgents {
-			if id == oldID {
-				s.data.Clients[i].AllowedAgents[j] = newID
-			}
-		}
-	}
-
-	for i := range s.data.CronJobs {
-		if s.data.CronJobs[i].AgentID == oldID {
-			s.data.CronJobs[i].AgentID = newID
-		}
-	}
-
-	return s.persist()
-}
-
-// RenameClient renames a client (no cascading references).
-func (s *Store) RenameClient(oldName, newName string) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	found := false
-	for i, c := range s.data.Clients {
-		if c.Name == oldName {
-			s.data.Clients[i].Name = newName
-			found = true
-		} else if c.Name == newName {
-			return fmt.Errorf("client %q already exists", newName)
-		}
-	}
-	if !found {
-		return fmt.Errorf("client %q not found", oldName)
-	}
-
-	return s.persist()
-}
-
-// RenameCronJob renames a cron job (no cascading references).
-func (s *Store) RenameCronJob(oldName, newName string) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	found := false
-	for i, c := range s.data.CronJobs {
-		if c.Name == oldName {
-			s.data.CronJobs[i].Name = newName
-			found = true
-		} else if c.Name == newName {
-			return fmt.Errorf("cron job %q already exists", newName)
-		}
-	}
-	if !found {
-		return fmt.Errorf("cron job %q not found", oldName)
-	}
-
-	return s.persist()
+	return ClientDefinition{}, fmt.Errorf("client %q not found", id)
 }
 
 // --- Persistence ---
 
+// persist writes the current store data to disk as formatted JSON and
+// notifies all change subscribers.
 func (s *Store) persist() error {
 	if s.filePath == "" {
 		return nil
@@ -756,6 +561,7 @@ func (s *Store) persist() error {
 	return nil
 }
 
+// notifyChange sends a non-blocking signal to all OnChange subscribers.
 func (s *Store) notifyChange() {
 	s.changeMu.Lock()
 	defer s.changeMu.Unlock()
@@ -767,6 +573,8 @@ func (s *Store) notifyChange() {
 	}
 }
 
+// loadFromDisk reads the store file, unmarshals it, initializes nil slices
+// to empty, and runs legacy migrations.
 func (s *Store) loadFromDisk() error {
 	data, err := os.ReadFile(s.filePath)
 	if err != nil {
@@ -799,8 +607,159 @@ func (s *Store) loadFromDisk() error {
 
 	s.migrateDevicesToClients(data, &storeData)
 
+	dirty := s.migrateIDs(&storeData)
+
 	s.data = storeData
+
+	if dirty {
+		_ = s.persist()
+	}
+
 	return nil
+}
+
+// isHexID returns true when s looks like a generateID() output (32 hex chars).
+var hexIDPattern = regexp.MustCompile(`^[0-9a-f]{32}$`)
+
+func isHexID(s string) bool {
+	return hexIDPattern.MatchString(s)
+}
+
+// migrateIDs assigns UUIDs to entities that lack them and rewrites all
+// cross-reference fields that still contain human-readable names so they
+// point to the corresponding entity ID. Returns true if anything changed.
+func (s *Store) migrateIDs(d *StoreData) bool {
+	dirty := false
+
+	// --- Phase 1: ensure every entity has a hex ID ---
+
+	backendNameToID := make(map[string]string)
+	for i := range d.Backends {
+		if d.Backends[i].ID == "" || !isHexID(d.Backends[i].ID) {
+			d.Backends[i].ID = generateID()
+			dirty = true
+		}
+		backendNameToID[d.Backends[i].Name] = d.Backends[i].ID
+	}
+
+	memoryNameToID := make(map[string]string)
+	for i := range d.MemoryProviders {
+		if d.MemoryProviders[i].ID == "" || !isHexID(d.MemoryProviders[i].ID) {
+			d.MemoryProviders[i].ID = generateID()
+			dirty = true
+		}
+		memoryNameToID[d.MemoryProviders[i].Name] = d.MemoryProviders[i].ID
+	}
+
+	mcpNameToID := make(map[string]string)
+	for i := range d.MCPServers {
+		if d.MCPServers[i].ID == "" || !isHexID(d.MCPServers[i].ID) {
+			d.MCPServers[i].ID = generateID()
+			dirty = true
+		}
+		mcpNameToID[d.MCPServers[i].Name] = d.MCPServers[i].ID
+	}
+
+	agentOldToNew := make(map[string]string)
+	for i := range d.Agents {
+		oldID := d.Agents[i].ID
+		if oldID == "" || !isHexID(oldID) {
+			d.Agents[i].ID = generateID()
+			dirty = true
+		}
+		if oldID != "" && oldID != d.Agents[i].ID {
+			agentOldToNew[oldID] = d.Agents[i].ID
+		}
+	}
+
+	for i := range d.CronJobs {
+		if d.CronJobs[i].ID == "" || !isHexID(d.CronJobs[i].ID) {
+			d.CronJobs[i].ID = generateID()
+			dirty = true
+		}
+	}
+
+	for i := range d.Clients {
+		if d.Clients[i].ID == "" || !isHexID(d.Clients[i].ID) {
+			d.Clients[i].ID = generateID()
+			dirty = true
+		}
+	}
+
+	// --- Phase 2: rewrite cross-references that still use names ---
+
+	resolveBackend := func(ref string) string {
+		if ref == "" || isHexID(ref) {
+			return ref
+		}
+		if id, ok := backendNameToID[ref]; ok {
+			dirty = true
+			return id
+		}
+		return ref
+	}
+
+	resolveMemory := func(ref string) string {
+		if ref == "" || isHexID(ref) {
+			return ref
+		}
+		if id, ok := memoryNameToID[ref]; ok {
+			dirty = true
+			return id
+		}
+		return ref
+	}
+
+	resolveMCP := func(ref string) string {
+		if ref == "" || isHexID(ref) {
+			return ref
+		}
+		if id, ok := mcpNameToID[ref]; ok {
+			dirty = true
+			return id
+		}
+		return ref
+	}
+
+	resolveAgent := func(ref string) string {
+		if ref == "" || isHexID(ref) {
+			return ref
+		}
+		if id, ok := agentOldToNew[ref]; ok {
+			dirty = true
+			return id
+		}
+		return ref
+	}
+
+	for i := range d.Agents {
+		d.Agents[i].LLM.Backend = resolveBackend(d.Agents[i].LLM.Backend)
+		d.Agents[i].Transcription.Backend = resolveBackend(d.Agents[i].Transcription.Backend)
+		d.Agents[i].TTS.Backend = resolveBackend(d.Agents[i].TTS.Backend)
+		d.Agents[i].Memory.Session = resolveMemory(d.Agents[i].Memory.Session)
+		d.Agents[i].Memory.LongTerm = resolveMemory(d.Agents[i].Memory.LongTerm)
+		for j := range d.Agents[i].MCPServers {
+			d.Agents[i].MCPServers[j] = resolveMCP(d.Agents[i].MCPServers[j])
+		}
+	}
+
+	for i := range d.MemoryProviders {
+		if d.MemoryProviders[i].Embedding != nil {
+			d.MemoryProviders[i].Embedding.Backend = resolveBackend(d.MemoryProviders[i].Embedding.Backend)
+		}
+	}
+
+	for i := range d.CronJobs {
+		d.CronJobs[i].AgentID = resolveAgent(d.CronJobs[i].AgentID)
+	}
+
+	for i := range d.Clients {
+		for j := range d.Clients[i].AllowedAgents {
+			d.Clients[i].AllowedAgents[j] = resolveAgent(d.Clients[i].AllowedAgents[j])
+		}
+	}
+
+	return dirty
 }
 
 // migrateDevicesToClients converts legacy "devices" entries to ClientDefinition.
@@ -840,6 +799,7 @@ func (s *Store) migrateDevicesToClients(rawData []byte, storeData *StoreData) {
 			agents = []string{}
 		}
 		storeData.Clients = append(storeData.Clients, ClientDefinition{
+			ID:            generateID(),
 			Name:          d.Name,
 			Type:          "device",
 			Token:         d.Token,

@@ -69,19 +69,19 @@ func (h *Handler) Health(w http.ResponseWriter, r *http.Request) {
 // @Tags         device
 // @Produce      json
 // @Success      200  {object}  DeviceInfoResponse          "Authenticated client info"
-// @Header       200  {string}  X-Client-Name               "Set by auth middleware"
+// @Header       200  {string}  X-Client-ID                 "Set by auth middleware"
 // @Failure      404  {object}  ErrorResponse
 // @Security     BearerAuth
 // @Router       /device/info [get]
 func (h *Handler) DeviceInfo(w http.ResponseWriter, r *http.Request) {
-	clientName := r.Header.Get("X-Client-Name")
-	if clientName == "" {
+	clientID := r.Header.Get("X-Client-ID")
+	if clientID == "" {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(DeviceInfoUnpairedResponse{Paired: false})
 		return
 	}
-	cl, ok := h.store.GetClient(clientName)
+	cl, ok := h.store.GetClient(clientID)
 	if !ok {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusNotFound)

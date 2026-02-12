@@ -11,6 +11,8 @@ var (
 	providers = map[string]Provider{}
 )
 
+// Register adds a client provider to the global registry. Called from init()
+// in each provider package (e.g. client/telegram, client/device).
 func Register(p Provider) {
 	mu.Lock()
 	defer mu.Unlock()
@@ -20,12 +22,14 @@ func Register(p Provider) {
 	providers[p.Type()] = p
 }
 
+// Get returns the provider for the given type, or nil if not registered.
 func Get(providerType string) Provider {
 	mu.RLock()
 	defer mu.RUnlock()
 	return providers[providerType]
 }
 
+// All returns every registered provider, sorted alphabetically by type.
 func All() []Provider {
 	mu.RLock()
 	defer mu.RUnlock()
@@ -39,6 +43,7 @@ func All() []Provider {
 	return result
 }
 
+// ValidType returns true if a provider is registered for the given type string.
 func ValidType(providerType string) bool {
 	mu.RLock()
 	defer mu.RUnlock()
@@ -46,6 +51,8 @@ func ValidType(providerType string) bool {
 	return ok
 }
 
+// ValidateRequired checks that all required config fields for a client type
+// are present and non-empty. Used by the admin API when creating or updating clients.
 func ValidateRequired(providerType string, configBlock map[string]interface{}) error {
 	p := Get(providerType)
 	if p == nil {

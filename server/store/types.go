@@ -1,33 +1,47 @@
 package store
 
+import (
+	"crypto/rand"
+	"fmt"
+)
+
+// generateID returns a random 16-byte hex string (128 bits) suitable for use
+// as an immutable resource identifier.
+func generateID() string {
+	b := make([]byte, 16)
+	rand.Read(b)
+	return fmt.Sprintf("%x", b)
+}
+
 // AgentDefinition represents a single agent's full configuration in the store.
 type AgentDefinition struct {
-	ID                 string         `json:"id" yaml:"id"`
-	Name               string         `json:"name" yaml:"name"`
-	Description        string         `json:"description,omitempty" yaml:"description,omitempty"`
-	SystemPrompt       string         `json:"systemPrompt,omitempty" yaml:"systemPrompt,omitempty"`
-	LLM                BackendRef     `json:"llm" yaml:"llm"`
-	Transcription      BackendRef     `json:"transcription,omitempty" yaml:"transcription,omitempty"`
-	TTS                TTSRef         `json:"tts,omitempty" yaml:"tts,omitempty"`
-	Memory             MemoryRef      `json:"memory,omitempty" yaml:"memory,omitempty"`
-	MCPServers         []string       `json:"mcpServers,omitempty" yaml:"mcpServers,omitempty"`
+	ID           string     `json:"id" yaml:"id"`
+	Name         string     `json:"name" yaml:"name"`
+	Description  string     `json:"description,omitempty" yaml:"description,omitempty"`
+	SystemPrompt string     `json:"systemPrompt,omitempty" yaml:"systemPrompt,omitempty"`
+	LLM          BackendRef `json:"llm" yaml:"llm"`
+	Transcription BackendRef `json:"transcription,omitempty" yaml:"transcription,omitempty"`
+	TTS          TTSRef     `json:"tts,omitempty" yaml:"tts,omitempty"`
+	Memory       MemoryRef  `json:"memory,omitempty" yaml:"memory,omitempty"`
+	MCPServers   []string   `json:"mcpServers,omitempty" yaml:"mcpServers,omitempty"`
 }
 
 // BackendDefinition represents a reusable AI backend.
 type BackendDefinition struct {
+	ID     string `json:"id" yaml:"id"`
 	Name   string `json:"name" yaml:"name"`
 	Type   string `json:"type" yaml:"type"`
 	URL    string `json:"url,omitempty" yaml:"url,omitempty"`
 	APIKey string `json:"apiKey,omitempty" yaml:"apiKey,omitempty"`
 }
 
-// BackendRef holds a reference to a backend by name + model.
+// BackendRef holds a reference to a backend by ID + model.
 type BackendRef struct {
 	Backend string `json:"backend,omitempty" yaml:"backend,omitempty"`
 	Model   string `json:"model,omitempty" yaml:"model,omitempty"`
 }
 
-// TTSRef holds TTS-specific configuration referencing a backend.
+// TTSRef holds TTS-specific configuration referencing a backend by ID.
 type TTSRef struct {
 	Backend string  `json:"backend,omitempty" yaml:"backend,omitempty"`
 	Model   string  `json:"model,omitempty" yaml:"model,omitempty"`
@@ -35,22 +49,15 @@ type TTSRef struct {
 	Speed   float64 `json:"speed,omitempty" yaml:"speed,omitempty"`
 }
 
-// MemoryRef holds references to memory providers by name.
+// MemoryRef holds references to memory providers by ID.
 type MemoryRef struct {
 	Session  string `json:"session,omitempty" yaml:"session,omitempty"`
 	LongTerm string `json:"longTerm,omitempty" yaml:"longTerm,omitempty"`
 }
 
 // MemoryProvider represents a reusable memory backend (Redis, Postgres, etc.).
-// Type identifies the backend technology. Category defines the role this
-// instance serves: "session" for short-lived state, "longterm" for persistent
-// memory with embeddings. The same Type may support both categories.
-//
-// Config holds provider-specific connection details (address, password, etc.)
-// as an opaque map — each provider type defines its own fields.
-// Embedding is kept as a top-level field because it's a structural concept
-// shared by all long-term providers, not a connection detail.
 type MemoryProvider struct {
+	ID        string                 `json:"id" yaml:"id"`
 	Name      string                 `json:"name" yaml:"name"`
 	Type      string                 `json:"type" yaml:"type"`
 	Category  string                 `json:"category" yaml:"category"`
@@ -60,6 +67,7 @@ type MemoryProvider struct {
 
 // MCPServer represents an MCP server configuration.
 type MCPServer struct {
+	ID           string            `json:"id" yaml:"id"`
 	Name         string            `json:"name" yaml:"name"`
 	Type         string            `json:"type,omitempty" yaml:"type,omitempty"`
 	Endpoint     string            `json:"endpoint,omitempty" yaml:"endpoint,omitempty"`
@@ -74,6 +82,7 @@ type MCPServer struct {
 // ClientDefinition represents an access point (voice-ui, Telegram, Discord, webhook, etc.).
 // Type determines what platform-specific config is expected inside Config.
 type ClientDefinition struct {
+	ID            string       `json:"id" yaml:"id"`
 	Name          string       `json:"name" yaml:"name"`
 	Type          string       `json:"type" yaml:"type"`
 	Token         string       `json:"token" yaml:"token"`
@@ -116,6 +125,7 @@ type SlackClientConfig struct {
 
 // CronJob represents a scheduled task that sends a prompt to an agent.
 type CronJob struct {
+	ID          string `json:"id" yaml:"id"`
 	Name        string `json:"name" yaml:"name"`
 	Schedule    string `json:"schedule" yaml:"schedule"`
 	AgentID     string `json:"agentId" yaml:"agentId"`

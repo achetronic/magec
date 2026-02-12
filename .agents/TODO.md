@@ -65,6 +65,25 @@ async _scheduleAudioChunk(audioBytes) {
 
 ---
 
+### Move `response_format` Out of Clients Into Server-Side Config
+
+**Problem**: The TTS `response_format` (e.g. `opus`, `mp3`, `wav`) is currently hardcoded by each client (Telegram sends `"opus"`). The speech proxy passes it through to the backend TTS service without any server-side control. This means:
+- Each client has to know what audio format it needs and send it explicitly
+- There's no centralized place to configure the output format
+- If a new client type is added, it has to replicate this knowledge
+- The proxy already controls `model`/`voice`/`speed` from the store, but `response_format` is the odd one out
+
+**Context**: The speech proxy (`serveSpeechProxy`) takes `response_format` from the client body and forwards it as-is to the backend. The backend (OpenAI-compatible) is the one that actually produces the audio in that format — magec does zero conversion. Telegram needs `opus` for voice messages; the voice-ui might need `mp3` or raw PCM; future clients (Discord, Slack) may need different formats.
+
+**Options to evaluate**:
+1. Add `response_format` to `TTSRef` in the store (per-agent) — simple, but all clients of an agent get the same format
+2. Add `response_format` to each client type's config (e.g. `TelegramClientConfig.AudioFormat`) — per-client control, proxy resolves it
+3. Keep it client-side but document it as the expected contract — least change, but inconsistent with how `model`/`voice`/`speed` are handled
+
+**Decision**: TBD — needs to consider whether different clients sharing the same agent would ever need different audio formats (likely yes: Telegram wants opus, voice-ui wants mp3/pcm).
+
+---
+
 ## Low Priority
 
 ### Add More TTS Voices Configuration UI

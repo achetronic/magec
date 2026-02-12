@@ -38,25 +38,25 @@ func (h *Handler) buildRouter() *mux.Router {
 	// Backends
 	r.HandleFunc("/backends", h.listBackends).Methods("GET")
 	r.HandleFunc("/backends", h.createBackend).Methods("POST")
-	r.HandleFunc("/backends/{name}", h.getBackend).Methods("GET")
-	r.HandleFunc("/backends/{name}", h.updateBackend).Methods("PUT")
-	r.HandleFunc("/backends/{name}", h.deleteBackend).Methods("DELETE")
+	r.HandleFunc("/backends/{id}", h.getBackend).Methods("GET")
+	r.HandleFunc("/backends/{id}", h.updateBackend).Methods("PUT")
+	r.HandleFunc("/backends/{id}", h.deleteBackend).Methods("DELETE")
 
 	// Memory Providers
 	r.HandleFunc("/memory", h.listMemoryProviders).Methods("GET")
 	r.HandleFunc("/memory", h.createMemoryProvider).Methods("POST")
 	r.HandleFunc("/memory/types", h.listMemoryTypes).Methods("GET")
-	r.HandleFunc("/memory/{name}", h.getMemoryProvider).Methods("GET")
-	r.HandleFunc("/memory/{name}", h.updateMemoryProvider).Methods("PUT")
-	r.HandleFunc("/memory/{name}", h.deleteMemoryProvider).Methods("DELETE")
-	r.HandleFunc("/memory/{name}/health", h.checkMemoryProviderHealth).Methods("GET")
+	r.HandleFunc("/memory/{id}", h.getMemoryProvider).Methods("GET")
+	r.HandleFunc("/memory/{id}", h.updateMemoryProvider).Methods("PUT")
+	r.HandleFunc("/memory/{id}", h.deleteMemoryProvider).Methods("DELETE")
+	r.HandleFunc("/memory/{id}/health", h.checkMemoryProviderHealth).Methods("GET")
 
 	// MCP Servers (global)
 	r.HandleFunc("/mcps", h.listMCPServers).Methods("GET")
 	r.HandleFunc("/mcps", h.createMCPServer).Methods("POST")
-	r.HandleFunc("/mcps/{name}", h.getMCPServer).Methods("GET")
-	r.HandleFunc("/mcps/{name}", h.updateMCPServer).Methods("PUT")
-	r.HandleFunc("/mcps/{name}", h.deleteMCPServer).Methods("DELETE")
+	r.HandleFunc("/mcps/{id}", h.getMCPServer).Methods("GET")
+	r.HandleFunc("/mcps/{id}", h.updateMCPServer).Methods("PUT")
+	r.HandleFunc("/mcps/{id}", h.deleteMCPServer).Methods("DELETE")
 
 	// Agents
 	r.HandleFunc("/agents", h.listAgents).Methods("GET")
@@ -67,24 +67,24 @@ func (h *Handler) buildRouter() *mux.Router {
 
 	// Agent MCP linking
 	r.HandleFunc("/agents/{id}/mcps", h.listAgentMCPs).Methods("GET")
-	r.HandleFunc("/agents/{id}/mcps/{name}", h.linkAgentMCP).Methods("PUT")
-	r.HandleFunc("/agents/{id}/mcps/{name}", h.unlinkAgentMCP).Methods("DELETE")
+	r.HandleFunc("/agents/{id}/mcps/{mcpId}", h.linkAgentMCP).Methods("PUT")
+	r.HandleFunc("/agents/{id}/mcps/{mcpId}", h.unlinkAgentMCP).Methods("DELETE")
 
 	// Clients
 	r.HandleFunc("/clients", h.listClients).Methods("GET")
 	r.HandleFunc("/clients", h.createClient).Methods("POST")
 	r.HandleFunc("/clients/types", h.listClientTypes).Methods("GET")
-	r.HandleFunc("/clients/{name}", h.getClient).Methods("GET")
-	r.HandleFunc("/clients/{name}", h.updateClient).Methods("PUT")
-	r.HandleFunc("/clients/{name}", h.deleteClient).Methods("DELETE")
-	r.HandleFunc("/clients/{name}/regenerate-token", h.regenerateClientToken).Methods("POST")
+	r.HandleFunc("/clients/{id}", h.getClient).Methods("GET")
+	r.HandleFunc("/clients/{id}", h.updateClient).Methods("PUT")
+	r.HandleFunc("/clients/{id}", h.deleteClient).Methods("DELETE")
+	r.HandleFunc("/clients/{id}/regenerate-token", h.regenerateClientToken).Methods("POST")
 
 	// Cron Jobs
 	r.HandleFunc("/crons", h.listCronJobs).Methods("GET")
 	r.HandleFunc("/crons", h.createCronJob).Methods("POST")
-	r.HandleFunc("/crons/{name}", h.getCronJob).Methods("GET")
-	r.HandleFunc("/crons/{name}", h.updateCronJob).Methods("PUT")
-	r.HandleFunc("/crons/{name}", h.deleteCronJob).Methods("DELETE")
+	r.HandleFunc("/crons/{id}", h.getCronJob).Methods("GET")
+	r.HandleFunc("/crons/{id}", h.updateCronJob).Methods("PUT")
+	r.HandleFunc("/crons/{id}", h.deleteCronJob).Methods("DELETE")
 
 	return r
 }

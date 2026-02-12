@@ -67,14 +67,15 @@ When a user asks you to remember something or asks about past information:
 
 When a user shares preferences or important information, proactively save it to memory for future reference.`
 
-// Service manages the ADK agent with memory.
+// Service wraps the ADK REST handler that serves all configured agents.
+// Incoming requests are routed to the correct agent by the appName field.
 type Service struct {
 	handler http.Handler
 }
 
-// New creates a new agent service from all store agents.
-// Each agent definition becomes an ADK agent, loaded via a multi-loader
-// so that appName in requests selects which agent handles the call.
+// New builds an ADK agent for every AgentDefinition in the store, wires up
+// their LLM, session, memory, and MCP toolsets, and returns a Service that
+// routes requests to the right agent based on the appName in the request body.
 func New(ctx context.Context, agents []store.AgentDefinition, backends []store.BackendDefinition, memoryProviders []store.MemoryProvider, mcpServers []store.MCPServer) (*Service, error) {
 	if len(agents) == 0 {
 		return nil, fmt.Errorf("no agents defined")
@@ -82,17 +83,17 @@ func New(ctx context.Context, agents []store.AgentDefinition, backends []store.B
 
 	backendMap := make(map[string]store.BackendDefinition, len(backends))
 	for _, b := range backends {
-		backendMap[b.Name] = b
+		backendMap[b.ID] = b
 	}
 
 	memoryProviderMap := make(map[string]store.MemoryProvider, len(memoryProviders))
 	for _, m := range memoryProviders {
-		memoryProviderMap[m.Name] = m
+		memoryProviderMap[m.ID] = m
 	}
 
 	mcpServerMap := make(map[string]store.MCPServer, len(mcpServers))
 	for _, m := range mcpServers {
-		mcpServerMap[m.Name] = m
+		mcpServerMap[m.ID] = m
 	}
 
 	var rootAgent agent.Agent
@@ -167,11 +168,14 @@ func New(ctx context.Context, agents []store.AgentDefinition, backends []store.B
 	}, nil
 }
 
-// Handler returns the ADK REST handler.
+// Handler returns the HTTP handler that serves the ADK REST API.
 func (s *Service) Handler() http.Handler {
 	return s.handler
 }
 
+// createSessionService returns the session backend for an agent. If the agent
+// references a Redis memory provider it connects there; otherwise it falls
+// back to an in-memory store.
 func createSessionService(agentDef store.AgentDefinition, memoryProviders map[string]store.MemoryProvider) (session.Service, error) {
 	if agentDef.Memory.Session == "" {
 		return session.InMemoryService(), nil
@@ -209,7 +213,12 @@ func createSessionService(agentDef store.AgentDefinition, memoryProviders map[st
 	return svc, nil
 }
 
-// parseRedisURL parses a redis:// URL into addr, password, db components.
+// parseRedisURL splits a redis:// connection string into the host:port address,
+// password, and database number that the Redis client needs.
+//
+// TODO: This lives here because adk-utils-go/session/redis expects individual
+// fields (Addr, Password, DB) instead of a connection string. Once that library
+// accepts a connection string directly, this function can be removed.
 func parseRedisURL(rawURL string) (addr, password string, db int) {
 	u, err := url.Parse(rawURL)
 	if err != nil {
@@ -233,6 +242,9 @@ func parseRedisURL(rawURL string) (addr, password string, db int) {
 	return
 }
 
+// createMemoryService returns the long-term memory backend for an agent.
+// If the agent references a Postgres memory provider with an embedding backend,
+// it creates a vector-backed memory service; otherwise it returns nil.
 func createMemoryService(ctx context.Context, agentDef store.AgentDefinition, memoryProviders map[string]store.MemoryProvider, backends map[string]store.BackendDefinition) (memory.Service, error) {
 	if agentDef.Memory.LongTerm == "" {
 		return nil, nil
@@ -270,6 +282,8 @@ func createMemoryService(ctx context.Context, agentDef store.AgentDefinition, me
 	return svc, nil
 }
 
+// createLLM instantiates the language model client for a backend definition.
+// Supports OpenAI-compatible, Anthropic, and Gemini backends.
 func createLLM(ctx context.Context, backend store.BackendDefinition, modelName string) (model.LLM, error) {
 	switch backend.Type {
 	case config.BackendTypeOpenAI:
@@ -295,6 +309,9 @@ func createLLM(ctx context.Context, backend store.BackendDefinition, modelName s
 	}
 }
 
+// buildToolsets assembles all tool providers for an agent: memory tools
+// (search/save) if the agent has long-term memory, plus any MCP server
+// toolsets referenced by name.
 func buildToolsets(agentDef store.AgentDefinition, mcpServerMap map[string]store.MCPServer, memorySvc memory.Service) ([]tool.Toolset, error) {
 	var toolsets []tool.Toolset
 
@@ -330,6 +347,8 @@ func buildToolsets(agentDef store.AgentDefinition, mcpServerMap map[string]store
 	return toolsets, nil
 }
 
+// createMCPTransport returns the appropriate MCP transport (stdio subprocess
+// or HTTP/SSE) for a server definition.
 func createMCPTransport(srv *store.MCPServer) (mcp.Transport, error) {
 	switch srv.Type {
 	case "stdio":
@@ -363,6 +382,8 @@ func createMCPTransport(srv *store.MCPServer) (mcp.Transport, error) {
 	}
 }
 
+// httpClientWithHeaders returns an HTTP client that injects custom headers
+// into every request, used for MCP servers that require auth or other headers.
 func httpClientWithHeaders(headers map[string]string) *http.Client {
 	if len(headers) == 0 {
 		return http.DefaultClient
@@ -375,11 +396,14 @@ func httpClientWithHeaders(headers map[string]string) *http.Client {
 	}
 }
 
+// headerTransport is an http.RoundTripper that injects fixed headers
+// into every outgoing request.
 type headerTransport struct {
 	base    http.RoundTripper
 	headers map[string]string
 }
 
+// RoundTrip adds the configured headers and delegates to the base transport.
 func (t *headerTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	for k, v := range t.headers {
 		req.Header.Set(k, v)
@@ -387,6 +411,9 @@ func (t *headerTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	return t.base.RoundTrip(req)
 }
 
+// buildInstruction assembles the system prompt for an agent. It starts with
+// the agent's custom prompt (or a default), appends memory instructions if
+// long-term memory is enabled, and appends any MCP server system prompts.
 func buildInstruction(agentDef store.AgentDefinition, mcpServerMap map[string]store.MCPServer, memorySvc memory.Service) string {
 	instruction := baseInstruction
 	if agentDef.SystemPrompt != "" {

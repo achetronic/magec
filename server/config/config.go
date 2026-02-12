@@ -38,6 +38,7 @@ type Config struct {
 	Log    Log    `yaml:"log"`
 }
 
+// Server holds network and runtime settings for the HTTP servers.
 type Server struct {
 	Host            string `yaml:"host"`
 	Port            int    `yaml:"port"`
@@ -101,6 +102,7 @@ func LoadWakeWordModels(modelsPath string) (*WakeWordModelsConfig, error) {
 	return &cfg, nil
 }
 
+// applyDefaults fills in zero-value fields with sensible defaults.
 func (c *Config) applyDefaults() {
 	if c.Server.Host == "" {
 		c.Server.Host = "0.0.0.0"
