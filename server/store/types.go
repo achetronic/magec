@@ -1,16 +1,10 @@
 package store
 
-import (
-	"crypto/rand"
-	"fmt"
-)
+import "github.com/google/uuid"
 
-// generateID returns a random 16-byte hex string (128 bits) suitable for use
-// as an immutable resource identifier.
+// generateID returns a new random UUID v4 string (e.g. "550e8400-e29b-41d4-a716-446655440000").
 func generateID() string {
-	b := make([]byte, 16)
-	rand.Read(b)
-	return fmt.Sprintf("%x", b)
+	return uuid.New().String()
 }
 
 // AgentDefinition represents a single agent's full configuration in the store.

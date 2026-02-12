@@ -618,11 +618,11 @@ func (s *Store) loadFromDisk() error {
 	return nil
 }
 
-// isHexID returns true when s looks like a generateID() output (32 hex chars).
-var hexIDPattern = regexp.MustCompile(`^[0-9a-f]{32}$`)
+// isUUID returns true when s looks like a standard UUID (8-4-4-4-12 hex with dashes).
+var uuidPattern = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
 
-func isHexID(s string) bool {
-	return hexIDPattern.MatchString(s)
+func isUUID(s string) bool {
+	return uuidPattern.MatchString(s)
 }
 
 // migrateIDs assigns UUIDs to entities that lack them and rewrites all
@@ -635,7 +635,7 @@ func (s *Store) migrateIDs(d *StoreData) bool {
 
 	backendNameToID := make(map[string]string)
 	for i := range d.Backends {
-		if d.Backends[i].ID == "" || !isHexID(d.Backends[i].ID) {
+		if d.Backends[i].ID == "" || !isUUID(d.Backends[i].ID) {
 			d.Backends[i].ID = generateID()
 			dirty = true
 		}
@@ -644,7 +644,7 @@ func (s *Store) migrateIDs(d *StoreData) bool {
 
 	memoryNameToID := make(map[string]string)
 	for i := range d.MemoryProviders {
-		if d.MemoryProviders[i].ID == "" || !isHexID(d.MemoryProviders[i].ID) {
+		if d.MemoryProviders[i].ID == "" || !isUUID(d.MemoryProviders[i].ID) {
 			d.MemoryProviders[i].ID = generateID()
 			dirty = true
 		}
@@ -653,7 +653,7 @@ func (s *Store) migrateIDs(d *StoreData) bool {
 
 	mcpNameToID := make(map[string]string)
 	for i := range d.MCPServers {
-		if d.MCPServers[i].ID == "" || !isHexID(d.MCPServers[i].ID) {
+		if d.MCPServers[i].ID == "" || !isUUID(d.MCPServers[i].ID) {
 			d.MCPServers[i].ID = generateID()
 			dirty = true
 		}
@@ -663,7 +663,7 @@ func (s *Store) migrateIDs(d *StoreData) bool {
 	agentOldToNew := make(map[string]string)
 	for i := range d.Agents {
 		oldID := d.Agents[i].ID
-		if oldID == "" || !isHexID(oldID) {
+		if oldID == "" || !isUUID(oldID) {
 			d.Agents[i].ID = generateID()
 			dirty = true
 		}
@@ -673,14 +673,14 @@ func (s *Store) migrateIDs(d *StoreData) bool {
 	}
 
 	for i := range d.CronJobs {
-		if d.CronJobs[i].ID == "" || !isHexID(d.CronJobs[i].ID) {
+		if d.CronJobs[i].ID == "" || !isUUID(d.CronJobs[i].ID) {
 			d.CronJobs[i].ID = generateID()
 			dirty = true
 		}
 	}
 
 	for i := range d.Clients {
-		if d.Clients[i].ID == "" || !isHexID(d.Clients[i].ID) {
+		if d.Clients[i].ID == "" || !isUUID(d.Clients[i].ID) {
 			d.Clients[i].ID = generateID()
 			dirty = true
 		}
@@ -689,7 +689,7 @@ func (s *Store) migrateIDs(d *StoreData) bool {
 	// --- Phase 2: rewrite cross-references that still use names ---
 
 	resolveBackend := func(ref string) string {
-		if ref == "" || isHexID(ref) {
+		if ref == "" || isUUID(ref) {
 			return ref
 		}
 		if id, ok := backendNameToID[ref]; ok {
@@ -700,7 +700,7 @@ func (s *Store) migrateIDs(d *StoreData) bool {
 	}
 
 	resolveMemory := func(ref string) string {
-		if ref == "" || isHexID(ref) {
+		if ref == "" || isUUID(ref) {
 			return ref
 		}
 		if id, ok := memoryNameToID[ref]; ok {
@@ -711,7 +711,7 @@ func (s *Store) migrateIDs(d *StoreData) bool {
 	}
 
 	resolveMCP := func(ref string) string {
-		if ref == "" || isHexID(ref) {
+		if ref == "" || isUUID(ref) {
 			return ref
 		}
 		if id, ok := mcpNameToID[ref]; ok {
@@ -722,7 +722,7 @@ func (s *Store) migrateIDs(d *StoreData) bool {
 	}
 
 	resolveAgent := func(ref string) string {
-		if ref == "" || isHexID(ref) {
+		if ref == "" || isUUID(ref) {
 			return ref
 		}
 		if id, ok := agentOldToNew[ref]; ok {

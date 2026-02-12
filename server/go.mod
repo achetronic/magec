@@ -6,6 +6,7 @@ go 1.25.5
 
 require (
 	github.com/achetronic/adk-utils-go v0.1.7
+	github.com/google/uuid v1.6.0
 	github.com/gorilla/mux v1.8.1
 	github.com/gorilla/websocket v1.5.3
 	github.com/lib/pq v1.10.9
@@ -47,7 +48,6 @@ require (
 	github.com/google/jsonschema-go v0.3.0 // indirect
 	github.com/google/s2a-go v0.1.9 // indirect
 	github.com/google/safehtml v0.1.0 // indirect
-	github.com/google/uuid v1.6.0 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.3.6 // indirect
 	github.com/googleapis/gax-go/v2 v2.15.0 // indirect
 	github.com/grbit/go-json v0.11.0 // indirect
