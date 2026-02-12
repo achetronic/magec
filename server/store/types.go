@@ -128,6 +128,34 @@ type CronJob struct {
 	Enabled     bool   `json:"enabled" yaml:"enabled"`
 }
 
+// FlowStepType identifies the kind of node inside a flow.
+const (
+	FlowStepAgent      = "agent"
+	FlowStepSequential = "sequential"
+	FlowStepParallel   = "parallel"
+	FlowStepLoop       = "loop"
+)
+
+// FlowStep is a recursive node in a flow tree.
+// Leaf nodes have Type "agent" and reference an AgentDefinition by ID.
+// Container nodes have Type "sequential", "parallel", or "loop" and hold
+// child steps. Loop nodes additionally specify MaxIterations.
+type FlowStep struct {
+	Type          string     `json:"type"`
+	AgentID       string     `json:"agentId,omitempty"`
+	MaxIterations uint       `json:"maxIterations,omitempty"`
+	Steps         []FlowStep `json:"steps,omitempty"`
+}
+
+// FlowDefinition represents a multi-agent workflow stored as a recursive tree
+// of steps that maps directly to ADK workflow agents.
+type FlowDefinition struct {
+	ID          string   `json:"id" yaml:"id"`
+	Name        string   `json:"name" yaml:"name"`
+	Description string   `json:"description,omitempty" yaml:"description,omitempty"`
+	Root        FlowStep `json:"root" yaml:"root"`
+}
+
 // StoreData is the top-level structure persisted to disk.
 type StoreData struct {
 	Backends        []BackendDefinition `json:"backends"`
@@ -136,4 +164,5 @@ type StoreData struct {
 	Agents          []AgentDefinition   `json:"agents"`
 	CronJobs        []CronJob           `json:"cronJobs"`
 	Clients         []ClientDefinition  `json:"clients"`
+	Flows           []FlowDefinition    `json:"flows"`
 }

@@ -33,6 +33,7 @@ func New(filePath string) (*Store, error) {
 			Agents:          []AgentDefinition{},
 			CronJobs:        []CronJob{},
 			Clients:         []ClientDefinition{},
+			Flows:           []FlowDefinition{},
 		},
 	}
 
@@ -534,6 +535,63 @@ func (s *Store) RegenerateClientToken(id string) (ClientDefinition, error) {
 	return ClientDefinition{}, fmt.Errorf("client %q not found", id)
 }
 
+// --- Flows ---
+
+func (s *Store) ListFlows() []FlowDefinition {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	result := make([]FlowDefinition, len(s.data.Flows))
+	copy(result, s.data.Flows)
+	return result
+}
+
+func (s *Store) GetFlow(id string) (FlowDefinition, bool) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	for _, f := range s.data.Flows {
+		if f.ID == id {
+			return f, true
+		}
+	}
+	return FlowDefinition{}, false
+}
+
+func (s *Store) CreateFlow(f FlowDefinition) (FlowDefinition, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	f.ID = generateID()
+	s.data.Flows = append(s.data.Flows, f)
+	return f, s.persist()
+}
+
+func (s *Store) UpdateFlow(id string, f FlowDefinition) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	for i, existing := range s.data.Flows {
+		if existing.ID == id {
+			f.ID = id
+			s.data.Flows[i] = f
+			return s.persist()
+		}
+	}
+	return fmt.Errorf("flow %q not found", id)
+}
+
+func (s *Store) DeleteFlow(id string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	for i, existing := range s.data.Flows {
+		if existing.ID == id {
+			s.data.Flows = append(s.data.Flows[:i], s.data.Flows[i+1:]...)
+			return s.persist()
+		}
+	}
+	return fmt.Errorf("flow %q not found", id)
+}
+
 // --- Persistence ---
 
 // persist writes the current store data to disk as formatted JSON and
@@ -603,6 +661,9 @@ func (s *Store) loadFromDisk() error {
 	}
 	if storeData.Clients == nil {
 		storeData.Clients = []ClientDefinition{}
+	}
+	if storeData.Flows == nil {
+		storeData.Flows = []FlowDefinition{}
 	}
 
 	s.migrateDevicesToClients(data, &storeData)
@@ -682,6 +743,13 @@ func (s *Store) migrateIDs(d *StoreData) bool {
 	for i := range d.Clients {
 		if d.Clients[i].ID == "" || !isUUID(d.Clients[i].ID) {
 			d.Clients[i].ID = generateID()
+			dirty = true
+		}
+	}
+
+	for i := range d.Flows {
+		if d.Flows[i].ID == "" || !isUUID(d.Flows[i].ID) {
+			d.Flows[i].ID = generateID()
 			dirty = true
 		}
 	}

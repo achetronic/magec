@@ -55,4 +55,10 @@ export const api = {
     deleteClient: (id) => request(`/clients/${id}`, { method: 'DELETE' }),
     regenerateClientToken: (id) => request(`/clients/${id}/regenerate-token`, { method: 'POST' }),
     listClientTypes: () => request('/clients/types'),
+
+    listFlows: () => request('/flows'),
+    getFlow: (id) => request(`/flows/${id}`),
+    createFlow: (f) => request('/flows', { method: 'POST', body: JSON.stringify(f) }),
+    updateFlow: (id, f) => request(`/flows/${id}`, { method: 'PUT', body: JSON.stringify(f) }),
+    deleteFlow: (id) => request(`/flows/${id}`, { method: 'DELETE' }),
 };

@@ -47,16 +47,19 @@ Then open http://localhost:8080 to start chatting.
 magec/
 ├── server/                     # Go backend (core)
 │   ├── main.go                 # HTTP server, routing, middleware
-│   ├── agent/agent.go          # ADK agent with memory, MCP tools
+│   ├── agent/
+│   │   ├── agent.go            # ADK agent with memory, MCP tools
+│   │   └── flow.go             # Flow→ADK workflow agent builder (sequential/parallel/loop)
 │   ├── admin/                  # Admin REST API (multi-agent management)
 │   │   ├── handler.go          # Router + helpers
 │   │   ├── agents.go           # Agent CRUD handlers
 │   │   ├── backends.go         # Backend CRUD handlers
 │   │   ├── memory.go           # Memory provider CRUD + health check + /types
+│   │   ├── flows.go            # Flow CRUD handlers + recursive validation
 │   │   └── overview.go         # Overview/health handler
 │   ├── store/                  # In-memory data store with JSON persistence
-│   │   ├── store.go            # Store struct, CRUD operations, persistence
-│   │   └── types.go            # AgentDefinition, BackendDefinition, MemoryProvider, etc.
+│   │   ├── store.go            # Store struct, CRUD operations, persistence, UUID migration
+│   │   └── types.go            # AgentDefinition, BackendDefinition, MemoryProvider, FlowDefinition, etc.
 │   ├── memory/                 # Extensible memory provider registry
 │   │   ├── provider.go         # Provider interface, Category type, HealthResult
 │   │   ├── registry.go         # Global registry: Register(), Get(), All(), ValidTypeForCategory()
@@ -111,10 +114,11 @@ magec/
 | Component | Purpose |
 |-----------|---------|
 | `server/main.go` | HTTP server (port 8080) + admin server (port 8081), routing, middleware |
-| `server/agent/agent.go` | Multi-agent ADK setup. `New()` accepts `[]AgentDefinition`, creates one LLM agent per definition, routes via `NewMultiLoader` |
+| `server/agent/agent.go` | Multi-agent ADK setup. `New()` accepts agents + flows, creates LLM agents + workflow agents, routes via `NewMultiLoader` |
+| `server/agent/flow.go` | Translates `FlowDefinition` tree → ADK workflow agents (sequential/parallel/loop) |
 | `server/admin/` | Admin REST API for managing agents, backends, MCPs, and memory providers at runtime |
 | `server/memory/` | Extensible provider registry — interface + init() auto-registration pattern |
-| `server/store/` | In-memory data store with JSON persistence (`data/store.json`). All resources managed via admin API |
+| `server/store/` | In-memory data store with JSON persistence (`data/store.json`). Immutable UUID v4 IDs. Auto-migration of legacy data |
 | `server/voice/` | Server-side voice detection (wake word + VAD) via ONNX |
 | `server/clients/telegram/` | Telegram bot with voice message support |
 | `server/config/config.go` | YAML config for server infrastructure only (ports, log) |
@@ -150,40 +154,46 @@ magec/
 | GET | `/api/v1/admin/overview` | Overview: agent/backend/MCP counts + agent summaries |
 | GET | `/api/v1/admin/backends` | List all backends |
 | POST | `/api/v1/admin/backends` | Create a backend |
-| GET | `/api/v1/admin/backends/{name}` | Get a backend by name |
-| PUT | `/api/v1/admin/backends/{name}` | Update a backend |
-| DELETE | `/api/v1/admin/backends/{name}` | Delete a backend |
+| GET | `/api/v1/admin/backends/{id}` | Get a backend by ID |
+| PUT | `/api/v1/admin/backends/{id}` | Update a backend |
+| DELETE | `/api/v1/admin/backends/{id}` | Delete a backend |
 | GET | `/api/v1/admin/memory` | List all memory providers |
 | POST | `/api/v1/admin/memory` | Create a memory provider |
 | GET | `/api/v1/admin/memory/types` | List registered provider types + supported categories |
-| GET | `/api/v1/admin/memory/{name}` | Get a memory provider by name |
-| PUT | `/api/v1/admin/memory/{name}` | Update a memory provider |
-| DELETE | `/api/v1/admin/memory/{name}` | Delete a memory provider |
-| GET | `/api/v1/admin/memory/{name}/health` | Real-time health check (Ping) for a provider |
+| GET | `/api/v1/admin/memory/{id}` | Get a memory provider by ID |
+| PUT | `/api/v1/admin/memory/{id}` | Update a memory provider |
+| DELETE | `/api/v1/admin/memory/{id}` | Delete a memory provider |
+| GET | `/api/v1/admin/memory/{id}/health` | Real-time health check (Ping) for a provider |
 | GET | `/api/v1/admin/mcps` | List all MCP servers (global) |
 | POST | `/api/v1/admin/mcps` | Create an MCP server |
-| GET | `/api/v1/admin/mcps/{name}` | Get an MCP server by name |
-| PUT | `/api/v1/admin/mcps/{name}` | Update an MCP server |
-| DELETE | `/api/v1/admin/mcps/{name}` | Delete an MCP server |
+| GET | `/api/v1/admin/mcps/{id}` | Get an MCP server by ID |
+| PUT | `/api/v1/admin/mcps/{id}` | Update an MCP server |
+| DELETE | `/api/v1/admin/mcps/{id}` | Delete an MCP server |
 | GET | `/api/v1/admin/agents` | List all agents |
 | POST | `/api/v1/admin/agents` | Create an agent |
 | GET | `/api/v1/admin/agents/{id}` | Get an agent by ID |
 | PUT | `/api/v1/admin/agents/{id}` | Update an agent |
 | DELETE | `/api/v1/admin/agents/{id}` | Delete an agent |
 | GET | `/api/v1/admin/agents/{id}/mcps` | List resolved MCPs for an agent |
-| PUT | `/api/v1/admin/agents/{id}/mcps/{name}` | Link an MCP to an agent |
-| DELETE | `/api/v1/admin/agents/{id}/mcps/{name}` | Unlink an MCP from an agent |
-| GET | `/api/v1/admin/devices` | List all devices |
-| POST | `/api/v1/admin/devices` | Create a device |
-| GET | `/api/v1/admin/devices/{name}` | Get a device by name |
-| PUT | `/api/v1/admin/devices/{name}` | Update a device |
-| DELETE | `/api/v1/admin/devices/{name}` | Delete a device |
-| POST | `/api/v1/admin/devices/{name}/regenerate-token` | Regenerate device auth token |
+| PUT | `/api/v1/admin/agents/{id}/mcps/{mcpId}` | Link an MCP to an agent |
+| DELETE | `/api/v1/admin/agents/{id}/mcps/{mcpId}` | Unlink an MCP from an agent |
+| GET | `/api/v1/admin/clients` | List all clients |
+| POST | `/api/v1/admin/clients` | Create a client |
+| GET | `/api/v1/admin/clients/types` | List registered client types |
+| GET | `/api/v1/admin/clients/{id}` | Get a client by ID |
+| PUT | `/api/v1/admin/clients/{id}` | Update a client |
+| DELETE | `/api/v1/admin/clients/{id}` | Delete a client |
+| POST | `/api/v1/admin/clients/{id}/regenerate-token` | Regenerate client auth token |
 | GET | `/api/v1/admin/crons` | List all cron jobs |
 | POST | `/api/v1/admin/crons` | Create a cron job |
-| GET | `/api/v1/admin/crons/{name}` | Get a cron job by name |
-| PUT | `/api/v1/admin/crons/{name}` | Update a cron job |
-| DELETE | `/api/v1/admin/crons/{name}` | Delete a cron job |
+| GET | `/api/v1/admin/crons/{id}` | Get a cron job by ID |
+| PUT | `/api/v1/admin/crons/{id}` | Update a cron job |
+| DELETE | `/api/v1/admin/crons/{id}` | Delete a cron job |
+| GET | `/api/v1/admin/flows` | List all flows |
+| POST | `/api/v1/admin/flows` | Create a flow |
+| GET | `/api/v1/admin/flows/{id}` | Get a flow by ID |
+| PUT | `/api/v1/admin/flows/{id}` | Update a flow |
+| DELETE | `/api/v1/admin/flows/{id}` | Delete a flow |
 
 See [MULTI_AGENT_ADMIN_API.md](MULTI_AGENT_ADMIN_API.md) for full API reference with request/response schemas.
 
@@ -218,7 +228,7 @@ All of the following are managed at runtime via `http://localhost:8081`:
 | **Memory Providers** | Redis (session), PostgreSQL (long-term) |
 | **MCP Servers** | External tool servers (HTTP or stdio) |
 | **Agents** | Independent units with own LLM, memory, tools, prompts |
-| **Devices** | Voice-UI access points with token-based auth |
+| **Clients** | Access points (voice-UI, Telegram, Discord) with token-based auth |
 | **Cron Jobs** | Scheduled prompts to agents |
 
 On first run with no `data/store.json`, the store starts empty. Configure everything via the Admin UI.
@@ -238,7 +248,9 @@ On first run with no `data/store.json`, the store starts empty. Configure everyt
 - **YAML config**: Server infrastructure only (ports, log), env var expansion with `${VAR}`
 - **Store-based resources**: All agents, backends, MCPs, memory, devices, crons managed via admin API
 - **No YAML seed**: Store starts empty on first run; configure via Admin UI at `:8081`
-- **Multi-agent ADK**: `agent.New()` accepts `[]AgentDefinition`, creates one LLM agent per definition, `NewMultiLoader` routes by `appName`
+- **Multi-agent ADK**: `agent.New()` accepts agents + flows, creates LLM agents + workflow agents, `NewMultiLoader` routes by `appName`
+- **Immutable UUID v4 IDs**: All entities use `google/uuid` v4. Cross-references store IDs, not names. Auto-migration from legacy name-based refs on first load
+- **Flows**: `FlowDefinition` with recursive `FlowStep` tree. Maps 1:1 to ADK workflow agents (sequential/parallel/loop)
 - **Hot-reload**: Store `OnChange()` channel fires on `persist()`. `agentRouterHandler` rebuilds agent on store changes with 500ms debounce
 - **ADK REST handler**: `adkrest.NewHandler()` provides full ADK API
 - **Memory tools**: Agent has `search_memory` and `save_to_memory` tools
@@ -246,7 +258,7 @@ On first run with no `data/store.json`, the store starts empty. Configure everyt
 - **Voice endpoints**: `/api/v1/voice/{agentId}/speech` and `/transcription` resolve backends dynamically per agent. API keys forwarded to upstream
 - **WebSocket voice-events**: Server handles all ONNX inference (wake word + VAD), clients stream audio at `/api/v1/voice/events`
 - **Device auth middleware**: Token-based auth on port 8080. Whitelist: health, voice/events, device/info, OPTIONS, static files
-- **Rename with cascade**: All 6 resource types support renaming via PUT. Cascading reference updates done atomically under write lock
+- **No rename cascade needed**: IDs are immutable UUIDs. Renaming = PUT with new `name` in body. Cross-references use stable IDs
 
 ### JavaScript Conventions (voice-ui)
 
@@ -492,7 +504,7 @@ Pretrained models in `pretrained/`:
 
 15. **Voice endpoint proxy forwards API keys**: `serveSpeechProxy` and `serveTranscriptionProxy` forward the backend's `apiKey` as `Authorization: Bearer` to the upstream. Without this, backends that require API keys (like OpenAI Edge TTS) return 401.
 
-16. **Rename cascade**: Renaming a resource (e.g., a backend) via PUT with a different name in the body triggers cascading updates across all referencing resources. The cascade map: Backend → Agent.LLM/TTS/Transcription.Backend + MemoryProvider.Embedding.Backend; MemoryProvider → Agent.Memory.Session/LongTerm; MCPServer → Agent.MCPServers[]; Agent → Device.DefaultAgent + Device.AllowedAgents[] + CronJob.AgentID.
+16. **Immutable IDs**: All entities use UUID v4 (`google/uuid`). Cross-references store IDs not names. On first load, `migrateIDs()` auto-generates UUIDs for entities without them and rewrites name-based cross-references to IDs. Idempotent — uses `isUUID()` regex to skip already-migrated fields.
 
 17. **Hot-reload**: Store changes (via admin API) fire `OnChange()` channel → `agentRouterHandler` rebuilds the ADK agent with 500ms debounce. No server restart needed for config changes.
 

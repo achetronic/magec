@@ -85,7 +85,7 @@ func main() {
 	adminMux.Handle("/swagger/", httpSwagger.Handler(
 		httpSwagger.URL("/swagger/doc.json"),
 	))
-	adminMux.Handle("/", http.FileServer(http.Dir("admin-ui")))
+	adminMux.Handle("/", http.FileServer(http.Dir("admin-ui/dist")))
 
 	adminAddr := fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.AdminPort)
 	adminServer := &http.Server{
@@ -612,7 +612,7 @@ func (h *agentRouterHandler) rebuild(ctx context.Context, dataStore *store.Store
 
 	var agentHandler http.Handler
 	if len(storeData.Agents) > 0 {
-		svc, err := agent.New(ctx, storeData.Agents, storeData.Backends, storeData.MemoryProviders, storeData.MCPServers)
+		svc, err := agent.New(ctx, storeData.Agents, storeData.Backends, storeData.MemoryProviders, storeData.MCPServers, storeData.Flows)
 		if err != nil {
 			slog.Warn("Failed to initialize agents", "error", err)
 		} else {

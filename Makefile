@@ -1,4 +1,4 @@
-.PHONY: help build dev clean download-model swagger postgres redis ollama infra infra-stop infra-clean
+.PHONY: help build build-admin dev dev-admin clean download-model swagger postgres redis ollama infra infra-stop infra-clean
 
 CONFIG ?= config.yaml
 
@@ -9,7 +9,9 @@ help:
 	@echo ""
 	@echo "Development:"
 	@echo "  build                Build the server binary"
-	@echo "  dev                  Start development server (CONFIG=config.yaml)"
+	@echo "  build-admin          Build the admin UI (Vue)"
+	@echo "  dev                  Build all and start server (CONFIG=config.yaml)"
+	@echo "  dev-admin            Start admin UI dev server (Vite, port 5173)"
 	@echo "  swagger              Regenerate Swagger docs from annotations"
 	@echo "  clean                Remove generated files"
 	@echo ""
@@ -24,7 +26,11 @@ help:
 	@echo "  infra-stop           Stop and remove postgres + redis"
 	@echo "  infra-clean          Stop all containers and remove volumes"
 
-build:
+build-admin:
+	@cd admin-ui && npm install --silent && npx vite build
+	@echo "Admin UI built to admin-ui/dist/"
+
+build: build-admin
 	@mkdir -p bin
 	@cd server && go build -o ../bin/magec-server .
 
@@ -37,11 +43,15 @@ swagger:
 dev: build
 	@./bin/magec-server -config=$(CONFIG)
 
+dev-admin:
+	@cd admin-ui && npx vite
+
 download-model:
 	@go run scripts/download-model.go
 
 clean:
 	@rm -rf bin
+	@rm -rf admin-ui/dist
 	@rm -rf gui/pretrained
 	@find . -name ".DS_Store" -delete
 	@echo "Cleaned"

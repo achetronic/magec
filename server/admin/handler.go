@@ -86,6 +86,13 @@ func (h *Handler) buildRouter() *mux.Router {
 	r.HandleFunc("/crons/{id}", h.updateCronJob).Methods("PUT")
 	r.HandleFunc("/crons/{id}", h.deleteCronJob).Methods("DELETE")
 
+	// Flows
+	r.HandleFunc("/flows", h.listFlows).Methods("GET")
+	r.HandleFunc("/flows", h.createFlow).Methods("POST")
+	r.HandleFunc("/flows/{id}", h.getFlow).Methods("GET")
+	r.HandleFunc("/flows/{id}", h.updateFlow).Methods("PUT")
+	r.HandleFunc("/flows/{id}", h.deleteFlow).Methods("DELETE")
+
 	return r
 }
 

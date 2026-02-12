@@ -76,7 +76,9 @@ type Service struct {
 // New builds an ADK agent for every AgentDefinition in the store, wires up
 // their LLM, session, memory, and MCP toolsets, and returns a Service that
 // routes requests to the right agent based on the appName in the request body.
-func New(ctx context.Context, agents []store.AgentDefinition, backends []store.BackendDefinition, memoryProviders []store.MemoryProvider, mcpServers []store.MCPServer) (*Service, error) {
+// Any FlowDefinitions are translated into ADK workflow agents and registered
+// alongside the regular agents.
+func New(ctx context.Context, agents []store.AgentDefinition, backends []store.BackendDefinition, memoryProviders []store.MemoryProvider, mcpServers []store.MCPServer, flows []store.FlowDefinition) (*Service, error) {
 	if len(agents) == 0 {
 		return nil, fmt.Errorf("no agents defined")
 	}
@@ -100,6 +102,7 @@ func New(ctx context.Context, agents []store.AgentDefinition, backends []store.B
 	var otherAgents []agent.Agent
 	var firstSessionSvc session.Service
 	var firstMemorySvc memory.Service
+	adkAgentMap := make(map[string]agent.Agent, len(agents))
 
 	for i, agentDef := range agents {
 		sessionSvc, err := createSessionService(agentDef, memoryProviderMap)
@@ -146,8 +149,19 @@ func New(ctx context.Context, agents []store.AgentDefinition, backends []store.B
 		} else {
 			otherAgents = append(otherAgents, adkAgent)
 		}
+		adkAgentMap[agentDef.ID] = adkAgent
 
 		slog.Info("Agent initialized", "id", agentDef.ID, "name", agentDef.Name)
+	}
+
+	for _, flow := range flows {
+		flowAgent, err := BuildFlowAgent(flow, adkAgentMap)
+		if err != nil {
+			slog.Warn("Failed to build flow", "flow", flow.Name, "error", err)
+			continue
+		}
+		otherAgents = append(otherAgents, flowAgent)
+		slog.Info("Flow initialized", "id", flow.ID, "name", flow.Name)
 	}
 
 	loader, err := agent.NewMultiLoader(rootAgent, otherAgents...)

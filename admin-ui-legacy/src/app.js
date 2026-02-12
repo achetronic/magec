@@ -11,6 +11,7 @@ class AdminApp {
         this.crons = [];
         this.clients = [];
         this.memory = [];
+        this.flows = [];
         this.memoryTypes = [];
         this.clientTypes = [];
         this.expandedAgentId = null;
@@ -26,12 +27,12 @@ class AdminApp {
 
     async refresh() {
         try {
-            [this.backends, this.agents, this.mcps, this.crons, this.clients, this.memory] = await Promise.all([
-                api.listBackends(), api.listAgents(), api.listMCPs(), api.listCrons(), api.listClients(), api.listMemory()
+            [this.backends, this.agents, this.mcps, this.crons, this.clients, this.memory, this.flows] = await Promise.all([
+                api.listBackends(), api.listAgents(), api.listMCPs(), api.listCrons(), api.listClients(), api.listMemory(), api.listFlows()
             ]);
         } catch (e) {
             console.error('Failed to load data:', e);
-            this.backends = []; this.agents = []; this.mcps = []; this.crons = []; this.clients = []; this.memory = [];
+            this.backends = []; this.agents = []; this.mcps = []; this.crons = []; this.clients = []; this.memory = []; this.flows = [];
         }
         this._renderOverview();
         this._renderBackends();
@@ -40,6 +41,7 @@ class AdminApp {
         this._renderAgents();
         this._renderClients();
         this._renderCrons();
+        this._renderFlows();
     }
 
     // ==================== Tabs ====================
@@ -60,6 +62,7 @@ class AdminApp {
                 $('panelAgents').classList.toggle('hidden', btn.dataset.tab !== 'agents');
                 $('panelClients').classList.toggle('hidden', btn.dataset.tab !== 'clients');
                 $('panelCrons').classList.toggle('hidden', btn.dataset.tab !== 'crons');
+                $('panelFlows').classList.toggle('hidden', btn.dataset.tab !== 'flows');
             });
         });
     }
@@ -83,6 +86,7 @@ class AdminApp {
             `<span class="px-2 py-0.5 bg-piedra-800 rounded-full text-arena-300">${this.agents.length} agent${this.agents.length !== 1 ? 's' : ''}</span>`,
             `<span class="px-2 py-0.5 bg-piedra-800 rounded-full text-arena-300">${this.clients.length} client${this.clients.length !== 1 ? 's' : ''}</span>`,
             `<span class="px-2 py-0.5 bg-piedra-800 rounded-full text-arena-300">${this.crons.length} cron${this.crons.length !== 1 ? 's' : ''}</span>`,
+            `<span class="px-2 py-0.5 bg-piedra-800 rounded-full text-arena-300">${this.flows.length} flow${this.flows.length !== 1 ? 's' : ''}</span>`,
         ].join('');
     }
 
@@ -850,6 +854,193 @@ class AdminApp {
         }
     }
 
+    // ==================== Flows ====================
+
+    _renderFlows() {
+        const el = $('flowsList');
+        if (!this.flows.length) {
+            el.innerHTML = `<div class="text-center py-12 text-arena-500">
+                <svg class="w-10 h-10 mx-auto mb-3 text-arena-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6"/></svg>
+                <p class="text-sm">No flows configured</p>
+                <p class="text-xs mt-1">Compose agents into sequential, parallel, or loop workflows</p>
+            </div>`;
+            return;
+        }
+        el.innerHTML = this.flows.map(f => {
+            const stepSummary = this._flowStepSummary(f.root);
+            return `
+            <div class="bg-piedra-900 border border-piedra-700/50 rounded-xl p-4 hover:border-piedra-600/50 transition-colors">
+                <div class="flex items-start justify-between gap-3 mb-2">
+                    <div class="flex items-center gap-3 min-w-0">
+                        <div class="w-8 h-8 rounded-lg bg-atlantico-500/15 flex items-center justify-center flex-shrink-0">
+                            <svg class="w-4 h-4 text-atlantico-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6"/></svg>
+                        </div>
+                        <div class="min-w-0">
+                            <h3 class="font-medium text-arena-100 text-sm">${esc(f.name)}</h3>
+                            <p class="text-[10px] text-arena-500 font-mono">${esc(f.id)}</p>
+                        </div>
+                    </div>
+                    <div class="flex gap-0.5 flex-shrink-0">
+                        <button onclick="app.editFlow('${esc(f.id)}')" class="p-1.5 hover:bg-piedra-800 rounded-lg" title="Edit">
+                            <svg class="w-3.5 h-3.5 text-arena-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                        </button>
+                        <button onclick="app.confirmDelete('flow', '${esc(f.id)}')" class="p-1.5 hover:bg-piedra-800 rounded-lg" title="Delete">
+                            <svg class="w-3.5 h-3.5 text-arena-400 hover:text-lava-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                        </button>
+                    </div>
+                </div>
+                <div class="mt-2 text-[11px] text-arena-400">${stepSummary}</div>
+            </div>`;
+        }).join('');
+    }
+
+    _flowStepSummary(step) {
+        if (!step) return '<span class="text-arena-500">empty</span>';
+        if (step.type === 'agent') {
+            const a = this.agents.find(a => a.id === step.agentId);
+            return `<span class="px-1.5 py-0.5 bg-sol-500/10 text-sol-300 text-[10px] rounded">${esc(a?.name || step.agentId || '?')}</span>`;
+        }
+        const label = { sequential: 'Sequential', parallel: 'Parallel', loop: 'Loop' }[step.type] || step.type;
+        const children = (step.steps || []).map(s => this._flowStepSummary(s)).join(' &rarr; ');
+        const extra = step.type === 'loop' && step.maxIterations ? ` &times;${step.maxIterations}` : '';
+        return `<span class="text-arena-300">${esc(label)}${extra}</span>(${children})`;
+    }
+
+    showFlowDialog(flow = null) {
+        const isEdit = !!flow;
+        $('flowDialogTitle').textContent = isEdit ? 'Edit Flow' : 'New Flow';
+        $('flowEditId').value = isEdit ? flow.id : '';
+        $('flowName').value = flow?.name || '';
+        this._flowEditorRoot = flow ? JSON.parse(JSON.stringify(flow.root)) : { type: 'sequential', steps: [] };
+        this._renderFlowEditor();
+        $('flowDialog').showModal();
+    }
+
+    _renderFlowEditor() {
+        $('flowRootStep').innerHTML = this._renderStepEditor(this._flowEditorRoot, []);
+    }
+
+    _renderStepEditor(step, path) {
+        const pathStr = JSON.stringify(path);
+        const typeOptions = ['agent', 'sequential', 'parallel', 'loop'].map(t =>
+            `<option value="${t}" ${step.type === t ? 'selected' : ''}>${t}</option>`
+        ).join('');
+
+        let content = `
+        <div class="border border-piedra-700/40 rounded-lg p-3 space-y-2 bg-piedra-850">
+            <div class="flex items-center gap-2">
+                <select onchange="app._changeStepType(${esc(pathStr)}, this.value)" class="bg-piedra-800 border border-piedra-700 rounded px-2 py-1 text-xs focus:ring-1 focus:ring-sol-500 outline-none">${typeOptions}</select>`;
+
+        if (path.length > 0) {
+            content += `<button type="button" onclick="app._removeStep(${esc(pathStr)})" class="ml-auto p-1 hover:bg-piedra-800 rounded text-arena-500 hover:text-lava-400" title="Remove step">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>`;
+        }
+        content += `</div>`;
+
+        if (step.type === 'agent') {
+            const agentOptions = ['<option value="">Select agent...</option>',
+                ...this.agents.map(a =>
+                    `<option value="${esc(a.id)}" ${step.agentId === a.id ? 'selected' : ''}>${esc(a.name || a.id)}</option>`
+                )
+            ].join('');
+            content += `<select onchange="app._setStepAgent(${esc(pathStr)}, this.value)" class="w-full bg-piedra-800 border border-piedra-700 rounded px-2 py-1 text-xs focus:ring-1 focus:ring-sol-500 outline-none">${agentOptions}</select>`;
+        } else {
+            if (step.type === 'loop') {
+                content += `<div class="flex items-center gap-2">
+                    <label class="text-[10px] text-arena-400">Max iterations</label>
+                    <input type="number" min="0" value="${step.maxIterations || 0}" onchange="app._setStepMaxIter(${esc(pathStr)}, this.value)" class="w-20 bg-piedra-800 border border-piedra-700 rounded px-2 py-1 text-xs focus:ring-1 focus:ring-sol-500 outline-none">
+                    <span class="text-[10px] text-arena-500">0 = infinite</span>
+                </div>`;
+            }
+            const steps = step.steps || [];
+            content += `<div class="pl-3 border-l-2 border-piedra-700/50 space-y-2 mt-1">`;
+            for (let i = 0; i < steps.length; i++) {
+                content += this._renderStepEditor(steps[i], [...path, i]);
+            }
+            content += `</div>
+            <button type="button" onclick="app._addChildStep(${esc(pathStr)})" class="flex items-center gap-1 text-[10px] text-sol-400 hover:text-sol-300 mt-1 ml-3">
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                Add step
+            </button>`;
+        }
+
+        content += `</div>`;
+        return content;
+    }
+
+    _getStepAtPath(path) {
+        let node = this._flowEditorRoot;
+        for (const idx of path) {
+            node = node.steps[idx];
+        }
+        return node;
+    }
+
+    _changeStepType(path, newType) {
+        const step = this._getStepAtPath(path);
+        step.type = newType;
+        if (newType === 'agent') {
+            step.agentId = step.agentId || '';
+            delete step.steps;
+            delete step.maxIterations;
+        } else {
+            step.steps = step.steps || [];
+            delete step.agentId;
+            if (newType !== 'loop') delete step.maxIterations;
+        }
+        this._renderFlowEditor();
+    }
+
+    _setStepAgent(path, agentId) {
+        this._getStepAtPath(path).agentId = agentId;
+    }
+
+    _setStepMaxIter(path, val) {
+        this._getStepAtPath(path).maxIterations = parseInt(val) || 0;
+    }
+
+    _addChildStep(path) {
+        const step = this._getStepAtPath(path);
+        if (!step.steps) step.steps = [];
+        step.steps.push({ type: 'agent', agentId: '' });
+        this._renderFlowEditor();
+    }
+
+    _removeStep(path) {
+        if (path.length === 0) return;
+        const parentPath = path.slice(0, -1);
+        const idx = path[path.length - 1];
+        const parent = this._getStepAtPath(parentPath);
+        parent.steps.splice(idx, 1);
+        this._renderFlowEditor();
+    }
+
+    async editFlow(id) {
+        const f = this.flows.find(f => f.id === id);
+        if (f) this.showFlowDialog(f);
+    }
+
+    async saveFlow() {
+        const editId = $('flowEditId').value;
+        const isEdit = !!editId;
+        const flow = {
+            name: $('flowName').value.trim(),
+            root: this._flowEditorRoot,
+        };
+        try {
+            if (isEdit) {
+                await api.updateFlow(editId, flow);
+            } else {
+                await api.createFlow(flow);
+            }
+            $('flowDialog').close();
+            await this.refresh();
+        } catch (e) {
+            alert('Error: ' + e.message);
+        }
+    }
+
     // ==================== Delete Confirmation ====================
 
     // ==================== Clients ====================
@@ -1074,7 +1265,7 @@ class AdminApp {
     // ==================== Delete Confirmation ====================
 
     confirmDelete(type, id) {
-        const labels = { agent: 'agent', backend: 'backend', memory: 'memory provider', mcp: 'MCP server', cron: 'cron job', client: 'client' };
+        const labels = { agent: 'agent', backend: 'backend', memory: 'memory provider', mcp: 'MCP server', cron: 'cron job', client: 'client', flow: 'flow' };
         $('confirmMessage').textContent = `Delete ${labels[type]} "${id}"? This cannot be undone.`;
         const btn = $('confirmBtn');
         btn.onclick = async () => {
@@ -1085,6 +1276,7 @@ class AdminApp {
                 else if (type === 'mcp') await api.deleteMCP(id);
                 else if (type === 'cron') await api.deleteCron(id);
                 else if (type === 'client') await api.deleteClient(id);
+                else if (type === 'flow') await api.deleteFlow(id);
                 $('confirmDialog').close();
                 await this.refresh();
             } catch (e) {
