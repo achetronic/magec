@@ -9,6 +9,19 @@
         <FormLabel label="Description" />
         <FormInput v-model="form.description" placeholder="What this agent does..." />
       </div>
+      <div>
+        <FormLabel label="Tags" />
+        <div class="flex flex-wrap gap-1.5 mb-2" v-if="form.tags.length">
+          <span
+            v-for="(tag, i) in form.tags" :key="i"
+            class="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-medium rounded-lg bg-sol-500/10 text-sol-300 border border-sol-500/20"
+          >
+            {{ tag }}
+            <button type="button" @click="removeTag(i)" class="hover:text-lava-400 transition-colors cursor-pointer">&times;</button>
+          </span>
+        </div>
+        <FormInput v-model="tagInput" placeholder="Type a tag and press Enter" @keydown.enter.prevent="addTag" />
+      </div>
       <!-- System Prompt -->
       <details class="group border border-piedra-700/40 rounded-xl">
         <summary class="flex items-center justify-between px-4 py-3 cursor-pointer select-none text-xs font-medium text-arena-400 hover:text-arena-300">
@@ -162,6 +175,7 @@ const store = useDataStore()
 const dialogRef = ref(null)
 const editId = ref(null)
 const isEdit = ref(false)
+const tagInput = ref('')
 
 const form = reactive({
   name: '',
@@ -173,6 +187,7 @@ const form = reactive({
   memorySession: '',
   memoryLongTerm: '',
   mcpServers: [],
+  tags: [],
   transcriptionBackend: '',
   transcriptionModel: '',
   ttsBackend: '',
@@ -190,6 +205,18 @@ function toggleMcp(id) {
   else form.mcpServers.splice(idx, 1)
 }
 
+function addTag() {
+  const tag = tagInput.value.trim().toLowerCase()
+  if (tag && !form.tags.includes(tag)) {
+    form.tags.push(tag)
+  }
+  tagInput.value = ''
+}
+
+function removeTag(i) {
+  form.tags.splice(i, 1)
+}
+
 function open(agent = null) {
   isEdit.value = !!agent
   editId.value = agent?.id || null
@@ -202,6 +229,7 @@ function open(agent = null) {
   form.memorySession = agent?.memory?.session || ''
   form.memoryLongTerm = agent?.memory?.longTerm || ''
   form.mcpServers = [...(agent?.mcpServers || [])]
+  form.tags = [...(agent?.tags || [])]
   form.transcriptionBackend = agent?.transcription?.backend || ''
   form.transcriptionModel = agent?.transcription?.model || ''
   form.ttsBackend = agent?.tts?.backend || ''
@@ -226,6 +254,7 @@ async function save() {
       speed: parseFloat(form.ttsSpeed) || 0,
     },
     mcpServers: form.mcpServers,
+    tags: form.tags.length ? form.tags : undefined,
     memory: { session: form.memorySession, longTerm: form.memoryLongTerm },
   }
   try {

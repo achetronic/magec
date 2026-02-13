@@ -42,13 +42,23 @@
             </button>
           </div>
         </div>
-        <div class="flex flex-wrap gap-1.5">
+        <div v-if="agentRefs(c).length || commandRef(c)" class="border-t border-piedra-700/30 pt-2 mt-2 flex flex-wrap gap-1.5">
           <Tooltip v-if="commandRef(c)" :text="commandRef(c).tooltip">
-            <Badge variant="indigo">{{ commandRef(c).name }}</Badge>
+            <Badge variant="muted">{{ commandRef(c).name }}</Badge>
           </Tooltip>
-          <Tooltip v-for="ref in agentRefs(c)" :key="ref.name" :text="ref.tooltip">
-            <Badge :variant="ref.isFlow ? 'rose' : 'sol'">{{ ref.isFlow ? '⤳ ' : '' }}{{ ref.name }}</Badge>
-          </Tooltip>
+          <template v-for="(ref, i) in agentRefs(c)" :key="ref.name">
+            <Tooltip v-if="i < 2 || expandedChips[c.id]" :text="ref.tooltip">
+              <Badge variant="sol">{{ ref.isFlow ? '⤳ ' : '' }}{{ ref.name }}</Badge>
+            </Tooltip>
+          </template>
+          <button
+            v-if="agentRefs(c).length > 2"
+            type="button"
+            @click="expandedChips[c.id] = !expandedChips[c.id]"
+            class="px-2 py-0.5 text-[10px] font-medium rounded bg-piedra-800 text-arena-500 hover:text-arena-300 border border-piedra-700/40 hover:border-piedra-600 transition-all cursor-pointer"
+          >
+            {{ expandedChips[c.id] ? 'less' : `+${agentRefs(c).length - 2} more` }}
+          </button>
         </div>
         <p v-if="!agentRefs(c).length && !commandRef(c)" class="text-[10px] text-arena-600">No agents or flows assigned</p>
       </Card>
@@ -59,7 +69,7 @@
 </template>
 
 <script setup>
-import { inject, ref, onMounted, onUnmounted } from 'vue'
+import { inject, ref, reactive, onMounted, onUnmounted } from 'vue'
 import { useDataStore } from '../../lib/stores/data.js'
 import { clientsApi } from '../../lib/api/index.js'
 import Card from '../../components/Card.vue'
@@ -72,6 +82,7 @@ import ClientDialog from './ClientDialog.vue'
 
 const store = useDataStore()
 const dialog = ref(null)
+const expandedChips = reactive({})
 const requestDelete = inject('requestDelete')
 const toast = inject('toast')
 const registerNew = inject('registerNew')
@@ -87,9 +98,8 @@ function clientTypeAbbrev(t) {
   return clientTypeLabel(t).slice(0, 3).toUpperCase()
 }
 
-function clientTypeBadge(t) {
-  const map = { direct: 'lava', telegram: 'lava', cron: 'teal', webhook: 'teal' }
-  return map[t] || 'lava'
+function clientTypeBadge() {
+  return 'muted'
 }
 
 function commandRef(c) {

@@ -4,6 +4,10 @@
       <div class="space-y-4">
         <p v-if="agent.description" class="text-xs text-arena-400">{{ agent.description }}</p>
 
+        <div v-if="(agent.tags || []).length" class="flex flex-wrap gap-1.5">
+          <Badge variant="muted" v-for="tag in agent.tags" :key="tag">{{ tag }}</Badge>
+        </div>
+
         <div class="space-y-1.5">
           <h4 class="text-[10px] font-medium text-arena-500 uppercase tracking-wider">LLM</h4>
           <DetailRow label="Backend" :value="store.backendLabel(agent.llm?.backend)" />

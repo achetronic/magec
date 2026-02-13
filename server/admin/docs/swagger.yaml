@@ -67,6 +67,10 @@ definitions:
         type: string
       systemPrompt:
         type: string
+      tags:
+        items:
+          type: string
+        type: array
       transcription:
         $ref: '#/definitions/store.BackendRef'
       tts:

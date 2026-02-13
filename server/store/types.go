@@ -19,6 +19,7 @@ type AgentDefinition struct {
 	TTS          TTSRef     `json:"tts,omitempty" yaml:"tts,omitempty"`
 	Memory       MemoryRef  `json:"memory,omitempty" yaml:"memory,omitempty"`
 	MCPServers   []string   `json:"mcpServers,omitempty" yaml:"mcpServers,omitempty"`
+	Tags         []string   `json:"tags,omitempty" yaml:"tags,omitempty"`
 }
 
 // BackendDefinition represents a reusable AI backend.

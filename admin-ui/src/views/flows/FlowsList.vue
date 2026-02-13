@@ -20,7 +20,6 @@
             </div>
             <div class="min-w-0">
               <h3 class="font-medium text-arena-100 text-sm">{{ f.name }}</h3>
-              <p class="text-[10px] text-arena-500 font-mono truncate">{{ f.id }}</p>
             </div>
           </div>
           <div class="flex gap-0.5 flex-shrink-0">
