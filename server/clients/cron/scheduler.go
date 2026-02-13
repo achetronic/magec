@@ -1,4 +1,4 @@
-package trigger
+package cron
 
 import (
 	"context"
@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/achetronic/magec/server/clients"
 	"github.com/achetronic/magec/server/store"
 )
 
@@ -13,7 +14,7 @@ import (
 // It polls the store periodically for client changes rather than
 // depending on a cron library, keeping dependencies minimal.
 type Scheduler struct {
-	executor *Executor
+	executor *clients.Executor
 	store    *store.Store
 	logger   *slog.Logger
 
@@ -24,12 +25,12 @@ type Scheduler struct {
 
 type cronEntry struct {
 	client   store.ClientDefinition
-	schedule *cronSchedule
+	schedule *Schedule
 	next     time.Time
 }
 
 // NewScheduler creates a cron scheduler that checks clients every 30 seconds.
-func NewScheduler(executor *Executor, s *store.Store, logger *slog.Logger) *Scheduler {
+func NewScheduler(executor *clients.Executor, s *store.Store, logger *slog.Logger) *Scheduler {
 	return &Scheduler{
 		executor: executor,
 		store:    s,
@@ -72,15 +73,15 @@ func (s *Scheduler) reload() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	clients := s.store.ListClients()
-	newEntries := make(map[string]*cronEntry, len(clients))
+	allClients := s.store.ListClients()
+	newEntries := make(map[string]*cronEntry, len(allClients))
 
-	for _, cl := range clients {
+	for _, cl := range allClients {
 		if cl.Type != "cron" || !cl.Enabled || cl.Config.Cron == nil {
 			continue
 		}
 
-		sched, err := parseCron(cl.Config.Cron.Schedule)
+		sched, err := Parse(cl.Config.Cron.Schedule)
 		if err != nil {
 			s.logger.Warn("Invalid cron schedule, skipping", "client", cl.Name, "schedule", cl.Config.Cron.Schedule, "error", err)
 			continue

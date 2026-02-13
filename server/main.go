@@ -35,11 +35,13 @@ import (
 
 	"github.com/achetronic/magec/server/admin"
 	"github.com/achetronic/magec/server/agent"
+	"github.com/achetronic/magec/server/clients"
+	"github.com/achetronic/magec/server/clients/cron"
 	"github.com/achetronic/magec/server/clients/telegram"
+	"github.com/achetronic/magec/server/clients/webhook"
 	"github.com/achetronic/magec/server/config"
 	"github.com/achetronic/magec/server/logging"
 	"github.com/achetronic/magec/server/store"
-	"github.com/achetronic/magec/server/trigger"
 	"github.com/achetronic/magec/server/userapi"
 	"github.com/achetronic/magec/server/voice"
 
@@ -180,8 +182,8 @@ func main() {
 
 	// Webhook handler for trigger endpoints
 	agentURL := fmt.Sprintf("http://127.0.0.1:%d/api/v1/agent", cfg.Server.Port)
-	triggerExecutor := trigger.NewExecutor(dataStore, agentURL, slog.Default())
-	webhookHandler := trigger.NewWebhookHandler(triggerExecutor, dataStore, slog.Default())
+	executor := clients.NewExecutor(dataStore, agentURL, slog.Default())
+	webhookHandler := webhook.NewHandler(executor, dataStore, slog.Default())
 	httpMux.Handle("/api/v1/webhooks/", http.StripPrefix("/api/v1/webhooks", webhookHandler))
 
 	// Static files
@@ -192,12 +194,12 @@ func main() {
 		Addr:         addr,
 		Handler:      accessLogMiddleware(corsMiddleware(clientAuthMiddleware(httpMux, dataStore))),
 		ReadTimeout:  30 * time.Second,
-		WriteTimeout: 120 * time.Second,
+		WriteTimeout: 15 * time.Minute,
 		IdleTimeout:  60 * time.Second,
 	}
 
 	// Start cron scheduler
-	cronScheduler := trigger.NewScheduler(triggerExecutor, dataStore, slog.Default())
+	cronScheduler := cron.NewScheduler(executor, dataStore, slog.Default())
 	go cronScheduler.Start(ctx)
 
 	// Start Telegram clients from store

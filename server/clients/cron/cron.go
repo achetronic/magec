@@ -1,4 +1,4 @@
-package trigger
+package cron
 
 import (
 	"fmt"
@@ -7,8 +7,8 @@ import (
 	"time"
 )
 
-// cronSchedule represents a parsed standard cron expression (min hour dom month dow).
-type cronSchedule struct {
+// Schedule represents a parsed standard cron expression (min hour dom month dow).
+type Schedule struct {
 	minutes  [60]bool
 	hours    [24]bool
 	days     [31]bool
@@ -16,7 +16,7 @@ type cronSchedule struct {
 	weekdays [7]bool
 }
 
-var cronShorthands = map[string]string{
+var shorthands = map[string]string{
 	"@yearly":   "0 0 1 1 *",
 	"@annually": "0 0 1 1 *",
 	"@monthly":  "0 0 1 * *",
@@ -26,10 +26,10 @@ var cronShorthands = map[string]string{
 	"@hourly":   "0 * * * *",
 }
 
-// parseCron parses a standard 5-field cron expression or a shorthand like @daily, @hourly.
-func parseCron(expr string) (*cronSchedule, error) {
+// Parse parses a standard 5-field cron expression or a shorthand like @daily, @hourly.
+func Parse(expr string) (*Schedule, error) {
 	trimmed := strings.TrimSpace(expr)
-	if expanded, ok := cronShorthands[strings.ToLower(trimmed)]; ok {
+	if expanded, ok := shorthands[strings.ToLower(trimmed)]; ok {
 		trimmed = expanded
 	}
 	fields := strings.Fields(trimmed)
@@ -37,7 +37,7 @@ func parseCron(expr string) (*cronSchedule, error) {
 		return nil, fmt.Errorf("expected 5 fields, got %d", len(fields))
 	}
 
-	s := &cronSchedule{}
+	s := &Schedule{}
 
 	if err := parseField(fields[0], s.minutes[:], 0, 59); err != nil {
 		return nil, fmt.Errorf("minute: %w", err)
@@ -104,7 +104,7 @@ func parseField(field string, bits []bool, min, max int) error {
 }
 
 // Next returns the next time after t that matches the schedule.
-func (s *cronSchedule) Next(t time.Time) time.Time {
+func (s *Schedule) Next(t time.Time) time.Time {
 	t = t.Add(time.Minute).Truncate(time.Minute)
 
 	for i := 0; i < 366*24*60; i++ {
@@ -117,7 +117,7 @@ func (s *cronSchedule) Next(t time.Time) time.Time {
 	return t
 }
 
-func (s *cronSchedule) matches(t time.Time) bool {
+func (s *Schedule) matches(t time.Time) bool {
 	return s.minutes[t.Minute()] &&
 		s.hours[t.Hour()] &&
 		s.days[t.Day()-1] &&

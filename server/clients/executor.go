@@ -1,4 +1,4 @@
-package trigger
+package clients
 
 import (
 	"bytes"
@@ -123,7 +123,7 @@ func (e *Executor) callAgent(ctx context.Context, agentID, prompt, token string,
 		return "", fmt.Errorf("failed to marshal request: %w", err)
 	}
 
-	callCtx, cancel := context.WithTimeout(ctx, 60*time.Second)
+	callCtx, cancel := context.WithTimeout(ctx, 15*time.Minute)
 	defer cancel()
 
 	req, err := http.NewRequestWithContext(callCtx, "POST", e.agentURL+"/run", bytes.NewReader(jsonBody))
@@ -151,7 +151,11 @@ func (e *Executor) callAgent(ctx context.Context, agentID, prompt, token string,
 		return "", fmt.Errorf("failed to decode response: %w", err)
 	}
 
-	return extractResponseText(events, responseFilter), nil
+	e.logger.Info("ADK response received", "events", len(events), "filterAgents", len(responseFilter))
+
+	responseText := extractResponseText(events, responseFilter)
+	e.logger.Info("Response extracted", "responseLen", len(responseText))
+	return responseText, nil
 }
 
 // collectOutputKeys returns a map with empty strings for every agent outputKey

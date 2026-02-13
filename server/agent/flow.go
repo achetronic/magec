@@ -16,13 +16,13 @@ import (
 // The root step uses the flow ID as its ADK agent name so flows are addressable
 // by ID, consistent with how individual agents are addressed.
 func BuildFlowAgent(flow store.FlowDefinition, agentMap map[string]adkagent.Agent) (adkagent.Agent, error) {
-	return buildStep(flow.ID, &flow.Root, agentMap, 0)
+	return buildStep(flow.ID, &flow.Root, agentMap, "")
 }
 
-func buildStep(name string, step *store.FlowStep, agentMap map[string]adkagent.Agent, depth int) (adkagent.Agent, error) {
-	stepName := name
-	if depth > 0 {
-		stepName = fmt.Sprintf("%s_%d", name, depth)
+func buildStep(flowID string, step *store.FlowStep, agentMap map[string]adkagent.Agent, path string) (adkagent.Agent, error) {
+	stepName := flowID
+	if path != "" {
+		stepName = fmt.Sprintf("%s_%s", flowID, path)
 	}
 
 	switch step.Type {
@@ -34,7 +34,7 @@ func buildStep(name string, step *store.FlowStep, agentMap map[string]adkagent.A
 		return a, nil
 
 	case store.FlowStepSequential:
-		children, err := buildChildren(name, step.Steps, agentMap, depth)
+		children, err := buildChildren(flowID, step.Steps, agentMap, path)
 		if err != nil {
 			return nil, err
 		}
@@ -46,7 +46,7 @@ func buildStep(name string, step *store.FlowStep, agentMap map[string]adkagent.A
 		})
 
 	case store.FlowStepParallel:
-		children, err := buildChildren(name, step.Steps, agentMap, depth)
+		children, err := buildChildren(flowID, step.Steps, agentMap, path)
 		if err != nil {
 			return nil, err
 		}
@@ -58,7 +58,7 @@ func buildStep(name string, step *store.FlowStep, agentMap map[string]adkagent.A
 		})
 
 	case store.FlowStepLoop:
-		children, err := buildChildren(name, step.Steps, agentMap, depth)
+		children, err := buildChildren(flowID, step.Steps, agentMap, path)
 		if err != nil {
 			return nil, err
 		}
@@ -75,10 +75,14 @@ func buildStep(name string, step *store.FlowStep, agentMap map[string]adkagent.A
 	}
 }
 
-func buildChildren(name string, steps []store.FlowStep, agentMap map[string]adkagent.Agent, depth int) ([]adkagent.Agent, error) {
+func buildChildren(flowID string, steps []store.FlowStep, agentMap map[string]adkagent.Agent, parentPath string) ([]adkagent.Agent, error) {
 	children := make([]adkagent.Agent, 0, len(steps))
 	for i := range steps {
-		child, err := buildStep(name, &steps[i], agentMap, depth+1+i)
+		childPath := fmt.Sprintf("%d", i)
+		if parentPath != "" {
+			childPath = fmt.Sprintf("%s_%d", parentPath, i)
+		}
+		child, err := buildStep(flowID, &steps[i], agentMap, childPath)
 		if err != nil {
 			return nil, err
 		}
