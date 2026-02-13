@@ -68,20 +68,22 @@ magec/
 │   │       └── docs/           # Generated swagger (userapi_swagger.json/yaml)
 │   ├── middleware/              # HTTP middleware (AccessLog, CORS, ClientAuth)
 │   │   └── middleware.go        # Uses httpsnoop — see DECISIONS.md
-│   ├── clients/                 # All client types + shared executor
+│   ├── clients/                 # Client types: registry + specs + runtime
+│   │   ├── provider.go          # Provider interface: Type(), DisplayName(), ConfigSchema()
+│   │   ├── registry.go          # Global registry: Register(), ValidateConfig() with oneOf support
 │   │   ├── executor.go          # RunClient() — executes commands against all allowedAgents
-│   │   ├── webhook/webhook.go   # Webhook HTTP handler — Bearer token auth, passthrough/fixed modes
+│   │   ├── direct/
+│   │   │   └── spec.go          # Direct provider (empty config)
+│   │   ├── webhook/
+│   │   │   ├── spec.go          # Webhook provider schema (passthrough/commandId oneOf)
+│   │   │   └── handler.go       # Webhook HTTP handler — Bearer token auth, passthrough/fixed modes
 │   │   ├── cron/
+│   │   │   ├── spec.go          # Cron provider schema (schedule, commandId)
 │   │   │   ├── cron.go          # Cron expression parser
 │   │   │   └── scheduler.go     # Cron scheduler — filters cron-type clients, fires on schedule
-│   │   └── telegram/telegram.go # Telegram bot — voice, per-chat agents, response modes
-│   ├── client/                 # Client type provider registry (JSON Schema based)
-│   │   ├── provider.go         # Provider interface: Type(), DisplayName(), ConfigSchema()
-│   │   ├── registry.go         # Global registry: Register(), ValidateConfig() with oneOf support
-│   │   ├── direct/direct.go    # Direct provider (empty config)
-│   │   ├── telegram/telegram.go # Telegram provider (botToken, allowedUsers, responseMode)
-│   │   ├── cron/cron.go        # Cron provider (schedule, commandId)
-│   │   └── webhook/webhook.go  # Webhook provider (passthrough/commandId oneOf)
+│   │   └── telegram/
+│   │       ├── spec.go          # Telegram provider schema (botToken, allowedUsers, responseMode)
+│   │       └── bot.go           # Telegram bot — voice, per-chat agents, response modes
 │   ├── schema/                 # Shared JSON Schema validation (google/jsonschema-go)
 │   │   └── validate.go         # Validate(schema, data) — marshal→unmarshal→resolve→validate
 │   ├── store/                  # In-memory data store with JSON persistence
@@ -155,8 +157,7 @@ magec/
 | `server/agent/agent.go` | Multi-agent ADK setup. `New()` accepts agents + flows, creates LLM agents + workflow agents, routes via `NewMultiLoader` |
 | `server/agent/flow.go` | Translates `FlowDefinition` tree → ADK workflow agents (sequential/parallel/loop) |
 | `server/api/admin/` | Admin REST API for managing all resources at runtime |
-| `server/client/` | Client type provider registry — JSON Schema based. Each type declares its config schema. Validation supports `oneOf`, `required`, `properties` |
-| `server/clients/` | Automation execution: cron scheduler + webhook HTTP handler + executor that runs commands against agents |
+| `server/clients/` | Unified client package: provider registry (specs + schemas) + runtime execution (executor, webhook handler, cron scheduler, telegram bot) |
 | `server/memory/` | Extensible provider registry — interface + init() auto-registration pattern |
 | `server/store/` | In-memory data store with JSON persistence (`data/store.json`). Immutable UUID v4 IDs |
 | `server/api/user/` | User-facing API handlers + Swagger docs (health, device info, voice, webhooks) |

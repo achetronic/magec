@@ -6,7 +6,7 @@ import (
 
 	"github.com/gorilla/mux"
 
-	"github.com/achetronic/magec/server/client"
+	"github.com/achetronic/magec/server/clients"
 	"github.com/achetronic/magec/server/store"
 )
 
@@ -66,7 +66,7 @@ func (h *Handler) createClient(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "type is required")
 		return
 	}
-	if !client.ValidType(c.Type) {
+	if !clients.ValidType(c.Type) {
 		writeError(w, http.StatusBadRequest, "unsupported client type: "+c.Type)
 		return
 	}
@@ -155,7 +155,7 @@ func (h *Handler) regenerateClientToken(w http.ResponseWriter, r *http.Request) 
 type ClientTypeInfo struct {
 	Type         string        `json:"type" example:"telegram"`
 	DisplayName  string        `json:"displayName" example:"Telegram"`
-	ConfigSchema client.Schema `json:"configSchema"`
+	ConfigSchema clients.Schema `json:"configSchema"`
 }
 
 // listClientTypes returns all registered client types with field specs.
@@ -167,7 +167,7 @@ type ClientTypeInfo struct {
 // @Router       /clients/types [get]
 func (h *Handler) listClientTypes(w http.ResponseWriter, r *http.Request) {
 	var types []ClientTypeInfo
-	for _, p := range client.All() {
+	for _, p := range clients.All() {
 		types = append(types, ClientTypeInfo{
 			Type:         p.Type(),
 			DisplayName:  p.DisplayName(),
@@ -186,5 +186,5 @@ func validateClientConfig(c store.ClientDefinition) error {
 	if err := json.Unmarshal(raw, &full); err != nil {
 		return nil
 	}
-	return client.ValidateConfig(c.Type, full[c.Type])
+	return clients.ValidateConfig(c.Type, full[c.Type])
 }

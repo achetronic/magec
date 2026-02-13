@@ -129,13 +129,9 @@ See `.agents/ADK_TOOLS.md` for full details on `toolconfirmation`.
 
 ## Low Priority
 
-### Unificar `client/` y `clients/`
+### ~~Unificar `client/` y `clients/`~~ ✅
 
-**Problema**: `server/client/` contiene el registry de JSON Schema (specs/validación de tipos de cliente) y `server/clients/` contiene las implementaciones runtime (executor, webhook handler, cron scheduler, telegram bot). Dos paquetes con nombres casi idénticos para cosas relacionadas.
-
-**Objetivo**: Unificar en una sola estructura bajo `server/clients/` donde cada tipo de cliente tenga su spec (JSON Schema) y su implementación juntas.
-
-**Ver**: `.agents/DECISIONS.md` para contexto sobre la estructura actual de `server/clients/`.
+**Completado**: `server/client/` absorbido en `server/clients/`. Cada subtipo tiene `spec.go` (schema) junto a su runtime (`handler.go`, `bot.go`, `scheduler.go`). Registry y Provider interface en `clients/provider.go` + `clients/registry.go`.
 
 ---
 

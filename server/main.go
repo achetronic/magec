@@ -49,10 +49,7 @@ import (
 	_ "github.com/achetronic/magec/server/api/user/docs"
 
 	_ "github.com/achetronic/magec/server/api/admin/docs"
-	_ "github.com/achetronic/magec/server/client/cron"
-	_ "github.com/achetronic/magec/server/client/direct"
-	_ "github.com/achetronic/magec/server/client/telegram"
-	_ "github.com/achetronic/magec/server/client/webhook"
+	_ "github.com/achetronic/magec/server/clients/direct"
 	_ "github.com/achetronic/magec/server/memory/postgres"
 	_ "github.com/achetronic/magec/server/memory/redis"
 )

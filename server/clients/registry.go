@@ -1,4 +1,4 @@
-package client
+package clients
 
 import (
 	"fmt"
@@ -14,12 +14,12 @@ var (
 )
 
 // Register adds a client provider to the global registry. Called from init()
-// in each provider package (e.g. client/telegram, client/direct).
+// in each provider package (e.g. clients/telegram, clients/direct).
 func Register(p Provider) {
 	mu.Lock()
 	defer mu.Unlock()
 	if _, exists := providers[p.Type()]; exists {
-		panic(fmt.Sprintf("client: provider type %q already registered", p.Type()))
+		panic(fmt.Sprintf("clients: provider type %q already registered", p.Type()))
 	}
 	providers[p.Type()] = p
 }

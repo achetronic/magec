@@ -23,23 +23,35 @@ propio sobre `http.ResponseWriter`. httpsnoop maneja correctamente `Hijacker`, `
 
 ---
 
-## Clientes en server/clients/
+## Clientes unificados en server/clients/
 
 **Fecha**: 2026-02-13
 **Estado**: Implementado
 
-Todos los tipos de cliente (webhook, cron, telegram) viven bajo `server/clients/`:
+Todos los tipos de cliente viven bajo `server/clients/`. Cada subtipo tiene su
+subdirectorio con `spec.go` (JSON Schema del tipo) junto a su runtime:
 
 ```
 server/clients/
+├── provider.go          ← Provider interface + Schema type
+├── registry.go          ← Register(), ValidateConfig(), All()
 ├── executor.go          ← lógica compartida (webhook + cron)
-├── webhook/webhook.go
-├── cron/
-│   ├── cron.go
-│   └── scheduler.go
-└── telegram/telegram.go
+├── direct/
+│   └── spec.go          ← Schema (sin runtime)
+├── telegram/
+│   ├── spec.go
+│   └── bot.go
+├── webhook/
+│   ├── spec.go
+│   └── handler.go
+└── cron/
+    ├── spec.go
+    ├── cron.go
+    └── scheduler.go
 ```
 
+El paquete `server/client/` (singular) fue absorbido. La separación anterior
+(schemas en `client/`, runtime en `clients/`) no era consistente.
 El paquete `server/trigger/` fue eliminado. Webhook y cron son clientes igual que
 Telegram — la separación anterior no era consistente con el dominio.
 
