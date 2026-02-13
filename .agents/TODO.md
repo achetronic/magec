@@ -86,6 +86,14 @@ See `.agents/ADK_TOOLS.md` for full details on `toolconfirmation`.
 
 ---
 
+### Mover APIs a `api/admin/` y `api/user/`
+
+**Problema**: Los handlers de la admin API están en `server/admin/` y los de la user API en `server/userapi/`. Cada uno tiene su propia carpeta de Swagger docs. La estructura no refleja que ambas son APIs con el mismo patrón.
+
+**Objetivo**: Mover a `server/api/admin/` y `server/api/user/` con sus swagger docs respectivos dentro de cada subdirectorio. Alinea la estructura de código con las rutas HTTP (`/api/v1/admin/*`, `/api/v1/*`).
+
+---
+
 ### Evaluate Flow Subagent Invocation Model
 
 **Context**: Flows are registered as ADK agents and invoked via the same `/api/v1/agent/run` endpoint as regular agents. This means a flow *is* an agent from the caller's perspective — it just orchestrates sub-agents internally (sequential, parallel, loop).
@@ -122,6 +130,16 @@ See `.agents/ADK_TOOLS.md` for full details on `toolconfirmation`.
 ---
 
 ## Low Priority
+
+### Unificar `client/` y `clients/`
+
+**Problema**: `server/client/` contiene el registry de JSON Schema (specs/validación de tipos de cliente) y `server/clients/` contiene las implementaciones runtime (executor, webhook handler, cron scheduler, telegram bot). Dos paquetes con nombres casi idénticos para cosas relacionadas.
+
+**Objetivo**: Unificar en una sola estructura bajo `server/clients/` donde cada tipo de cliente tenga su spec (JSON Schema) y su implementación juntas.
+
+**Ver**: `.agents/DECISIONS.md` para contexto sobre la estructura actual de `server/clients/`.
+
+---
 
 ### Add More TTS Voices Configuration UI
 

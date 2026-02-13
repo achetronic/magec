@@ -24,9 +24,10 @@ func (p *Provider) ConfigSchema() client.Schema {
 				"description": "When enabled, the prompt comes from the webhook request body instead of a command.",
 			},
 			"commandId": client.Schema{
-				"type":     "string",
-				"title":    "Command",
-				"x-entity": "commands",
+				"type":      "string",
+				"title":     "Command",
+				"minLength": 1,
+				"x-entity":  "commands",
 			},
 		},
 		"oneOf": []client.Schema{

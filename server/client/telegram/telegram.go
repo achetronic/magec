@@ -20,6 +20,7 @@ func (p *Provider) ConfigSchema() client.Schema {
 			"botToken": client.Schema{
 				"type":          "string",
 				"title":         "Bot Token",
+				"minLength":     1,
 				"x-format":      "password",
 				"x-placeholder": "123456:ABC-DEF...",
 			},

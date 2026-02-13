@@ -29,6 +29,7 @@ func (p *redisProvider) ConfigSchema() memory.Schema {
 			"connectionString": memory.Schema{
 				"type":          "string",
 				"title":         "Connection String",
+				"minLength":     1,
 				"x-placeholder": "redis://localhost:6379/0",
 			},
 			"ttl": memory.Schema{

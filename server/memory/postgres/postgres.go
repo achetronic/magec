@@ -30,6 +30,7 @@ func (p *postgresProvider) ConfigSchema() memory.Schema {
 			"connectionString": memory.Schema{
 				"type":          "string",
 				"title":         "Connection String",
+				"minLength":     1,
 				"x-placeholder": "postgres://user:pass@localhost:5432/db?sslmode=disable",
 			},
 		},

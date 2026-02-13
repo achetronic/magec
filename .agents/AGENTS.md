@@ -48,7 +48,7 @@ Then open http://localhost:8080 to start chatting.
 ```
 magec/
 ├── server/                     # Go backend (core)
-│   ├── main.go                 # HTTP server, routing, middleware
+│   ├── main.go                 # HTTP server, routing
 │   ├── agent/
 │   │   ├── agent.go            # ADK agent with memory, MCP tools
 │   │   └── flow.go             # Flow→ADK workflow agent builder (sequential/parallel/loop)
@@ -61,6 +61,15 @@ magec/
 │   │   ├── memory.go           # Memory provider CRUD + health check + /types
 │   │   ├── flows.go            # Flow CRUD handlers + recursive validation
 │   │   └── overview.go         # Overview/health handler
+│   ├── middleware/              # HTTP middleware (AccessLog, CORS, ClientAuth)
+│   │   └── middleware.go        # Uses httpsnoop — see DECISIONS.md
+│   ├── clients/                 # All client types + shared executor
+│   │   ├── executor.go          # RunClient() — executes commands against all allowedAgents
+│   │   ├── webhook/webhook.go   # Webhook HTTP handler — Bearer token auth, passthrough/fixed modes
+│   │   ├── cron/
+│   │   │   ├── cron.go          # Cron expression parser
+│   │   │   └── scheduler.go     # Cron scheduler — filters cron-type clients, fires on schedule
+│   │   └── telegram/telegram.go # Telegram bot — voice, per-chat agents, response modes
 │   ├── client/                 # Client type provider registry (JSON Schema based)
 │   │   ├── provider.go         # Provider interface: Type(), DisplayName(), ConfigSchema()
 │   │   ├── registry.go         # Global registry: Register(), ValidateConfig() with oneOf support
@@ -68,13 +77,9 @@ magec/
 │   │   ├── telegram/telegram.go # Telegram provider (botToken, allowedUsers, responseMode)
 │   │   ├── cron/cron.go        # Cron provider (schedule, commandId)
 │   │   └── webhook/webhook.go  # Webhook provider (passthrough/commandId oneOf)
+│   ├── schema/                 # Shared JSON Schema validation (google/jsonschema-go)
+│   │   └── validate.go         # Validate(schema, data) — marshal→unmarshal→resolve→validate
 │   ├── store/                  # In-memory data store with JSON persistence
-│   │   ├── store.go            # Store struct, CRUD ops, persistence
-│   │   └── types.go            # All entity types (ClientDefinition, Command, FlowDefinition, etc.)
-│   ├── trigger/                # Automation execution engine
-│   │   ├── executor.go         # RunClient() — executes commands against all allowedAgents
-│   │   ├── scheduler.go        # Cron scheduler — filters cron-type clients, fires on schedule
-│   │   └── webhook.go          # Webhook HTTP handler — Bearer token auth, passthrough/fixed modes
 │   ├── memory/                 # Extensible memory provider registry
 │   │   ├── provider.go         # Provider interface, Category type, HealthResult
 │   │   ├── registry.go         # Global registry: Register(), Get(), All(), ValidTypeForCategory()
@@ -91,8 +96,6 @@ magec/
 │   │   ├── vad.go              # ONNX-based Silero VAD inference
 │   │   ├── handler.go          # WebSocket handler for audio streaming
 │   │   └── resampler.go        # Audio resampling to 16kHz
-│   └── clients/
-│       └── telegram/           # Telegram bot client
 ├── voice-ui/                   # Web client (voice interface)
 │   ├── src/
 │   │   ├── app.js              # Main application (MagecApp class)

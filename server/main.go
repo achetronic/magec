@@ -15,7 +15,6 @@
 package main
 
 import (
-	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -23,7 +22,6 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
-	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -41,6 +39,7 @@ import (
 	"github.com/achetronic/magec/server/clients/webhook"
 	"github.com/achetronic/magec/server/config"
 	"github.com/achetronic/magec/server/logging"
+	"github.com/achetronic/magec/server/middleware"
 	"github.com/achetronic/magec/server/store"
 	"github.com/achetronic/magec/server/userapi"
 	"github.com/achetronic/magec/server/voice"
@@ -95,7 +94,7 @@ func main() {
 	adminAddr := fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.AdminPort)
 	adminServer := &http.Server{
 		Addr:         adminAddr,
-		Handler:      accessLogMiddleware(corsMiddleware(adminMux)),
+		Handler:      middleware.AccessLog(middleware.CORS(adminMux)),
 		ReadTimeout:  30 * time.Second,
 		WriteTimeout: 30 * time.Second,
 		IdleTimeout:  60 * time.Second,
@@ -192,7 +191,7 @@ func main() {
 	addr := fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port)
 	server := &http.Server{
 		Addr:         addr,
-		Handler:      accessLogMiddleware(corsMiddleware(clientAuthMiddleware(httpMux, dataStore))),
+		Handler:      middleware.AccessLog(middleware.CORS(middleware.ClientAuth(httpMux, dataStore))),
 		ReadTimeout:  30 * time.Second,
 		WriteTimeout: 15 * time.Minute,
 		IdleTimeout:  60 * time.Second,
@@ -272,123 +271,6 @@ func main() {
 		slog.Error("Server error", "error", err)
 		os.Exit(1)
 	}
-}
-
-// responseRecorder wraps http.ResponseWriter to capture the status code and
-// number of bytes written, used by the access log middleware.
-type responseRecorder struct {
-	http.ResponseWriter
-	status int
-	bytes  int
-}
-
-// WriteHeader captures the status code before delegating to the underlying writer.
-func (r *responseRecorder) WriteHeader(code int) {
-	r.status = code
-	r.ResponseWriter.WriteHeader(code)
-}
-
-// Write captures the number of bytes written before delegating to the underlying writer.
-func (r *responseRecorder) Write(b []byte) (int, error) {
-	n, err := r.ResponseWriter.Write(b)
-	r.bytes += n
-	return n, err
-}
-
-// Hijack implements http.Hijacker so the recorder doesn't break WebSocket upgrades.
-func (r *responseRecorder) Hijack() (net.Conn, *bufio.ReadWriter, error) {
-	if hj, ok := r.ResponseWriter.(http.Hijacker); ok {
-		return hj.Hijack()
-	}
-	return nil, nil, fmt.Errorf("ResponseWriter does not implement http.Hijacker")
-}
-
-// accessLogMiddleware logs every HTTP request with method, path, status code,
-// duration, and response size. WebSocket upgrades are logged but not wrapped.
-func accessLogMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		start := time.Now()
-		rec := &responseRecorder{ResponseWriter: w, status: http.StatusOK}
-
-		next.ServeHTTP(rec, r)
-
-		duration := time.Since(start)
-		logFn := slog.Info
-		if rec.status >= 400 {
-			logFn = slog.Warn
-		}
-		logFn("request",
-			"method", r.Method,
-			"path", r.URL.Path,
-			"status", rec.status,
-			"duration", duration.Round(time.Millisecond),
-			"bytes", rec.bytes,
-		)
-	})
-}
-
-// clientAuthMiddleware protects API endpoints on port 8080 with client token auth.
-// Static files, health checks, CORS preflight, and voice-events pass through.
-// If no clients exist in the store, all requests pass through (open mode).
-func clientAuthMiddleware(next http.Handler, dataStore *store.Store) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		path := r.URL.Path
-
-		if r.Method == http.MethodOptions ||
-			path == "/api/v1/health" ||
-			path == "/api/v1/voice/events" ||
-			strings.HasPrefix(path, "/api/v1/webhooks/") ||
-			!strings.HasPrefix(path, "/api/") {
-			next.ServeHTTP(w, r)
-			return
-		}
-
-		clients := dataStore.ListClients()
-		if len(clients) == 0 {
-			next.ServeHTTP(w, r)
-			return
-		}
-
-		token := r.Header.Get("Authorization")
-		hasToken := strings.HasPrefix(token, "Bearer ")
-
-		if hasToken {
-			token = strings.TrimPrefix(token, "Bearer ")
-			cl, ok := dataStore.GetClientByToken(token)
-			if !ok || !cl.Enabled {
-				w.Header().Set("Content-Type", "application/json")
-				http.Error(w, `{"error":"invalid or disabled client token"}`, http.StatusUnauthorized)
-				return
-			}
-			r.Header.Set("X-Client-ID", cl.ID)
-			next.ServeHTTP(w, r)
-			return
-		}
-
-		if path == "/api/v1/client/info" {
-			next.ServeHTTP(w, r)
-			return
-		}
-
-		w.Header().Set("Content-Type", "application/json")
-		http.Error(w, `{"error":"missing or invalid Authorization header"}`, http.StatusUnauthorized)
-	})
-}
-
-// corsMiddleware adds permissive CORS headers to all responses and handles
-// OPTIONS preflight requests.
-func corsMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "*")
-
-		if r.Method == http.MethodOptions {
-			w.WriteHeader(http.StatusOK)
-			return
-		}
-		next.ServeHTTP(w, r)
-	})
 }
 
 // newVoiceHandler creates a router for /api/v1/voice/{agentId}/{action} routes.
