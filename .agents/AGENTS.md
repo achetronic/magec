@@ -52,15 +52,20 @@ magec/
 │   ├── agent/
 │   │   ├── agent.go            # ADK agent with memory, MCP tools
 │   │   └── flow.go             # Flow→ADK workflow agent builder (sequential/parallel/loop)
-│   ├── admin/                  # Admin REST API (multi-agent management)
-│   │   ├── handler.go          # Router + helpers
-│   │   ├── agents.go           # Agent CRUD handlers
-│   │   ├── backends.go         # Backend CRUD handlers
-│   │   ├── clients.go          # Client CRUD handlers + /types (JSON Schema)
-│   │   ├── commands.go         # Command CRUD handlers
-│   │   ├── memory.go           # Memory provider CRUD + health check + /types
-│   │   ├── flows.go            # Flow CRUD handlers + recursive validation
-│   │   └── overview.go         # Overview/health handler
+│   ├── api/                    # REST API packages
+│   │   ├── admin/              # Admin REST API (multi-agent management)
+│   │   │   ├── handler.go      # Router + helpers
+│   │   │   ├── agents.go       # Agent CRUD handlers
+│   │   │   ├── backends.go     # Backend CRUD handlers
+│   │   │   ├── clients.go      # Client CRUD handlers + /types (JSON Schema)
+│   │   │   ├── commands.go     # Command CRUD handlers
+│   │   │   ├── memory.go       # Memory provider CRUD + health check + /types
+│   │   │   ├── flows.go        # Flow CRUD handlers + recursive validation
+│   │   │   └── docs/           # Generated swagger (swagger.json/yaml)
+│   │   └── user/               # User-facing REST API
+│   │       ├── handlers.go     # Health, DeviceInfo, Voice stubs, Webhook swagger types
+│   │       ├── doc.go          # Swagger metadata (title, version, host, security)
+│   │       └── docs/           # Generated swagger (userapi_swagger.json/yaml)
 │   ├── middleware/              # HTTP middleware (AccessLog, CORS, ClientAuth)
 │   │   └── middleware.go        # Uses httpsnoop — see DECISIONS.md
 │   ├── clients/                 # All client types + shared executor
@@ -85,10 +90,6 @@ magec/
 │   │   ├── registry.go         # Global registry: Register(), Get(), All(), ValidTypeForCategory()
 │   │   ├── redis/redis.go      # Redis provider (session), Ping via ParseURL
 │   │   └── postgres/postgres.go # Postgres provider (longterm), Ping via sql.Open
-│   ├── userapi/                # User-facing API handlers + Swagger docs
-│   │   ├── handlers.go         # Health, DeviceInfo, Voice stubs, Webhook swagger types
-│   │   ├── doc.go              # Swagger metadata (title, version, host, security)
-│   │   └── docs/               # Generated swagger (userapi_swagger.json/yaml)
 │   ├── config/config.go        # YAML config parsing (server + log only)
 │   ├── logging/logging.go      # Structured logging (slog)
 │   ├── voice/                  # Server-side voice detection (wake word + VAD)
@@ -153,12 +154,12 @@ magec/
 | `server/main.go` | HTTP server (port 8080) + admin server (port 8081), routing, middleware |
 | `server/agent/agent.go` | Multi-agent ADK setup. `New()` accepts agents + flows, creates LLM agents + workflow agents, routes via `NewMultiLoader` |
 | `server/agent/flow.go` | Translates `FlowDefinition` tree → ADK workflow agents (sequential/parallel/loop) |
-| `server/admin/` | Admin REST API for managing all resources at runtime |
+| `server/api/admin/` | Admin REST API for managing all resources at runtime |
 | `server/client/` | Client type provider registry — JSON Schema based. Each type declares its config schema. Validation supports `oneOf`, `required`, `properties` |
-| `server/trigger/` | Automation execution: cron scheduler + webhook HTTP handler + executor that runs commands against agents |
+| `server/clients/` | Automation execution: cron scheduler + webhook HTTP handler + executor that runs commands against agents |
 | `server/memory/` | Extensible provider registry — interface + init() auto-registration pattern |
 | `server/store/` | In-memory data store with JSON persistence (`data/store.json`). Immutable UUID v4 IDs |
-| `server/userapi/` | User-facing API handlers + Swagger docs (health, device info, voice, webhooks) |
+| `server/api/user/` | User-facing API handlers + Swagger docs (health, device info, voice, webhooks) |
 | `server/voice/` | Server-side voice detection (wake word + VAD) via ONNX |
 | `server/clients/telegram/` | Telegram bot with voice message support |
 | `server/config/config.go` | YAML config for server infrastructure only (ports, log) |

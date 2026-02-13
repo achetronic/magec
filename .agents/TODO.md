@@ -86,11 +86,9 @@ See `.agents/ADK_TOOLS.md` for full details on `toolconfirmation`.
 
 ---
 
-### Mover APIs a `api/admin/` y `api/user/`
+### ~~Mover APIs a `api/admin/` y `api/user/`~~ ✅
 
-**Problema**: Los handlers de la admin API están en `server/admin/` y los de la user API en `server/userapi/`. Cada uno tiene su propia carpeta de Swagger docs. La estructura no refleja que ambas son APIs con el mismo patrón.
-
-**Objetivo**: Mover a `server/api/admin/` y `server/api/user/` con sus swagger docs respectivos dentro de cada subdirectorio. Alinea la estructura de código con las rutas HTTP (`/api/v1/admin/*`, `/api/v1/*`).
+**Completado**: `server/admin/` → `server/api/admin/`, `server/userapi/` → `server/api/user/` (package renombrado de `userapi` a `user`). Makefile swagger targets actualizados.
 
 ---
 

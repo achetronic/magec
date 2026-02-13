@@ -1,4 +1,4 @@
-// Package userapi provides the Magec User-facing REST API.
+// Package user provides the Magec User-facing REST API.
 //
 // @title           Magec User API
 // @version         1.0
@@ -13,4 +13,4 @@
 // @in                          header
 // @name                        Authorization
 // @description                 Enter your bearer token as: Bearer <token>
-package userapi
+package user

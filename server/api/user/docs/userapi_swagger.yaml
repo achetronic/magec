@@ -1,6 +1,6 @@
 basePath: /api/v1
 definitions:
-  userapi.AgentSummary:
+  user.AgentSummary:
     properties:
       id:
         example: magec
@@ -9,11 +9,11 @@ definitions:
         example: Magec
         type: string
     type: object
-  userapi.ClientInfoResponse:
+  user.ClientInfoResponse:
     properties:
       allowedAgents:
         items:
-          $ref: '#/definitions/userapi.AgentSummary'
+          $ref: '#/definitions/user.AgentSummary'
         type: array
       defaultAgent:
         example: magec
@@ -25,25 +25,25 @@ definitions:
         example: true
         type: boolean
     type: object
-  userapi.ErrorResponse:
+  user.ErrorResponse:
     properties:
       error:
         example: resource not found
         type: string
     type: object
-  userapi.SpeechRequest:
+  user.SpeechRequest:
     properties:
       input:
         example: Hello world
         type: string
     type: object
-  userapi.WebhookRequest:
+  user.WebhookRequest:
     properties:
       prompt:
         example: Summarize today's news
         type: string
     type: object
-  userapi.WebhookResponse:
+  user.WebhookResponse:
     properties:
       error:
         example: ""
@@ -77,11 +77,11 @@ paths:
               description: Set by auth middleware
               type: string
           schema:
-            $ref: '#/definitions/userapi.ClientInfoResponse'
+            $ref: '#/definitions/user.ClientInfoResponse'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/userapi.ErrorResponse'
+            $ref: '#/definitions/user.ErrorResponse'
       security:
       - BearerAuth: []
       summary: Client info
@@ -117,7 +117,7 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/userapi.SpeechRequest'
+          $ref: '#/definitions/user.SpeechRequest'
       produces:
       - application/octet-stream
       responses:
@@ -128,19 +128,19 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/userapi.ErrorResponse'
+            $ref: '#/definitions/user.ErrorResponse'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/userapi.ErrorResponse'
+            $ref: '#/definitions/user.ErrorResponse'
         "502":
           description: Bad Gateway
           schema:
-            $ref: '#/definitions/userapi.ErrorResponse'
+            $ref: '#/definitions/user.ErrorResponse'
         "503":
           description: Service Unavailable
           schema:
-            $ref: '#/definitions/userapi.ErrorResponse'
+            $ref: '#/definitions/user.ErrorResponse'
       security:
       - BearerAuth: []
       summary: Text-to-Speech
@@ -173,19 +173,19 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/userapi.ErrorResponse'
+            $ref: '#/definitions/user.ErrorResponse'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/userapi.ErrorResponse'
+            $ref: '#/definitions/user.ErrorResponse'
         "502":
           description: Bad Gateway
           schema:
-            $ref: '#/definitions/userapi.ErrorResponse'
+            $ref: '#/definitions/user.ErrorResponse'
         "503":
           description: Service Unavailable
           schema:
-            $ref: '#/definitions/userapi.ErrorResponse'
+            $ref: '#/definitions/user.ErrorResponse'
       security:
       - BearerAuth: []
       summary: Speech-to-Text
@@ -221,34 +221,34 @@ paths:
         in: body
         name: body
         schema:
-          $ref: '#/definitions/userapi.WebhookRequest'
+          $ref: '#/definitions/user.WebhookRequest'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/userapi.WebhookResponse'
+            $ref: '#/definitions/user.WebhookResponse'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/userapi.WebhookResponse'
+            $ref: '#/definitions/user.WebhookResponse'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/userapi.WebhookResponse'
+            $ref: '#/definitions/user.WebhookResponse'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/userapi.WebhookResponse'
+            $ref: '#/definitions/user.WebhookResponse'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/userapi.WebhookResponse'
+            $ref: '#/definitions/user.WebhookResponse'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/userapi.WebhookResponse'
+            $ref: '#/definitions/user.WebhookResponse'
       security:
       - BearerAuth: []
       summary: Execute webhook

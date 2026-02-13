@@ -31,7 +31,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/achetronic/magec/server/admin"
+	"github.com/achetronic/magec/server/api/admin"
 	"github.com/achetronic/magec/server/agent"
 	"github.com/achetronic/magec/server/clients"
 	"github.com/achetronic/magec/server/clients/cron"
@@ -41,14 +41,14 @@ import (
 	"github.com/achetronic/magec/server/logging"
 	"github.com/achetronic/magec/server/middleware"
 	"github.com/achetronic/magec/server/store"
-	"github.com/achetronic/magec/server/userapi"
+	user "github.com/achetronic/magec/server/api/user"
 	"github.com/achetronic/magec/server/voice"
 
 	httpSwagger "github.com/swaggo/http-swagger/v2"
 
-	_ "github.com/achetronic/magec/server/userapi/docs"
+	_ "github.com/achetronic/magec/server/api/user/docs"
 
-	_ "github.com/achetronic/magec/server/admin/docs"
+	_ "github.com/achetronic/magec/server/api/admin/docs"
 	_ "github.com/achetronic/magec/server/client/cron"
 	_ "github.com/achetronic/magec/server/client/direct"
 	_ "github.com/achetronic/magec/server/client/telegram"
@@ -115,7 +115,7 @@ func main() {
 	httpMux.Handle("/api/v1/agent/", agentRouter)
 	httpMux.Handle("/api/v1/voice/", newVoiceHandler(dataStore, agentRouter))
 
-	userAPI := userapi.New(dataStore)
+	userAPI := user.New(dataStore)
 	httpMux.HandleFunc("/api/v1/health", userAPI.Health)
 	httpMux.HandleFunc("/api/v1/client/info", userAPI.ClientInfo)
 

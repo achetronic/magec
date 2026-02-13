@@ -336,7 +336,7 @@ CRUD for legacy cron jobs. **Auto-migrated** to Commands + cron-type Clients on 
 - Auth: `Authorization: Bearer <mgc_token>`
 - Passthrough: `{"prompt": "text"}`
 - Fixed command: body empty/ignored
-- Swagger docs: `server/userapi/docs/`
+- Swagger docs: `server/api/user/docs/`
 
 ---
 
@@ -365,25 +365,28 @@ server/
 │   ├── registry.go     — Global registry: Register(), Get(), All(), ValidTypeForCategory()
 │   ├── redis/redis.go  — Redis provider (session), ConfigFields, Ping via ParseURL
 │   └── postgres/postgres.go — Postgres provider (longterm), ConfigFields, Ping via sql.Open
-├── trigger/
+├── clients/
 │   ├── executor.go     — RunClient() — executes commands against all allowedAgents
-│   ├── scheduler.go    — Cron scheduler — filters cron-type clients
-│   └── webhook.go      — Webhook HTTP handler — Bearer token auth
-├── admin/
-│   ├── handler.go      — Router + helpers (writeJSON, writeError)
-│   ├── agents.go       — Agent CRUD + MCP linking handlers
-│   ├── backends.go     — Backend CRUD handlers
-│   ├── clients.go      — Client CRUD + /types (JSON Schema) + token regeneration
-│   ├── commands.go     — Command CRUD handlers
-│   ├── memory.go       — Memory CRUD + health check + /types handler
-│   ├── mcps.go         — MCP Server CRUD handlers
-│   ├── flows.go        — Flow CRUD handlers + recursive validation
-│   ├── crons.go        — Cron Job CRUD handlers (legacy)
-│   └── overview.go     — Overview/dashboard handler
-├── userapi/
-│   ├── handlers.go     — Health, DeviceInfo, Voice stubs, Webhook swagger types
-│   ├── doc.go          — Swagger metadata
-│   └── docs/           — Generated swagger (userapi_swagger.json/yaml)
+│   ├── cron/
+│   │   ├── cron.go     — Cron expression parser
+│   │   └── scheduler.go — Cron scheduler — filters cron-type clients
+│   ├── webhook/webhook.go — Webhook HTTP handler — Bearer token auth
+│   └── telegram/telegram.go — Telegram bot client
+├── api/
+│   ├── admin/
+│   │   ├── handler.go  — Router + helpers (writeJSON, writeError)
+│   │   ├── agents.go   — Agent CRUD + MCP linking handlers
+│   │   ├── backends.go — Backend CRUD handlers
+│   │   ├── clients.go  — Client CRUD + /types (JSON Schema) + token regeneration
+│   │   ├── commands.go — Command CRUD handlers
+│   │   ├── memory.go   — Memory CRUD + health check + /types handler
+│   │   ├── mcps.go     — MCP Server CRUD handlers
+│   │   ├── flows.go    — Flow CRUD handlers + recursive validation
+│   │   └── docs/       — Generated swagger (swagger.json/yaml)
+│   └── user/
+│       ├── handlers.go — Health, DeviceInfo, Voice stubs, Webhook swagger types
+│       ├── doc.go      — Swagger metadata
+│       └── docs/       — Generated swagger (userapi_swagger.json/yaml)
 ```
 
 ## Migración desde config YAML anterior

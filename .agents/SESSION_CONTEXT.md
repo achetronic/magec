@@ -60,7 +60,7 @@ ADK `OutputKey` permite que un agente guarde su output final en el session state
 - `server/store/types.go` — `AgentDefinition.OutputKey string` (json: `outputKey`, omitempty)
 - `server/agent/agent.go` — Pasa `OutputKey: agentDef.OutputKey` a `llmagent.Config` al crear el agente. Sin `agentConfigMap` — los flows usan agentes pre-built directamente
 - `server/agent/flow.go` — Simplificado a solo `(flow, agentMap)`. Busca agentes pre-built del mapa, sin lógica de rebuild
-- `server/admin/flows.go` — Sin validación de OutputKey (ya no existe en FlowStep)
+- `server/api/admin/flows.go` — Sin validación de OutputKey (ya no existe en FlowStep)
 - `admin-ui/src/views/agents/AgentDialog.vue` — Campo OutputKey con FormInput y texto explicativo
 - `admin-ui/src/views/flows/FlowBlock.vue` — Eliminado campo outputKey del bloque de agente
 - `admin-ui/src/views/flows/FlowDialog.vue` — `cleanStep()` ya no preserva outputKey; help text actualizado
@@ -84,10 +84,10 @@ ADK `OutputKey` permite que un agente guarde su output final en el session state
 - **`server/client/registry.go`** — `ValidateRequired()` → `ValidateConfig()` con soporte `oneOf`, `required`, `properties` recursivo
 - **`server/client/{direct,cron,webhook}/`** — Nuevos providers con JSON Schema
 - **`server/client/telegram/`** — Reescrito para usar `ConfigSchema()` en vez de `ConfigFields()`
-- **`server/admin/clients.go`** — `ClientTypeInfo.Fields []FieldSpec` → `ConfigSchema client.Schema`
+- **`server/api/admin/clients.go`** — `ClientTypeInfo.Fields []FieldSpec` → `ConfigSchema client.Schema`
 - **`server/store/types.go`** — `ClientConfig` con `Cron *CronClientConfig` y `Webhook *WebhookClientConfig`
 - **`server/store/store.go`** — Triggers CRUD eliminado. Nuevas migraciones: `migrateTriggersToClients()`, `migrateDeviceToDirectType()`
-- **`server/admin/handler.go`** — Rutas de triggers eliminadas
+- **`server/api/admin/handler.go`** — Rutas de triggers eliminadas
 - **`server/trigger/executor.go`** — `RunTrigger()` → `RunClient()`, ejecuta contra TODOS los `allowedAgents`
 - **`server/trigger/scheduler.go`** — Filtra clients tipo `cron` del store
 - **`server/trigger/webhook.go`** — Auth via Bearer token del client (no secret separado)
@@ -120,7 +120,7 @@ ADK `OutputKey` permite que un agente guarde su output final en el session state
 - Ejecuta contra todos los agents en `allowedAgents` del client
 - Bypass `clientAuthMiddleware` — auth propia en webhook.go
 
-**Swagger userapi** (`server/userapi/docs/`): regenerado con endpoint webhook.
+**Swagger userapi** (`server/api/user/docs/`): regenerado con endpoint webhook.
 **Swagger admin**: NO regenerado tras los últimos cambios (pendiente).
 
 ### 7. Admin UI Polish — Completado
@@ -153,7 +153,7 @@ ADK `OutputKey` permite que un agente guarde su output final en el session state
 ## Lo que NO se ha tocado
 
 - **Memory provider migration a JSON Schema**: El paquete memory sigue usando su propio sistema `FieldSpec`. Podría migrarse a JSON Schema también, pero fuera de scope
-- **Admin API Swagger regeneration**: Solo userapi swagger fue regenerado. El swagger de admin en `server/admin/docs/` aún referencia `client.FieldSpec` viejo — necesita regeneración via `swag init --dir ./admin`
+- **Admin API Swagger regeneration**: Solo userapi swagger fue regenerado. El swagger de admin en `server/api/admin/docs/` aún referencia `client.FieldSpec` viejo — necesita regeneración via `swag init --dir ./api/admin`
 - **Consolidar `/types` en `/schemas/{entity}`**: Discutido pero no implementado
 
 ## Datos de Prueba
@@ -173,10 +173,10 @@ make dev                         # Build todo + arrancar server
 cd server && go build ./...      # Solo Go
 
 # Regenerar swagger userapi
-cd server && go run github.com/swaggo/swag/cmd/swag init --dir ./userapi --generalInfo doc.go --output ./userapi/docs --parseDependency --parseInternal --instanceName userapi
+cd server && go run github.com/swaggo/swag/cmd/swag init --dir ./api/user --generalInfo doc.go --output ./api/user/docs --parseDependency --parseInternal --instanceName userapi
 
 # Regenerar swagger admin (PENDIENTE de ejecutar)
-cd server && go run github.com/swaggo/swag/cmd/swag init --dir ./admin --generalInfo doc.go --output ./admin/docs --parseDependency --parseInternal
+cd server && go run github.com/swaggo/swag/cmd/swag init --dir ./api/admin --generalInfo doc.go --output ./api/admin/docs --parseDependency --parseInternal
 ```
 
 ## Entorno
