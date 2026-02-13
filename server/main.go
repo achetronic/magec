@@ -39,6 +39,7 @@ import (
 	"github.com/achetronic/magec/server/config"
 	"github.com/achetronic/magec/server/logging"
 	"github.com/achetronic/magec/server/store"
+	"github.com/achetronic/magec/server/trigger"
 	"github.com/achetronic/magec/server/userapi"
 	"github.com/achetronic/magec/server/voice"
 
@@ -175,6 +176,12 @@ func main() {
 		}
 	}()
 
+	// Webhook handler for trigger endpoints
+	agentURL := fmt.Sprintf("http://127.0.0.1:%d/api/v1/agent", cfg.Server.Port)
+	triggerExecutor := trigger.NewExecutor(dataStore, agentURL, slog.Default())
+	webhookHandler := trigger.NewWebhookHandler(triggerExecutor, dataStore, slog.Default())
+	httpMux.Handle("/api/v1/webhooks/", http.StripPrefix("/api/v1/webhooks", webhookHandler))
+
 	// Static files
 	httpMux.Handle("/", http.FileServer(http.Dir("voice-ui")))
 
@@ -186,6 +193,10 @@ func main() {
 		WriteTimeout: 120 * time.Second,
 		IdleTimeout:  60 * time.Second,
 	}
+
+	// Start cron scheduler
+	cronScheduler := trigger.NewScheduler(triggerExecutor, dataStore, slog.Default())
+	go cronScheduler.Start(ctx)
 
 	// Start Telegram clients from store
 	var telegramClients []*telegram.Client
@@ -239,6 +250,7 @@ func main() {
 		<-sigChan
 
 		slog.Info("Shutting down...")
+		cronScheduler.Stop()
 		for _, tc := range telegramClients {
 			tc.Stop()
 		}
@@ -321,6 +333,7 @@ func clientAuthMiddleware(next http.Handler, dataStore *store.Store) http.Handle
 		if r.Method == http.MethodOptions ||
 			path == "/api/v1/health" ||
 			path == "/api/v1/voice/events" ||
+			strings.HasPrefix(path, "/api/v1/webhooks/") ||
 			!strings.HasPrefix(path, "/api/") {
 			next.ServeHTTP(w, r)
 			return

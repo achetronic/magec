@@ -118,15 +118,47 @@ type SlackClientConfig struct {
 	AllowedChannels []string `json:"allowedChannels,omitempty" yaml:"allowedChannels,omitempty"`
 }
 
-// CronJob represents a scheduled task that sends a prompt to an agent.
-type CronJob struct {
+// Command represents a reusable prompt that can be invoked against an agent
+// via triggers (cron jobs, webhooks) or other automation.
+type Command struct {
 	ID          string `json:"id" yaml:"id"`
 	Name        string `json:"name" yaml:"name"`
-	Schedule    string `json:"schedule" yaml:"schedule"`
-	AgentID     string `json:"agentId" yaml:"agentId"`
-	Prompt      string `json:"prompt" yaml:"prompt"`
 	Description string `json:"description,omitempty" yaml:"description,omitempty"`
-	Enabled     bool   `json:"enabled" yaml:"enabled"`
+	Prompt      string `json:"prompt" yaml:"prompt"`
+}
+
+// TriggerType identifies the kind of trigger.
+const (
+	TriggerTypeCron    = "cron"
+	TriggerTypeWebhook = "webhook"
+)
+
+// Trigger represents an automation that executes a command against an agent.
+// Type determines which config block is used.
+type Trigger struct {
+	ID          string          `json:"id" yaml:"id"`
+	Name        string          `json:"name" yaml:"name"`
+	Description string          `json:"description,omitempty" yaml:"description,omitempty"`
+	Type        string          `json:"type" yaml:"type"`
+	Enabled     bool            `json:"enabled" yaml:"enabled"`
+	AgentID     string          `json:"agentId,omitempty" yaml:"agentId,omitempty"`
+	CommandID   string          `json:"commandId,omitempty" yaml:"commandId,omitempty"`
+	ClientID    string          `json:"clientId,omitempty" yaml:"clientId,omitempty"`
+	Cron        *CronConfig     `json:"cron,omitempty" yaml:"cron,omitempty"`
+	Webhook     *WebhookConfig  `json:"webhook,omitempty" yaml:"webhook,omitempty"`
+}
+
+// CronConfig holds the schedule for a cron trigger.
+type CronConfig struct {
+	Schedule string `json:"schedule" yaml:"schedule"`
+}
+
+// WebhookConfig holds settings for a webhook trigger.
+// When Passthrough is true, the prompt comes from the request body
+// and CommandID/AgentID on the Trigger may be empty.
+type WebhookConfig struct {
+	Passthrough bool   `json:"passthrough" yaml:"passthrough"`
+	Secret      string `json:"secret,omitempty" yaml:"secret,omitempty"`
 }
 
 // FlowStepType identifies the kind of node inside a flow.
@@ -166,4 +198,17 @@ type StoreData struct {
 	CronJobs        []CronJob           `json:"cronJobs"`
 	Clients         []ClientDefinition  `json:"clients"`
 	Flows           []FlowDefinition    `json:"flows"`
+	Commands        []Command           `json:"commands"`
+	Triggers        []Trigger           `json:"triggers"`
+}
+
+// CronJob is the legacy type kept for data migration. New code uses Trigger.
+type CronJob struct {
+	ID          string `json:"id" yaml:"id"`
+	Name        string `json:"name" yaml:"name"`
+	Schedule    string `json:"schedule" yaml:"schedule"`
+	AgentID     string `json:"agentId" yaml:"agentId"`
+	Prompt      string `json:"prompt" yaml:"prompt"`
+	Description string `json:"description,omitempty" yaml:"description,omitempty"`
+	Enabled     bool   `json:"enabled" yaml:"enabled"`
 }

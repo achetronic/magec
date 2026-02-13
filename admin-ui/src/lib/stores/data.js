@@ -8,6 +8,8 @@ import {
   cronsApi,
   clientsApi,
   flowsApi,
+  commandsApi,
+  triggersApi,
 } from '../api/index.js'
 
 export const useDataStore = defineStore('data', () => {
@@ -18,6 +20,8 @@ export const useDataStore = defineStore('data', () => {
   const crons = ref([])
   const clients = ref([])
   const flows = ref([])
+  const commands = ref([])
+  const triggers = ref([])
   const memoryTypes = ref([])
   const clientTypes = ref([])
   const loading = ref(false)
@@ -39,6 +43,8 @@ export const useDataStore = defineStore('data', () => {
         cronsApi.list(),
         clientsApi.list(),
         flowsApi.list(),
+        commandsApi.list(),
+        triggersApi.list(),
       ])
       backends.value = results[0] || []
       agents.value = results[1] || []
@@ -47,6 +53,8 @@ export const useDataStore = defineStore('data', () => {
       crons.value = results[4] || []
       clients.value = results[5] || []
       flows.value = results[6] || []
+      commands.value = results[7] || []
+      triggers.value = results[8] || []
     } catch (e) {
       console.error('Failed to load data:', e)
     } finally {
@@ -72,6 +80,12 @@ export const useDataStore = defineStore('data', () => {
     return a?.name || a?.id || id
   }
 
+  function commandLabel(id) {
+    if (!id) return ''
+    const c = commands.value.find((c) => c.id === id)
+    return c?.name || id
+  }
+
   return {
     backends,
     agents,
@@ -80,6 +94,8 @@ export const useDataStore = defineStore('data', () => {
     crons,
     clients,
     flows,
+    commands,
+    triggers,
     memoryTypes,
     clientTypes,
     loading,
@@ -88,5 +104,6 @@ export const useDataStore = defineStore('data', () => {
     backendLabel,
     memoryLabel,
     agentLabel,
+    commandLabel,
   }
 })

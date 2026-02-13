@@ -54,12 +54,14 @@ magec/
 │   │   ├── handler.go          # Router + helpers
 │   │   ├── agents.go           # Agent CRUD handlers
 │   │   ├── backends.go         # Backend CRUD handlers
+│   │   ├── commands.go         # Command CRUD handlers
+│   │   ├── triggers.go         # Trigger CRUD handlers (cron + webhook)
 │   │   ├── memory.go           # Memory provider CRUD + health check + /types
 │   │   ├── flows.go            # Flow CRUD handlers + recursive validation
 │   │   └── overview.go         # Overview/health handler
 │   ├── store/                  # In-memory data store with JSON persistence
-│   │   ├── store.go            # Store struct, CRUD operations, persistence, UUID migration
-│   │   └── types.go            # AgentDefinition, BackendDefinition, MemoryProvider, FlowDefinition, etc.
+│   │   ├── store.go            # Store struct, CRUD operations, persistence, UUID migration, CronJob→Trigger migration
+│   │   └── types.go            # AgentDefinition, BackendDefinition, MemoryProvider, Command, Trigger, FlowDefinition, etc.
 │   ├── memory/                 # Extensible memory provider registry
 │   │   ├── provider.go         # Provider interface, Category type, HealthResult
 │   │   ├── registry.go         # Global registry: Register(), Get(), All(), ValidTypeForCategory()
@@ -198,11 +200,21 @@ magec/
 | PUT | `/api/v1/admin/clients/{id}` | Update a client |
 | DELETE | `/api/v1/admin/clients/{id}` | Delete a client |
 | POST | `/api/v1/admin/clients/{id}/regenerate-token` | Regenerate client auth token |
-| GET | `/api/v1/admin/crons` | List all cron jobs |
-| POST | `/api/v1/admin/crons` | Create a cron job |
-| GET | `/api/v1/admin/crons/{id}` | Get a cron job by ID |
-| PUT | `/api/v1/admin/crons/{id}` | Update a cron job |
-| DELETE | `/api/v1/admin/crons/{id}` | Delete a cron job |
+| GET | `/api/v1/admin/crons` | List all cron jobs (legacy) |
+| POST | `/api/v1/admin/crons` | Create a cron job (legacy) |
+| GET | `/api/v1/admin/crons/{id}` | Get a cron job by ID (legacy) |
+| PUT | `/api/v1/admin/crons/{id}` | Update a cron job (legacy) |
+| DELETE | `/api/v1/admin/crons/{id}` | Delete a cron job (legacy) |
+| GET | `/api/v1/admin/commands` | List all commands |
+| POST | `/api/v1/admin/commands` | Create a command |
+| GET | `/api/v1/admin/commands/{id}` | Get a command by ID |
+| PUT | `/api/v1/admin/commands/{id}` | Update a command |
+| DELETE | `/api/v1/admin/commands/{id}` | Delete a command |
+| GET | `/api/v1/admin/triggers` | List all triggers |
+| POST | `/api/v1/admin/triggers` | Create a trigger |
+| GET | `/api/v1/admin/triggers/{id}` | Get a trigger by ID |
+| PUT | `/api/v1/admin/triggers/{id}` | Update a trigger |
+| DELETE | `/api/v1/admin/triggers/{id}` | Delete a trigger |
 | GET | `/api/v1/admin/flows` | List all flows |
 | POST | `/api/v1/admin/flows` | Create a flow |
 | GET | `/api/v1/admin/flows/{id}` | Get a flow by ID |
@@ -242,8 +254,10 @@ All of the following are managed at runtime via `http://localhost:8081`:
 | **Memory Providers** | Redis (session), PostgreSQL (long-term) |
 | **MCP Servers** | External tool servers (HTTP or stdio) |
 | **Agents** | Independent units with own LLM, memory, tools, prompts |
+| **Commands** | Reusable prompts that can be invoked against agents by triggers |
+| **Triggers** | Automation: cron schedules or webhooks that fire commands. Authenticate via linked Client token |
 | **Clients** | Access points (voice-UI, Telegram, Discord) with token-based auth |
-| **Cron Jobs** | Scheduled prompts to agents |
+| **Cron Jobs** | Legacy — migrated automatically to Commands + Triggers on load |
 
 On first run with no `data/store.json`, the store starts empty. Configure everything via the Admin UI.
 

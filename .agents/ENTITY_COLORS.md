@@ -11,7 +11,8 @@ Each entity type in the admin UI has an assigned color for visual consistency ac
 | **MCP Servers** | Atlantico (cyan) | `atlantico` | `#38bcd8` |
 | **Memory** | Green | `green` | `#4ade80` |
 | **Clients** | Lava (red) | `lava` | `#f87171` |
-| **Crons** | Teal | `teal` | `#2dd4bf` |
+| **Commands** | Indigo | `indigo` | `#818cf8` |
+| **Triggers** | Teal | `teal` | `#2dd4bf` |
 | **Flows** | Rose | `rose` | `#fb7185` |
 
 ## Usage Pattern

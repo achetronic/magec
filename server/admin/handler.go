@@ -79,12 +79,26 @@ func (h *Handler) buildRouter() *mux.Router {
 	r.HandleFunc("/clients/{id}", h.deleteClient).Methods("DELETE")
 	r.HandleFunc("/clients/{id}/regenerate-token", h.regenerateClientToken).Methods("POST")
 
-	// Cron Jobs
+	// Cron Jobs (legacy, kept for backward compatibility)
 	r.HandleFunc("/crons", h.listCronJobs).Methods("GET")
 	r.HandleFunc("/crons", h.createCronJob).Methods("POST")
 	r.HandleFunc("/crons/{id}", h.getCronJob).Methods("GET")
 	r.HandleFunc("/crons/{id}", h.updateCronJob).Methods("PUT")
 	r.HandleFunc("/crons/{id}", h.deleteCronJob).Methods("DELETE")
+
+	// Commands
+	r.HandleFunc("/commands", h.listCommands).Methods("GET")
+	r.HandleFunc("/commands", h.createCommand).Methods("POST")
+	r.HandleFunc("/commands/{id}", h.getCommand).Methods("GET")
+	r.HandleFunc("/commands/{id}", h.updateCommand).Methods("PUT")
+	r.HandleFunc("/commands/{id}", h.deleteCommand).Methods("DELETE")
+
+	// Triggers
+	r.HandleFunc("/triggers", h.listTriggers).Methods("GET")
+	r.HandleFunc("/triggers", h.createTrigger).Methods("POST")
+	r.HandleFunc("/triggers/{id}", h.getTrigger).Methods("GET")
+	r.HandleFunc("/triggers/{id}", h.updateTrigger).Methods("PUT")
+	r.HandleFunc("/triggers/{id}", h.deleteTrigger).Methods("DELETE")
 
 	// Flows
 	r.HandleFunc("/flows", h.listFlows).Methods("GET")

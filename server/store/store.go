@@ -34,6 +34,8 @@ func New(filePath string) (*Store, error) {
 			CronJobs:        []CronJob{},
 			Clients:         []ClientDefinition{},
 			Flows:           []FlowDefinition{},
+			Commands:        []Command{},
+			Triggers:        []Trigger{},
 		},
 	}
 
@@ -592,6 +594,130 @@ func (s *Store) DeleteFlow(id string) error {
 	return fmt.Errorf("flow %q not found", id)
 }
 
+// --- Commands ---
+
+func (s *Store) ListCommands() []Command {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	result := make([]Command, len(s.data.Commands))
+	copy(result, s.data.Commands)
+	return result
+}
+
+func (s *Store) GetCommand(id string) (Command, bool) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	for _, c := range s.data.Commands {
+		if c.ID == id {
+			return c, true
+		}
+	}
+	return Command{}, false
+}
+
+func (s *Store) CreateCommand(c Command) (Command, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	c.ID = generateID()
+	s.data.Commands = append(s.data.Commands, c)
+	return c, s.persist()
+}
+
+func (s *Store) UpdateCommand(id string, c Command) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	for i, existing := range s.data.Commands {
+		if existing.ID == id {
+			c.ID = id
+			s.data.Commands[i] = c
+			return s.persist()
+		}
+	}
+	return fmt.Errorf("command %q not found", id)
+}
+
+func (s *Store) DeleteCommand(id string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	for i, existing := range s.data.Commands {
+		if existing.ID == id {
+			s.data.Commands = append(s.data.Commands[:i], s.data.Commands[i+1:]...)
+			return s.persist()
+		}
+	}
+	return fmt.Errorf("command %q not found", id)
+}
+
+// --- Triggers ---
+
+func (s *Store) ListTriggers() []Trigger {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	result := make([]Trigger, len(s.data.Triggers))
+	copy(result, s.data.Triggers)
+	return result
+}
+
+func (s *Store) GetTrigger(id string) (Trigger, bool) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	for _, t := range s.data.Triggers {
+		if t.ID == id {
+			return t, true
+		}
+	}
+	return Trigger{}, false
+}
+
+func (s *Store) CreateTrigger(t Trigger) (Trigger, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	t.ID = generateID()
+	if t.Type == TriggerTypeWebhook && t.Webhook != nil && t.Webhook.Secret == "" {
+		t.Webhook.Secret = generateToken()
+	}
+	s.data.Triggers = append(s.data.Triggers, t)
+	return t, s.persist()
+}
+
+func (s *Store) UpdateTrigger(id string, t Trigger) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	for i, existing := range s.data.Triggers {
+		if existing.ID == id {
+			t.ID = id
+			if t.Type == TriggerTypeWebhook && t.Webhook != nil && t.Webhook.Secret == "" {
+				if existing.Webhook != nil {
+					t.Webhook.Secret = existing.Webhook.Secret
+				} else {
+					t.Webhook.Secret = generateToken()
+				}
+			}
+			s.data.Triggers[i] = t
+			return s.persist()
+		}
+	}
+	return fmt.Errorf("trigger %q not found", id)
+}
+
+func (s *Store) DeleteTrigger(id string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	for i, existing := range s.data.Triggers {
+		if existing.ID == id {
+			s.data.Triggers = append(s.data.Triggers[:i], s.data.Triggers[i+1:]...)
+			return s.persist()
+		}
+	}
+	return fmt.Errorf("trigger %q not found", id)
+}
+
 // --- Persistence ---
 
 // persist writes the current store data to disk as formatted JSON and
@@ -665,8 +791,15 @@ func (s *Store) loadFromDisk() error {
 	if storeData.Flows == nil {
 		storeData.Flows = []FlowDefinition{}
 	}
+	if storeData.Commands == nil {
+		storeData.Commands = []Command{}
+	}
+	if storeData.Triggers == nil {
+		storeData.Triggers = []Trigger{}
+	}
 
 	s.migrateDevicesToClients(data, &storeData)
+	s.migrateCronsToTriggers(&storeData)
 
 	dirty := s.migrateIDs(&storeData)
 
@@ -754,6 +887,20 @@ func (s *Store) migrateIDs(d *StoreData) bool {
 		}
 	}
 
+	for i := range d.Commands {
+		if d.Commands[i].ID == "" || !isUUID(d.Commands[i].ID) {
+			d.Commands[i].ID = generateID()
+			dirty = true
+		}
+	}
+
+	for i := range d.Triggers {
+		if d.Triggers[i].ID == "" || !isUUID(d.Triggers[i].ID) {
+			d.Triggers[i].ID = generateID()
+			dirty = true
+		}
+	}
+
 	// --- Phase 2: rewrite cross-references that still use names ---
 
 	resolveBackend := func(ref string) string {
@@ -827,6 +974,10 @@ func (s *Store) migrateIDs(d *StoreData) bool {
 		}
 	}
 
+	for i := range d.Triggers {
+		d.Triggers[i].AgentID = resolveAgent(d.Triggers[i].AgentID)
+	}
+
 	return dirty
 }
 
@@ -875,4 +1026,36 @@ func (s *Store) migrateDevicesToClients(rawData []byte, storeData *StoreData) {
 			Enabled:       d.Enabled,
 		})
 	}
+}
+
+// migrateCronsToTriggers converts legacy CronJob entries into Trigger + Command pairs.
+// Each CronJob becomes one Command (holding the prompt) and one Trigger of type "cron".
+// The original CronJobs slice is cleared after migration.
+func (s *Store) migrateCronsToTriggers(storeData *StoreData) {
+	if len(storeData.CronJobs) == 0 {
+		return
+	}
+
+	for _, cj := range storeData.CronJobs {
+		cmd := Command{
+			ID:          generateID(),
+			Name:        cj.Name,
+			Description: cj.Description,
+			Prompt:      cj.Prompt,
+		}
+		storeData.Commands = append(storeData.Commands, cmd)
+
+		trigger := Trigger{
+			ID:        generateID(),
+			Name:      cj.Name,
+			Type:      TriggerTypeCron,
+			Enabled:   cj.Enabled,
+			AgentID:   cj.AgentID,
+			CommandID: cmd.ID,
+			Cron:      &CronConfig{Schedule: cj.Schedule},
+		}
+		storeData.Triggers = append(storeData.Triggers, trigger)
+	}
+
+	storeData.CronJobs = []CronJob{}
 }

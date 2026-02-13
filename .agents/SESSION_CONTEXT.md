@@ -63,10 +63,35 @@ ADK `OutputKey` permite que un agente guarde su output final en el session state
 - `admin-ui/src/views/flows/FlowBlock.vue` — Eliminado campo outputKey del bloque de agente
 - `admin-ui/src/views/flows/FlowDialog.vue` — `cleanStep()` ya no preserva outputKey; help text actualizado
 
+### 5. Commands + Triggers — Implementado (CRUD + UI, scheduler/webhook pendientes)
+
+Separación de prompts (Commands) y automatización (Triggers):
+
+**Command**: Prompt reutilizable con nombre, descripción, prompt, y agente por defecto (opcional).
+
+**Trigger**: Dos tipos:
+- **Cron**: schedule + command + agent + client (token auth). Scheduler aún no implementado.
+- **Webhook**: endpoint único por trigger. Modo fijo (command + agent) o passthrough (prompt viene del request body). Secret auto-generado para auth entrante.
+
+**Migración**: Los CronJob legacy se convierten automáticamente a Command + Trigger tipo cron en `migrateCronsToTriggers()`.
+
+**Cambios**:
+- `server/store/types.go` — `Command`, `Trigger`, `CronConfig`, `WebhookConfig`. CronJob mantenido como legacy
+- `server/store/store.go` — CRUD para Commands y Triggers. Migración automática CronJob→Command+Trigger
+- `server/admin/commands.go` — CRUD handlers
+- `server/admin/triggers.go` — CRUD handlers con validación por tipo
+- `admin-ui/src/views/commands/` — CommandsList + CommandDialog (color: indigo)
+- `admin-ui/src/views/triggers/` — TriggersList + TriggerDialog (color: teal, tipo toggle chips)
+- `admin-ui/src/App.vue` — Tabs actualizados: Crons reemplazado por Commands + Triggers
+- `.agents/ENTITY_COLORS.md` — Commands = indigo, Triggers = teal (antes "Crons")
+
 ## Lo que NO se ha tocado
 
-- **Swagger docs**: No regeneradas tras los cambios de flows
+- **Swagger docs**: No regeneradas tras los cambios
 - **Consolidar `/types` en `/schemas/{entity}`**: Discutido pero no implementado
+- **Cron scheduler**: Triggers tipo cron son solo datos — no hay motor de ejecución
+- **Webhook handler**: Triggers tipo webhook no tienen endpoint HTTP aún
+- **Sidebar navigation**: Tabs arriba ya son 8 — sidebar planeado pero no implementado
 
 ## Datos de Prueba
 
