@@ -11,13 +11,10 @@
           <FormInput v-model="form.description" placeholder="What this flow does..." />
         </div>
       </div>
-      <div>
-        <FormLabel label="Steps" :required="true" />
-        <FlowEditor
-          v-model="form.root"
-          :agents="store.agents"
-        />
-      </div>
+      <FlowCanvas
+        v-model="form.root"
+        :agents="store.agents"
+      />
     </div>
   </AppDialog>
 </template>
@@ -29,7 +26,7 @@ import { flowsApi } from '../../lib/api/index.js'
 import AppDialog from '../../components/AppDialog.vue'
 import FormInput from '../../components/FormInput.vue'
 import FormLabel from '../../components/FormLabel.vue'
-import FlowEditor from './FlowEditor.vue'
+import FlowCanvas from './FlowCanvas.vue'
 
 const emit = defineEmits(['saved'])
 const store = useDataStore()
@@ -40,7 +37,7 @@ const isEdit = ref(false)
 const form = reactive({
   name: '',
   description: '',
-  root: { type: 'sequential', steps: [] },
+  root: null,
 })
 
 function open(flow = null) {
@@ -48,7 +45,7 @@ function open(flow = null) {
   editId.value = flow?.id || null
   form.name = flow?.name || ''
   form.description = flow?.description || ''
-  form.root = flow ? JSON.parse(JSON.stringify(flow.root)) : { type: 'sequential', steps: [] }
+  form.root = flow ? JSON.parse(JSON.stringify(flow.root)) : null
   dialogRef.value?.open()
 }
 
@@ -56,7 +53,7 @@ async function save() {
   const data = {
     name: form.name.trim(),
     description: form.description.trim(),
-    root: form.root,
+    root: cleanStep(form.root),
   }
   try {
     if (isEdit.value) {
@@ -69,6 +66,19 @@ async function save() {
   } catch (e) {
     alert('Error: ' + e.message)
   }
+}
+
+function cleanStep(step) {
+  const clean = { type: step.type }
+  if (step.type === 'agent') {
+    clean.agentId = step.agentId
+  } else {
+    clean.steps = (step.steps || []).map(cleanStep)
+    if (step.type === 'loop') {
+      clean.maxIterations = step.maxIterations || 0
+    }
+  }
+  return clean
 }
 
 defineExpose({ open })
