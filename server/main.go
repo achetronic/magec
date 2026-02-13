@@ -48,8 +48,10 @@ import (
 	_ "github.com/achetronic/magec/server/userapi/docs"
 
 	_ "github.com/achetronic/magec/server/admin/docs"
-	_ "github.com/achetronic/magec/server/client/device"
+	_ "github.com/achetronic/magec/server/client/cron"
+	_ "github.com/achetronic/magec/server/client/direct"
 	_ "github.com/achetronic/magec/server/client/telegram"
+	_ "github.com/achetronic/magec/server/client/webhook"
 	_ "github.com/achetronic/magec/server/memory/postgres"
 	_ "github.com/achetronic/magec/server/memory/redis"
 )

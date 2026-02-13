@@ -1,16 +1,9 @@
 package client
 
-// FieldSpec describes a single configuration field for a client type.
-// The admin UI uses this to dynamically render forms.
-type FieldSpec struct {
-	Key         string `json:"key"`
-	Label       string `json:"label"`
-	Type        string `json:"type"`
-	Required    bool   `json:"required,omitempty"`
-	Placeholder string `json:"placeholder,omitempty"`
-	Default     string `json:"default,omitempty"`
-	Options     string `json:"options,omitempty"`
-}
+// Schema is a JSON Schema object represented as a plain map so providers can
+// define arbitrarily complex schemas (oneOf, if/then, etc.) without the
+// framework imposing structural limits.
+type Schema = map[string]interface{}
 
 // Provider defines what every client type must implement.
 // To add a new client type (e.g. Discord, Slack):
@@ -21,5 +14,5 @@ type FieldSpec struct {
 type Provider interface {
 	Type() string
 	DisplayName() string
-	ConfigFields() []FieldSpec
+	ConfigSchema() Schema
 }

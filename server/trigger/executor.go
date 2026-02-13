@@ -31,47 +31,63 @@ func NewExecutor(s *store.Store, agentURL string, logger *slog.Logger) *Executor
 	}
 }
 
-// RunTrigger resolves the trigger's command and agent, then calls the agent API.
-// For passthrough webhooks, prompt and agentID can be provided directly.
-func (e *Executor) RunTrigger(ctx context.Context, trigger store.Trigger, passthroughPrompt, passthroughAgentID string) (string, error) {
-	var prompt, agentID, token string
+// RunClient resolves the client's command and agents, then calls the agent API
+// for each allowed agent. For passthrough webhooks, prompt is provided directly.
+func (e *Executor) RunClient(ctx context.Context, cl store.ClientDefinition, passthroughPrompt string) (string, error) {
+	var prompt string
+	var commandID string
 
-	if trigger.Type == store.TriggerTypeWebhook && trigger.Webhook != nil && trigger.Webhook.Passthrough {
-		prompt = passthroughPrompt
-		agentID = passthroughAgentID
-		if agentID == "" {
-			agentID = trigger.AgentID
+	switch cl.Type {
+	case "cron":
+		if cl.Config.Cron == nil {
+			return "", fmt.Errorf("client %q: missing cron config", cl.Name)
 		}
-		if prompt == "" {
-			return "", fmt.Errorf("passthrough webhook requires a prompt in the request body")
+		commandID = cl.Config.Cron.CommandID
+	case "webhook":
+		if cl.Config.Webhook == nil {
+			return "", fmt.Errorf("client %q: missing webhook config", cl.Name)
 		}
-		if agentID == "" {
-			return "", fmt.Errorf("passthrough webhook requires an agentId (in trigger config or request body)")
+		if cl.Config.Webhook.Passthrough {
+			prompt = passthroughPrompt
+			if prompt == "" {
+				return "", fmt.Errorf("passthrough webhook requires a prompt in the request body")
+			}
+		} else {
+			commandID = cl.Config.Webhook.CommandID
 		}
-	} else {
-		if trigger.CommandID == "" {
-			return "", fmt.Errorf("trigger %q has no command configured", trigger.Name)
-		}
-		cmd, ok := e.store.GetCommand(trigger.CommandID)
+	default:
+		return "", fmt.Errorf("client %q: unsupported type %q for execution", cl.Name, cl.Type)
+	}
+
+	if commandID != "" {
+		cmd, ok := e.store.GetCommand(commandID)
 		if !ok {
-			return "", fmt.Errorf("command %q not found", trigger.CommandID)
+			return "", fmt.Errorf("command %q not found", commandID)
 		}
 		prompt = cmd.Prompt
-		agentID = trigger.AgentID
 	}
 
-	if agentID == "" {
-		return "", fmt.Errorf("trigger %q: no agent configured", trigger.Name)
+	if len(cl.AllowedAgents) == 0 {
+		return "", fmt.Errorf("client %q: no allowed agents configured", cl.Name)
 	}
 
-	if trigger.ClientID != "" {
-		cl, ok := e.store.GetClient(trigger.ClientID)
-		if ok {
-			token = cl.Token
+	var allResults string
+	for _, agentID := range cl.AllowedAgents {
+		result, err := e.callAgent(ctx, agentID, prompt, cl.Token)
+		if err != nil {
+			e.logger.Error("Failed to run agent", "client", cl.Name, "agent", agentID, "error", err)
+			continue
 		}
+		if allResults != "" {
+			allResults += "\n---\n"
+		}
+		allResults += result
 	}
 
-	return e.callAgent(ctx, agentID, prompt, token)
+	if allResults == "" {
+		return "", fmt.Errorf("all agents failed for client %q", cl.Name)
+	}
+	return allResults, nil
 }
 
 // callAgent sends a prompt to the agent API and returns the response text.

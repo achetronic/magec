@@ -12,7 +12,6 @@ Each entity type in the admin UI has an assigned color for visual consistency ac
 | **Memory** | Green | `green` | `#4ade80` |
 | **Clients** | Lava (red) | `lava` | `#f87171` |
 | **Commands** | Indigo | `indigo` | `#818cf8` |
-| **Triggers** | Teal | `teal` | `#2dd4bf` |
 | **Flows** | Rose | `rose` | `#fb7185` |
 
 ## Usage Pattern

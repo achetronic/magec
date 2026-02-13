@@ -105,13 +105,12 @@ const groups = [
     items: [
       { id: 'agents', label: 'Agents', icon: 'users', color: 'sol' },
       { id: 'flows', label: 'Flows', icon: 'flow', color: 'rose' },
+      { id: 'commands', label: 'Commands', icon: 'command', color: 'indigo' },
     ],
   },
   {
-    label: 'Automatización',
+    label: 'Conexiones',
     items: [
-      { id: 'commands', label: 'Commands', icon: 'command', color: 'indigo' },
-      { id: 'triggers', label: 'Triggers', icon: 'trigger', color: 'teal' },
       { id: 'clients', label: 'Clients', icon: 'phone', color: 'lava' },
     ],
   },
@@ -125,7 +124,6 @@ function itemCount(id) {
     agents: store.agents,
     flows: store.flows,
     commands: store.commands,
-    triggers: store.triggers,
     clients: store.clients,
   }
   return map[id]?.length || 0

@@ -93,13 +93,6 @@ func (h *Handler) buildRouter() *mux.Router {
 	r.HandleFunc("/commands/{id}", h.updateCommand).Methods("PUT")
 	r.HandleFunc("/commands/{id}", h.deleteCommand).Methods("DELETE")
 
-	// Triggers
-	r.HandleFunc("/triggers", h.listTriggers).Methods("GET")
-	r.HandleFunc("/triggers", h.createTrigger).Methods("POST")
-	r.HandleFunc("/triggers/{id}", h.getTrigger).Methods("GET")
-	r.HandleFunc("/triggers/{id}", h.updateTrigger).Methods("PUT")
-	r.HandleFunc("/triggers/{id}", h.deleteTrigger).Methods("DELETE")
-
 	// Flows
 	r.HandleFunc("/flows", h.listFlows).Methods("GET")
 	r.HandleFunc("/flows", h.createFlow).Methods("POST")

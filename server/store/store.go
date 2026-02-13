@@ -31,11 +31,9 @@ func New(filePath string) (*Store, error) {
 			MemoryProviders: []MemoryProvider{},
 			MCPServers:      []MCPServer{},
 			Agents:          []AgentDefinition{},
-			CronJobs:        []CronJob{},
 			Clients:         []ClientDefinition{},
 			Flows:           []FlowDefinition{},
 			Commands:        []Command{},
-			Triggers:        []Trigger{},
 		},
 	}
 
@@ -651,73 +649,6 @@ func (s *Store) DeleteCommand(id string) error {
 	return fmt.Errorf("command %q not found", id)
 }
 
-// --- Triggers ---
-
-func (s *Store) ListTriggers() []Trigger {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	result := make([]Trigger, len(s.data.Triggers))
-	copy(result, s.data.Triggers)
-	return result
-}
-
-func (s *Store) GetTrigger(id string) (Trigger, bool) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	for _, t := range s.data.Triggers {
-		if t.ID == id {
-			return t, true
-		}
-	}
-	return Trigger{}, false
-}
-
-func (s *Store) CreateTrigger(t Trigger) (Trigger, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	t.ID = generateID()
-	if t.Type == TriggerTypeWebhook && t.Webhook != nil && t.Webhook.Secret == "" {
-		t.Webhook.Secret = generateToken()
-	}
-	s.data.Triggers = append(s.data.Triggers, t)
-	return t, s.persist()
-}
-
-func (s *Store) UpdateTrigger(id string, t Trigger) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	for i, existing := range s.data.Triggers {
-		if existing.ID == id {
-			t.ID = id
-			if t.Type == TriggerTypeWebhook && t.Webhook != nil && t.Webhook.Secret == "" {
-				if existing.Webhook != nil {
-					t.Webhook.Secret = existing.Webhook.Secret
-				} else {
-					t.Webhook.Secret = generateToken()
-				}
-			}
-			s.data.Triggers[i] = t
-			return s.persist()
-		}
-	}
-	return fmt.Errorf("trigger %q not found", id)
-}
-
-func (s *Store) DeleteTrigger(id string) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	for i, existing := range s.data.Triggers {
-		if existing.ID == id {
-			s.data.Triggers = append(s.data.Triggers[:i], s.data.Triggers[i+1:]...)
-			return s.persist()
-		}
-	}
-	return fmt.Errorf("trigger %q not found", id)
-}
-
 // --- Persistence ---
 
 // persist writes the current store data to disk as formatted JSON and
@@ -800,6 +731,8 @@ func (s *Store) loadFromDisk() error {
 
 	s.migrateDevicesToClients(data, &storeData)
 	s.migrateCronsToTriggers(&storeData)
+	s.migrateTriggersToClients(&storeData)
+	s.migrateDeviceToDirectType(&storeData)
 
 	dirty := s.migrateIDs(&storeData)
 
@@ -1048,7 +981,7 @@ func (s *Store) migrateCronsToTriggers(storeData *StoreData) {
 		trigger := Trigger{
 			ID:        generateID(),
 			Name:      cj.Name,
-			Type:      TriggerTypeCron,
+			Type:      "cron",
 			Enabled:   cj.Enabled,
 			AgentID:   cj.AgentID,
 			CommandID: cmd.ID,
@@ -1058,4 +991,63 @@ func (s *Store) migrateCronsToTriggers(storeData *StoreData) {
 	}
 
 	storeData.CronJobs = []CronJob{}
+}
+
+// migrateTriggersToClients converts legacy Trigger entries into ClientDefinition.
+// Each Trigger becomes a Client of type "cron" or "webhook" with its own token.
+// The original Triggers slice is cleared after migration.
+func (s *Store) migrateTriggersToClients(storeData *StoreData) {
+	if len(storeData.Triggers) == 0 {
+		return
+	}
+
+	for _, t := range storeData.Triggers {
+		cl := ClientDefinition{
+			ID:      generateID(),
+			Name:    t.Name,
+			Type:    t.Type,
+			Token:   generateToken(),
+			Enabled: t.Enabled,
+		}
+
+		if t.AgentID != "" {
+			cl.AllowedAgents = []string{t.AgentID}
+		} else {
+			cl.AllowedAgents = []string{}
+		}
+
+		switch t.Type {
+		case "cron":
+			schedule := ""
+			if t.Cron != nil {
+				schedule = t.Cron.Schedule
+			}
+			cl.Config.Cron = &CronClientConfig{
+				Schedule:  schedule,
+				CommandID: t.CommandID,
+			}
+		case "webhook":
+			passthrough := false
+			if t.Webhook != nil {
+				passthrough = t.Webhook.Passthrough
+			}
+			cl.Config.Webhook = &WebhookClientConfig{
+				Passthrough: passthrough,
+				CommandID:   t.CommandID,
+			}
+		}
+
+		storeData.Clients = append(storeData.Clients, cl)
+	}
+
+	storeData.Triggers = []Trigger{}
+}
+
+// migrateDeviceToDirectType renames client type "device" to "direct".
+func (s *Store) migrateDeviceToDirectType(storeData *StoreData) {
+	for i := range storeData.Clients {
+		if storeData.Clients[i].Type == "device" {
+			storeData.Clients[i].Type = "direct"
+		}
+	}
 }

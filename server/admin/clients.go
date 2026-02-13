@@ -151,11 +151,11 @@ func (h *Handler) regenerateClientToken(w http.ResponseWriter, r *http.Request) 
 	writeJSON(w, http.StatusOK, cl)
 }
 
-// ClientTypeInfo represents a registered client type with its form field specs.
+// ClientTypeInfo represents a registered client type with its JSON Schema.
 type ClientTypeInfo struct {
-	Type        string             `json:"type" example:"telegram"`
-	DisplayName string             `json:"displayName" example:"Telegram"`
-	Fields      []client.FieldSpec `json:"fields"`
+	Type         string        `json:"type" example:"telegram"`
+	DisplayName  string        `json:"displayName" example:"Telegram"`
+	ConfigSchema client.Schema `json:"configSchema"`
 }
 
 // listClientTypes returns all registered client types with field specs.
@@ -169,9 +169,9 @@ func (h *Handler) listClientTypes(w http.ResponseWriter, r *http.Request) {
 	var types []ClientTypeInfo
 	for _, p := range client.All() {
 		types = append(types, ClientTypeInfo{
-			Type:        p.Type(),
-			DisplayName: p.DisplayName(),
-			Fields:      p.ConfigFields(),
+			Type:         p.Type(),
+			DisplayName:  p.DisplayName(),
+			ConfigSchema: p.ConfigSchema(),
 		})
 	}
 	writeJSON(w, http.StatusOK, types)
@@ -186,5 +186,5 @@ func validateClientConfig(c store.ClientDefinition) error {
 	if err := json.Unmarshal(raw, &full); err != nil {
 		return nil
 	}
-	return client.ValidateRequired(c.Type, full[c.Type])
+	return client.ValidateConfig(c.Type, full[c.Type])
 }

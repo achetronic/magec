@@ -152,3 +152,33 @@ func (h *Handler) Transcription(w http.ResponseWriter, r *http.Request) {}
 // @Success      101  {string}  string  "Switching Protocols"
 // @Router       /voice/events [get]
 func (h *Handler) VoiceEvents(w http.ResponseWriter, r *http.Request) {}
+
+// WebhookRequest is the JSON body for incoming webhook calls.
+type WebhookRequest struct {
+	Prompt string `json:"prompt,omitempty" example:"Summarize today's news"`
+}
+
+// WebhookResponse is the response from a webhook execution.
+type WebhookResponse struct {
+	OK       bool   `json:"ok" example:"true"`
+	Response string `json:"response,omitempty" example:"Here is the summary..."`
+	Error    string `json:"error,omitempty" example:""`
+}
+
+// Webhook executes a webhook client's configured command against its allowed agents.
+// @Summary      Execute webhook
+// @Description  Fires a webhook client. For fixed-command webhooks, the command is executed as configured. For passthrough webhooks, the prompt must be provided in the request body. The client's token is required for authentication. The command runs against all agents in the client's allowedAgents list.
+// @Tags         webhooks
+// @Accept       json
+// @Produce      json
+// @Param        id    path      string          true  "Webhook client ID"
+// @Param        body  body      WebhookRequest  false "Request body (required for passthrough webhooks)"
+// @Success      200   {object}  WebhookResponse
+// @Failure      400   {object}  WebhookResponse
+// @Failure      401   {object}  WebhookResponse
+// @Failure      403   {object}  WebhookResponse
+// @Failure      404   {object}  WebhookResponse
+// @Failure      500   {object}  WebhookResponse
+// @Security     BearerAuth
+// @Router       /webhooks/{id} [post]
+func (h *Handler) Webhook(w http.ResponseWriter, r *http.Request) {}

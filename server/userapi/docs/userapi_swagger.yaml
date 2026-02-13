@@ -37,6 +37,24 @@ definitions:
         example: Hello world
         type: string
     type: object
+  userapi.WebhookRequest:
+    properties:
+      prompt:
+        example: Summarize today's news
+        type: string
+    type: object
+  userapi.WebhookResponse:
+    properties:
+      error:
+        example: ""
+        type: string
+      ok:
+        example: true
+        type: boolean
+      response:
+        example: Here is the summary...
+        type: string
+    type: object
 host: localhost:8080
 info:
   contact: {}
@@ -55,7 +73,7 @@ paths:
         "200":
           description: Authenticated client info
           headers:
-            X-Client-Name:
+            X-Client-ID:
               description: Set by auth middleware
               type: string
           schema:
@@ -185,6 +203,57 @@ paths:
       summary: Voice events WebSocket
       tags:
       - voice
+  /webhooks/{id}:
+    post:
+      consumes:
+      - application/json
+      description: Fires a webhook client. For fixed-command webhooks, the command
+        is executed as configured. For passthrough webhooks, the prompt must be provided
+        in the request body. The client's token is required for authentication. The
+        command runs against all agents in the client's allowedAgents list.
+      parameters:
+      - description: Webhook client ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Request body (required for passthrough webhooks)
+        in: body
+        name: body
+        schema:
+          $ref: '#/definitions/userapi.WebhookRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/userapi.WebhookResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/userapi.WebhookResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/userapi.WebhookResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/userapi.WebhookResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/userapi.WebhookResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/userapi.WebhookResponse'
+      security:
+      - BearerAuth: []
+      summary: Execute webhook
+      tags:
+      - webhooks
 schemes:
 - http
 securityDefinitions:

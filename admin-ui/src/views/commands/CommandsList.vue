@@ -9,7 +9,7 @@
 
     <SkeletonCard v-if="store.loading && !store.commands.length" />
 
-    <EmptyState v-else-if="!store.commands.length" title="No commands configured" subtitle="Create reusable prompts that triggers can invoke against agents" icon="command" color="indigo" actionLabel="+ New Command" @action="openDialog()" />
+    <EmptyState v-else-if="!store.commands.length" title="No commands configured" subtitle="Create reusable prompts that cron and webhook clients can execute" icon="command" color="indigo" actionLabel="+ New Command" @action="openDialog()" />
 
     <div v-else class="grid gap-3 grid-cols-1 sm:grid-cols-2">
       <Card v-for="c in store.commands" :key="c.id">

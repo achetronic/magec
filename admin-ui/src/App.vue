@@ -29,7 +29,6 @@
             <AgentsList v-else-if="activeTab === 'agents'" />
             <FlowsList v-else-if="activeTab === 'flows'" />
             <CommandsList v-else-if="activeTab === 'commands'" />
-            <TriggersList v-else-if="activeTab === 'triggers'" />
             <ClientsList v-else-if="activeTab === 'clients'" />
           </div>
         </Transition>
@@ -60,12 +59,11 @@ import McpsList from './views/mcps/McpsList.vue'
 import AgentsList from './views/agents/AgentsList.vue'
 import FlowsList from './views/flows/FlowsList.vue'
 import CommandsList from './views/commands/CommandsList.vue'
-import TriggersList from './views/triggers/TriggersList.vue'
 import ClientsList from './views/clients/ClientsList.vue'
 
 const store = useDataStore()
 
-const validTabs = ['backends', 'memory', 'mcps', 'agents', 'flows', 'commands', 'triggers', 'clients']
+const validTabs = ['backends', 'memory', 'mcps', 'agents', 'flows', 'commands', 'clients']
 const saved = location.hash.slice(1)
 const activeTab = ref(validTabs.includes(saved) ? saved : 'backends')
 const sidebarCollapsed = ref(localStorage.getItem('sidebar-collapsed') === 'true')

@@ -9,7 +9,6 @@ import {
   clientsApi,
   flowsApi,
   commandsApi,
-  triggersApi,
 } from '../api/index.js'
 
 export const useDataStore = defineStore('data', () => {
@@ -21,7 +20,6 @@ export const useDataStore = defineStore('data', () => {
   const clients = ref([])
   const flows = ref([])
   const commands = ref([])
-  const triggers = ref([])
   const memoryTypes = ref([])
   const clientTypes = ref([])
   const loading = ref(false)
@@ -44,7 +42,6 @@ export const useDataStore = defineStore('data', () => {
         clientsApi.list(),
         flowsApi.list(),
         commandsApi.list(),
-        triggersApi.list(),
       ])
       backends.value = results[0] || []
       agents.value = results[1] || []
@@ -54,7 +51,6 @@ export const useDataStore = defineStore('data', () => {
       clients.value = results[5] || []
       flows.value = results[6] || []
       commands.value = results[7] || []
-      triggers.value = results[8] || []
     } catch (e) {
       console.error('Failed to load data:', e)
     } finally {
@@ -95,7 +91,6 @@ export const useDataStore = defineStore('data', () => {
     clients,
     flows,
     commands,
-    triggers,
     memoryTypes,
     clientTypes,
     loading,

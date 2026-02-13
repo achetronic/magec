@@ -76,7 +76,6 @@ const sectionDefs = [
   { key: 'agents',    label: 'Agents',       icon: 'users',    color: 'sol',       data: () => store.agents },
   { key: 'flows',     label: 'Flows',        icon: 'flow',     color: 'rose',      data: () => store.flows },
   { key: 'commands',  label: 'Commands',     icon: 'command',  color: 'indigo',    data: () => store.commands },
-  { key: 'triggers',  label: 'Triggers',     icon: 'trigger',  color: 'teal',      data: () => store.triggers },
   { key: 'clients',   label: 'Clients',      icon: 'phone',    color: 'lava',      data: () => store.clients },
 ]
 

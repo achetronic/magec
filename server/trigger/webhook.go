@@ -1,7 +1,6 @@
 package trigger
 
 import (
-	"crypto/subtle"
 	"encoding/json"
 	"log/slog"
 	"net/http"
@@ -11,8 +10,9 @@ import (
 	"github.com/achetronic/magec/server/store"
 )
 
-// WebhookHandler serves webhook trigger endpoints.
-// Each trigger has a unique URL: /api/v1/webhooks/{triggerID}
+// WebhookHandler serves webhook client endpoints.
+// Each webhook client has a unique URL: /api/v1/webhooks/{clientID}
+// Authentication uses the client's token via Authorization: Bearer header.
 type WebhookHandler struct {
 	executor *Executor
 	store    *store.Store
@@ -22,9 +22,7 @@ type WebhookHandler struct {
 
 // webhookRequest is the JSON body expected from incoming webhook calls.
 type webhookRequest struct {
-	Prompt  string `json:"prompt,omitempty"`
-	AgentID string `json:"agentId,omitempty"`
-	Secret  string `json:"secret,omitempty"`
+	Prompt string `json:"prompt,omitempty"`
 }
 
 type webhookResponse struct {
@@ -51,46 +49,49 @@ func (h *WebhookHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *WebhookHandler) handle(w http.ResponseWriter, r *http.Request) {
-	triggerID := mux.Vars(r)["id"]
+	clientID := mux.Vars(r)["id"]
 
-	trigger, ok := h.store.GetTrigger(triggerID)
-	if !ok || trigger.Type != store.TriggerTypeWebhook {
+	cl, ok := h.store.GetClient(clientID)
+	if !ok || cl.Type != "webhook" {
 		writeWebhookError(w, http.StatusNotFound, "webhook not found")
 		return
 	}
 
-	if !trigger.Enabled {
-		writeWebhookError(w, http.StatusForbidden, "trigger is disabled")
+	if !cl.Enabled {
+		writeWebhookError(w, http.StatusForbidden, "webhook client is disabled")
+		return
+	}
+
+	token := r.Header.Get("Authorization")
+	if len(token) > 7 && token[:7] == "Bearer " {
+		token = token[7:]
+	} else {
+		token = ""
+	}
+
+	if token == "" || token != cl.Token {
+		writeWebhookError(w, http.StatusUnauthorized, "invalid or missing token")
 		return
 	}
 
 	var req webhookRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeWebhookError(w, http.StatusBadRequest, "invalid JSON: "+err.Error())
-		return
-	}
-
-	if trigger.Webhook != nil && trigger.Webhook.Secret != "" {
-		secret := req.Secret
-		if secret == "" {
-			secret = r.Header.Get("X-Webhook-Secret")
-		}
-		if subtle.ConstantTimeCompare([]byte(trigger.Webhook.Secret), []byte(secret)) != 1 {
-			writeWebhookError(w, http.StatusUnauthorized, "invalid secret")
+	if r.ContentLength > 0 {
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeWebhookError(w, http.StatusBadRequest, "invalid JSON: "+err.Error())
 			return
 		}
 	}
 
-	h.logger.Info("Webhook trigger firing", "trigger", trigger.Name, "id", trigger.ID)
+	h.logger.Info("Webhook client firing", "client", cl.Name, "id", cl.ID)
 
-	result, err := h.executor.RunTrigger(r.Context(), trigger, req.Prompt, req.AgentID)
+	result, err := h.executor.RunClient(r.Context(), cl, req.Prompt)
 	if err != nil {
-		h.logger.Error("Webhook trigger failed", "trigger", trigger.Name, "error", err)
+		h.logger.Error("Webhook client failed", "client", cl.Name, "error", err)
 		writeWebhookError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	h.logger.Info("Webhook trigger completed", "trigger", trigger.Name, "responseLen", len(result))
+	h.logger.Info("Webhook client completed", "client", cl.Name, "responseLen", len(result))
 	writeWebhookJSON(w, http.StatusOK, webhookResponse{OK: true, Response: result})
 }
 

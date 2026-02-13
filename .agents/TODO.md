@@ -259,9 +259,13 @@ Currently voice selection is server-side only. Could add UI for users to preview
 - [x] Wake word model name in capabilities: `Name` field added to WebSocket capabilities message
 - [x] Admin UI modal fix: `formnovalidate` on cancel/close buttons to bypass HTML5 validation
 - [x] Admin UI framework migration (Vue 3 + Vite + Tailwind v4 + Pinia)
-- [x] Commands + Triggers system (replacing CronJobs)
+- [x] Commands + Triggers system → consolidated into Client types (cron, webhook)
 - [x] Cron scheduler + Webhook handler (`server/trigger/` package)
 - [x] OutputKey migration (AgentDefinition, not FlowStep)
 - [x] Entity color system (8 entities, documented in ENTITY_COLORS.md)
 - [x] Sidebar navigation (replaces tab bar, 3 groups, collapsible, entity colors)
 - [x] TopBar with section context + stats badges + refresh
+- [x] Triggers→Clients consolidation: cron and webhook are now client types, not separate entities
+- [x] OpenAPI JSON Schema for client types endpoint (replaces FieldSpec)
+- [x] device→direct client type rename
+- [x] Migration chain: CronJobs→Triggers→Clients (automatic on store load)

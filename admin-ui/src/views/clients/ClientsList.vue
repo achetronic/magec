@@ -9,16 +9,16 @@
 
     <SkeletonCard v-if="store.loading && !store.clients.length" />
 
-    <EmptyState v-else-if="!store.clients.length" title="No clients configured" subtitle="Create a client to connect devices, Telegram bots, and more" icon="phone" color="lava" actionLabel="+ New Client" @action="openDialog()" />
+    <EmptyState v-else-if="!store.clients.length" title="No clients configured" subtitle="Create a client to connect devices, bots, cron jobs, or webhooks" icon="phone" color="lava" actionLabel="+ New Client" @action="openDialog()" />
 
     <div v-else class="grid gap-3 grid-cols-1 sm:grid-cols-2">
       <Card v-for="c in store.clients" :key="c.id">
-        <div class="flex items-start justify-between gap-3 mb-3" :class="{ 'opacity-60': !c.enabled }">
+        <div class="flex items-start justify-between gap-3 mb-2" :class="{ 'opacity-60': !c.enabled }">
           <div class="flex items-center gap-3 min-w-0">
             <div class="relative w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
               :class="c.enabled ? 'bg-lava-500/15' : 'bg-piedra-800'">
               <span class="text-[10px] font-mono font-bold" :class="c.enabled ? 'text-lava-400' : 'text-arena-500'">
-                {{ typeLabel(c.type).slice(0, 3).toUpperCase() }}
+                {{ clientTypeAbbrev(c.type) }}
               </span>
               <span class="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border border-piedra-900"
                 :class="c.enabled ? 'bg-green-500' : 'bg-lava-500'"
@@ -26,7 +26,11 @@
             </div>
             <div class="min-w-0">
               <h3 class="font-medium text-arena-100 text-sm">{{ c.name }}</h3>
-              <p class="text-[10px] text-arena-500">{{ typeLabel(c.type) }}</p>
+              <div class="flex items-center gap-1.5 mt-0.5">
+                <Badge :variant="clientTypeBadge(c.type)">{{ clientTypeLabel(c.type) }}</Badge>
+                <span v-if="c.type === 'cron' && c.config?.cron?.schedule" class="text-[10px] text-arena-500 font-mono">{{ c.config.cron.schedule }}</span>
+                <Badge v-if="c.type === 'webhook' && c.config?.webhook?.passthrough" variant="muted">passthrough</Badge>
+              </div>
             </div>
           </div>
           <div class="flex gap-0.5 flex-shrink-0">
@@ -38,12 +42,15 @@
             </button>
           </div>
         </div>
-        <div v-if="agentRefs(c).length" class="flex flex-wrap gap-1">
+        <div class="flex flex-wrap gap-1.5">
+          <Tooltip v-if="commandRef(c)" :text="commandRef(c).tooltip">
+            <Badge variant="indigo">{{ commandRef(c).name }}</Badge>
+          </Tooltip>
           <Tooltip v-for="ref in agentRefs(c)" :key="ref.name" :text="ref.tooltip">
             <Badge variant="sol">{{ ref.name }}</Badge>
           </Tooltip>
         </div>
-        <p v-else class="text-[10px] text-arena-600">No agents assigned</p>
+        <p v-if="!agentRefs(c).length && !commandRef(c)" class="text-[10px] text-arena-600">No agents assigned</p>
       </Card>
     </div>
 
@@ -71,9 +78,27 @@ const registerNew = inject('registerNew')
 onMounted(() => registerNew(() => openDialog()))
 onUnmounted(() => registerNew(null))
 
-function typeLabel(type) {
-  const t = store.clientTypes.find(t => t.type === type)
-  return t?.displayName || type || 'device'
+function clientTypeLabel(t) {
+  const info = store.clientTypes.find(ct => ct.type === t)
+  return info?.displayName || t || 'Direct'
+}
+
+function clientTypeAbbrev(t) {
+  return clientTypeLabel(t).slice(0, 3).toUpperCase()
+}
+
+function clientTypeBadge(t) {
+  const map = { direct: 'lava', telegram: 'lava', cron: 'teal', webhook: 'teal' }
+  return map[t] || 'lava'
+}
+
+function commandRef(c) {
+  let cmdId = c.config?.cron?.commandId || c.config?.webhook?.commandId
+  if (!cmdId) return null
+  const cmd = store.commands.find(cmd => cmd.id === cmdId)
+  if (!cmd) return null
+  const tooltip = cmd.prompt ? cmd.prompt.slice(0, 100) + (cmd.prompt.length > 100 ? '...' : '') : ''
+  return { name: cmd.name, tooltip }
 }
 
 function agentRefs(c) {

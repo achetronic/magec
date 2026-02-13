@@ -92,6 +92,8 @@ type ClientConfig struct {
 	Telegram *TelegramClientConfig `json:"telegram,omitempty" yaml:"telegram,omitempty"`
 	Discord  *DiscordClientConfig  `json:"discord,omitempty" yaml:"discord,omitempty"`
 	Slack    *SlackClientConfig    `json:"slack,omitempty" yaml:"slack,omitempty"`
+	Cron     *CronClientConfig     `json:"cron,omitempty" yaml:"cron,omitempty"`
+	Webhook  *WebhookClientConfig  `json:"webhook,omitempty" yaml:"webhook,omitempty"`
 }
 
 // TelegramClientConfig holds Telegram bot settings for a client.
@@ -118,47 +120,28 @@ type SlackClientConfig struct {
 	AllowedChannels []string `json:"allowedChannels,omitempty" yaml:"allowedChannels,omitempty"`
 }
 
+// CronClientConfig holds settings for a cron-type client.
+type CronClientConfig struct {
+	Schedule  string `json:"schedule" yaml:"schedule"`
+	CommandID string `json:"commandId" yaml:"commandId"`
+}
+
+// WebhookClientConfig holds settings for a webhook-type client.
+// Exactly one of Passthrough or CommandID must be set.
+// When Passthrough is true, the prompt comes from the request body.
+// When Passthrough is false, CommandID is required.
+type WebhookClientConfig struct {
+	Passthrough bool   `json:"passthrough" yaml:"passthrough"`
+	CommandID   string `json:"commandId,omitempty" yaml:"commandId,omitempty"`
+}
+
 // Command represents a reusable prompt that can be invoked against an agent
-// via triggers (cron jobs, webhooks) or other automation.
+// via cron or webhook clients.
 type Command struct {
 	ID          string `json:"id" yaml:"id"`
 	Name        string `json:"name" yaml:"name"`
 	Description string `json:"description,omitempty" yaml:"description,omitempty"`
 	Prompt      string `json:"prompt" yaml:"prompt"`
-}
-
-// TriggerType identifies the kind of trigger.
-const (
-	TriggerTypeCron    = "cron"
-	TriggerTypeWebhook = "webhook"
-)
-
-// Trigger represents an automation that executes a command against an agent.
-// Type determines which config block is used.
-type Trigger struct {
-	ID          string          `json:"id" yaml:"id"`
-	Name        string          `json:"name" yaml:"name"`
-	Description string          `json:"description,omitempty" yaml:"description,omitempty"`
-	Type        string          `json:"type" yaml:"type"`
-	Enabled     bool            `json:"enabled" yaml:"enabled"`
-	AgentID     string          `json:"agentId,omitempty" yaml:"agentId,omitempty"`
-	CommandID   string          `json:"commandId,omitempty" yaml:"commandId,omitempty"`
-	ClientID    string          `json:"clientId,omitempty" yaml:"clientId,omitempty"`
-	Cron        *CronConfig     `json:"cron,omitempty" yaml:"cron,omitempty"`
-	Webhook     *WebhookConfig  `json:"webhook,omitempty" yaml:"webhook,omitempty"`
-}
-
-// CronConfig holds the schedule for a cron trigger.
-type CronConfig struct {
-	Schedule string `json:"schedule" yaml:"schedule"`
-}
-
-// WebhookConfig holds settings for a webhook trigger.
-// When Passthrough is true, the prompt comes from the request body
-// and CommandID/AgentID on the Trigger may be empty.
-type WebhookConfig struct {
-	Passthrough bool   `json:"passthrough" yaml:"passthrough"`
-	Secret      string `json:"secret,omitempty" yaml:"secret,omitempty"`
 }
 
 // FlowStepType identifies the kind of node inside a flow.
@@ -195,14 +178,16 @@ type StoreData struct {
 	MemoryProviders []MemoryProvider    `json:"memoryProviders"`
 	MCPServers      []MCPServer         `json:"mcpServers"`
 	Agents          []AgentDefinition   `json:"agents"`
-	CronJobs        []CronJob           `json:"cronJobs"`
 	Clients         []ClientDefinition  `json:"clients"`
 	Flows           []FlowDefinition    `json:"flows"`
 	Commands        []Command           `json:"commands"`
-	Triggers        []Trigger           `json:"triggers"`
+
+	// Legacy fields kept for data migration only.
+	CronJobs []CronJob `json:"cronJobs,omitempty"`
+	Triggers []Trigger `json:"triggers,omitempty"`
 }
 
-// CronJob is the legacy type kept for data migration. New code uses Trigger.
+// CronJob is a legacy type kept for data migration. New code uses ClientDefinition with type "cron".
 type CronJob struct {
 	ID          string `json:"id" yaml:"id"`
 	Name        string `json:"name" yaml:"name"`
@@ -211,4 +196,29 @@ type CronJob struct {
 	Prompt      string `json:"prompt" yaml:"prompt"`
 	Description string `json:"description,omitempty" yaml:"description,omitempty"`
 	Enabled     bool   `json:"enabled" yaml:"enabled"`
+}
+
+// Trigger is a legacy type kept for data migration. New code uses ClientDefinition with type "cron" or "webhook".
+type Trigger struct {
+	ID          string         `json:"id" yaml:"id"`
+	Name        string         `json:"name" yaml:"name"`
+	Description string         `json:"description,omitempty" yaml:"description,omitempty"`
+	Type        string         `json:"type" yaml:"type"`
+	Enabled     bool           `json:"enabled" yaml:"enabled"`
+	AgentID     string         `json:"agentId,omitempty" yaml:"agentId,omitempty"`
+	CommandID   string         `json:"commandId,omitempty" yaml:"commandId,omitempty"`
+	ClientID    string         `json:"clientId,omitempty" yaml:"clientId,omitempty"`
+	Cron        *CronConfig    `json:"cron,omitempty" yaml:"cron,omitempty"`
+	Webhook     *WebhookConfig `json:"webhook,omitempty" yaml:"webhook,omitempty"`
+}
+
+// CronConfig is a legacy type kept for data migration.
+type CronConfig struct {
+	Schedule string `json:"schedule" yaml:"schedule"`
+}
+
+// WebhookConfig is a legacy type kept for data migration.
+type WebhookConfig struct {
+	Passthrough bool   `json:"passthrough" yaml:"passthrough"`
+	Secret      string `json:"secret,omitempty" yaml:"secret,omitempty"`
 }

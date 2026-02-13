@@ -34,7 +34,7 @@
                             "$ref": "#/definitions/userapi.DeviceInfoResponse"
                         },
                         "headers": {
-                            "X-Client-Name": {
+                            "X-Client-ID": {
                                 "type": "string",
                                 "description": "Set by auth middleware"
                             }
@@ -223,6 +223,81 @@
                     }
                 }
             }
+        },
+        "/webhooks/{id}": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Fires a webhook client. For fixed-command webhooks, the command is executed as configured. For passthrough webhooks, the prompt must be provided in the request body. The client's token is required for authentication. The command runs against all agents in the client's allowedAgents list.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "webhooks"
+                ],
+                "summary": "Execute webhook",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Webhook client ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Request body (required for passthrough webhooks)",
+                        "name": "body",
+                        "in": "body",
+                        "schema": {
+                            "$ref": "#/definitions/userapi.WebhookRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/userapi.WebhookResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/userapi.WebhookResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/userapi.WebhookResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/userapi.WebhookResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/userapi.WebhookResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/userapi.WebhookResponse"
+                        }
+                    }
+                }
+            }
         }
     },
     "definitions": {
@@ -277,6 +352,32 @@
                 "input": {
                     "type": "string",
                     "example": "Hello world"
+                }
+            }
+        },
+        "userapi.WebhookRequest": {
+            "type": "object",
+            "properties": {
+                "prompt": {
+                    "type": "string",
+                    "example": "Summarize today's news"
+                }
+            }
+        },
+        "userapi.WebhookResponse": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string",
+                    "example": ""
+                },
+                "ok": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "response": {
+                    "type": "string",
+                    "example": "Here is the summary..."
                 }
             }
         }

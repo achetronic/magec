@@ -85,9 +85,8 @@ const sections = {
   mcps:      { label: 'MCP Servers',  icon: 'bolt',      color: 'atlantico', group: 'Infraestructura' },
   agents:    { label: 'Agents',       icon: 'users',     color: 'sol',       group: 'Agentes' },
   flows:     { label: 'Flows',        icon: 'flow',      color: 'rose',      group: 'Agentes' },
-  commands:  { label: 'Commands',     icon: 'command',   color: 'indigo',    group: 'Automatización' },
-  triggers:  { label: 'Triggers',     icon: 'trigger',   color: 'teal',      group: 'Automatización' },
-  clients:   { label: 'Clients',      icon: 'phone',     color: 'lava',      group: 'Automatización' },
+  commands:  { label: 'Commands',     icon: 'command',   color: 'indigo',    group: 'Agentes' },
+  clients:   { label: 'Clients',      icon: 'phone',     color: 'lava',      group: 'Conexiones' },
 }
 
 const section = computed(() => sections[props.activeTab] || sections.backends)
@@ -123,7 +122,6 @@ const sectionIconText = computed(() => {
 const stats = computed(() => [
   { label: 'agents',   count: store.agents.length,   classes: 'bg-sol-500/10 text-sol-400' },
   { label: 'backends', count: store.backends.length,  classes: 'bg-purple-500/10 text-purple-400' },
-  { label: 'triggers', count: store.triggers.length,  classes: 'bg-teal-500/10 text-teal-400' },
   { label: 'clients',  count: store.clients.length,   classes: 'bg-lava-500/10 text-lava-400' },
 ])
 </script>
