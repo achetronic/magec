@@ -22,6 +22,8 @@ const variantClasses = computed(() => {
     lava: 'bg-lava-500/15 text-lava-300',
     purple: 'bg-purple-500/15 text-purple-300',
     green: 'bg-green-500/15 text-green-300',
+    teal: 'bg-teal-500/15 text-teal-300',
+    rose: 'bg-rose-500/15 text-rose-300',
     muted: 'bg-piedra-800 text-arena-500',
   }
   return map[props.variant] || map.default

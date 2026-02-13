@@ -38,12 +38,9 @@
     <div class="space-y-4">
       <div class="space-y-1.5">
         <h4 class="text-[10px] font-medium text-arena-500 uppercase tracking-wider">MCP Servers</h4>
-        <template v-if="mcpIds.length">
-          <div v-for="id in mcpIds" :key="id" class="flex items-center gap-2 p-1.5 bg-piedra-800/50 rounded-lg">
-            <Icon name="bolt" size="xs" class="text-atlantico-400" />
-            <span class="text-[11px] text-arena-200">{{ mcpName(id) }}</span>
-          </div>
-        </template>
+        <div v-if="mcpIds.length" class="flex flex-wrap gap-1.5">
+          <Badge variant="atlantico" v-for="id in mcpIds" :key="id">{{ mcpName(id) }}</Badge>
+        </div>
         <p v-else class="text-[11px] text-arena-600">None linked</p>
       </div>
 
@@ -59,7 +56,7 @@
 <script setup>
 import { computed } from 'vue'
 import { useDataStore } from '../../lib/stores/data.js'
-import Icon from '../../components/Icon.vue'
+import Badge from '../../components/Badge.vue'
 import DetailRow from '../../components/DetailRow.vue'
 
 const props = defineProps({ agent: { type: Object, required: true } })

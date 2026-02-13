@@ -131,13 +131,16 @@ func New(ctx context.Context, agents []store.AgentDefinition, backends []store.B
 
 		instruction := buildInstruction(agentDef, mcpServerMap, memorySvc)
 
-		adkAgent, err := llmagent.New(llmagent.Config{
+		agentCfg := llmagent.Config{
 			Name:        agentDef.ID,
 			Model:       llmModel,
 			Description: agentDef.Name,
 			Instruction: instruction,
 			Toolsets:    toolsets,
-		})
+			OutputKey:   agentDef.OutputKey,
+		}
+
+		adkAgent, err := llmagent.New(agentCfg)
 		if err != nil {
 			return nil, fmt.Errorf("agent %q: failed to create: %w", agentDef.ID, err)
 		}

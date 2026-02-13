@@ -2,110 +2,93 @@
 
 ## Estado Actual
 
-Implementando **Flows** (composiciones multi-agente) y **migración completa a UUID v4 inmutables**. El servidor compila y corre. La Admin UI tiene la tab "Flows" funcional con editor tree-view recursivo. Se acaba de corregir un syntax error en app.js (brace extra) — **el usuario necesita recargar la página para verificar que funciona**.
+Admin UI migrada completamente de vanilla JS a **Vue 3 + Vite + Tailwind v4 + Pinia**. El editor de flows usa un **canvas interactivo** con pan/zoom, toolbar de bloques draggable, y nesting infinito de contenedores. No se usa Vue Flow — es HTML/CSS puro con `vuedraggable` para el drag & drop.
 
-## Trabajo Completado en Esta Sesión
+## Trabajo Completado
 
-### 1. Migración completa a UUID v4 (google/uuid)
+### 1. Migración Admin UI a Vue 3
 
-**Problema**: Los IDs eran hex strings de 32 chars sin guiones. El usuario pidió UUID v4 estándar con guiones.
+**Stack**: Vue 3 (Composition API, `<script setup>`), Vite, Tailwind CSS v4 (`@tailwindcss/vite`), Pinia, vuedraggable.
+
+**Estructura**:
+- `admin-ui/src/main.js` — App entry, Pinia
+- `admin-ui/src/App.vue` — Layout, tabs via `location.hash`, global ConfirmDialog
+- `admin-ui/src/style.css` — Tailwind v4 `@theme` con colores custom (piedra/atlantico/lava/sol/arena)
+- `admin-ui/src/lib/api/` — Fetch wrapper + CRUD por recurso
+- `admin-ui/src/lib/stores/data.js` — Pinia store central
+- `admin-ui/src/components/` — Shared: AppDialog, Card, Badge, EmptyState, FormInput, FormSelect, FormLabel, DetailRow, Icon, OverviewBadges, ConfirmDialog
+- `admin-ui/src/views/` — Una carpeta por entidad con `*List.vue` + `*Dialog.vue`
+
+**Todas las entidades migradas y funcionando**: backends, memory, mcps, agents, clients, crons, flows.
+
+### 2. Editor de Flows — Canvas con bloques anidados
+
+**Decisión de diseño**: El usuario quería un editor visual donde arrastrar bloques y que se vea directamente la estructura del flow. Se evaluó Vue Flow (librería de grafos) pero se descartó porque el modelo de datos es un **árbol**, no un grafo — los bloques anidados son la representación natural.
+
+**Componentes**:
+- `FlowCanvas.vue` — Canvas con pan/zoom (pointer events + wheel), fondo de puntos, sidebar izquierda con toolbar draggable (Agent, Sequential, Parallel, Loop) + controles de zoom. Auto-centra el contenido al abrir. Cuando `root` es `null`, muestra picker de tipo raíz (3 botones: Sequential/Parallel/Loop).
+- `FlowBlock.vue` — Componente recursivo. Dos modos:
+  - **Agent**: bloque dorado con dropdown custom para seleccionar agente (no `<select>` nativo), botón ✕ para eliminar
+  - **Container** (sequential/parallel/loop): header coloreado (azul/amarillo/rojo), body con `<draggable>` que permite reordenar y mover entre contenedores. Botones ↻ (ciclar tipo) y ✕. Loop muestra badge ×N clicable y texto "repeats".
+- `FlowDialog.vue` — Nombre + descripción + FlowCanvas. El `root` empieza `null` (usuario elige tipo). `cleanStep()` elimina `__key` antes de enviar al API.
+- `FlowsList.vue` — Grid de cards con edit/delete.
+
+**Interacciones**:
+- Drag desde toolbar → drop en cualquier contenedor (HTML5 drag con `stopPropagation` para evitar doble-add en contenedores anidados)
+- Drag entre contenedores — vuedraggable con `group: 'flow-steps'`
+- Pan canvas — pointer events en fondo vacío
+- Zoom — Ctrl+scroll o botones +/−, con zoom al cursor
+- Dropdown de agente custom con animación, descripción, checkmark
+
+**Dependencias eliminadas**: `@vue-flow/core`, `@vue-flow/background`, `@vue-flow/controls`, `@vue-flow/minimap`
+**Dependencia añadida**: `vuedraggable@next` (wrapper de sortablejs para Vue 3)
+
+### 3. Limpieza de Go backend
+
+- `FlowDefinition.Layout` eliminado del struct (ya no se usa, el editor es determinista)
+- `FlowDefinition.Description` sigue presente y funcional
+
+### 4. OutputKey de ADK — Implementado
+
+ADK `OutputKey` permite que un agente guarde su output final en el session state bajo una clave, para que otros agentes en el flow puedan referenciarlo (ej. `{generated_code}` en instrucciones).
+
+**Diseño**: `OutputKey` vive en `AgentDefinition` (no en `FlowStep`) porque define cómo un agente publica su resultado — es una propiedad del agente, no del flow.
 
 **Cambios**:
-- `server/store/types.go`: `generateID()` ahora usa `github.com/google/uuid` → `uuid.New().String()` (formato `550e8400-e29b-41d4-a716-446655440000`)
-- `server/store/store.go`: `isHexID()` renombrado a `isUUID()` con regex `^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`
-- Dependencia añadida: `github.com/google/uuid`
+- `server/store/types.go` — `AgentDefinition.OutputKey string` (json: `outputKey`, omitempty)
+- `server/agent/agent.go` — Pasa `OutputKey: agentDef.OutputKey` a `llmagent.Config` al crear el agente. Sin `agentConfigMap` — los flows usan agentes pre-built directamente
+- `server/agent/flow.go` — Simplificado a solo `(flow, agentMap)`. Busca agentes pre-built del mapa, sin lógica de rebuild
+- `server/admin/flows.go` — Sin validación de OutputKey (ya no existe en FlowStep)
+- `admin-ui/src/views/agents/AgentDialog.vue` — Campo OutputKey con FormInput y texto explicativo
+- `admin-ui/src/views/flows/FlowBlock.vue` — Eliminado campo outputKey del bloque de agente
+- `admin-ui/src/views/flows/FlowDialog.vue` — `cleanStep()` ya no preserva outputKey; help text actualizado
 
-### 2. Migración de cross-references (name→ID)
+## Lo que NO se ha tocado
 
-**Problema**: El back-fill original solo generaba IDs para entidades sin ID, pero NO migraba las cross-references que seguían usando nombres (ej: `agent.llm.backend = "Ollama"` en vez del UUID del backend).
+- **Swagger docs**: No regeneradas tras los cambios de flows
+- **Consolidar `/types` en `/schemas/{entity}`**: Discutido pero no implementado
 
-**Solución**: Función `migrateIDs()` en `store.go` con 2 fases:
-- **Fase 1**: Genera UUID para toda entidad sin ID válido (incluye agents con IDs legacy como `"magec"`)
-- **Fase 2**: Construye mapas `name→ID` y reescribe todas las cross-references:
-  - `agent.llm.backend`, `agent.transcription.backend`, `agent.tts.backend` → backend ID
-  - `agent.memory.session`, `agent.memory.longTerm` → memory provider ID
-  - `agent.mcpServers[]` → MCP server IDs
-  - `memoryProvider.embedding.backend` → backend ID
-  - `cronJob.agentId` → agent ID
-  - `client.allowedAgents[]` → agent IDs
-- Es **idempotente**: usa `isUUID()` para detectar si un campo ya fue migrado
+## Datos de Prueba
 
-**Todas las funciones `Rename*WithCascade` eliminadas** (6 funciones): con IDs inmutables, renombrar es solo un PUT con nuevo `name`.
-
-### 3. Flows — Composiciones Multi-Agente
-
-**Modelo de datos** (`server/store/types.go`):
-- `FlowDefinition`: `ID`, `Name`, `Root FlowStep`
-- `FlowStep` (recursivo): `Type` (agent/sequential/parallel/loop), `AgentID`, `MaxIterations`, `Steps []FlowStep`
-- Constantes: `FlowStepAgent`, `FlowStepSequential`, `FlowStepParallel`, `FlowStepLoop`
-- `StoreData.Flows []FlowDefinition` añadido
-
-**Store CRUD** (`server/store/store.go`):
-- `ListFlows`, `GetFlow`, `CreateFlow`, `UpdateFlow`, `DeleteFlow`
-- Nil-slice init en `loadFromDisk()` y `New()`
-- Flow ID migration en `migrateIDs()`
-
-**Admin API** (`server/admin/flows.go`, `server/admin/handler.go`):
-- `GET/POST /flows`, `GET/PUT/DELETE /flows/{id}`
-- `validateFlowStep()` — validación recursiva del árbol (agent necesita agentId, containers necesitan steps, etc.)
-
-**Motor de ejecución** (`server/agent/flow.go`):
-- `BuildFlowAgent(flow, agentMap)` — traduce `FlowDefinition` a árbol ADK
-- Recursivo: agent→`llmagent`, sequential→`sequentialagent.New()`, parallel→`parallelagent.New()`, loop→`loopagent.New()`
-- Imports: `google.golang.org/adk/agent/workflowagents/{sequentialagent,parallelagent,loopagent}`
-
-**Integración** (`server/agent/agent.go`, `server/main.go`):
-- `agent.New()` acepta `flows []store.FlowDefinition` como nuevo parámetro
-- Construye map `storeAgentID → adkAgent` durante iteración
-- Después del loop de agents, itera flows y llama `BuildFlowAgent()`
-- Flow agents se registran como `otherAgents` en el `MultiLoader`
-- Hot-reload funciona: al crear/editar flow via API, se reconstruye todo
-
-**Admin UI**:
-- `admin-ui/src/api.js`: `listFlows`, `getFlow`, `createFlow`, `updateFlow`, `deleteFlow`
-- `admin-ui/index.html`: Tab "Flows", panel `panelFlows`, dialog `flowDialog` con editor tree-view
-- `admin-ui/src/app.js`: 
-  - `this.flows = []` en constructor
-  - `_renderFlows()` — lista de flows con resumen visual del árbol
-  - `_flowStepSummary()` — genera representación inline del árbol
-  - `showFlowDialog()` / `editFlow()` / `saveFlow()` — CRUD
-  - `_renderStepEditor()` — editor recursivo: seleccionar tipo, elegir agent, añadir/eliminar steps
-  - `_changeStepType()`, `_setStepAgent()`, `_setStepMaxIter()`, `_addChildStep()`, `_removeStep()`, `_getStepAtPath()`
-  - Delete confirmation actualizado para incluir `flow`
-
-## Estado Verificado
-
-- Server compila limpio (`go build ./...`)
-- Server arranca y hot-reload funciona
-- Flows API probada: 2 flows de prueba creados (sequential simple + complex con parallel+loop anidados)
-- Logs muestran `Flow initialized id=xxx name="Test Sequential Flow"` y `Flow initialized id=xxx name="Complex Flow"`
-- **Se corrigió un `}` extra en app.js línea 857** que causaba syntax error — pendiente de verificar por el usuario recargando
-
-## Datos de Prueba en store.json
-
-- 2 flows de prueba creados:
-  - "Test Sequential Flow": sequential con Magec → Itahisa
-  - "Complex Flow": sequential con Magec → parallel(Magec, Itahisa) → loop(Itahisa, x3)
-
-## Pendiente (TODOs)
-
-1. **Consolidar endpoints `*/types` en `/schemas/{entity}`** — discutido con el usuario, pendiente de implementar
-2. **Mejorar UI de Flows** — el editor tree-view funciona pero es básico. Futuro: drag-and-drop con canvas visual
-3. **El input `agentId` en el agent dialog** del HTML es vestigial (ID es auto-generated) — debería ocultarse
+- 2 flows: "Test Sequential Flow" (seq: Magec→Itahisa), "Complex Flow" (seq: Root→parallel(Magec,Itahisa)→loop×3(Root))
+- 3 agents: Magec, Itahisa, Root
+- 3 backends: Ollama, Parakeet TDT, OpenAI Edge TTS
 
 ## Comandos
 
 ```bash
-cd server && go build ./...   # Compilar
-make dev                      # Compilar + ejecutar (puertos 8080 + 8081)
-go mod tidy                   # Limpiar dependencias
+cd admin-ui && npx vite build    # Build admin UI (~1.2s)
+cd admin-ui && npx vite          # Dev server con hot-reload (proxy a :8081)
+make build                       # Build admin-ui + Go binary
+make dev                         # Build todo + arrancar server
+cd server && go build ./...      # Solo Go
 ```
 
 ## Entorno
 
 - Go 1.25.5 (GOPATH=GOROOT warning es cosmético)
-- ADK v0.3.0, adk-utils-go v0.1.7
-- google/uuid para generación de IDs
-- Server corre en :8080 (API principal) y :8081 (admin UI + admin API)
-- Store: `data/store.json` (auto-migra al arrancar)
-- Backup del store original: `data/store.json.bak`
+- Node 22+ con Vite 7.3, Vue 3.5, Tailwind 4.1
+- ADK v0.3.0
+- Server: :8080 (main) + :8081 (admin UI + admin API)
+- Store: `data/store.json`
+- Errores de Telegram son por tokens fake en datos de prueba

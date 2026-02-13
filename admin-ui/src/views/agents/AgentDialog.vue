@@ -9,15 +9,19 @@
         <FormLabel label="Description" />
         <FormInput v-model="form.description" placeholder="What this agent does..." />
       </div>
-
       <!-- System Prompt -->
       <details class="group border border-piedra-700/40 rounded-xl">
         <summary class="flex items-center justify-between px-4 py-3 cursor-pointer select-none text-xs font-medium text-arena-400 hover:text-arena-300">
           <span>System Prompt</span>
           <Icon name="chevronDown" size="md" class="text-arena-500 transition-transform group-open:rotate-180" />
         </summary>
-        <div class="px-4 pb-4">
+        <div class="px-4 pb-4 space-y-3">
           <textarea v-model="form.systemPrompt" rows="3" class="w-full bg-piedra-800 border border-piedra-700 rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-sol-500 focus:border-sol-500 outline-none resize-y" placeholder="Custom system prompt..." />
+          <div>
+            <FormLabel label="Output Key (optional)" />
+            <FormInput v-model="form.outputKey" placeholder="e.g. analysis_result" />
+            <p class="text-[10px] text-arena-500 mt-1">Saves this agent's final output under the given key. Other agents can reference it with <code class="text-arena-300 bg-piedra-800 px-0.5 rounded">{key_name}</code> in their system prompt.</p>
+          </div>
         </div>
       </details>
 
@@ -69,14 +73,18 @@
           <Icon name="chevronDown" size="md" class="text-arena-500 transition-transform group-open:rotate-180" />
         </summary>
         <div class="px-4 pb-4">
-          <div v-if="store.mcps.length" class="flex flex-wrap gap-2">
-            <label
+          <div v-if="store.mcps.length" class="flex flex-wrap gap-1.5">
+            <button
               v-for="m in store.mcps" :key="m.id"
-              class="flex items-center gap-1.5 px-2.5 py-1 bg-piedra-800 rounded-lg cursor-pointer hover:bg-piedra-700 transition-colors"
+              type="button"
+              @click="toggleMcp(m.id)"
+              class="px-2.5 py-1 text-[11px] font-medium rounded-lg border transition-all cursor-pointer"
+              :class="form.mcpServers.includes(m.id)
+                ? 'bg-atlantico-500/15 text-atlantico-300 border-atlantico-500/30'
+                : 'bg-piedra-800 text-arena-500 border-piedra-700/40 hover:border-piedra-600 hover:text-arena-300'"
             >
-              <input type="checkbox" :value="m.id" v-model="form.mcpServers" class="rounded border-piedra-600 bg-piedra-800 text-sol-500 focus:ring-sol-500" />
-              <span class="text-xs text-arena-300">{{ m.name }}</span>
-            </label>
+              {{ m.name }}
+            </button>
           </div>
           <p v-else class="text-xs text-arena-500">No MCP servers defined yet</p>
         </div>
@@ -157,6 +165,7 @@ const isEdit = ref(false)
 const form = reactive({
   name: '',
   description: '',
+  outputKey: '',
   systemPrompt: '',
   llmBackend: '',
   llmModel: '',
@@ -174,11 +183,18 @@ const form = reactive({
 const sessionProviders = computed(() => store.memory.filter(m => m.category === 'session'))
 const longTermProviders = computed(() => store.memory.filter(m => m.category === 'longterm'))
 
+function toggleMcp(id) {
+  const idx = form.mcpServers.indexOf(id)
+  if (idx === -1) form.mcpServers.push(id)
+  else form.mcpServers.splice(idx, 1)
+}
+
 function open(agent = null) {
   isEdit.value = !!agent
   editId.value = agent?.id || null
   form.name = agent?.name || ''
   form.description = agent?.description || ''
+  form.outputKey = agent?.outputKey || ''
   form.systemPrompt = agent?.systemPrompt || ''
   form.llmBackend = agent?.llm?.backend || ''
   form.llmModel = agent?.llm?.model || ''
@@ -198,6 +214,7 @@ async function save() {
   const data = {
     name: form.name.trim(),
     description: form.description.trim(),
+    outputKey: form.outputKey.trim(),
     systemPrompt: form.systemPrompt.trim(),
     llm: { backend: form.llmBackend, model: form.llmModel.trim() },
     transcription: { backend: form.transcriptionBackend, model: form.transcriptionModel.trim() },

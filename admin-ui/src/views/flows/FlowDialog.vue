@@ -15,6 +15,20 @@
         v-model="form.root"
         :agents="store.agents"
       />
+      <details class="group text-arena-500">
+        <summary class="text-[10px] font-medium cursor-pointer select-none hover:text-arena-300 transition-colors">
+          How does the flow editor work?
+        </summary>
+        <div class="mt-2 text-[10px] leading-relaxed space-y-2 text-arena-500/80">
+          <p>Drag blocks from the left sidebar into the canvas to build your workflow.</p>
+          <div class="grid grid-cols-2 gap-x-4 gap-y-1.5">
+            <div><span class="text-atlantico-400 font-semibold">Sequential</span> — runs steps one after another, in order.</div>
+            <div><span class="text-sol-400 font-semibold">Parallel</span> — runs all steps at the same time.</div>
+            <div><span class="text-lava-400 font-semibold">Loop</span> — repeats its steps N times.</div>
+            <div><span class="text-sol-400 font-semibold">Agent</span> — an AI agent that processes input.</div>
+          </div>
+        </div>
+      </details>
     </div>
   </AppDialog>
 </template>

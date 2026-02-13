@@ -1,32 +1,34 @@
 <template>
   <!-- AGENT NODE -->
   <div v-if="step.type === 'agent'" class="flow-agent group relative">
-    <div class="flex items-center gap-2 px-3 py-2.5 bg-piedra-800 border border-sol-500/30 rounded-xl
-                hover:border-sol-500/60 transition-all cursor-grab active:cursor-grabbing min-w-[130px] shadow-sm hover:shadow-md">
-      <div class="w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0 bg-sol-500/15">
-        <svg class="w-3.5 h-3.5 text-sol-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
-            d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
-        </svg>
+    <div class="bg-piedra-800 border border-sol-500/30 rounded-xl
+                hover:border-sol-500/60 transition-all min-w-[130px] shadow-sm hover:shadow-md">
+      <div class="flex items-center gap-2 px-3 py-2.5 cursor-grab active:cursor-grabbing">
+        <div class="w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0 bg-sol-500/15">
+          <svg class="w-3.5 h-3.5 text-sol-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+              d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+          </svg>
+        </div>
+        <button
+          @click.stop="toggleAgentPicker"
+          @mousedown.stop
+          class="flex-1 flex items-center gap-1 text-xs font-medium outline-none cursor-pointer truncate min-w-0"
+          :class="step.agentId ? 'text-arena-100' : 'text-arena-500 italic'"
+        >
+          <span class="truncate">{{ agentName }}</span>
+          <svg class="w-3 h-3 flex-shrink-0 text-arena-500" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
+          </svg>
+        </button>
+        <button v-if="!isRoot" @click.stop="$emit('remove')"
+          class="p-0.5 rounded opacity-0 group-hover:opacity-100 hover:bg-lava-500/20 transition-all flex-shrink-0"
+          title="Remove">
+          <svg class="w-3 h-3 text-arena-500 hover:text-lava-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
       </div>
-      <button
-        @click.stop="toggleAgentPicker"
-        @mousedown.stop
-        class="flex-1 flex items-center gap-1 text-xs font-medium outline-none cursor-pointer truncate min-w-0"
-        :class="step.agentId ? 'text-arena-100' : 'text-arena-500 italic'"
-      >
-        <span class="truncate">{{ agentName }}</span>
-        <svg class="w-3 h-3 flex-shrink-0 text-arena-500" viewBox="0 0 20 20" fill="currentColor">
-          <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
-        </svg>
-      </button>
-      <button v-if="!isRoot" @click.stop="$emit('remove')"
-        class="p-0.5 rounded opacity-0 group-hover:opacity-100 hover:bg-lava-500/20 transition-all flex-shrink-0"
-        title="Remove">
-        <svg class="w-3 h-3 text-arena-500 hover:text-lava-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-        </svg>
-      </button>
     </div>
 
     <Transition name="dropdown">
@@ -222,7 +224,7 @@ const isHorizontal = computed(() => props.step.type === 'sequential' || props.st
 
 const dragAreaClass = computed(() =>
   isHorizontal.value
-    ? 'flex flex-row flex-wrap items-center gap-0'
+    ? 'flex flex-row flex-nowrap items-center gap-0'
     : 'flex flex-col gap-1.5'
 )
 

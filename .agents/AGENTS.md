@@ -90,12 +90,26 @@ magec/
 │   ├── assets/                 # PWA icons
 │   ├── manifest.json           # PWA manifest
 │   └── index.html
-├── admin-ui/                   # Admin web interface (separate port)
+├── admin-ui/                   # Admin web interface (Vue 3 + Vite + Tailwind v4 + Pinia)
 │   ├── src/
-│   │   ├── app.js              # Admin dashboard (CRUD for agents, backends, MCPs)
-│   │   └── api.js              # Admin API client
-│   ├── assets/                 # Shared logo
-│   └── index.html
+│   │   ├── main.js             # Vue app entry with Pinia
+│   │   ├── App.vue             # Layout, tab navigation (hash-based), global ConfirmDialog
+│   │   ├── style.css           # Tailwind v4 @theme (piedra/atlantico/lava/sol/arena)
+│   │   ├── lib/
+│   │   │   ├── api/            # Fetch wrapper + CRUD per resource (agents, backends, flows, etc.)
+│   │   │   └── stores/data.js  # Pinia central store (all resources + helpers)
+│   │   ├── components/         # Shared: AppDialog, Card, Badge, FormInput, Icon, etc.
+│   │   └── views/              # Entity views (one folder each):
+│   │       ├── backends/       # BackendsList + BackendDialog
+│   │       ├── memory/         # MemoryList + MemoryCard + MemoryDialog
+│   │       ├── mcps/           # McpsList + McpDialog
+│   │       ├── agents/         # AgentsList + AgentDetail + AgentDialog
+│   │       ├── clients/        # ClientsList + ClientDialog
+│   │       ├── crons/          # CronsList + CronDialog
+│   │       └── flows/          # FlowsList + FlowDialog + FlowCanvas + FlowBlock
+│   ├── index.html
+│   ├── vite.config.js          # Vue plugin + Tailwind plugin + dev proxy to :8081
+│   └── package.json            # vue, pinia, vuedraggable, tailwindcss v4
 ├── models/                     # Wake word ONNX models + wakewords.yaml
 ├── pretrained/                 # Shared ONNX models (mel-spec, VAD, embeddings)
 ├── scripts/
@@ -122,7 +136,7 @@ magec/
 | `server/voice/` | Server-side voice detection (wake word + VAD) via ONNX |
 | `server/clients/telegram/` | Telegram bot with voice message support |
 | `server/config/config.go` | YAML config for server infrastructure only (ports, log) |
-| `admin-ui/` | Admin dashboard SPA (Tailwind, same color palette as voice-ui), served on admin port |
+| `admin-ui/` | Admin dashboard SPA (Vue 3 + Vite + Tailwind v4 + Pinia + vuedraggable). Canvas-based flow editor with drag-and-drop. Served on admin port |
 | `voice-ui/src/app.js` | Main entry - MagecApp class orchestrates audio pipeline |
 | `voice-ui/src/audio/` | AudioCapture, AudioRecorder, AudioConverter, FeedbackSound, OpenAITTS, VoiceEventsClient |
 | `voice-ui/src/api/AgentClient.js` | Agent API client (sessions, messages) |
@@ -259,6 +273,18 @@ On first run with no `data/store.json`, the store starts empty. Configure everyt
 - **WebSocket voice-events**: Server handles all ONNX inference (wake word + VAD), clients stream audio at `/api/v1/voice/events`
 - **Device auth middleware**: Token-based auth on port 8080. Whitelist: health, voice/events, device/info, OPTIONS, static files
 - **No rename cascade needed**: IDs are immutable UUIDs. Renaming = PUT with new `name` in body. Cross-references use stable IDs
+
+### JavaScript Conventions (admin-ui)
+
+- **Vue 3 Composition API**: `<script setup>` in all components, no Options API
+- **Pinia**: Single store (`data.js`) with `init()` + `refresh()` pattern
+- **No Vue Router**: Tab navigation via `activeTab` ref + `location.hash`
+- **Dialog pattern**: `defineExpose({ open })`, parents call `ref.value?.open(data)`. Native `<dialog>` with `showModal()`
+- **Delete confirmation**: Global via `provide('requestDelete')` / `inject('requestDelete')`
+- **Entity views**: `*List.vue` + `*Dialog.vue` per entity under `src/views/<entity>/`
+- **Flow editor**: `FlowCanvas.vue` (pan/zoom/toolbar) + `FlowBlock.vue` (recursive, vuedraggable)
+- **Tailwind v4**: `@tailwindcss/vite` plugin, `@theme` directive for custom colors
+- **Build**: `npx vite build` → `admin-ui/dist/`, Go serves from there
 
 ### JavaScript Conventions (voice-ui)
 
@@ -474,7 +500,7 @@ Pretrained models in `pretrained/`:
 
 ## Gotchas
 
-1. **No frontend build step**: Dependencies loaded from CDN. No npm/yarn required.
+1. **Voice-UI has no build step**: Dependencies loaded from CDN. No npm required. **Admin-UI uses Vite** — `make build-admin` or `cd admin-ui && npx vite build`.
 
 2. **Voice detection is server-side**: All ONNX inference (wake word + VAD) happens on the server via WebSocket.
 
@@ -511,6 +537,12 @@ Pretrained models in `pretrained/`:
 18. **Multi-agent routing**: ADK uses `appName` in requests to route to the correct agent via `NewMultiLoader`. Voice-UI must send the correct `appName` matching the agent ID in the store.
 
 19. **Admin UI dialog validation**: Cancel/close buttons use `formnovalidate` to bypass HTML5 validation on required fields. Without this, dialogs with required empty fields cannot be dismissed.
+
+20. **Flow editor is nested HTML, not a graph library**: The flow data model is a strict recursive tree (not a DAG/graph), so Vue Flow was replaced with nested HTML divs + `vuedraggable`. `FlowCanvas.vue` handles pan/zoom via pointer events + CSS transforms. `FlowBlock.vue` is recursive. Each step gets a `__key` property for vuedraggable's `item-key` — stripped by `cleanStep()` in `FlowDialog.vue` before API calls.
+
+21. **Flow editor drag `.stop` modifiers are critical**: The toolbar→canvas drop uses HTML5 drag events. All three events on the container drop zone (`@dragover.prevent.stop`, `@dragleave.stop`, `@drop.prevent.stop`) need `.stop` to prevent event bubbling to parent containers. Without this, dropping into a nested container adds the item to both the target and its parent.
+
+22. **OutputKey on AgentDefinition, not FlowStep**: ADK's `OutputKey` (saves agent output to session state under a key) is set on the `AgentDefinition`, not per flow step. It's passed to `llmagent.Config` when the agent is created in `agent.go`. This keeps flows simple — they just look up pre-built agents by ID. The output key is configured in the Agents tab of the admin UI.
 
 ## Testing
 
