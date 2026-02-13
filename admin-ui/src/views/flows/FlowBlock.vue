@@ -29,6 +29,18 @@
           </svg>
         </button>
       </div>
+      <div class="flex items-center gap-1.5 px-3 pb-2 pt-0.5 border-t border-piedra-700/40" @mousedown.stop>
+        <button @click.stop="toggleResponse"
+          class="p-1 rounded-md transition-all select-none"
+          :class="step.responseAgent
+            ? 'bg-green-500/15 text-green-400 hover:bg-green-500/25'
+            : 'text-arena-600 hover:text-arena-400 hover:bg-piedra-700/60'"
+          :title="step.responseAgent ? 'This agent emits the final flow response' : 'Include this agent\'s output in the flow response'">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.087.16 2.185.283 3.293.369V21l4.076-4.076a1.526 1.526 0 0 1 1.037-.443 48.2 48.2 0 0 0 5.887-.512c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.4 48.4 0 0 0 12 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018Z" />
+          </svg>
+        </button>
+      </div>
     </div>
 
     <Transition name="dropdown">
@@ -158,6 +170,10 @@ function toggleAgentPicker() {
 function pickAgent(id) {
   pickerOpen.value = false
   emit('update', { ...props.step, agentId: id })
+}
+
+function toggleResponse() {
+  emit('update', { ...props.step, responseAgent: !props.step.responseAgent })
 }
 
 function onClickOutside(e) {

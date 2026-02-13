@@ -419,8 +419,29 @@ PWA-enabled web interface with:
 - **Auth**: `Authorization: Bearer <mgc_token>` (client's own token)
 - **Passthrough mode** (`passthrough: true`): prompt comes from request body `{"prompt": "..."}`
 - **Fixed command mode** (`passthrough: false`): prompt comes from referenced Command, body ignored
-- **Execution**: Runs against ALL agents in client's `allowedAgents` list
+- **Execution**: Runs against ALL agents in client's `allowedAgents` list (agents and flows)
 - **Bypass**: Not subject to `clientAuthMiddleware` — has its own auth in webhook.go
+
+### Flow Execution & `responseAgent`
+
+When a client targets a flow (via `allowedAgents`), the executor:
+1. Detects the ID is a flow (`store.GetFlow(agentID)`)
+2. Walks the flow tree for steps marked `responseAgent: true`
+3. Passes those agent IDs as `responseFilter` to `extractResponseText`
+4. Only ADK events where `event.author` matches a filtered agent are included
+
+**`responseAgent` flag** lives on `FlowStep`, not `AgentDefinition`. The same agent can be a responseAgent in one flow but not another.
+
+**Backwards compatible**: If no step has `responseAgent: true`, all events with text are returned (concatenated with `\n---\n`).
+
+**Multiple responseAgents**: Multiple steps can be marked — their outputs are concatenated.
+
+**Recommended pattern** (fan-out/synthesize):
+```
+Sequential:
+  1. Parallel(Agent_A[outputKey=a_result], Agent_B[outputKey=b_result])
+  2. Synthesizer[responseAgent=true, prompt reads {a_result} and {b_result}]
+```
 
 ### Cron Client
 
@@ -513,7 +534,7 @@ Only infra runs locally. LLM, STT, TTS, and embeddings use OpenAI APIs.
 
 10. **Memory providers use connectionString**: Both Redis and Postgres use a universal `connectionString` field. Provider-specific extra fields live in the `config` map.
 
-11. **Memory provider registry**: Providers register via `init()` + blank imports in `main.go`. The `Provider` interface requires `Type()`, `DisplayName()`, `SupportedCategories()`, `ConfigFields()`, and `Ping(ctx, config)`.
+11. **Memory provider registry**: Providers register via `init()` + blank imports in `main.go`. The `Provider` interface requires `Type()`, `DisplayName()`, `SupportedCategories()`, `ConfigSchema()`, and `Ping(ctx, config)`. Config validation via `ValidateConfig()` walks JSON Schema (same pattern as client registry).
 
 12. **Client type registry**: Same pattern as memory — `init()` + blank imports. Provider interface: `Type()`, `DisplayName()`, `ConfigSchema()`. Config validation via `ValidateConfig()` walks JSON Schema recursively (supports `oneOf`, `required`, `properties`).
 
@@ -540,6 +561,8 @@ Only infra runs locally. LLM, STT, TTS, and embeddings use OpenAI APIs.
 23. **Webhook modes are exclusive**: Either `commandId` is set (fixed mode) OR `passthrough` is true (prompt from body). Enforced via `oneOf` in JSON Schema and server-side validation.
 
 24. **Cron/webhook execute against ALL allowedAgents**: Not a single agentId. The same command runs against every agent in the client's `allowedAgents` list. Results joined with `\n---\n`.
+
+25. **`responseAgent` is per-flow-step, not per-agent**: The flag lives on `FlowStep` in the flow definition. The executor resolves it at runtime via `flow.ResponseAgentIDs()`. If none marked, all events returned (backwards-compat). The flag is toggled in the flow editor UI via a broadcast icon on agent nodes.
 
 ## Testing
 

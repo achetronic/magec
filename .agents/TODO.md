@@ -201,3 +201,8 @@ Currently voice selection is server-side only. Could add UI for users to preview
 - [x] Sidebar navigation (3 groups: Infraestructura, Agentes, Conexiones)
 - [x] TopBar with section context + stats badges + refresh
 - [x] Flow editor: canvas with nested blocks, drag-and-drop, pan/zoom
+- [x] Clients can select flows in allowedAgents (UI shows agents + flows)
+- [x] `responseAgent` flag on FlowStep: filter flow event stream by marked agents
+- [x] Flow editor: broadcast icon toggle for responseAgent on agent nodes
+- [x] Pre-seed session state with all agent outputKeys (prevents ADK template failures)
+- [x] extractResponseText rewritten: filter by author, concat with `\n---\n`, backwards-compat

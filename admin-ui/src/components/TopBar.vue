@@ -47,10 +47,9 @@
       <button
         @click="onRefresh"
         class="flex items-center justify-center w-7 h-7 rounded-lg text-arena-400 hover:text-arena-200 hover:bg-piedra-800/80 transition-colors"
-        :class="{ 'animate-spin': refreshing }"
         title="Refresh data"
       >
-        <Icon name="refresh" size="sm" />
+        <Icon name="refresh" size="sm" :class="{ 'animate-spin': refreshing }" />
       </button>
     </div>
   </header>

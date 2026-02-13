@@ -73,7 +73,11 @@ func (e *Executor) RunClient(ctx context.Context, cl store.ClientDefinition, pas
 
 	var allResults string
 	for _, agentID := range cl.AllowedAgents {
-		result, err := e.callAgent(ctx, agentID, prompt, cl.Token)
+		var responseFilter []string
+		if flow, ok := e.store.GetFlow(agentID); ok {
+			responseFilter = flow.ResponseAgentIDs()
+		}
+		result, err := e.callAgent(ctx, agentID, prompt, cl.Token, responseFilter)
 		if err != nil {
 			e.logger.Error("Failed to run agent", "client", cl.Name, "agent", agentID, "error", err)
 			continue
@@ -91,7 +95,9 @@ func (e *Executor) RunClient(ctx context.Context, cl store.ClientDefinition, pas
 }
 
 // callAgent sends a prompt to the agent API and returns the response text.
-func (e *Executor) callAgent(ctx context.Context, agentID, prompt, token string) (string, error) {
+// responseFilter optionally limits which agent authors are included in the
+// extracted response. When empty, all events are considered.
+func (e *Executor) callAgent(ctx context.Context, agentID, prompt, token string, responseFilter []string) (string, error) {
 	userID := "trigger"
 	sessionID := uuid.New().String()
 
@@ -145,7 +151,7 @@ func (e *Executor) callAgent(ctx context.Context, agentID, prompt, token string)
 		return "", fmt.Errorf("failed to decode response: %w", err)
 	}
 
-	return extractResponseText(events), nil
+	return extractResponseText(events, responseFilter), nil
 }
 
 // collectOutputKeys returns a map with empty strings for every agent outputKey
@@ -193,19 +199,34 @@ func (e *Executor) ensureSession(ctx context.Context, agentID, userID, sessionID
 	return nil
 }
 
-func extractResponseText(events []map[string]interface{}) string {
-	var lastText string
+// extractResponseText extracts text from ADK events. If responseFilter is
+// non-empty, only events authored by those agent IDs are included. Otherwise
+// all events with text content contribute to the result.
+func extractResponseText(events []map[string]interface{}, responseFilter []string) string {
+	filterSet := make(map[string]bool, len(responseFilter))
+	for _, id := range responseFilter {
+		filterSet[id] = true
+	}
+	hasFilter := len(filterSet) > 0
+
+	var parts []string
 	for _, event := range events {
+		if hasFilter {
+			author, _ := event["author"].(string)
+			if !filterSet[author] {
+				continue
+			}
+		}
 		content, ok := event["content"].(map[string]interface{})
 		if !ok {
 			continue
 		}
-		parts, ok := content["parts"].([]interface{})
+		contentParts, ok := content["parts"].([]interface{})
 		if !ok {
 			continue
 		}
 		var eventText string
-		for _, part := range parts {
+		for _, part := range contentParts {
 			partMap, ok := part.(map[string]interface{})
 			if !ok {
 				continue
@@ -215,11 +236,18 @@ func extractResponseText(events []map[string]interface{}) string {
 			}
 		}
 		if eventText != "" {
-			lastText = eventText
+			parts = append(parts, eventText)
 		}
 	}
-	if lastText == "" {
+	if len(parts) == 0 {
 		return "(no response)"
 	}
-	return lastText
+	if len(parts) == 1 {
+		return parts[0]
+	}
+	result := parts[0]
+	for _, p := range parts[1:] {
+		result += "\n---\n" + p
+	}
+	return result
 }

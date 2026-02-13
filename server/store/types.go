@@ -156,11 +156,32 @@ const (
 // Leaf nodes have Type "agent" and reference an AgentDefinition by ID.
 // Container nodes have Type "sequential", "parallel", or "loop" and hold
 // child steps. Loop nodes additionally specify MaxIterations.
+// ResponseAgent marks an agent node whose output should be included in the
+// final response when the flow is invoked via webhook/cron. If no agent in
+// the flow is marked, all agent outputs are concatenated (default behavior).
 type FlowStep struct {
 	Type          string     `json:"type"`
 	AgentID       string     `json:"agentId,omitempty"`
+	ResponseAgent bool       `json:"responseAgent,omitempty"`
 	MaxIterations uint       `json:"maxIterations,omitempty"`
 	Steps         []FlowStep `json:"steps,omitempty"`
+}
+
+// ResponseAgentIDs walks the flow tree and returns the agent IDs of all
+// steps marked with ResponseAgent. Returns nil if none are marked.
+func (f *FlowDefinition) ResponseAgentIDs() []string {
+	var ids []string
+	collectResponseAgents(&f.Root, &ids)
+	return ids
+}
+
+func collectResponseAgents(step *FlowStep, ids *[]string) {
+	if step.Type == FlowStepAgent && step.ResponseAgent && step.AgentID != "" {
+		*ids = append(*ids, step.AgentID)
+	}
+	for i := range step.Steps {
+		collectResponseAgents(&step.Steps[i], ids)
+	}
 }
 
 // FlowDefinition represents a multi-agent workflow stored as a recursive tree
