@@ -7,7 +7,9 @@
       </button>
     </div>
 
-    <EmptyState v-if="!store.mcps.length" title="No MCP servers configured" />
+    <SkeletonCard v-if="store.loading && !store.mcps.length" />
+
+    <EmptyState v-else-if="!store.mcps.length" title="No MCP servers configured" subtitle="Connect external tools via Model Context Protocol" icon="bolt" color="atlantico" actionLabel="+ New MCP" @action="openDialog()" />
 
     <div v-else class="grid gap-3 grid-cols-1 sm:grid-cols-2">
       <Card v-for="m in store.mcps" :key="m.id">
@@ -35,7 +37,9 @@
         </div>
         <p v-if="m.systemPrompt" class="text-[10px] text-arena-400 mb-2 line-clamp-2">{{ m.systemPrompt }}</p>
         <div v-if="usedBy(m.id).length" class="flex flex-wrap gap-1">
-          <Badge variant="sol" v-for="name in usedBy(m.id)" :key="name">{{ name }}</Badge>
+          <Tooltip v-for="ref in usedBy(m.id)" :key="ref.name" :text="ref.tooltip">
+            <Badge variant="sol">{{ ref.name }}</Badge>
+          </Tooltip>
         </div>
         <p v-else class="text-[10px] text-arena-600">Not linked to any agent</p>
       </Card>
@@ -46,29 +50,39 @@
 </template>
 
 <script setup>
-import { inject, ref } from 'vue'
+import { inject, ref, onMounted, onUnmounted } from 'vue'
 import { useDataStore } from '../../lib/stores/data.js'
 import { mcpsApi } from '../../lib/api/index.js'
 import Card from '../../components/Card.vue'
 import Badge from '../../components/Badge.vue'
+import Tooltip from '../../components/Tooltip.vue'
 import Icon from '../../components/Icon.vue'
 import EmptyState from '../../components/EmptyState.vue'
+import SkeletonCard from '../../components/SkeletonCard.vue'
 import McpDialog from './McpDialog.vue'
 
 const store = useDataStore()
 const dialog = ref(null)
 const requestDelete = inject('requestDelete')
+const toast = inject('toast')
+const registerNew = inject('registerNew')
+onMounted(() => registerNew(() => openDialog()))
+onUnmounted(() => registerNew(null))
 
 function openDialog(mcp = null) {
   dialog.value?.open(mcp)
 }
 
 function usedBy(id) {
-  const names = []
+  const refs = []
   for (const a of store.agents) {
-    if ((a.mcpServers || []).includes(id)) names.push(a.name || a.id)
+    if ((a.mcpServers || []).includes(id)) {
+      const name = a.name || a.id
+      const prompt = a.systemPrompt ? a.systemPrompt.slice(0, 80) + (a.systemPrompt.length > 80 ? '...' : '') : ''
+      refs.push({ name, tooltip: a.description || prompt })
+    }
   }
-  return names
+  return refs
 }
 
 function handleDelete(m) {
@@ -77,7 +91,7 @@ function handleDelete(m) {
       await mcpsApi.delete(m.id)
       await store.refresh()
     } catch (e) {
-      alert('Error: ' + e.message)
+      toast.error(e.message)
     }
   })
 }

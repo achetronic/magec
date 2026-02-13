@@ -85,13 +85,40 @@ Separación de prompts (Commands) y automatización (Triggers):
 - `admin-ui/src/App.vue` — Tabs actualizados: Crons reemplazado por Commands + Triggers
 - `.agents/ENTITY_COLORS.md` — Commands = indigo, Triggers = teal (antes "Crons")
 
+### 6. Admin UI Polish — Completado
+
+9 mejoras de UX implementadas:
+
+**Componentes nuevos**:
+- `Toast.vue` — Notificaciones animadas (success/error/info) en esquina inferior derecha. Teleport to body, TransitionGroup.
+- `SkeletonCard.vue` — Placeholders con `animate-pulse` durante carga inicial. Soporta grid y stacked.
+- `Tooltip.vue` — Tooltip CSS-only con `group-hover` y flecha. Max 240px, multi-line.
+- `SearchPalette.vue` — Cmd+K search modal con navegación por teclado (↑↓ Enter Esc), busca por nombre/descripción en las 8 entidades. Icono y color por entidad.
+
+**Cambios en componentes existentes**:
+- `EmptyState.vue` — Reescrito: ahora acepta `icon`, `color`, `actionLabel` props. Icono grande coloreado + botón CTA.
+- `App.vue` — Transition `section` mode out-in, mobile backdrop, SearchPalette, Toast, provide `toast`/`registerNew`.
+- `Sidebar.vue` — Prop `mobileOpen`: fixed overlay z-40 en mobile, hidden en desktop.
+- `TopBar.vue` — Botón search con hint ⌘K, hamburger menu (mobile only), emits `search`/`menu`.
+
+**Cambios en todas las vistas (9 List + 9 Dialog)**:
+- List views: `inject('toast')`, `inject('registerNew')`, SkeletonCard durante loading, EmptyState con icon/color/CTA.
+- Dialog views: `inject('toast')`, todos los `alert()` reemplazados por `toast.error()`.
+- BackendsList, McpsList, TriggersList, ClientsList: Tooltip en badges de cross-referencia.
+- TriggersList: Status dot (green/gray) en icono de trigger card.
+
+**Keyboard shortcuts** (App.vue global):
+- `n` → crear nueva entidad (delegado al view activo via `registerNew`)
+- `r` → refresh store
+- `Cmd+K` / `Ctrl+K` → abrir búsqueda global
+- Inactivos cuando el foco está en inputs/textareas/dialogs
+
 ## Lo que NO se ha tocado
 
 - **Swagger docs**: No regeneradas tras los cambios
 - **Consolidar `/types` en `/schemas/{entity}`**: Discutido pero no implementado
 - **Cron scheduler**: Triggers tipo cron son solo datos — no hay motor de ejecución
 - **Webhook handler**: Triggers tipo webhook no tienen endpoint HTTP aún
-- **Sidebar navigation**: Tabs arriba ya son 8 — sidebar planeado pero no implementado
 
 ## Datos de Prueba
 
@@ -113,7 +140,7 @@ cd server && go build ./...      # Solo Go
 
 - Go 1.25.5 (GOPATH=GOROOT warning es cosmético)
 - Node 22+ con Vite 7.3, Vue 3.5, Tailwind 4.1
-- ADK v0.3.0
+- ADK v0.4.0, adk-utils-go v0.2.0
 - Server: :8080 (main) + :8081 (admin UI + admin API)
 - Store: `data/store.json`
 - Errores de Telegram son por tokens fake en datos de prueba

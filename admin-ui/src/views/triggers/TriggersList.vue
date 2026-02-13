@@ -7,15 +7,20 @@
       </button>
     </div>
 
-    <EmptyState v-if="!store.triggers.length" title="No triggers configured" subtitle="Automate command execution with cron schedules or webhooks" />
+    <SkeletonCard v-if="store.loading && !store.triggers.length" />
+
+    <EmptyState v-else-if="!store.triggers.length" title="No triggers configured" subtitle="Automate command execution with cron schedules or webhooks" icon="trigger" color="teal" actionLabel="+ New Trigger" @action="openDialog()" />
 
     <div v-else class="grid gap-3 grid-cols-1 sm:grid-cols-2">
       <Card v-for="t in store.triggers" :key="t.id">
         <div class="flex items-start justify-between gap-3 mb-2">
           <div class="flex items-center gap-3 min-w-0">
-            <div class="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+            <div class="relative w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
               :class="t.enabled ? 'bg-teal-500/15' : 'bg-piedra-800'">
               <Icon name="trigger" size="md" :class="t.enabled ? 'text-teal-400' : 'text-arena-500'" />
+              <span class="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border border-piedra-900"
+                :class="t.enabled ? 'bg-green-500' : 'bg-arena-600'"
+                :title="t.enabled ? 'Active' : 'Paused'" />
             </div>
             <div class="min-w-0">
               <div class="flex items-center gap-1.5">
@@ -40,8 +45,12 @@
         </div>
         <p v-if="t.description" class="text-[10px] text-arena-400 mb-2">{{ t.description }}</p>
         <div class="flex flex-wrap gap-1.5">
-          <Badge v-if="t.commandId" variant="indigo">{{ store.commandLabel(t.commandId) }}</Badge>
-          <Badge v-if="t.agentId" variant="sol">{{ store.agentLabel(t.agentId) }}</Badge>
+          <Tooltip v-if="t.commandId" :text="commandTooltip(t.commandId)">
+            <Badge variant="indigo">{{ store.commandLabel(t.commandId) }}</Badge>
+          </Tooltip>
+          <Tooltip v-if="t.agentId" :text="agentTooltip(t.agentId)">
+            <Badge variant="sol">{{ store.agentLabel(t.agentId) }}</Badge>
+          </Tooltip>
         </div>
       </Card>
     </div>
@@ -51,18 +60,36 @@
 </template>
 
 <script setup>
-import { inject, ref } from 'vue'
+import { inject, ref, onMounted, onUnmounted } from 'vue'
 import { useDataStore } from '../../lib/stores/data.js'
 import { triggersApi } from '../../lib/api/index.js'
 import Card from '../../components/Card.vue'
 import Badge from '../../components/Badge.vue'
+import Tooltip from '../../components/Tooltip.vue'
 import Icon from '../../components/Icon.vue'
 import EmptyState from '../../components/EmptyState.vue'
+import SkeletonCard from '../../components/SkeletonCard.vue'
 import TriggerDialog from './TriggerDialog.vue'
 
 const store = useDataStore()
 const dialog = ref(null)
 const requestDelete = inject('requestDelete')
+const toast = inject('toast')
+const registerNew = inject('registerNew')
+onMounted(() => registerNew(() => openDialog()))
+onUnmounted(() => registerNew(null))
+
+function commandTooltip(id) {
+  const c = store.commands.find(c => c.id === id)
+  if (!c?.prompt) return ''
+  return c.prompt.slice(0, 100) + (c.prompt.length > 100 ? '...' : '')
+}
+
+function agentTooltip(id) {
+  const a = store.agents.find(a => a.id === id)
+  if (!a?.systemPrompt) return a?.description || ''
+  return a.systemPrompt.slice(0, 100) + (a.systemPrompt.length > 100 ? '...' : '')
+}
 
 function openDialog(trigger = null) {
   dialog.value?.open(trigger)
@@ -74,7 +101,7 @@ function handleDelete(t) {
       await triggersApi.delete(t.id)
       await store.refresh()
     } catch (e) {
-      alert('Error: ' + e.message)
+      toast.error(e.message)
     }
   })
 }

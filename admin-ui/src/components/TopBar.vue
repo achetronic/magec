@@ -1,7 +1,13 @@
 <template>
   <header class="flex items-center justify-between px-5 py-4 border-b border-piedra-700/50 bg-piedra-900/60 flex-shrink-0">
-    <!-- Left: section title -->
+    <!-- Left: menu + section title -->
     <div class="flex items-center gap-3 min-w-0">
+      <button
+        @click="$emit('menu')"
+        class="md:hidden w-7 h-7 flex items-center justify-center rounded-lg text-arena-400 hover:text-arena-200 hover:bg-piedra-800/80 transition-colors flex-shrink-0"
+      >
+        <Icon name="menu" size="md" />
+      </button>
       <div
         class="w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0"
         :class="sectionIconBg"
@@ -14,8 +20,18 @@
       </div>
     </div>
 
-    <!-- Right: stats + refresh -->
+    <!-- Right: search + stats + refresh -->
     <div class="flex items-center gap-2">
+      <button
+        @click="$emit('search')"
+        class="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-piedra-700/50 text-arena-500 hover:text-arena-300 hover:border-piedra-600 transition-colors"
+      >
+        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+        </svg>
+        <span class="text-[10px]">Search</span>
+        <kbd class="px-1 py-0.5 text-[9px] font-mono bg-piedra-800 border border-piedra-700/50 rounded">⌘K</kbd>
+      </button>
       <div class="hidden sm:flex items-center gap-1.5">
         <span
           v-for="stat in stats"
@@ -48,6 +64,8 @@ import Icon from './Icon.vue'
 const props = defineProps({
   activeTab: { type: String, required: true },
 })
+
+defineEmits(['search', 'menu'])
 
 const store = useDataStore()
 const refreshing = ref(false)

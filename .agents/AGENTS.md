@@ -95,12 +95,12 @@ magec/
 ├── admin-ui/                   # Admin web interface (Vue 3 + Vite + Tailwind v4 + Pinia)
 │   ├── src/
 │   │   ├── main.js             # Vue app entry with Pinia
-│   │   ├── App.vue             # Layout, tab navigation (hash-based), global ConfirmDialog
+│   │   ├── App.vue             # Layout, sidebar navigation, global ConfirmDialog/Toast/SearchPalette
 │   │   ├── style.css           # Tailwind v4 @theme (piedra/atlantico/lava/sol/arena)
 │   │   ├── lib/
 │   │   │   ├── api/            # Fetch wrapper + CRUD per resource (agents, backends, flows, etc.)
 │   │   │   └── stores/data.js  # Pinia central store (all resources + helpers)
-│   │   ├── components/         # Shared: AppDialog, Card, Badge, FormInput, Icon, etc.
+│   │   ├── components/         # Shared: AppDialog, Card, Badge, FormInput, Icon, Toast, Tooltip, SkeletonCard, SearchPalette, Sidebar, TopBar, EmptyState, etc.
 │   │   └── views/              # Entity views (one folder each):
 │   │       ├── backends/       # BackendsList + BackendDialog
 │   │       ├── memory/         # MemoryList + MemoryCard + MemoryDialog
@@ -295,6 +295,13 @@ On first run with no `data/store.json`, the store starts empty. Configure everyt
 - **No Vue Router**: Tab navigation via `activeTab` ref + `location.hash`
 - **Dialog pattern**: `defineExpose({ open })`, parents call `ref.value?.open(data)`. Native `<dialog>` with `showModal()`
 - **Delete confirmation**: Global via `provide('requestDelete')` / `inject('requestDelete')`
+- **Toast notifications**: Global via `provide('toast')` / `inject('toast')` — `toast.success()`, `toast.error()`, `toast.info()`
+- **Keyboard shortcuts**: Global handler in `App.vue` — `n` (new), `r` (refresh), `Cmd+K` (search). Skips inputs/textareas/dialogs. List views register via `inject('registerNew')`
+- **Search palette**: `SearchPalette.vue` — `Cmd+K` triggers, searches all 8 entity types by name/description, keyboard navigation
+- **Loading skeletons**: `SkeletonCard.vue` shown when `store.loading && !collection.length`
+- **Section transitions**: Vue `<Transition>` with `mode="out-in"` keyed by `activeTab`
+- **Responsive sidebar**: Mobile drawer (`mobileOpen` prop on Sidebar), hamburger in TopBar, backdrop overlay
+- **Tooltips**: `Tooltip.vue` on cross-reference badges (agent/command badges show prompt snippet on hover)
 - **Entity views**: `*List.vue` + `*Dialog.vue` per entity under `src/views/<entity>/`
 - **Flow editor**: `FlowCanvas.vue` (pan/zoom/toolbar) + `FlowBlock.vue` (recursive, vuedraggable)
 - **Tailwind v4**: `@tailwindcss/vite` plugin, `@theme` directive for custom colors

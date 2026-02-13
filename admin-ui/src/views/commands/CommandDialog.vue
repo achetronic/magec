@@ -18,7 +18,7 @@
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue'
+import { ref, reactive, inject } from 'vue'
 import { useDataStore } from '../../lib/stores/data.js'
 import { commandsApi } from '../../lib/api/index.js'
 import AppDialog from '../../components/AppDialog.vue'
@@ -26,6 +26,7 @@ import FormInput from '../../components/FormInput.vue'
 import FormLabel from '../../components/FormLabel.vue'
 
 const emit = defineEmits(['saved'])
+const toast = inject('toast')
 const store = useDataStore()
 const dialogRef = ref(null)
 const editId = ref(null)
@@ -61,7 +62,7 @@ async function save() {
     dialogRef.value?.close()
     emit('saved')
   } catch (e) {
-    alert('Error: ' + e.message)
+    toast.error(e.message)
   }
 }
 

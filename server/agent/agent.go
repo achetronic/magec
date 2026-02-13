@@ -104,6 +104,11 @@ func New(ctx context.Context, agents []store.AgentDefinition, backends []store.B
 	var firstMemorySvc memory.Service
 	adkAgentMap := make(map[string]agent.Agent, len(agents))
 
+	baseTset, err := newBaseToolset()
+	if err != nil {
+		return nil, fmt.Errorf("failed to create base toolset: %w", err)
+	}
+
 	for i, agentDef := range agents {
 		sessionSvc, err := createSessionService(agentDef, memoryProviderMap)
 		if err != nil {
@@ -128,6 +133,7 @@ func New(ctx context.Context, agents []store.AgentDefinition, backends []store.B
 		if err != nil {
 			return nil, fmt.Errorf("agent %q: failed to build toolsets: %w", agentDef.ID, err)
 		}
+		toolsets = append(toolsets, baseTset)
 
 		instruction := buildInstruction(agentDef, mcpServerMap, memorySvc)
 

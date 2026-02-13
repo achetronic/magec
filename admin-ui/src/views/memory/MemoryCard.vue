@@ -2,9 +2,8 @@
   <Card>
     <div class="flex items-start justify-between gap-3 mb-2">
       <div class="flex items-center gap-3 min-w-0">
-        <div class="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 relative"
-          :class="isSession ? 'bg-lava-500/15' : 'bg-atlantico-500/15'">
-          <span class="text-[10px] font-mono font-bold" :class="isSession ? 'text-lava-300' : 'text-atlantico-300'">
+        <div class="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 relative bg-green-500/15">
+          <span class="text-[10px] font-mono font-bold text-green-300">
             {{ displayName.substring(0, 3).toUpperCase() }}
           </span>
           <span

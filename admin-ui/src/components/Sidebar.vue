@@ -1,7 +1,12 @@
 <template>
   <aside
     class="flex flex-col h-full border-r border-piedra-700/50 bg-piedra-900 transition-all duration-200 flex-shrink-0"
-    :class="collapsed ? 'w-[52px]' : 'w-56'"
+    :class="[
+      collapsed ? 'w-[52px]' : 'w-56',
+      mobileOpen
+        ? 'fixed inset-y-0 left-0 z-40 w-56 shadow-2xl shadow-black/50'
+        : 'hidden md:flex',
+    ]"
   >
     <!-- Logo -->
     <div class="flex items-center gap-3 px-3.5 py-4 border-b border-piedra-700/50">
@@ -79,6 +84,7 @@ import { useDataStore } from '../lib/stores/data.js'
 const props = defineProps({
   active: { type: String, required: true },
   collapsed: { type: Boolean, default: false },
+  mobileOpen: { type: Boolean, default: false },
 })
 
 defineEmits(['navigate', 'toggle'])

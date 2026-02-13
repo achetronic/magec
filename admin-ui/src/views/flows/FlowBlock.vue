@@ -71,12 +71,13 @@
           class="text-[9px] px-1.5 py-0.5 rounded font-semibold hover:brightness-125 transition-all" :class="badgeClass">
           ×{{ step.maxIterations || '∞' }}
         </button>
+
       </template>
 
       <div class="flex-1" />
 
       <div class="flex items-center gap-0.5" @mousedown.stop>
-        <button v-if="!isRoot" @click.stop="cycleType"
+        <button @click.stop="cycleType"
           class="text-[9px] px-1.5 py-0.5 rounded hover:bg-white/10 transition-colors select-none" :class="labelClass" title="Cycle type">
           ↻
         </button>

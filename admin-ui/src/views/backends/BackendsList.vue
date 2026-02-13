@@ -7,14 +7,16 @@
       </button>
     </div>
 
-    <EmptyState v-if="!store.backends.length" title="No backends configured" subtitle="Create a backend to connect AI providers" />
+    <SkeletonCard v-if="store.loading && !store.backends.length" />
+
+    <EmptyState v-else-if="!store.backends.length" title="No backends configured" subtitle="Create a backend to connect AI providers" icon="server" color="purple" actionLabel="+ New Backend" @action="openDialog()" />
 
     <div v-else class="grid gap-3 grid-cols-1 sm:grid-cols-2">
       <Card v-for="b in store.backends" :key="b.id">
         <div class="flex items-start justify-between gap-3 mb-2">
           <div class="flex items-center gap-3 min-w-0">
-            <div class="w-8 h-8 rounded-lg bg-piedra-800 flex items-center justify-center flex-shrink-0">
-              <span class="text-[10px] font-mono font-bold text-arena-400">{{ (b.type || '').substring(0, 3).toUpperCase() }}</span>
+            <div class="w-8 h-8 rounded-lg bg-purple-500/15 flex items-center justify-center flex-shrink-0">
+              <span class="text-[10px] font-mono font-bold text-purple-300">{{ (b.type || '').substring(0, 3).toUpperCase() }}</span>
             </div>
             <div class="min-w-0">
               <h3 class="font-medium text-arena-100 text-sm">{{ b.name }}</h3>
@@ -31,7 +33,9 @@
           </div>
         </div>
         <div v-if="usedBy(b.id).length" class="flex flex-wrap gap-1">
-          <Badge variant="sol" v-for="name in usedBy(b.id)" :key="name">{{ name }}</Badge>
+          <Tooltip v-for="ref in usedBy(b.id)" :key="ref.name" :text="ref.tooltip">
+            <Badge variant="sol">{{ ref.name }}</Badge>
+          </Tooltip>
         </div>
         <p v-else class="text-[10px] text-arena-600">Not used by any agent</p>
       </Card>
@@ -42,32 +46,44 @@
 </template>
 
 <script setup>
-import { inject, ref } from 'vue'
+import { inject, ref, onMounted, onUnmounted } from 'vue'
 import { useDataStore } from '../../lib/stores/data.js'
 import { backendsApi } from '../../lib/api/index.js'
 import Card from '../../components/Card.vue'
 import Badge from '../../components/Badge.vue'
+import Tooltip from '../../components/Tooltip.vue'
 import Icon from '../../components/Icon.vue'
 import EmptyState from '../../components/EmptyState.vue'
+import SkeletonCard from '../../components/SkeletonCard.vue'
 import BackendDialog from './BackendDialog.vue'
 
 const store = useDataStore()
 const dialog = ref(null)
 const requestDelete = inject('requestDelete')
+const toast = inject('toast')
+const registerNew = inject('registerNew')
+onMounted(() => registerNew(() => openDialog()))
+onUnmounted(() => registerNew(null))
 
 function openDialog(backend = null) {
   dialog.value?.open(backend)
 }
 
 function usedBy(id) {
-  const names = new Set()
+  const refs = new Map()
   for (const a of store.agents) {
     const label = a.name || a.id
-    if (a.llm?.backend === id) names.add(label)
-    if (a.transcription?.backend === id) names.add(label)
-    if (a.tts?.backend === id) names.add(label)
+    if (refs.has(label)) continue
+    const roles = []
+    if (a.llm?.backend === id) roles.push('LLM')
+    if (a.transcription?.backend === id) roles.push('STT')
+    if (a.tts?.backend === id) roles.push('TTS')
+    if (roles.length) {
+      const prompt = a.systemPrompt ? a.systemPrompt.slice(0, 80) + (a.systemPrompt.length > 80 ? '...' : '') : ''
+      refs.set(label, { name: label, tooltip: roles.join(' + ') + (prompt ? ' — ' + prompt : '') })
+    }
   }
-  return [...names]
+  return [...refs.values()]
 }
 
 function handleDelete(b) {
@@ -76,7 +92,7 @@ function handleDelete(b) {
       await backendsApi.delete(b.id)
       await store.refresh()
     } catch (e) {
-      alert('Error: ' + e.message)
+      toast.error(e.message)
     }
   })
 }

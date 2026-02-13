@@ -26,7 +26,7 @@
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue'
+import { ref, reactive, inject } from 'vue'
 import { backendsApi } from '../../lib/api/index.js'
 import AppDialog from '../../components/AppDialog.vue'
 import FormInput from '../../components/FormInput.vue'
@@ -34,6 +34,7 @@ import FormSelect from '../../components/FormSelect.vue'
 import FormLabel from '../../components/FormLabel.vue'
 
 const emit = defineEmits(['saved'])
+const toast = inject('toast')
 const dialogRef = ref(null)
 const editId = ref(null)
 const isEdit = ref(false)
@@ -66,7 +67,7 @@ async function save() {
     dialogRef.value?.close()
     emit('saved')
   } catch (e) {
-    alert('Error: ' + e.message)
+    toast.error(e.message)
   }
 }
 

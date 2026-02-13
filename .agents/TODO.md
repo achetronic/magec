@@ -84,6 +84,67 @@ async _scheduleAudioChunk(audioBytes) {
 
 ---
 
+### ~~Admin UI Polish~~ ✅
+
+All items completed:
+
+- [x] **Toast Notifications** — `Toast.vue` component with animated entrance/exit, success (green), error (red), info variants. All 18 `alert()` calls replaced. Auto-dismiss 3s (5s for errors).
+- [x] **Loading Skeletons** — `SkeletonCard.vue` with pulse animation, shown during initial fetch on all 9 list views. Grid and stacked layouts supported.
+- [x] **Section Transitions** — Fade+slide animation (`Transition` with `mode="out-in"` keyed by `activeTab`) when switching sidebar sections.
+- [x] **Empty States with Icons** — `EmptyState.vue` upgraded with entity-colored large icon, descriptive subtitle, and CTA button that opens the create dialog.
+- [x] **Status Dot on Triggers** — Green/gray dot on trigger card icon tile (matching ClientsList pattern).
+- [x] **Hover Previews on Cross-References** — `Tooltip.vue` component on agent/command badges in BackendsList, McpsList, TriggersList, ClientsList. Shows system prompt snippet, description, or role.
+- [x] **Global Search (Cmd+K)** — `SearchPalette.vue` with keyboard navigation (↑↓ Enter Esc), search across all 8 entity types by name/description. Search button with ⌘K hint in TopBar.
+- [x] **Responsive Sidebar** — Mobile drawer with overlay backdrop, hamburger menu in TopBar. Closes on navigation.
+- [x] **Keyboard Shortcuts** — `n` to create new entity, `r` to refresh, `Cmd+K` for search. Inactive when focus is in inputs/dialogs.
+
+---
+
+### Human-in-the-Loop Tool Confirmation
+
+**Problem**: There's no way for an agent to pause and ask a human for approval before executing a sensitive action (e.g., deleting data, sending money, modifying config).
+
+**ADK support**: v0.4.0 provides `toolconfirmation` — any tool can call `ctx.RequestConfirmation(hint, payload)` to pause execution and emit an `adk_request_confirmation` event. The client must respond with `{confirmed: true/false}` for execution to resume.
+
+**Current blocker**: All clients (Telegram, triggers, voice-ui) call `/api/v1/agent/run` synchronously — they send a request and wait for the full response as a JSON array. If a tool requests confirmation mid-execution, the response never arrives because it's waiting for the confirmation that the client can't see yet. It's a deadlock.
+
+**Required architecture changes**:
+
+1. **Switch clients to SSE streaming** — Use `/run/sse` instead of `/run`. Events arrive incrementally, so the client sees the `adk_request_confirmation` event while the agent is still waiting.
+
+2. **Admin UI notification area** — A persistent zone (toast-like or sidebar panel) that:
+   - Listens for `adk_request_confirmation` events via SSE
+   - Shows the `hint` message and the `originalFunctionCall` details (tool name + args)
+   - Provides Approve / Reject buttons
+   - Sends back a `FunctionResponse` with the same `id` and `{confirmed: bool}`
+
+3. **Telegram support** — Inline keyboard with approve/reject buttons. Requires holding the SSE connection open or using a pending-confirmations store that the bot polls.
+
+4. **Pending confirmations store** (alternative to full SSE) — If SSE is too complex for all clients:
+   - Server intercepts `adk_request_confirmation` events and stores them in memory/Redis
+   - Exposes `GET /api/v1/confirmations/pending` and `POST /api/v1/confirmations/{id}/respond`
+   - Clients poll or subscribe for pending confirmations
+   - Server relays the response back to the paused ADK runner
+
+**Implementation order**:
+1. Admin UI notification area + SSE connection (simplest client to control)
+2. Pending confirmations API (enables Telegram and other non-SSE clients)
+3. Telegram inline keyboard integration
+
+**Files to modify**:
+- `server/main.go` — New confirmation endpoints or SSE relay
+- `admin-ui/src/components/` — New `ConfirmationPanel.vue`
+- `admin-ui/src/App.vue` — SSE connection + confirmation state
+- `server/clients/telegram/telegram.go` — Switch to SSE or use polling
+
+**References**:
+- `google.golang.org/adk/tool/toolconfirmation` — Protocol definition
+- `toolconfirmation.FunctionCallName = "adk_request_confirmation"`
+- `toolconfirmation.OriginalCallFrom(functionCall)` — Helper to extract the original tool call
+- See `.agents/ADK_TOOLS.md` for full details
+
+---
+
 ## Low Priority
 
 ### Add More TTS Voices Configuration UI
@@ -197,3 +258,10 @@ Currently voice selection is server-side only. Could add UI for users to preview
 - [x] Admin UI rename enabled: Name/ID fields editable in edit mode
 - [x] Wake word model name in capabilities: `Name` field added to WebSocket capabilities message
 - [x] Admin UI modal fix: `formnovalidate` on cancel/close buttons to bypass HTML5 validation
+- [x] Admin UI framework migration (Vue 3 + Vite + Tailwind v4 + Pinia)
+- [x] Commands + Triggers system (replacing CronJobs)
+- [x] Cron scheduler + Webhook handler (`server/trigger/` package)
+- [x] OutputKey migration (AgentDefinition, not FlowStep)
+- [x] Entity color system (8 entities, documented in ENTITY_COLORS.md)
+- [x] Sidebar navigation (replaces tab bar, 3 groups, collapsible, entity colors)
+- [x] TopBar with section context + stats badges + refresh

@@ -43,3 +43,28 @@ dialog[open] {
 dialog::backdrop {
   background-color: rgba(0, 0, 0, 0.6);
 }
+
+.section-enter-active {
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.section-leave-active {
+  transition: opacity 0.1s ease;
+}
+
+.section-enter-from {
+  opacity: 0;
+  transform: translateY(6px);
+}
+
+.section-leave-to {
+  opacity: 0;
+}
+
+.fade-enter-active, .fade-leave-active {
+  transition: opacity 0.2s ease;
+}
+
+.fade-enter-from, .fade-leave-to {
+  opacity: 0;
+}

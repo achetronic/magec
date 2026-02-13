@@ -7,7 +7,9 @@
       </button>
     </div>
 
-    <EmptyState v-if="!store.commands.length" title="No commands configured" subtitle="Create reusable prompts that triggers can invoke against agents" />
+    <SkeletonCard v-if="store.loading && !store.commands.length" />
+
+    <EmptyState v-else-if="!store.commands.length" title="No commands configured" subtitle="Create reusable prompts that triggers can invoke against agents" icon="command" color="indigo" actionLabel="+ New Command" @action="openDialog()" />
 
     <div v-else class="grid gap-3 grid-cols-1 sm:grid-cols-2">
       <Card v-for="c in store.commands" :key="c.id">
@@ -39,17 +41,22 @@
 </template>
 
 <script setup>
-import { inject, ref } from 'vue'
+import { inject, ref, onMounted, onUnmounted } from 'vue'
 import { useDataStore } from '../../lib/stores/data.js'
 import { commandsApi } from '../../lib/api/index.js'
 import Card from '../../components/Card.vue'
 import Icon from '../../components/Icon.vue'
 import EmptyState from '../../components/EmptyState.vue'
+import SkeletonCard from '../../components/SkeletonCard.vue'
 import CommandDialog from './CommandDialog.vue'
 
 const store = useDataStore()
 const dialog = ref(null)
 const requestDelete = inject('requestDelete')
+const toast = inject('toast')
+const registerNew = inject('registerNew')
+onMounted(() => registerNew(() => openDialog()))
+onUnmounted(() => registerNew(null))
 
 function openDialog(cmd = null) {
   dialog.value?.open(cmd)
@@ -61,7 +68,7 @@ function handleDelete(c) {
       await commandsApi.delete(c.id)
       await store.refresh()
     } catch (e) {
-      alert('Error: ' + e.message)
+      toast.error(e.message)
     }
   })
 }

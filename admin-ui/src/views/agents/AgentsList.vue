@@ -7,7 +7,9 @@
       </button>
     </div>
 
-    <EmptyState v-if="!store.agents.length" title="No agents configured" subtitle="Create your first agent to get started" />
+    <SkeletonCard v-if="store.loading && !store.agents.length" :grid="false" />
+
+    <EmptyState v-else-if="!store.agents.length" title="No agents configured" subtitle="Create your first agent to get started" icon="users" color="sol" actionLabel="+ New Agent" @action="openDialog()" />
 
     <div v-else class="space-y-3">
       <Card v-for="a in store.agents" :key="a.id" :active="expandedId === a.id">
@@ -46,13 +48,14 @@
 </template>
 
 <script setup>
-import { inject, ref } from 'vue'
+import { inject, ref, onMounted, onUnmounted } from 'vue'
 import { useDataStore } from '../../lib/stores/data.js'
 import { agentsApi } from '../../lib/api/index.js'
 import Card from '../../components/Card.vue'
 import Badge from '../../components/Badge.vue'
 import Icon from '../../components/Icon.vue'
 import EmptyState from '../../components/EmptyState.vue'
+import SkeletonCard from '../../components/SkeletonCard.vue'
 import AgentDetail from './AgentDetail.vue'
 import AgentDialog from './AgentDialog.vue'
 
@@ -60,6 +63,10 @@ const store = useDataStore()
 const dialog = ref(null)
 const expandedId = ref(null)
 const requestDelete = inject('requestDelete')
+const toast = inject('toast')
+const registerNew = inject('registerNew')
+onMounted(() => registerNew(() => openDialog()))
+onUnmounted(() => registerNew(null))
 
 function toggle(id) {
   expandedId.value = expandedId.value === id ? null : id
@@ -75,7 +82,7 @@ function handleDelete(a) {
       await agentsApi.delete(a.id)
       await store.refresh()
     } catch (e) {
-      alert('Error: ' + e.message)
+      toast.error(e.message)
     }
   })
 }
