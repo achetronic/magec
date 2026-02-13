@@ -12,7 +12,7 @@
     "host": "localhost:8080",
     "basePath": "/api/v1",
     "paths": {
-        "/device/info": {
+        "/client/info": {
             "get": {
                 "security": [
                     {
@@ -24,14 +24,14 @@
                     "application/json"
                 ],
                 "tags": [
-                    "device"
+                    "client"
                 ],
-                "summary": "Device info",
+                "summary": "Client info",
                 "responses": {
                     "200": {
                         "description": "Authenticated client info",
                         "schema": {
-                            "$ref": "#/definitions/userapi.DeviceInfoResponse"
+                            "$ref": "#/definitions/userapi.ClientInfoResponse"
                         },
                         "headers": {
                             "X-Client-ID": {
@@ -314,7 +314,7 @@
                 }
             }
         },
-        "userapi.DeviceInfoResponse": {
+        "userapi.ClientInfoResponse": {
             "type": "object",
             "properties": {
                 "allowedAgents": {

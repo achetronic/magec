@@ -47,10 +47,10 @@
             <Badge variant="indigo">{{ commandRef(c).name }}</Badge>
           </Tooltip>
           <Tooltip v-for="ref in agentRefs(c)" :key="ref.name" :text="ref.tooltip">
-            <Badge variant="sol">{{ ref.name }}</Badge>
+            <Badge :variant="ref.isFlow ? 'rose' : 'sol'">{{ ref.isFlow ? '⤳ ' : '' }}{{ ref.name }}</Badge>
           </Tooltip>
         </div>
-        <p v-if="!agentRefs(c).length && !commandRef(c)" class="text-[10px] text-arena-600">No agents assigned</p>
+        <p v-if="!agentRefs(c).length && !commandRef(c)" class="text-[10px] text-arena-600">No agents or flows assigned</p>
       </Card>
     </div>
 
@@ -104,9 +104,15 @@ function commandRef(c) {
 function agentRefs(c) {
   return (c.allowedAgents || []).map(id => {
     const a = store.agents.find(a => a.id === id)
-    const name = a?.name || a?.id || id
-    const prompt = a?.systemPrompt ? a.systemPrompt.slice(0, 80) + (a.systemPrompt.length > 80 ? '...' : '') : ''
-    return { name, tooltip: a?.description || prompt }
+    if (a) {
+      const prompt = a.systemPrompt ? a.systemPrompt.slice(0, 80) + (a.systemPrompt.length > 80 ? '...' : '') : ''
+      return { name: a.name || a.id || id, tooltip: a.description || prompt, isFlow: false }
+    }
+    const f = store.flows.find(f => f.id === id)
+    if (f) {
+      return { name: f.name || f.id || id, tooltip: f.description || '', isFlow: true }
+    }
+    return { name: id, tooltip: '', isFlow: false }
   })
 }
 

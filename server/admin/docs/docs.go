@@ -15,474 +15,6 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
-        "/agents": {
-            "get": {
-                "description": "Returns all configured agents",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "agents"
-                ],
-                "summary": "List agents",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/store.AgentDefinition"
-                            }
-                        }
-                    }
-                }
-            },
-            "post": {
-                "description": "Creates a new agent definition",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "agents"
-                ],
-                "summary": "Create agent",
-                "parameters": [
-                    {
-                        "description": "Agent definition",
-                        "name": "body",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/store.AgentDefinition"
-                        }
-                    }
-                ],
-                "responses": {
-                    "201": {
-                        "description": "Created",
-                        "schema": {
-                            "$ref": "#/definitions/store.AgentDefinition"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/admin.ErrorResponse"
-                        }
-                    },
-                    "409": {
-                        "description": "Conflict",
-                        "schema": {
-                            "$ref": "#/definitions/admin.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/agents/{id}": {
-            "get": {
-                "description": "Returns an agent by its unique ID",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "agents"
-                ],
-                "summary": "Get agent",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Agent ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/store.AgentDefinition"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/admin.ErrorResponse"
-                        }
-                    }
-                }
-            },
-            "put": {
-                "description": "Updates an agent by ID",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "agents"
-                ],
-                "summary": "Update agent",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Agent ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "Agent definition",
-                        "name": "body",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/store.AgentDefinition"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/store.AgentDefinition"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/admin.ErrorResponse"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/admin.ErrorResponse"
-                        }
-                    }
-                }
-            },
-            "delete": {
-                "description": "Deletes an agent by ID",
-                "tags": [
-                    "agents"
-                ],
-                "summary": "Delete agent",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Agent ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "204": {
-                        "description": "No Content"
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/admin.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/agents/{id}/mcps": {
-            "get": {
-                "description": "Returns the MCP servers linked to a specific agent",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "agents"
-                ],
-                "summary": "List agent MCPs",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Agent ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/store.MCPServer"
-                            }
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/admin.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/agents/{id}/mcps/{name}": {
-            "put": {
-                "description": "Associates a global MCP server with an agent",
-                "tags": [
-                    "agents"
-                ],
-                "summary": "Link MCP to agent",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Agent ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "MCP server name",
-                        "name": "name",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "204": {
-                        "description": "No Content"
-                    },
-                    "409": {
-                        "description": "Conflict",
-                        "schema": {
-                            "$ref": "#/definitions/admin.ErrorResponse"
-                        }
-                    }
-                }
-            },
-            "delete": {
-                "description": "Removes the association between an MCP server and an agent",
-                "tags": [
-                    "agents"
-                ],
-                "summary": "Unlink MCP from agent",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Agent ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "MCP server name",
-                        "name": "name",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "204": {
-                        "description": "No Content"
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/admin.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/backends": {
-            "get": {
-                "description": "Returns all configured AI backends",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "backends"
-                ],
-                "summary": "List backends",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/store.BackendDefinition"
-                            }
-                        }
-                    }
-                }
-            },
-            "post": {
-                "description": "Creates a new AI backend",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "backends"
-                ],
-                "summary": "Create backend",
-                "parameters": [
-                    {
-                        "description": "Backend definition",
-                        "name": "body",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/store.BackendDefinition"
-                        }
-                    }
-                ],
-                "responses": {
-                    "201": {
-                        "description": "Created",
-                        "schema": {
-                            "$ref": "#/definitions/store.BackendDefinition"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/admin.ErrorResponse"
-                        }
-                    },
-                    "409": {
-                        "description": "Conflict",
-                        "schema": {
-                            "$ref": "#/definitions/admin.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/backends/{name}": {
-            "get": {
-                "description": "Returns a backend by its unique name",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "backends"
-                ],
-                "summary": "Get backend",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Backend name",
-                        "name": "name",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/store.BackendDefinition"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/admin.ErrorResponse"
-                        }
-                    }
-                }
-            },
-            "put": {
-                "description": "Updates a backend by name",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "backends"
-                ],
-                "summary": "Update backend",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Backend name",
-                        "name": "name",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "Backend definition",
-                        "name": "body",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/store.BackendDefinition"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/store.BackendDefinition"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/admin.ErrorResponse"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/admin.ErrorResponse"
-                        }
-                    }
-                }
-            },
-            "delete": {
-                "description": "Deletes a backend by name",
-                "tags": [
-                    "backends"
-                ],
-                "summary": "Delete backend",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Backend name",
-                        "name": "name",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "204": {
-                        "description": "No Content"
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/admin.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
         "/clients": {
             "get": {
                 "description": "Returns all configured clients (devices, Telegram bots, etc.)",
@@ -573,9 +105,9 @@ const docTemplate = `{
                 }
             }
         },
-        "/clients/{name}": {
+        "/clients/{id}": {
             "get": {
-                "description": "Returns a client by its unique name",
+                "description": "Returns a client by its unique ID",
                 "produces": [
                     "application/json"
                 ],
@@ -586,8 +118,8 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Client name",
-                        "name": "name",
+                        "description": "Client ID",
+                        "name": "id",
                         "in": "path",
                         "required": true
                     }
@@ -608,7 +140,7 @@ const docTemplate = `{
                 }
             },
             "put": {
-                "description": "Updates a client by name. Token is preserved.",
+                "description": "Updates a client by ID. Token and ID are preserved.",
                 "consumes": [
                     "application/json"
                 ],
@@ -622,8 +154,8 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Client name",
-                        "name": "name",
+                        "description": "Client ID",
+                        "name": "id",
                         "in": "path",
                         "required": true
                     },
@@ -659,7 +191,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Deletes a client by name, revoking its access token",
+                "description": "Deletes a client by ID, revoking its access token",
                 "tags": [
                     "clients"
                 ],
@@ -667,8 +199,8 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Client name",
-                        "name": "name",
+                        "description": "Client ID",
+                        "name": "id",
                         "in": "path",
                         "required": true
                     }
@@ -686,7 +218,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/clients/{name}/regenerate-token": {
+        "/clients/{id}/regenerate-token": {
             "post": {
                 "description": "Generates a new authentication token for a client, invalidating the previous one",
                 "produces": [
@@ -699,8 +231,8 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Client name",
-                        "name": "name",
+                        "description": "Client ID",
+                        "name": "id",
                         "in": "path",
                         "required": true
                     }
@@ -720,619 +252,18 @@ const docTemplate = `{
                     }
                 }
             }
-        },
-        "/crons": {
-            "get": {
-                "description": "Returns all configured scheduled tasks",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "crons"
-                ],
-                "summary": "List cron jobs",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/store.CronJob"
-                            }
-                        }
-                    }
-                }
-            },
-            "post": {
-                "description": "Creates a new scheduled task that sends a prompt to an agent",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "crons"
-                ],
-                "summary": "Create cron job",
-                "parameters": [
-                    {
-                        "description": "Cron job definition",
-                        "name": "body",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/store.CronJob"
-                        }
-                    }
-                ],
-                "responses": {
-                    "201": {
-                        "description": "Created",
-                        "schema": {
-                            "$ref": "#/definitions/store.CronJob"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/admin.ErrorResponse"
-                        }
-                    },
-                    "409": {
-                        "description": "Conflict",
-                        "schema": {
-                            "$ref": "#/definitions/admin.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/crons/{name}": {
-            "get": {
-                "description": "Returns a cron job by its unique name",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "crons"
-                ],
-                "summary": "Get cron job",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Cron job name",
-                        "name": "name",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/store.CronJob"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/admin.ErrorResponse"
-                        }
-                    }
-                }
-            },
-            "put": {
-                "description": "Updates a cron job by name",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "crons"
-                ],
-                "summary": "Update cron job",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Cron job name",
-                        "name": "name",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "Cron job definition",
-                        "name": "body",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/store.CronJob"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/store.CronJob"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/admin.ErrorResponse"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/admin.ErrorResponse"
-                        }
-                    }
-                }
-            },
-            "delete": {
-                "description": "Deletes a cron job by name",
-                "tags": [
-                    "crons"
-                ],
-                "summary": "Delete cron job",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Cron job name",
-                        "name": "name",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "204": {
-                        "description": "No Content"
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/admin.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/mcps": {
-            "get": {
-                "description": "Returns all configured MCP tool servers",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "mcps"
-                ],
-                "summary": "List MCP servers",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/store.MCPServer"
-                            }
-                        }
-                    }
-                }
-            },
-            "post": {
-                "description": "Creates a new MCP tool server",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "mcps"
-                ],
-                "summary": "Create MCP server",
-                "parameters": [
-                    {
-                        "description": "MCP server definition",
-                        "name": "body",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/store.MCPServer"
-                        }
-                    }
-                ],
-                "responses": {
-                    "201": {
-                        "description": "Created",
-                        "schema": {
-                            "$ref": "#/definitions/store.MCPServer"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/admin.ErrorResponse"
-                        }
-                    },
-                    "409": {
-                        "description": "Conflict",
-                        "schema": {
-                            "$ref": "#/definitions/admin.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/mcps/{name}": {
-            "get": {
-                "description": "Returns an MCP server by its unique name",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "mcps"
-                ],
-                "summary": "Get MCP server",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "MCP server name",
-                        "name": "name",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/store.MCPServer"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/admin.ErrorResponse"
-                        }
-                    }
-                }
-            },
-            "put": {
-                "description": "Updates an MCP server by name",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "mcps"
-                ],
-                "summary": "Update MCP server",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "MCP server name",
-                        "name": "name",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "MCP server definition",
-                        "name": "body",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/store.MCPServer"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/store.MCPServer"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/admin.ErrorResponse"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/admin.ErrorResponse"
-                        }
-                    }
-                }
-            },
-            "delete": {
-                "description": "Deletes an MCP server by name",
-                "tags": [
-                    "mcps"
-                ],
-                "summary": "Delete MCP server",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "MCP server name",
-                        "name": "name",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "204": {
-                        "description": "No Content"
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/admin.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/memory": {
-            "get": {
-                "description": "Returns all configured memory providers (session and long-term)",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "memory"
-                ],
-                "summary": "List memory providers",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/store.MemoryProvider"
-                            }
-                        }
-                    }
-                }
-            },
-            "post": {
-                "description": "Creates a new memory provider. Type must be registered and support the given category.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "memory"
-                ],
-                "summary": "Create memory provider",
-                "parameters": [
-                    {
-                        "description": "Memory provider definition",
-                        "name": "body",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/store.MemoryProvider"
-                        }
-                    }
-                ],
-                "responses": {
-                    "201": {
-                        "description": "Created",
-                        "schema": {
-                            "$ref": "#/definitions/store.MemoryProvider"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/admin.ErrorResponse"
-                        }
-                    },
-                    "409": {
-                        "description": "Conflict",
-                        "schema": {
-                            "$ref": "#/definitions/admin.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/memory/types": {
-            "get": {
-                "description": "Returns registered provider types with supported categories and config field specifications for dynamic form rendering",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "memory"
-                ],
-                "summary": "List memory provider types",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/admin.MemoryTypeInfo"
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "/memory/{name}": {
-            "get": {
-                "description": "Returns a memory provider by its unique name",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "memory"
-                ],
-                "summary": "Get memory provider",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Provider name",
-                        "name": "name",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/store.MemoryProvider"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/admin.ErrorResponse"
-                        }
-                    }
-                }
-            },
-            "put": {
-                "description": "Updates a memory provider by name",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "memory"
-                ],
-                "summary": "Update memory provider",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Provider name",
-                        "name": "name",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "Memory provider definition",
-                        "name": "body",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/store.MemoryProvider"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/store.MemoryProvider"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/admin.ErrorResponse"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/admin.ErrorResponse"
-                        }
-                    }
-                }
-            },
-            "delete": {
-                "description": "Deletes a memory provider by name",
-                "tags": [
-                    "memory"
-                ],
-                "summary": "Delete memory provider",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Provider name",
-                        "name": "name",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "204": {
-                        "description": "No Content"
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/admin.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/memory/{name}/health": {
-            "get": {
-                "description": "Pings the memory provider with a 5-second timeout to verify connectivity",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "memory"
-                ],
-                "summary": "Health check",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Provider name",
-                        "name": "name",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/memory.HealthResult"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/admin.ErrorResponse"
-                        }
-                    }
-                }
-            }
         }
     },
     "definitions": {
         "admin.ClientTypeInfo": {
             "type": "object",
             "properties": {
+                "configSchema": {
+                    "$ref": "#/definitions/client.Schema"
+                },
                 "displayName": {
                     "type": "string",
                     "example": "Telegram"
-                },
-                "fields": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/client.FieldSpec"
-                    }
                 },
                 "type": {
                     "type": "string",
@@ -1349,160 +280,16 @@ const docTemplate = `{
                 }
             }
         },
-        "admin.MemoryTypeInfo": {
+        "client.Schema": {
             "type": "object",
-            "properties": {
-                "categories": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    },
-                    "example": [
-                        "session"
-                    ]
-                },
-                "displayName": {
-                    "type": "string",
-                    "example": "Redis"
-                },
-                "fields": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/memory.FieldSpec"
-                    }
-                },
-                "type": {
-                    "type": "string",
-                    "example": "redis"
-                }
-            }
-        },
-        "client.FieldSpec": {
-            "type": "object",
-            "properties": {
-                "default": {
-                    "type": "string"
-                },
-                "key": {
-                    "type": "string"
-                },
-                "label": {
-                    "type": "string"
-                },
-                "options": {
-                    "type": "string"
-                },
-                "placeholder": {
-                    "type": "string"
-                },
-                "required": {
-                    "type": "boolean"
-                },
-                "type": {
-                    "type": "string"
-                }
-            }
-        },
-        "memory.FieldSpec": {
-            "type": "object",
-            "properties": {
-                "default": {
-                    "type": "string"
-                },
-                "key": {
-                    "type": "string"
-                },
-                "label": {
-                    "type": "string"
-                },
-                "placeholder": {
-                    "type": "string"
-                },
-                "required": {
-                    "type": "boolean"
-                },
-                "type": {
-                    "type": "string"
-                }
-            }
-        },
-        "memory.HealthResult": {
-            "type": "object",
-            "properties": {
-                "detail": {
-                    "type": "string"
-                },
-                "healthy": {
-                    "type": "boolean"
-                }
-            }
-        },
-        "store.AgentDefinition": {
-            "type": "object",
-            "properties": {
-                "description": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "llm": {
-                    "$ref": "#/definitions/store.BackendRef"
-                },
-                "mcpServers": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
-                "memory": {
-                    "$ref": "#/definitions/store.MemoryRef"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "systemPrompt": {
-                    "type": "string"
-                },
-                "transcription": {
-                    "$ref": "#/definitions/store.BackendRef"
-                },
-                "tts": {
-                    "$ref": "#/definitions/store.TTSRef"
-                }
-            }
-        },
-        "store.BackendDefinition": {
-            "type": "object",
-            "properties": {
-                "apiKey": {
-                    "type": "string"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "type": {
-                    "type": "string"
-                },
-                "url": {
-                    "type": "string"
-                }
-            }
-        },
-        "store.BackendRef": {
-            "type": "object",
-            "properties": {
-                "backend": {
-                    "type": "string"
-                },
-                "model": {
-                    "type": "string"
-                }
-            }
+            "additionalProperties": true
         },
         "store.ClientConfig": {
             "type": "object",
             "properties": {
+                "cron": {
+                    "$ref": "#/definitions/store.CronClientConfig"
+                },
                 "discord": {
                     "$ref": "#/definitions/store.DiscordClientConfig"
                 },
@@ -1511,6 +298,9 @@ const docTemplate = `{
                 },
                 "telegram": {
                     "$ref": "#/definitions/store.TelegramClientConfig"
+                },
+                "webhook": {
+                    "$ref": "#/definitions/store.WebhookClientConfig"
                 }
             }
         },
@@ -1529,6 +319,9 @@ const docTemplate = `{
                 "enabled": {
                     "type": "boolean"
                 },
+                "id": {
+                    "type": "string"
+                },
                 "name": {
                     "type": "string"
                 },
@@ -1540,22 +333,10 @@ const docTemplate = `{
                 }
             }
         },
-        "store.CronJob": {
+        "store.CronClientConfig": {
             "type": "object",
             "properties": {
-                "agentId": {
-                    "type": "string"
-                },
-                "description": {
-                    "type": "string"
-                },
-                "enabled": {
-                    "type": "boolean"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "prompt": {
+                "commandId": {
                     "type": "string"
                 },
                 "schedule": {
@@ -1586,79 +367,6 @@ const docTemplate = `{
                 }
             }
         },
-        "store.MCPServer": {
-            "type": "object",
-            "properties": {
-                "args": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
-                "command": {
-                    "type": "string"
-                },
-                "endpoint": {
-                    "type": "string"
-                },
-                "env": {
-                    "type": "object",
-                    "additionalProperties": {
-                        "type": "string"
-                    }
-                },
-                "headers": {
-                    "type": "object",
-                    "additionalProperties": {
-                        "type": "string"
-                    }
-                },
-                "name": {
-                    "type": "string"
-                },
-                "systemPrompt": {
-                    "type": "string"
-                },
-                "type": {
-                    "type": "string"
-                },
-                "workDir": {
-                    "type": "string"
-                }
-            }
-        },
-        "store.MemoryProvider": {
-            "type": "object",
-            "properties": {
-                "category": {
-                    "type": "string"
-                },
-                "config": {
-                    "type": "object",
-                    "additionalProperties": true
-                },
-                "embedding": {
-                    "$ref": "#/definitions/store.BackendRef"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "type": {
-                    "type": "string"
-                }
-            }
-        },
-        "store.MemoryRef": {
-            "type": "object",
-            "properties": {
-                "longTerm": {
-                    "type": "string"
-                },
-                "session": {
-                    "type": "string"
-                }
-            }
-        },
         "store.SlackClientConfig": {
             "type": "object",
             "properties": {
@@ -1678,23 +386,6 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "signingSecret": {
-                    "type": "string"
-                }
-            }
-        },
-        "store.TTSRef": {
-            "type": "object",
-            "properties": {
-                "backend": {
-                    "type": "string"
-                },
-                "model": {
-                    "type": "string"
-                },
-                "speed": {
-                    "type": "number"
-                },
-                "voice": {
                     "type": "string"
                 }
             }
@@ -1719,6 +410,17 @@ const docTemplate = `{
                 },
                 "responseMode": {
                     "type": "string"
+                }
+            }
+        },
+        "store.WebhookClientConfig": {
+            "type": "object",
+            "properties": {
+                "commandId": {
+                    "type": "string"
+                },
+                "passthrough": {
+                    "type": "boolean"
                 }
             }
         }

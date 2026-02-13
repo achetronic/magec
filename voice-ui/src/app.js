@@ -19,7 +19,7 @@ import { AudioCapture, AudioRecorder, VoiceEventsClient, FeedbackSound, OpenAITT
 import { RemoteTranscriber } from './transcription/index.js';
 import { UIController, WaveformRenderer } from './ui/index.js';
 import { SessionManager, SessionService } from './session/index.js';
-import { AgentClient, deviceAuth } from './api/index.js';
+import { AgentClient, clientAuth } from './api/index.js';
 import { SettingsManager } from './settings/index.js';
 import { errorHandler } from './errors/index.js';
 import { initLanguage, setLanguage, getLanguage, t, onLanguageChange } from './i18n/index.js';
@@ -58,7 +58,7 @@ class MagecApp {
     async init() {
         initLanguage();
 
-        const needsPairing = await this._checkDevicePairing();
+        const needsPairing = await this._checkClientPairing();
         if (needsPairing) {
             this._showPairingScreen();
             return;
@@ -67,11 +67,11 @@ class MagecApp {
         this._startApp();
     }
 
-    async _checkDevicePairing() {
-        const paired = await deviceAuth.checkPairing();
+    async _checkClientPairing() {
+        const paired = await clientAuth.checkPairing();
         if (paired) return false;
-        if (!deviceAuth.token) {
-            const infoRes = await fetch('/api/v1/device/info');
+        if (!clientAuth.token) {
+            const infoRes = await fetch('/api/v1/client/info');
             if (infoRes.ok) {
                 const info = await infoRes.json();
                 if (!info.paired && info.paired !== undefined) {
@@ -107,7 +107,7 @@ class MagecApp {
             btn.textContent = 'Conectando...';
             error.classList.add('hidden');
 
-            const ok = await deviceAuth.pair(input.value.trim());
+            const ok = await clientAuth.pair(input.value.trim());
             if (ok) {
                 screen.classList.add('hidden');
                 mainApp.classList.remove('hidden');
@@ -131,7 +131,7 @@ class MagecApp {
             this.ui.addNotification(type, message, { showConsoleHint: true });
         });
 
-        this._selectedAgent = deviceAuth.defaultAgent || null;
+        this._selectedAgent = clientAuth.defaultAgent || null;
         this.settings = new SettingsManager(this._selectedAgent);
 
         if (this._selectedAgent) {
@@ -151,7 +151,7 @@ class MagecApp {
     }
 
     _setupAgentSwitcher() {
-        const agents = deviceAuth.allowedAgents;
+        const agents = clientAuth.allowedAgents;
         const switcher = document.getElementById('agentSwitcher');
         const btn = document.getElementById('agentSwitcherBtn');
         const dropdown = document.getElementById('agentDropdown');
@@ -164,7 +164,7 @@ class MagecApp {
         }
 
         switcher.classList.remove('hidden');
-        this._selectedAgent = deviceAuth.defaultAgent;
+        this._selectedAgent = clientAuth.defaultAgent;
 
         const renderList = () => {
             list.innerHTML = agents.map(a => {
@@ -193,7 +193,7 @@ class MagecApp {
                     dropdown.classList.add('hidden');
                     renderList();
                     this.sessionManager.newSession();
-                    console.log('[Device] Agent switched to:', this._selectedAgent);
+                    console.log('[Client] Agent switched to:', this._selectedAgent);
                 });
             });
         };

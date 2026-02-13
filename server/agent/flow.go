@@ -13,12 +13,17 @@ import (
 
 // BuildFlowAgent recursively translates a FlowDefinition into an ADK agent tree.
 // The agentMap must contain pre-built ADK agents keyed by their store ID.
+// The root step uses the flow ID as its ADK agent name so flows are addressable
+// by ID, consistent with how individual agents are addressed.
 func BuildFlowAgent(flow store.FlowDefinition, agentMap map[string]adkagent.Agent) (adkagent.Agent, error) {
-	return buildStep(flow.Name, &flow.Root, agentMap, 0)
+	return buildStep(flow.ID, &flow.Root, agentMap, 0)
 }
 
 func buildStep(name string, step *store.FlowStep, agentMap map[string]adkagent.Agent, depth int) (adkagent.Agent, error) {
-	stepName := fmt.Sprintf("%s_%d", name, depth)
+	stepName := name
+	if depth > 0 {
+		stepName = fmt.Sprintf("%s_%d", name, depth)
+	}
 
 	switch step.Type {
 	case store.FlowStepAgent:

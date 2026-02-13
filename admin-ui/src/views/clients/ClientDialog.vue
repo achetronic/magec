@@ -25,8 +25,8 @@
       </div>
 
       <div>
-        <FormLabel label="Allowed Agents" />
-        <div v-if="store.agents.length" class="flex flex-wrap gap-1.5">
+        <FormLabel label="Allowed Agents & Flows" />
+        <div v-if="store.agents.length || store.flows.length" class="flex flex-wrap gap-1.5">
           <label
             v-for="a in store.agents" :key="a.id"
             class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border cursor-pointer transition-all text-xs"
@@ -37,9 +37,19 @@
             <input type="checkbox" :value="a.id" v-model="form.allowedAgents" class="hidden" />
             <span>{{ a.name || a.id }}</span>
           </label>
+          <label
+            v-for="f in store.flows" :key="f.id"
+            class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border cursor-pointer transition-all text-xs"
+            :class="form.allowedAgents.includes(f.id)
+              ? 'bg-rose-500/10 border-rose-500/40 text-rose-300'
+              : 'bg-piedra-800/60 border-piedra-700/50 text-arena-400 hover:border-piedra-600'"
+          >
+            <input type="checkbox" :value="f.id" v-model="form.allowedAgents" class="hidden" />
+            <span>⤳ {{ f.name || f.id }}</span>
+          </label>
         </div>
-        <p v-else class="text-xs text-arena-500">No agents defined yet</p>
-        <p class="text-[10px] text-arena-500 mt-1">Agents this client can interact with. Cron/webhook clients run commands against all selected agents.</p>
+        <p v-else class="text-xs text-arena-500">No agents or flows defined yet</p>
+        <p class="text-[10px] text-arena-500 mt-1">Agents and flows this client can interact with. Cron/webhook clients run commands against all selected items.</p>
       </div>
 
       <!-- Dynamic config from JSON Schema -->

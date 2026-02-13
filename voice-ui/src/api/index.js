@@ -15,4 +15,4 @@
  */
 
 export { AgentClient } from './AgentClient.js';
-export { deviceAuth } from './DeviceAuth.js';
+export { clientAuth } from './ClientAuth.js';

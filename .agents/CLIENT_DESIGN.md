@@ -2,23 +2,24 @@
 
 ## Overview
 
-Replace the `Device` entity with a new `Client` entity that unifies authentication/authorization for all access points: voice-ui tablets, Telegram bots, Discord bots, Slack bots, webhooks, crons, and any future integration.
+The `Client` entity unifies authentication/authorization for all access points: voice-ui tablets, Telegram bots, webhooks, cron jobs, and any future integration. Each client type declares its configuration via **JSON Schema**.
 
-## Motivation
+## Current State (Implemented)
 
-Currently:
-- `Device` handles voice-ui tablet auth (token + allowedAgents)
-- `TelegramConfig` lives inside `AgentDefinition` (wrong place — auth config mixed with agent logic)
-- No unified model for Discord, Slack, webhooks, or other future clients
+### Client Types
 
-The `Client` entity centralizes "who can talk to which agents" in one place.
+| Type | Config Schema | Use Case |
+|------|--------------|----------|
+| `direct` | `{}` (empty) | Voice-UI tablets, apps — token-only auth |
+| `telegram` | `botToken`, `allowedUsers`, `allowedChats`, `responseMode` | Telegram bot |
+| `cron` | `schedule`, `commandId` | Scheduled automation |
+| `webhook` | `passthrough` XOR `commandId` (via `oneOf`) | HTTP endpoint for integrations |
 
-## Data Model
-
-### ClientDefinition
+### Data Model
 
 ```go
 type ClientDefinition struct {
+    ID            string       `json:"id"`
     Name          string       `json:"name"`
     Type          string       `json:"type"`
     Token         string       `json:"token"`
@@ -31,6 +32,8 @@ type ClientConfig struct {
     Telegram *TelegramClientConfig `json:"telegram,omitempty"`
     Discord  *DiscordClientConfig  `json:"discord,omitempty"`
     Slack    *SlackClientConfig    `json:"slack,omitempty"`
+    Cron     *CronClientConfig     `json:"cron,omitempty"`
+    Webhook  *WebhookClientConfig  `json:"webhook,omitempty"`
 }
 
 type TelegramClientConfig struct {
@@ -40,51 +43,40 @@ type TelegramClientConfig struct {
     ResponseMode string  `json:"responseMode"`
 }
 
-type DiscordClientConfig struct {
-    BotToken        string   `json:"botToken"`
-    GuildID         string   `json:"guildId"`
-    AllowedUsers    []string `json:"allowedUsers"`
-    AllowedChannels []string `json:"allowedChannels"`
+type CronClientConfig struct {
+    Schedule  string `json:"schedule"`
+    CommandID string `json:"commandId"`
 }
 
-type SlackClientConfig struct {
-    BotToken        string   `json:"botToken"`
-    SigningSecret   string   `json:"signingSecret"`
-    AllowedUsers    []string `json:"allowedUsers"`
-    AllowedChannels []string `json:"allowedChannels"`
+type WebhookClientConfig struct {
+    Passthrough bool   `json:"passthrough"`
+    CommandID   string `json:"commandId,omitempty"`
 }
 ```
 
-### Types
-
-| type | config | Use case |
-|------|--------|----------|
-| `device` | `{}` | voice-ui tablets, webhooks, crons — token-only auth |
-| `telegram` | `config.telegram` | Telegram bot |
-| `discord` | `config.discord` | Discord bot |
-| `slack` | `config.slack` | Slack bot |
-
 ### JSON Examples
 
-**voice-ui tablet:**
+**voice-ui tablet (direct):**
 ```json
 {
+  "id": "uuid-v4",
   "name": "tablet-salon",
-  "type": "device",
-  "token": "mgc_aaa",
-  "allowedAgents": ["magec", "cooking"],
+  "type": "direct",
+  "token": "mgc_aaa...",
+  "allowedAgents": ["agent-uuid-1", "agent-uuid-2"],
   "enabled": true,
   "config": {}
 }
 ```
 
-**Telegram (family):**
+**Telegram bot:**
 ```json
 {
+  "id": "uuid-v4",
   "name": "familia-telegram",
   "type": "telegram",
-  "token": "mgc_ccc",
-  "allowedAgents": ["magec", "itahisa"],
+  "token": "mgc_ccc...",
+  "allowedAgents": ["agent-uuid-1"],
   "enabled": true,
   "config": {
     "telegram": {
@@ -97,75 +89,95 @@ type SlackClientConfig struct {
 }
 ```
 
-**Telegram (private):**
+**Cron job:**
 ```json
 {
-  "name": "alby-privado",
-  "type": "telegram",
-  "token": "mgc_ddd",
-  "allowedAgents": ["magec", "privado"],
+  "id": "uuid-v4",
+  "name": "resumen-diario",
+  "type": "cron",
+  "token": "mgc_eee...",
+  "allowedAgents": ["agent-uuid-1"],
   "enabled": true,
   "config": {
-    "telegram": {
-      "botToken": "789012:GHI-JKL...",
-      "allowedUsers": [111111],
-      "allowedChats": [],
-      "responseMode": "mirror"
+    "cron": {
+      "schedule": "0 8 * * *",
+      "commandId": "command-uuid-1"
     }
   }
 }
 ```
 
-**Webhook:**
+**Webhook (fixed command):**
 ```json
 {
-  "name": "webhook-externo",
+  "id": "uuid-v4",
+  "name": "github-webhook",
   "type": "webhook",
-  "token": "mgc_ggg",
-  "allowedAgents": ["magec"],
+  "token": "mgc_fff...",
+  "allowedAgents": ["agent-uuid-1"],
   "enabled": true,
-  "config": {}
+  "config": {
+    "webhook": {
+      "passthrough": false,
+      "commandId": "command-uuid-1"
+    }
+  }
 }
 ```
 
-### Key Decisions
+**Webhook (passthrough):**
+```json
+{
+  "id": "uuid-v4",
+  "name": "api-externa",
+  "type": "webhook",
+  "token": "mgc_ggg...",
+  "allowedAgents": ["agent-uuid-1"],
+  "enabled": true,
+  "config": {
+    "webhook": {
+      "passthrough": true
+    }
+  }
+}
+```
 
-- **`allowedAgents[0]` is the default agent** — no separate `defaultAgent` field
-- **`type` is redundant with config key** — explicit is better, self-documents the JSON, Go reads `config.Telegram` directly
-- **`device` type covers voice-ui, webhooks, and crons** — they all only need token auth
-- **Config is typed structs, not `map[string]interface{}`** — each platform has its own Go struct
-- **Telegram config moves OUT of AgentDefinition** — auth belongs in Client, not Agent
+## Client Type Provider Registry
 
-## Dynamic Form Fields (Client Type Registry)
-
-Following the same pattern as `server/memory/` provider registry:
-
-### Registry (`server/client/`)
+### Architecture
 
 ```
 server/client/
-├── provider.go     — Provider interface, FieldSpec (reuse from memory)
-├── registry.go     — Global registry: Register(), Get(), All(), ValidType()
-├── device/         — Device provider (no extra fields)
-├── telegram/       — Telegram provider (botToken, allowedUsers, etc.)
-├── discord/        — Discord provider (future)
-└── slack/          — Slack provider (future)
+├── provider.go         — Provider interface, Schema type alias
+├── registry.go         — Global registry: Register(), ValidateConfig() with oneOf
+├── direct/direct.go    — Direct provider (empty schema)
+├── telegram/telegram.go — Telegram provider (JSON Schema with x-format, enum)
+├── cron/cron.go        — Cron provider (JSON Schema with x-entity)
+└── webhook/webhook.go  — Webhook provider (JSON Schema with oneOf branches)
 ```
 
 ### Provider Interface
 
 ```go
+type Schema = map[string]interface{}
+
 type Provider interface {
     Type() string
     DisplayName() string
-    ConfigFields() []FieldSpec
+    ConfigSchema() Schema
 }
 ```
 
-- `ConfigFields()` returns field specs for the platform-specific config
-- `device` type returns empty fields (no config needed)
-- `telegram` type returns botToken, allowedUsers, allowedChats, responseMode
-- Admin UI renders forms dynamically from `/clients/types` endpoint
+- `ConfigSchema()` returns a full JSON Schema object with `type`, `properties`, `required`, and optional `oneOf`
+- JSON Schema extensions: `x-entity`, `x-format`, `x-placeholder`
+- Providers register via `init()` + blank imports in `main.go`
+
+### Config Validation
+
+`ValidateConfig(providerType, configBlock)` walks the JSON Schema recursively:
+- Checks `required` fields exist in the data
+- Validates `properties` types
+- For `oneOf`: uses `matchOneOf()` to find the matching branch by comparing `const` values against actual data, then validates that branch's requirements
 
 ### Admin API Endpoint
 
@@ -174,22 +186,76 @@ type Provider interface {
 ```json
 [
   {
-    "type": "device",
-    "displayName": "Device",
-    "fields": []
+    "type": "direct",
+    "displayName": "Direct",
+    "configSchema": {}
   },
   {
     "type": "telegram",
     "displayName": "Telegram",
-    "fields": [
-      {"key": "botToken", "label": "Bot Token", "type": "password", "required": true, "placeholder": "123456:ABC-DEF..."},
-      {"key": "allowedUsers", "label": "Allowed Users", "type": "text", "placeholder": "Comma-separated Telegram user IDs"},
-      {"key": "allowedChats", "label": "Allowed Chats", "type": "text", "placeholder": "Comma-separated Telegram chat IDs"},
-      {"key": "responseMode", "label": "Response Mode", "type": "select", "default": "text", "options": "text,voice,mirror,both"}
-    ]
+    "configSchema": {
+      "type": "object",
+      "required": ["botToken"],
+      "properties": {
+        "botToken": {"type": "string", "x-format": "password", "x-placeholder": "123456:ABC-DEF..."},
+        "allowedUsers": {"type": "string", "x-placeholder": "Comma-separated user IDs"},
+        "allowedChats": {"type": "string", "x-placeholder": "Comma-separated chat IDs"},
+        "responseMode": {"type": "string", "enum": ["text", "voice", "mirror", "both"], "default": "text"}
+      }
+    }
+  },
+  {
+    "type": "cron",
+    "displayName": "Cron",
+    "configSchema": {
+      "type": "object",
+      "required": ["schedule", "commandId"],
+      "properties": {
+        "schedule": {"type": "string", "x-placeholder": "0 8 * * *"},
+        "commandId": {"type": "string", "x-entity": "commands"}
+      }
+    }
+  },
+  {
+    "type": "webhook",
+    "displayName": "Webhook",
+    "configSchema": {
+      "type": "object",
+      "properties": {
+        "passthrough": {"type": "boolean", "default": false},
+        "commandId": {"type": "string", "x-entity": "commands"}
+      },
+      "oneOf": [
+        {
+          "properties": {"passthrough": {"const": false}},
+          "required": ["commandId"]
+        },
+        {
+          "properties": {"passthrough": {"const": true}}
+        }
+      ]
+    }
   }
 ]
 ```
+
+### JSON Schema Extensions
+
+| Extension | Purpose | Example |
+|-----------|---------|---------|
+| `x-entity` | UI renders a `<select>` populated from the named store collection | `"x-entity": "commands"` |
+| `x-format` | UI renders password input instead of text | `"x-format": "password"` |
+| `x-placeholder` | Placeholder text for input fields | `"x-placeholder": "0 8 * * *"` |
+
+### Frontend Rendering (ClientDialog.vue)
+
+The dialog renders forms dynamically from JSON Schema:
+- `currentSchema` computed: finds the matching type's `configSchema`
+- `activeOneOfBranch` computed: evaluates `oneOf` branches by matching `const` values against form data
+- `visibleProperties` computed: shows/hides fields based on active `oneOf` branch
+- Renders: `boolean` → toggle, `x-entity` → select from store, `enum` → select, default → text/password input
+- `isFieldRequired()`: checks both top-level and branch-level `required`
+- `onTypeChange()`: resets config and applies defaults from schema
 
 ## Admin API Endpoints
 
@@ -198,81 +264,48 @@ Base path: `/api/v1/admin`
 | Method | Path | Description |
 |--------|------|-------------|
 | GET | `/clients` | List all clients |
-| POST | `/clients` | Create a client (token auto-generated) |
-| GET | `/clients/types` | List registered client types with field specs |
-| GET | `/clients/{name}` | Get a client by name |
-| PUT | `/clients/{name}` | Update a client |
-| DELETE | `/clients/{name}` | Delete a client |
-| POST | `/clients/{name}/regenerate-token` | Regenerate auth token |
+| POST | `/clients` | Create a client (token auto-generated as `mgc_...`) |
+| GET | `/clients/types` | List registered client types with JSON schemas |
+| GET | `/clients/{id}` | Get a client by ID |
+| PUT | `/clients/{id}` | Update a client |
+| DELETE | `/clients/{id}` | Delete a client |
+| POST | `/clients/{id}/regenerate-token` | Regenerate auth token |
 
-## Rename Cascade
+## Webhook Endpoint (User API)
 
-- **Agent renamed** → update `Client.AllowedAgents[]` (was Device.DefaultAgent + Device.AllowedAgents[])
-- **Client renamed** → no cascading references (same as Device today)
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/api/v1/webhooks/{clientId}` | Fire a webhook client |
 
-## Migration from Device
+- Auth: `Authorization: Bearer <mgc_token>` (client's own token)
+- Passthrough body: `{"prompt": "your text here"}`
+- Fixed command: body empty or ignored
+- Executes against all `allowedAgents`
+- Bypasses `clientAuthMiddleware` (own auth in webhook.go)
 
-### Store Changes
+## Key Decisions
 
-- `StoreData.Devices []Device` → `StoreData.Clients []ClientDefinition`
-- Old `Device` struct removed
-- Existing `data/store.json` with `"devices"` key: add migration in `loadFromDisk()` that converts `Device` → `ClientDefinition` with `type: "device"`
+- **`allowedAgents[0]` is the default agent** — no separate `defaultAgent` field
+- **JSON Schema replaces FieldSpec** — full OpenAPI JSON Schema per type with extensions for UI rendering
+- **`oneOf` for exclusive config** — webhook's passthrough XOR commandId enforced at schema level
+- **Client token for webhook auth** — no separate `secret` field. One auth mechanism everywhere
+- **Cron/webhook execute against ALL allowedAgents** — not a single agentId
+- **Config is typed Go structs** — each platform has its own struct in `ClientConfig`
+- **Telegram config lives in Client, not Agent** — auth/access belongs in Client entity
 
-### Agent Changes
+## Migration Chain
 
-- Remove `Telegram TelegramConfig` from `AgentDefinition`
-- Telegram config now lives in `ClientDefinition.Config.Telegram`
-- `agent.New()` no longer receives Telegram config
+On `loadFromDisk()`, these migrations run in order (all idempotent):
 
-### main.go Changes
-
-- `deviceAuthMiddleware` → `clientAuthMiddleware` (same logic, reads from `Clients` instead of `Devices`)
-- `/api/v1/device/info` → adapt to read from Client (return `allowedAgents` with `[0]` as default)
-- Telegram client startup: iterate Clients with `type: "telegram"`, start a bot per client
-- `X-Device-Name` header → `X-Client-Name`
-
-### admin/ Changes
-
-- `devices.go` → `clients.go` (CRUD adapted for ClientDefinition)
-- Add `listClientTypes` handler (like `listMemoryTypes`)
-- Update `handler.go` routes: `/devices/*` → `/clients/*`
-- Update `overview.go`: `devicesCount` → `clientsCount`
-
-### voice-ui Changes
-
-- `DeviceAuth.js`: endpoint stays `/api/v1/device/info` (or rename to `/api/v1/client/info`)
-- Response format stays the same: `{paired, name, allowedAgents}`
-
-### admin-ui Changes
-
-- Devices tab → Clients tab
-- Dynamic form based on `type` selection (fetch fields from `/clients/types`)
-- Platform-specific config rendered inside a fieldset
+1. `devices → clients` — Legacy Device entities become type `direct` clients
+2. `cronJobs → triggers` — Legacy CronJob becomes Command + Trigger
+3. `triggers → clients` — Trigger entities become cron/webhook client types with own tokens
+4. `device → direct` — Client type `device` renamed to `direct`
+5. `migrateIDs` — Generates UUID v4 for any entity missing one
 
 ## Future (out of scope)
 
-- **Command entity** — prompts with triggers (cron schedule, webhook). Client handles auth, Command handles execution.
 - **Discord provider** — `server/client/discord/`
 - **Slack provider** — `server/client/slack/`
+- **Memory provider migration to JSON Schema** — `server/memory/` still uses FieldSpec
 - **Enrollment** — `open` / `closed` / `approval` modes for user self-registration
-
-## Implementation Order
-
-1. Write this design doc ✓
-2. Add `ClientDefinition` types to `store/types.go`
-3. Add Client CRUD + rename to `store/store.go`
-4. Create `server/client/` registry (provider.go, registry.go)
-5. Create `server/client/device/` provider (empty fields)
-6. Create `server/client/telegram/` provider (field specs)
-7. Add `admin/clients.go` handlers (CRUD + /types + regenerate-token)
-8. Wire routes in `admin/handler.go`
-9. Update `admin/overview.go`
-10. Adapt `deviceAuthMiddleware` → `clientAuthMiddleware` in `main.go`
-11. Adapt `/api/v1/device/info` endpoint
-12. Migrate Telegram startup from Agent config to Client config
-13. Update rename cascade (Agent → Client.AllowedAgents)
-14. Add Device → Client migration in `loadFromDisk()`
-15. Update admin-ui (Clients tab with dynamic forms)
-16. Update voice-ui if endpoint changes
-17. Update AGENTS.md, SESSION_CONTEXT.md, MULTI_AGENT_ADMIN_API.md
-18. Build and verify

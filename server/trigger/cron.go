@@ -16,9 +16,23 @@ type cronSchedule struct {
 	weekdays [7]bool
 }
 
-// parseCron parses a standard 5-field cron expression.
+var cronShorthands = map[string]string{
+	"@yearly":   "0 0 1 1 *",
+	"@annually": "0 0 1 1 *",
+	"@monthly":  "0 0 1 * *",
+	"@weekly":   "0 0 * * 0",
+	"@daily":    "0 0 * * *",
+	"@midnight": "0 0 * * *",
+	"@hourly":   "0 * * * *",
+}
+
+// parseCron parses a standard 5-field cron expression or a shorthand like @daily, @hourly.
 func parseCron(expr string) (*cronSchedule, error) {
-	fields := strings.Fields(expr)
+	trimmed := strings.TrimSpace(expr)
+	if expanded, ok := cronShorthands[strings.ToLower(trimmed)]; ok {
+		trimmed = expanded
+	}
+	fields := strings.Fields(trimmed)
 	if len(fields) != 5 {
 		return nil, fmt.Errorf("expected 5 fields, got %d", len(fields))
 	}

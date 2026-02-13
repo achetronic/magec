@@ -22,23 +22,6 @@
 **Files to modify**:
 - `voice-ui/src/audio/OpenAITTS.js`
 
-**Reference implementation** (not yet applied):
-```javascript
-async _scheduleAudioChunk(audioBytes) {
-    const ctx = this._getAudioContext();
-    const audioBuffer = await ctx.decodeAudioData(audioBytes.buffer.slice(0));
-    
-    const source = ctx.createBufferSource();
-    source.buffer = audioBuffer;
-    source.connect(ctx.destination);
-    
-    const startTime = Math.max(ctx.currentTime, this._scheduledTime);
-    source.start(startTime);
-    
-    this._scheduledTime = startTime + audioBuffer.duration;
-}
-```
-
 ---
 
 ## Medium Priority
@@ -56,7 +39,7 @@ async _scheduleAudioChunk(audioBytes) {
 
 ### Admin API Authentication
 
-**Problem**: The admin API on port 8081 has no authentication. Anyone with network access can modify agents, backends, and devices.
+**Problem**: The admin API on port 8081 has no authentication. Anyone with network access can modify agents, backends, and clients.
 
 **Possible solutions**:
 - Basic auth (simple, config-based)
@@ -67,81 +50,55 @@ async _scheduleAudioChunk(audioBytes) {
 
 ### Move `response_format` Out of Clients Into Server-Side Config
 
-**Problem**: The TTS `response_format` (e.g. `opus`, `mp3`, `wav`) is currently hardcoded by each client (Telegram sends `"opus"`). The speech proxy passes it through to the backend TTS service without any server-side control. This means:
-- Each client has to know what audio format it needs and send it explicitly
-- There's no centralized place to configure the output format
-- If a new client type is added, it has to replicate this knowledge
-- The proxy already controls `model`/`voice`/`speed` from the store, but `response_format` is the odd one out
-
-**Context**: The speech proxy (`serveSpeechProxy`) takes `response_format` from the client body and forwards it as-is to the backend. The backend (OpenAI-compatible) is the one that actually produces the audio in that format — magec does zero conversion. Telegram needs `opus` for voice messages; the voice-ui might need `mp3` or raw PCM; future clients (Discord, Slack) may need different formats.
+**Problem**: The TTS `response_format` (e.g. `opus`, `mp3`, `wav`) is currently hardcoded by each client (Telegram sends `"opus"`). The speech proxy passes it through to the backend TTS service without any server-side control.
 
 **Options to evaluate**:
 1. Add `response_format` to `TTSRef` in the store (per-agent) — simple, but all clients of an agent get the same format
-2. Add `response_format` to each client type's config (e.g. `TelegramClientConfig.AudioFormat`) — per-client control, proxy resolves it
-3. Keep it client-side but document it as the expected contract — least change, but inconsistent with how `model`/`voice`/`speed` are handled
+2. Add `response_format` to each client type's config — per-client control, proxy resolves it
+3. Keep it client-side but document it as the expected contract
 
-**Decision**: TBD — needs to consider whether different clients sharing the same agent would ever need different audio formats (likely yes: Telegram wants opus, voice-ui wants mp3/pcm).
-
----
-
-### ~~Admin UI Polish~~ ✅
-
-All items completed:
-
-- [x] **Toast Notifications** — `Toast.vue` component with animated entrance/exit, success (green), error (red), info variants. All 18 `alert()` calls replaced. Auto-dismiss 3s (5s for errors).
-- [x] **Loading Skeletons** — `SkeletonCard.vue` with pulse animation, shown during initial fetch on all 9 list views. Grid and stacked layouts supported.
-- [x] **Section Transitions** — Fade+slide animation (`Transition` with `mode="out-in"` keyed by `activeTab`) when switching sidebar sections.
-- [x] **Empty States with Icons** — `EmptyState.vue` upgraded with entity-colored large icon, descriptive subtitle, and CTA button that opens the create dialog.
-- [x] **Status Dot on Triggers** — Green/gray dot on trigger card icon tile (matching ClientsList pattern).
-- [x] **Hover Previews on Cross-References** — `Tooltip.vue` component on agent/command badges in BackendsList, McpsList, TriggersList, ClientsList. Shows system prompt snippet, description, or role.
-- [x] **Global Search (Cmd+K)** — `SearchPalette.vue` with keyboard navigation (↑↓ Enter Esc), search across all 8 entity types by name/description. Search button with ⌘K hint in TopBar.
-- [x] **Responsive Sidebar** — Mobile drawer with overlay backdrop, hamburger menu in TopBar. Closes on navigation.
-- [x] **Keyboard Shortcuts** — `n` to create new entity, `r` to refresh, `Cmd+K` for search. Inactive when focus is in inputs/dialogs.
+**Decision**: TBD
 
 ---
+
 
 ### Human-in-the-Loop Tool Confirmation
 
 **Problem**: There's no way for an agent to pause and ask a human for approval before executing a sensitive action (e.g., deleting data, sending money, modifying config).
 
-**ADK support**: v0.4.0 provides `toolconfirmation` — any tool can call `ctx.RequestConfirmation(hint, payload)` to pause execution and emit an `adk_request_confirmation` event. The client must respond with `{confirmed: true/false}` for execution to resume.
+**ADK support**: v0.4.0 provides `toolconfirmation` — any tool can call `ctx.RequestConfirmation(hint, payload)` to pause execution and emit an `adk_request_confirmation` event.
 
-**Current blocker**: All clients (Telegram, triggers, voice-ui) call `/api/v1/agent/run` synchronously — they send a request and wait for the full response as a JSON array. If a tool requests confirmation mid-execution, the response never arrives because it's waiting for the confirmation that the client can't see yet. It's a deadlock.
+**Current blocker**: All clients call `/api/v1/agent/run` synchronously. If a tool requests confirmation mid-execution, it's a deadlock.
 
 **Required architecture changes**:
 
-1. **Switch clients to SSE streaming** — Use `/run/sse` instead of `/run`. Events arrive incrementally, so the client sees the `adk_request_confirmation` event while the agent is still waiting.
-
-2. **Admin UI notification area** — A persistent zone (toast-like or sidebar panel) that:
-   - Listens for `adk_request_confirmation` events via SSE
-   - Shows the `hint` message and the `originalFunctionCall` details (tool name + args)
-   - Provides Approve / Reject buttons
-   - Sends back a `FunctionResponse` with the same `id` and `{confirmed: bool}`
-
-3. **Telegram support** — Inline keyboard with approve/reject buttons. Requires holding the SSE connection open or using a pending-confirmations store that the bot polls.
-
-4. **Pending confirmations store** (alternative to full SSE) — If SSE is too complex for all clients:
-   - Server intercepts `adk_request_confirmation` events and stores them in memory/Redis
-   - Exposes `GET /api/v1/confirmations/pending` and `POST /api/v1/confirmations/{id}/respond`
-   - Clients poll or subscribe for pending confirmations
-   - Server relays the response back to the paused ADK runner
+1. **Switch clients to SSE streaming** — Use `/run/sse` instead of `/run`
+2. **Admin UI notification area** — Listens for confirmation events, shows Approve/Reject buttons
+3. **Telegram support** — Inline keyboard with approve/reject buttons
+4. **Pending confirmations store** (alternative to full SSE)
 
 **Implementation order**:
-1. Admin UI notification area + SSE connection (simplest client to control)
-2. Pending confirmations API (enables Telegram and other non-SSE clients)
+1. Admin UI notification area + SSE connection
+2. Pending confirmations API
 3. Telegram inline keyboard integration
 
-**Files to modify**:
-- `server/main.go` — New confirmation endpoints or SSE relay
-- `admin-ui/src/components/` — New `ConfirmationPanel.vue`
-- `admin-ui/src/App.vue` — SSE connection + confirmation state
-- `server/clients/telegram/telegram.go` — Switch to SSE or use polling
+See `.agents/ADK_TOOLS.md` for full details on `toolconfirmation`.
 
-**References**:
-- `google.golang.org/adk/tool/toolconfirmation` — Protocol definition
-- `toolconfirmation.FunctionCallName = "adk_request_confirmation"`
-- `toolconfirmation.OriginalCallFrom(functionCall)` — Helper to extract the original tool call
-- See `.agents/ADK_TOOLS.md` for full details
+---
+
+### Evaluate Flow Subagent Invocation Model
+
+**Context**: Flows are registered as ADK agents and invoked via the same `/api/v1/agent/run` endpoint as regular agents. This means a flow *is* an agent from the caller's perspective — it just orchestrates sub-agents internally (sequential, parallel, loop).
+
+**Current behavior**: Flow root step registered as `flow.ID` (UUID). Sub-steps named `{flowID}_{depth}`. Agent leaf nodes reuse the pre-built ADK agent directly (by store ID lookup).
+
+**Questions to evaluate**:
+1. Should clients be able to target individual sub-agents within a flow directly? Currently they can only invoke the flow root.
+2. Should flows support conditional routing (e.g., route to different agents based on input classification)? ADK doesn't have a native "router" workflow agent — would need a custom agent.
+3. Should flow execution results include per-step metadata (which agent ran, latency, token usage)? Currently only the final output is returned.
+4. Should flows be composable — i.e., a flow step can reference another flow, not just an agent? Currently `FlowStepAgent` only looks up agents in `agentMap`.
+
+**No action required now** — this is a design evaluation item for when more complex multi-agent workflows are needed.
 
 ---
 
@@ -167,19 +124,6 @@ Currently voice selection is server-side only. Could add UI for users to preview
 
 ## Future Ideas
 
-### Admin UI Framework Migration (Vue/Lit/Preact)
-
-**Problem**: The admin UI (~1000 lines of vanilla JS) is getting verbose. While schema-driven forms solved the dynamic field rendering problem without a framework, the codebase will become harder to maintain as more resource types and features are added.
-
-**When to migrate**: When admin-ui/src/app.js exceeds ~2000 lines, or when complex UI interactions are needed (drag-and-drop, real-time sync, nested component state).
-
-**Candidates**:
-- **Vue 3** (via CDN, no build step needed) — good templating, reactivity
-- **Lit** (web components, very lightweight) — no build step, native browser
-- **Preact** (via CDN) — React-compatible, tiny footprint
-
-**Key constraint**: Avoid introducing a build step (no node_modules, no bundler) if possible. CDN-first approach preferred.
-
 ### Credential Management for Connection Strings
 
 **Problem**: Connection strings contain credentials in plain text (`redis://:password@...`, `postgres://user:pass@...`). Currently stored directly in `data/store.json` and visible in the admin UI.
@@ -190,19 +134,11 @@ Currently voice selection is server-side only. Could add UI for users to preview
 - Reference external secret managers (Vault, K8s secrets)
 - At minimum: mask passwords in API responses, only show `****` in UI
 
-**Status**: TODO — identified during memory provider implementation.
-
 ### Speaker Identification
 
 **Goal**: Identify who is speaking to personalize responses or restrict commands.
 
 **Recommended solution**: [WeSpeaker](https://github.com/wenet-e2e/wespeaker)
-- Active project (2024), same team as WeNet
-- Docker support with Dockerfile for server/client
-- ONNX export for CPU inference (~400MB image)
-- Speaker embeddings for verification (1:1) or identification (1:N)
-
-**Alternative**: SpeechBrain (heavier, ~1GB+)
 
 ### Telegram File/Artifact Support
 
@@ -210,17 +146,9 @@ Currently voice selection is server-side only. Could add UI for users to preview
 
 **Depends on**: ADK artifacts implementation in `adk-utils-go`
 
-**Flow**:
-1. User sends file via Telegram
-2. Bot downloads file
-3. Converts to ADK artifact (base64 + mime type)
-4. Sends to agent with message
-
 ### Database Persistence for Store
 
 **Problem**: `data/store.json` is a single JSON file. Works fine for small setups but won't scale for multi-user or HA deployments.
-
-**When**: When considering horizontal scaling or backup/restore requirements.
 
 ---
 
@@ -247,25 +175,29 @@ Currently voice selection is server-side only. Could add UI for users to preview
 - [x] Memory Providers: universal `connectionString` for all providers
 - [x] Memory Providers: admin UI with split Session/Long-Term sections
 - [x] Memory Providers: dynamic form with per-type extra fields + embedding for longterm
-- [x] Store-based agent creation: `agent.New()` accepts store types directly (no config dependency)
-- [x] Config split: YAML for infra only (server, log, wakeWord), all resources via admin API/store
-- [x] Multi-agent support (server): `agent.New()` accepts `[]AgentDefinition`, `NewMultiLoader` routes by `appName`
-- [x] Multi-agent support (voice-ui): `setAgent(agentId)` on AgentClient, SessionService, OpenAITTS, RemoteTranscriber
-- [x] Hot-reload agents on store changes: `OnChange()` channel + `agentRouterHandler` rebuild with 500ms debounce
-- [x] Voice endpoint redesign: `/api/v1/voice/{agentId}/speech` and `/transcription` (per-agent backend resolution)
-- [x] Voice proxy API key forwarding: `serveSpeechProxy` and `serveTranscriptionProxy` forward backend `apiKey`
-- [x] Rename with cascade: All 6 resource types support renaming via PUT with cascading reference updates
-- [x] Admin UI rename enabled: Name/ID fields editable in edit mode
-- [x] Wake word model name in capabilities: `Name` field added to WebSocket capabilities message
-- [x] Admin UI modal fix: `formnovalidate` on cancel/close buttons to bypass HTML5 validation
+- [x] Store-based agent creation: `agent.New()` accepts store types directly
+- [x] Config split: YAML for infra only, all resources via admin API/store
+- [x] Multi-agent support (server): `NewMultiLoader` routes by `appName`
+- [x] Multi-agent support (voice-ui): `setAgent(agentId)` propagated to all components
+- [x] Hot-reload agents on store changes: `OnChange()` channel + 500ms debounce
+- [x] Voice endpoint redesign: `/api/v1/voice/{agentId}/speech` and `/transcription`
+- [x] Rename with cascade: All resource types support renaming via PUT
 - [x] Admin UI framework migration (Vue 3 + Vite + Tailwind v4 + Pinia)
-- [x] Commands + Triggers system → consolidated into Client types (cron, webhook)
-- [x] Cron scheduler + Webhook handler (`server/trigger/` package)
-- [x] OutputKey migration (AgentDefinition, not FlowStep)
-- [x] Entity color system (8 entities, documented in ENTITY_COLORS.md)
-- [x] Sidebar navigation (replaces tab bar, 3 groups, collapsible, entity colors)
-- [x] TopBar with section context + stats badges + refresh
-- [x] Triggers→Clients consolidation: cron and webhook are now client types, not separate entities
-- [x] OpenAPI JSON Schema for client types endpoint (replaces FieldSpec)
+- [x] Admin UI polish: Toast, Skeletons, Transitions, Empty States, Search Palette, Responsive Sidebar, Keyboard Shortcuts
+- [x] Commands entity: reusable prompts with name, description, prompt
+- [x] Triggers→Clients consolidation: cron and webhook are now client types
+- [x] Client type registry: JSON Schema replaces FieldSpec (with oneOf, x-entity, x-format, x-placeholder)
 - [x] device→direct client type rename
 - [x] Migration chain: CronJobs→Triggers→Clients (automatic on store load)
+- [x] Cron scheduler + Webhook HTTP handler (server/trigger/ package)
+- [x] Cron shorthand support (@daily, @hourly, @weekly, @monthly, @yearly, @annually, @midnight)
+- [x] Flow appName uses flow UUID instead of flow name (consistent with agent addressing)
+- [x] Regenerated admin swagger docs (removed stale FieldSpec references)
+- [x] Memory providers migrated to JSON Schema (ConfigSchema replaces ConfigFields/FieldSpec)
+- [x] Webhook endpoint: POST /api/v1/webhooks/{id} with Bearer token auth
+- [x] Webhook Swagger docs (userapi)
+- [x] OutputKey on AgentDefinition (ADK output key for flows)
+- [x] Entity color system (7 entities, documented in ENTITY_COLORS.md)
+- [x] Sidebar navigation (3 groups: Infraestructura, Agentes, Conexiones)
+- [x] TopBar with section context + stats badges + refresh
+- [x] Flow editor: canvas with nested blocks, drag-and-drop, pan/zoom

@@ -14,17 +14,47 @@
         </div>
       </div>
 
-      <!-- Dynamic config fields -->
-      <div v-for="f in currentFields" :key="f.key" class="space-y-1">
-        <FormLabel :label="f.label" :required="f.required" />
-        <FormInput
-          :modelValue="form.config[f.key] ?? f.default ?? ''"
-          @update:modelValue="form.config[f.key] = $event"
-          :type="f.type === 'password' ? 'password' : 'text'"
-          :placeholder="f.placeholder || ''"
-          :mono="f.key === 'connectionString'"
-        />
-      </div>
+      <!-- Dynamic config from JSON Schema -->
+      <template v-for="(propSchema, key) in visibleProperties" :key="key">
+        <div v-if="propSchema.type === 'boolean'">
+          <label class="flex items-center gap-2 cursor-pointer">
+            <div class="relative">
+              <input type="checkbox" v-model="form.config[key]" class="sr-only peer" />
+              <div class="w-9 h-5 bg-piedra-700 rounded-full peer-checked:bg-teal-500/60 transition-colors" />
+              <div class="absolute left-0.5 top-0.5 w-4 h-4 bg-arena-400 rounded-full peer-checked:translate-x-4 peer-checked:bg-white transition-transform" />
+            </div>
+            <span class="text-xs text-arena-300">{{ propSchema.title || key }}</span>
+          </label>
+          <p v-if="propSchema.description" class="text-[10px] text-arena-500 mt-1">{{ propSchema.description }}</p>
+        </div>
+
+        <div v-else-if="propSchema['x-entity']">
+          <FormLabel :label="propSchema.title || key" :required="isFieldRequired(key)" />
+          <FormSelect :modelValue="form.config[key] ?? ''" @update:modelValue="form.config[key] = $event">
+            <option value="" disabled>Select a {{ propSchema.title?.toLowerCase() || key }}</option>
+            <option v-for="item in entityItems(propSchema['x-entity'])" :key="item.id" :value="item.id">{{ item.name || item.id }}</option>
+          </FormSelect>
+        </div>
+
+        <div v-else-if="propSchema.enum">
+          <FormLabel :label="propSchema.title || key" :required="isFieldRequired(key)" />
+          <FormSelect :modelValue="form.config[key] ?? propSchema.default ?? ''" @update:modelValue="form.config[key] = $event">
+            <option v-for="o in propSchema.enum" :key="o" :value="o">{{ o }}</option>
+          </FormSelect>
+        </div>
+
+        <div v-else>
+          <FormLabel :label="propSchema.title || key" :required="isFieldRequired(key)" />
+          <FormInput
+            :modelValue="form.config[key] ?? propSchema.default ?? ''"
+            @update:modelValue="form.config[key] = $event"
+            :type="propSchema['x-format'] === 'password' ? 'password' : 'text'"
+            :placeholder="propSchema['x-placeholder'] || ''"
+            :mono="key === 'connectionString'"
+          />
+          <p v-if="propSchema.description" class="text-[10px] text-arena-500 mt-1">{{ propSchema.description }}</p>
+        </div>
+      </template>
 
       <!-- Embedding (longterm only) -->
       <fieldset v-if="form.category === 'longterm'" class="border border-piedra-700/40 rounded-xl p-4 space-y-3">
@@ -106,10 +136,101 @@ const typesInCategory = computed(() =>
   store.memoryTypes.filter(t => t.categories?.includes(form.category))
 )
 
-const currentFields = computed(() => {
+const currentSchema = computed(() => {
   const t = store.memoryTypes.find(t => t.type === form.type)
-  return t?.fields || []
+  return t?.configSchema || {}
 })
+
+const allProperties = computed(() => {
+  return currentSchema.value.properties || {}
+})
+
+const activeOneOfBranch = computed(() => {
+  const branches = currentSchema.value.oneOf
+  if (!branches) return null
+  for (const branch of branches) {
+    const props = branch.properties || {}
+    let match = true
+    for (const [key, schema] of Object.entries(props)) {
+      if ('const' in schema) {
+        const val = form.config[key] ?? getDefault(key)
+        if (!jsonEqual(val, schema.const)) {
+          match = false
+          break
+        }
+      }
+    }
+    if (match) return branch
+  }
+  return null
+})
+
+const visibleProperties = computed(() => {
+  const props = allProperties.value
+  const branch = activeOneOfBranch.value
+  if (!branch) return props
+
+  const branchProps = branch.properties || {}
+  const result = {}
+  for (const [key, schema] of Object.entries(props)) {
+    const branchSchema = branchProps[key]
+    if (branchSchema && 'const' in branchSchema) {
+      result[key] = schema
+      continue
+    }
+    const isExcluded = isExcludedByOtherBranches(key)
+    if (!isExcluded || key in branchProps) {
+      result[key] = schema
+    }
+  }
+  return result
+})
+
+function isExcludedByOtherBranches(key) {
+  const branches = currentSchema.value.oneOf
+  if (!branches) return false
+  for (const branch of branches) {
+    if (branch === activeOneOfBranch.value) continue
+    const req = branch.required || []
+    if (req.includes(key)) return true
+  }
+  return false
+}
+
+function isFieldRequired(key) {
+  const topRequired = currentSchema.value.required || []
+  if (topRequired.includes(key)) return true
+  const branch = activeOneOfBranch.value
+  if (branch) {
+    const branchRequired = branch.required || []
+    if (branchRequired.includes(key)) return true
+  }
+  return false
+}
+
+function getDefault(key) {
+  const prop = allProperties.value[key]
+  if (!prop) return undefined
+  if ('default' in prop) return prop.default
+  if (prop.type === 'boolean') return false
+  return undefined
+}
+
+function entityItems(entityKey) {
+  const map = {
+    commands: store.commands,
+    agents: store.agents,
+    backends: store.backends,
+    memory: store.memory,
+    mcps: store.mcps,
+    flows: store.flows,
+  }
+  return map[entityKey] || []
+}
+
+function jsonEqual(a, b) {
+  return JSON.stringify(a) === JSON.stringify(b)
+}
 
 const testLabel = computed(() => {
   if (testLoading.value) return 'Testing...'
@@ -125,6 +246,12 @@ const testClass = computed(() => {
 
 function onTypeChange() {
   form.config = {}
+  const props = allProperties.value
+  for (const [key, schema] of Object.entries(props)) {
+    if ('default' in schema) {
+      form.config[key] = schema.default
+    }
+  }
   testResult.value = null
 }
 
@@ -163,9 +290,14 @@ async function save() {
     category: form.category,
     config: {},
   }
-  for (const f of currentFields.value) {
-    if (form.config[f.key]?.trim?.()) {
-      data.config[f.key] = form.config[f.key].trim()
+  for (const [key, propSchema] of Object.entries(visibleProperties.value)) {
+    const val = form.config[key]
+    if (typeof val === 'boolean') {
+      data.config[key] = val
+    } else if (typeof val === 'string' && val.trim()) {
+      data.config[key] = val.trim()
+    } else if (val !== undefined && val !== null && val !== '') {
+      data.config[key] = val
     }
   }
   if (form.category === 'longterm' && form.embeddingBackend) {

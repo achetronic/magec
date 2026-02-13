@@ -10,15 +10,17 @@ Personal AI assistant from the Canary Islands 🇮🇨 that you control.
 - **Session memory**: Conversation history stored in Redis, survives restarts
 - **Long-term memory**: Remembers things about you across sessions using PostgreSQL with pgvector
 - **MCP tools**: Connect external tools via Model Context Protocol (Home Assistant, filesystem, GitHub, databases...)
-- **Multiple clients**: Access via web (voice-ui), Telegram, or future interfaces
+- **Multiple clients**: Access via web (voice-ui), Telegram, webhooks, cron jobs, or future interfaces
 
 ### Clients
 
-| Client | Description |
-|--------|-------------|
-| **voice-ui** | Web interface with voice/text chat, wake word detection, audio visualizer, PWA support |
-| **Telegram** | Text and voice messages from your phone |
-| *(Future)* | Discord, Slack, WhatsApp, CLI... |
+| Client | Type | Description |
+|--------|------|-------------|
+| **voice-ui** | `direct` | Web interface with voice/text chat, wake word detection, audio visualizer, PWA support |
+| **Telegram** | `telegram` | Text and voice messages from your phone |
+| **Webhook** | `webhook` | HTTP endpoint for external integrations (fixed command or passthrough prompt) |
+| **Cron** | `cron` | Scheduled task that fires a command against agents on a schedule |
+| *(Future)* | | Discord, Slack, WhatsApp, CLI... |
 
 ### Voice Capabilities
 
@@ -54,19 +56,35 @@ magec/
 │   │   ├── handler.go          # Router + helpers
 │   │   ├── agents.go           # Agent CRUD handlers
 │   │   ├── backends.go         # Backend CRUD handlers
+│   │   ├── clients.go          # Client CRUD handlers + /types (JSON Schema)
 │   │   ├── commands.go         # Command CRUD handlers
-│   │   ├── triggers.go         # Trigger CRUD handlers (cron + webhook)
 │   │   ├── memory.go           # Memory provider CRUD + health check + /types
 │   │   ├── flows.go            # Flow CRUD handlers + recursive validation
+│   │   ├── crons.go            # Cron Job CRUD handlers (legacy, auto-migrated)
 │   │   └── overview.go         # Overview/health handler
+│   ├── client/                 # Client type provider registry (JSON Schema based)
+│   │   ├── provider.go         # Provider interface: Type(), DisplayName(), ConfigSchema()
+│   │   ├── registry.go         # Global registry: Register(), ValidateConfig() with oneOf support
+│   │   ├── direct/direct.go    # Direct provider (empty config)
+│   │   ├── telegram/telegram.go # Telegram provider (botToken, allowedUsers, responseMode)
+│   │   ├── cron/cron.go        # Cron provider (schedule, commandId)
+│   │   └── webhook/webhook.go  # Webhook provider (passthrough/commandId oneOf)
 │   ├── store/                  # In-memory data store with JSON persistence
-│   │   ├── store.go            # Store struct, CRUD operations, persistence, UUID migration, CronJob→Trigger migration
-│   │   └── types.go            # AgentDefinition, BackendDefinition, MemoryProvider, Command, Trigger, FlowDefinition, etc.
+│   │   ├── store.go            # Store struct, CRUD ops, persistence, migration chain
+│   │   └── types.go            # All entity types (ClientDefinition, Command, FlowDefinition, etc.)
+│   ├── trigger/                # Automation execution engine
+│   │   ├── executor.go         # RunClient() — executes commands against all allowedAgents
+│   │   ├── scheduler.go        # Cron scheduler — filters cron-type clients, fires on schedule
+│   │   └── webhook.go          # Webhook HTTP handler — Bearer token auth, passthrough/fixed modes
 │   ├── memory/                 # Extensible memory provider registry
 │   │   ├── provider.go         # Provider interface, Category type, HealthResult
 │   │   ├── registry.go         # Global registry: Register(), Get(), All(), ValidTypeForCategory()
 │   │   ├── redis/redis.go      # Redis provider (session), Ping via ParseURL
 │   │   └── postgres/postgres.go # Postgres provider (longterm), Ping via sql.Open
+│   ├── userapi/                # User-facing API handlers + Swagger docs
+│   │   ├── handlers.go         # Health, DeviceInfo, Voice stubs, Webhook swagger types
+│   │   ├── doc.go              # Swagger metadata (title, version, host, security)
+│   │   └── docs/               # Generated swagger (userapi_swagger.json/yaml)
 │   ├── config/config.go        # YAML config parsing (server + log only)
 │   ├── logging/logging.go      # Structured logging (slog)
 │   ├── voice/                  # Server-side voice detection (wake word + VAD)
@@ -98,7 +116,7 @@ magec/
 │   │   ├── App.vue             # Layout, sidebar navigation, global ConfirmDialog/Toast/SearchPalette
 │   │   ├── style.css           # Tailwind v4 @theme (piedra/atlantico/lava/sol/arena)
 │   │   ├── lib/
-│   │   │   ├── api/            # Fetch wrapper + CRUD per resource (agents, backends, flows, etc.)
+│   │   │   ├── api/            # Fetch wrapper + CRUD per resource (agents, backends, clients, commands, flows, etc.)
 │   │   │   └── stores/data.js  # Pinia central store (all resources + helpers)
 │   │   ├── components/         # Shared: AppDialog, Card, Badge, FormInput, Icon, Toast, Tooltip, SkeletonCard, SearchPalette, Sidebar, TopBar, EmptyState, etc.
 │   │   └── views/              # Entity views (one folder each):
@@ -106,8 +124,9 @@ magec/
 │   │       ├── memory/         # MemoryList + MemoryCard + MemoryDialog
 │   │       ├── mcps/           # McpsList + McpDialog
 │   │       ├── agents/         # AgentsList + AgentDetail + AgentDialog
-│   │       ├── clients/        # ClientsList + ClientDialog
-│   │       ├── crons/          # CronsList + CronDialog
+│   │       ├── clients/        # ClientsList + ClientDialog (JSON Schema renderer)
+│   │       ├── commands/       # CommandsList + CommandDialog
+│   │       ├── crons/          # CronsList + CronDialog (legacy, auto-migrated)
 │   │       └── flows/          # FlowsList + FlowDialog + FlowCanvas + FlowBlock
 │   ├── index.html
 │   ├── vite.config.js          # Vue plugin + Tailwind plugin + dev proxy to :8081
@@ -132,59 +151,64 @@ magec/
 | `server/main.go` | HTTP server (port 8080) + admin server (port 8081), routing, middleware |
 | `server/agent/agent.go` | Multi-agent ADK setup. `New()` accepts agents + flows, creates LLM agents + workflow agents, routes via `NewMultiLoader` |
 | `server/agent/flow.go` | Translates `FlowDefinition` tree → ADK workflow agents (sequential/parallel/loop) |
-| `server/admin/` | Admin REST API for managing agents, backends, MCPs, and memory providers at runtime |
+| `server/admin/` | Admin REST API for managing all resources at runtime |
+| `server/client/` | Client type provider registry — JSON Schema based. Each type declares its config schema. Validation supports `oneOf`, `required`, `properties` |
+| `server/trigger/` | Automation execution: cron scheduler + webhook HTTP handler + executor that runs commands against agents |
 | `server/memory/` | Extensible provider registry — interface + init() auto-registration pattern |
-| `server/store/` | In-memory data store with JSON persistence (`data/store.json`). Immutable UUID v4 IDs. Auto-migration of legacy data |
+| `server/store/` | In-memory data store with JSON persistence (`data/store.json`). Immutable UUID v4 IDs. Auto-migration chain on load |
+| `server/userapi/` | User-facing API handlers + Swagger docs (health, device info, voice, webhooks) |
 | `server/voice/` | Server-side voice detection (wake word + VAD) via ONNX |
 | `server/clients/telegram/` | Telegram bot with voice message support |
 | `server/config/config.go` | YAML config for server infrastructure only (ports, log) |
-| `admin-ui/` | Admin dashboard SPA (Vue 3 + Vite + Tailwind v4 + Pinia + vuedraggable). Canvas-based flow editor with drag-and-drop. Served on admin port |
+| `admin-ui/` | Admin dashboard SPA (Vue 3 + Vite + Tailwind v4 + Pinia + vuedraggable). JSON Schema-driven client forms. Canvas-based flow editor. Served on admin port |
 | `voice-ui/src/app.js` | Main entry - MagecApp class orchestrates audio pipeline |
-| `voice-ui/src/audio/` | AudioCapture, AudioRecorder, AudioConverter, FeedbackSound, OpenAITTS, VoiceEventsClient |
-| `voice-ui/src/api/AgentClient.js` | Agent API client (sessions, messages) |
-| `voice-ui/src/ui/UIController.js` | DOM manipulation, panels, notifications, sidebar |
-| `voice-ui/src/ui/WaveformRenderer.js` | "Centella/Magec" audio visualizer with particles |
 
 ## HTTP Endpoints
 
-### Main Server (port 8080)
+### Main Server (port 8080) — User API
 
 | Method | Path | Description |
 |--------|------|-------------|
 | GET/POST | `/api/v1/agent/*` | ADK REST API (sessions, run, events). Uses `appName` to route to correct agent |
 | POST | `/api/v1/agent/run` | Run agent (blocking) |
 | POST | `/api/v1/agent/run_sse` | Run agent (SSE streaming) |
+| POST | `/api/v1/webhooks/{clientId}` | **Webhook endpoint** — Bearer token auth, passthrough or fixed command |
 | POST | `/api/v1/voice/{agentId}/speech` | TTS proxy (resolves backend dynamically per agent from store) |
 | POST | `/api/v1/voice/{agentId}/transcription` | STT proxy (resolves backend dynamically per agent from store) |
 | WebSocket | `/api/v1/voice/events` | Voice events stream (wake word + VAD) |
-| GET | `/api/v1/device/info` | Device info (paired status, allowed agents) |
+| GET | `/api/v1/client/info` | Client info (paired status, allowed agents) |
 | GET | `/api/v1/health` | Health check |
+| GET | `/api/v1/swagger/` | Swagger UI (userapi docs) |
 | GET | `/` | Static files from `voice-ui/` |
 
-### Admin Server (port 8081)
+### Admin Server (port 8081) — Admin API
 
 | Method | Path | Description |
 |--------|------|-------------|
 | GET | `/` | Admin UI (static files from `admin-ui/`) |
-| GET | `/api/v1/admin/swagger/` | Swagger UI (interactive API docs) |
-| GET | `/api/v1/admin/overview` | Overview: agent/backend/MCP counts + agent summaries |
+| GET | `/api/v1/admin/swagger/` | Swagger UI (admin API docs) |
+| GET | `/api/v1/admin/overview` | Overview: counts + agent summaries |
+| | **Backends** | |
 | GET | `/api/v1/admin/backends` | List all backends |
 | POST | `/api/v1/admin/backends` | Create a backend |
 | GET | `/api/v1/admin/backends/{id}` | Get a backend by ID |
 | PUT | `/api/v1/admin/backends/{id}` | Update a backend |
 | DELETE | `/api/v1/admin/backends/{id}` | Delete a backend |
+| | **Memory Providers** | |
 | GET | `/api/v1/admin/memory` | List all memory providers |
 | POST | `/api/v1/admin/memory` | Create a memory provider |
-| GET | `/api/v1/admin/memory/types` | List registered provider types + supported categories |
+| GET | `/api/v1/admin/memory/types` | List registered provider types + categories |
 | GET | `/api/v1/admin/memory/{id}` | Get a memory provider by ID |
 | PUT | `/api/v1/admin/memory/{id}` | Update a memory provider |
 | DELETE | `/api/v1/admin/memory/{id}` | Delete a memory provider |
-| GET | `/api/v1/admin/memory/{id}/health` | Real-time health check (Ping) for a provider |
-| GET | `/api/v1/admin/mcps` | List all MCP servers (global) |
+| GET | `/api/v1/admin/memory/{id}/health` | Real-time health check (Ping) |
+| | **MCP Servers** | |
+| GET | `/api/v1/admin/mcps` | List all MCP servers |
 | POST | `/api/v1/admin/mcps` | Create an MCP server |
 | GET | `/api/v1/admin/mcps/{id}` | Get an MCP server by ID |
 | PUT | `/api/v1/admin/mcps/{id}` | Update an MCP server |
 | DELETE | `/api/v1/admin/mcps/{id}` | Delete an MCP server |
+| | **Agents** | |
 | GET | `/api/v1/admin/agents` | List all agents |
 | POST | `/api/v1/admin/agents` | Create an agent |
 | GET | `/api/v1/admin/agents/{id}` | Get an agent by ID |
@@ -193,33 +217,32 @@ magec/
 | GET | `/api/v1/admin/agents/{id}/mcps` | List resolved MCPs for an agent |
 | PUT | `/api/v1/admin/agents/{id}/mcps/{mcpId}` | Link an MCP to an agent |
 | DELETE | `/api/v1/admin/agents/{id}/mcps/{mcpId}` | Unlink an MCP from an agent |
+| | **Clients** | |
 | GET | `/api/v1/admin/clients` | List all clients |
 | POST | `/api/v1/admin/clients` | Create a client |
-| GET | `/api/v1/admin/clients/types` | List registered client types |
+| GET | `/api/v1/admin/clients/types` | List registered types with JSON Schema |
 | GET | `/api/v1/admin/clients/{id}` | Get a client by ID |
 | PUT | `/api/v1/admin/clients/{id}` | Update a client |
 | DELETE | `/api/v1/admin/clients/{id}` | Delete a client |
 | POST | `/api/v1/admin/clients/{id}/regenerate-token` | Regenerate client auth token |
-| GET | `/api/v1/admin/crons` | List all cron jobs (legacy) |
-| POST | `/api/v1/admin/crons` | Create a cron job (legacy) |
-| GET | `/api/v1/admin/crons/{id}` | Get a cron job by ID (legacy) |
-| PUT | `/api/v1/admin/crons/{id}` | Update a cron job (legacy) |
-| DELETE | `/api/v1/admin/crons/{id}` | Delete a cron job (legacy) |
+| | **Commands** | |
 | GET | `/api/v1/admin/commands` | List all commands |
 | POST | `/api/v1/admin/commands` | Create a command |
 | GET | `/api/v1/admin/commands/{id}` | Get a command by ID |
 | PUT | `/api/v1/admin/commands/{id}` | Update a command |
 | DELETE | `/api/v1/admin/commands/{id}` | Delete a command |
-| GET | `/api/v1/admin/triggers` | List all triggers |
-| POST | `/api/v1/admin/triggers` | Create a trigger |
-| GET | `/api/v1/admin/triggers/{id}` | Get a trigger by ID |
-| PUT | `/api/v1/admin/triggers/{id}` | Update a trigger |
-| DELETE | `/api/v1/admin/triggers/{id}` | Delete a trigger |
+| | **Flows** | |
 | GET | `/api/v1/admin/flows` | List all flows |
 | POST | `/api/v1/admin/flows` | Create a flow |
 | GET | `/api/v1/admin/flows/{id}` | Get a flow by ID |
 | PUT | `/api/v1/admin/flows/{id}` | Update a flow |
 | DELETE | `/api/v1/admin/flows/{id}` | Delete a flow |
+| | **Cron Jobs (legacy)** | |
+| GET | `/api/v1/admin/crons` | List all cron jobs (legacy, auto-migrated) |
+| POST | `/api/v1/admin/crons` | Create a cron job |
+| GET | `/api/v1/admin/crons/{id}` | Get a cron job by ID |
+| PUT | `/api/v1/admin/crons/{id}` | Update a cron job |
+| DELETE | `/api/v1/admin/crons/{id}` | Delete a cron job |
 
 See [MULTI_AGENT_ADMIN_API.md](MULTI_AGENT_ADMIN_API.md) for full API reference with request/response schemas.
 
@@ -228,7 +251,7 @@ See [MULTI_AGENT_ADMIN_API.md](MULTI_AGENT_ADMIN_API.md) for full API reference 
 Magec uses a **split configuration** model:
 
 - **`config.yaml`** — Server infrastructure only (ports, logging). Read at startup.
-- **Admin API + Store** — All resources (agents, backends, MCPs, memory providers, devices, crons). Managed via the Admin UI at `:8081` or the REST API. Persisted to `data/store.json`.
+- **Admin API + Store** — All resources managed via the Admin UI at `:8081` or the REST API. Persisted to `data/store.json`.
 
 ### config.yaml (Infrastructure)
 
@@ -254,12 +277,20 @@ All of the following are managed at runtime via `http://localhost:8081`:
 | **Memory Providers** | Redis (session), PostgreSQL (long-term) |
 | **MCP Servers** | External tool servers (HTTP or stdio) |
 | **Agents** | Independent units with own LLM, memory, tools, prompts |
-| **Commands** | Reusable prompts that can be invoked against agents by triggers |
-| **Triggers** | Automation: cron schedules or webhooks that fire commands. Authenticate via linked Client token |
-| **Clients** | Access points (voice-UI, Telegram, Discord) with token-based auth |
-| **Cron Jobs** | Legacy — migrated automatically to Commands + Triggers on load |
+| **Commands** | Reusable prompts that can be invoked by cron/webhook clients |
+| **Clients** | Access points with token-based auth. Types: `direct` (voice-UI), `telegram`, `cron` (scheduled), `webhook` (HTTP) |
+| **Flows** | Multi-agent workflows (sequential/parallel/loop) |
 
 On first run with no `data/store.json`, the store starts empty. Configure everything via the Admin UI.
+
+### Client Types
+
+| Type | Config Schema | Use Case |
+|------|--------------|----------|
+| `direct` | `{}` (empty) | Voice-UI tablets, apps — token-only auth |
+| `telegram` | `botToken`, `allowedUsers`, `allowedChats`, `responseMode` | Telegram bot |
+| `cron` | `schedule` (5-field cron or shorthand like `@daily`), `commandId` (ref to Commands) | Scheduled automation |
+| `webhook` | `passthrough` (bool) + `commandId` (oneOf exclusive) | HTTP endpoint for integrations |
 
 ### Backend Types
 
@@ -274,10 +305,12 @@ On first run with no `data/store.json`, the store starts empty. Configure everyt
 ### Go Conventions
 
 - **YAML config**: Server infrastructure only (ports, log), env var expansion with `${VAR}`
-- **Store-based resources**: All agents, backends, MCPs, memory, devices, crons managed via admin API
+- **Store-based resources**: All entities managed via admin API
 - **No YAML seed**: Store starts empty on first run; configure via Admin UI at `:8081`
 - **Multi-agent ADK**: `agent.New()` accepts agents + flows, creates LLM agents + workflow agents, `NewMultiLoader` routes by `appName`
-- **Immutable UUID v4 IDs**: All entities use `google/uuid` v4. Cross-references store IDs, not names. Auto-migration from legacy name-based refs on first load
+- **Immutable UUID v4 IDs**: All entities use `google/uuid` v4. Cross-references store IDs, not names
+- **Client type registry**: JSON Schema based. Each provider declares `ConfigSchema()`. Validation via `ValidateConfig()` with recursive `oneOf`/`required`/`properties` walking
+- **Automation**: `trigger/` package handles cron scheduling + webhook serving + command execution. `RunClient()` iterates all `allowedAgents`
 - **Flows**: `FlowDefinition` with recursive `FlowStep` tree. Maps 1:1 to ADK workflow agents (sequential/parallel/loop)
 - **Hot-reload**: Store `OnChange()` channel fires on `persist()`. `agentRouterHandler` rebuilds agent on store changes with 500ms debounce
 - **ADK REST handler**: `adkrest.NewHandler()` provides full ADK API
@@ -285,8 +318,9 @@ On first run with no `data/store.json`, the store starts empty. Configure everyt
 - **Agent instruction**: Reads memories at conversation start
 - **Voice endpoints**: `/api/v1/voice/{agentId}/speech` and `/transcription` resolve backends dynamically per agent. API keys forwarded to upstream
 - **WebSocket voice-events**: Server handles all ONNX inference (wake word + VAD), clients stream audio at `/api/v1/voice/events`
-- **Device auth middleware**: Token-based auth on port 8080. Whitelist: health, voice/events, device/info, OPTIONS, static files
-- **No rename cascade needed**: IDs are immutable UUIDs. Renaming = PUT with new `name` in body. Cross-references use stable IDs
+- **Client auth middleware**: Token-based auth on port 8080. Whitelist: health, voice/events, client/info, webhooks, OPTIONS, static files
+- **Webhook auth**: Separate from middleware — webhook.go validates Bearer token against the client's own `cl.Token`
+- **Migration chain**: On load: `devices→clients` → `cronJobs→triggers` → `triggers→clients` → `device→direct` → `migrateIDs`. Each step idempotent
 
 ### JavaScript Conventions (admin-ui)
 
@@ -296,16 +330,14 @@ On first run with no `data/store.json`, the store starts empty. Configure everyt
 - **Dialog pattern**: `defineExpose({ open })`, parents call `ref.value?.open(data)`. Native `<dialog>` with `showModal()`
 - **Delete confirmation**: Global via `provide('requestDelete')` / `inject('requestDelete')`
 - **Toast notifications**: Global via `provide('toast')` / `inject('toast')` — `toast.success()`, `toast.error()`, `toast.info()`
-- **Keyboard shortcuts**: Global handler in `App.vue` — `n` (new), `r` (refresh), `Cmd+K` (search). Skips inputs/textareas/dialogs. List views register via `inject('registerNew')`
-- **Search palette**: `SearchPalette.vue` — `Cmd+K` triggers, searches all 8 entity types by name/description, keyboard navigation
-- **Loading skeletons**: `SkeletonCard.vue` shown when `store.loading && !collection.length`
-- **Section transitions**: Vue `<Transition>` with `mode="out-in"` keyed by `activeTab`
-- **Responsive sidebar**: Mobile drawer (`mobileOpen` prop on Sidebar), hamburger in TopBar, backdrop overlay
-- **Tooltips**: `Tooltip.vue` on cross-reference badges (agent/command badges show prompt snippet on hover)
+- **Keyboard shortcuts**: Global handler in `App.vue` — `n` (new), `r` (refresh), `Cmd+K` (search). Skips inputs/textareas/dialogs
+- **Search palette**: `SearchPalette.vue` — `Cmd+K` triggers, searches all 7 entity types by name/description
+- **JSON Schema form renderer**: `ClientDialog.vue` renders forms dynamically from `ConfigSchema()`. Supports `oneOf` branch matching, `x-entity` (entity select), `enum` (select), `boolean` (toggle), `x-format:password`
 - **Entity views**: `*List.vue` + `*Dialog.vue` per entity under `src/views/<entity>/`
 - **Flow editor**: `FlowCanvas.vue` (pan/zoom/toolbar) + `FlowBlock.vue` (recursive, vuedraggable)
 - **Tailwind v4**: `@tailwindcss/vite` plugin, `@theme` directive for custom colors
 - **Build**: `npx vite build` → `admin-ui/dist/`, Go serves from there
+- **7 active tabs**: backends, memory, mcps, agents, flows, commands, clients
 
 ### JavaScript Conventions (voice-ui)
 
@@ -316,7 +348,6 @@ On first run with no `data/store.json`, the store starts empty. Configure everyt
 - **Color palette**: piedra (grays), atlantico (cyan), lava (red), sol (yellow/orange), arena (text)
 - **Centralized errors**: All API errors flow through ErrorHandler → notifications
 - **Multi-agent**: `setAgent(agentId)` propagated to `AgentClient`, `SessionService`, `OpenAITTS`, `RemoteTranscriber`
-- **Agent switching**: Dropdown triggers new session creation + endpoint reconfiguration
 
 ### Audio Processing Pipeline (voice-ui)
 
@@ -351,23 +382,6 @@ Client (WebSocket)          Server (/api/v1/voice/events)
        │<── speech_end ───────────────│
 ```
 
-**Capabilities message (sent on connect):**
-```json
-{
-  "type": "capabilities",
-  "data": {
-    "wakewords": {
-      "models": [{"id": "oye-magec", "name": "Oye Magec", "phrase": "Oye Magec"}],
-      "active": "oye-magec"
-    },
-    "vad": {
-      "enabled": true,
-      "silenceTimeout": 2000
-    }
-  }
-}
-```
-
 ## Agent Behavior
 
 The agent (defined in `server/agent/agent.go`) has these key behaviors:
@@ -394,30 +408,26 @@ PWA-enabled web interface with:
 
 - **Text messages**: Processed through the agent
 - **Voice messages**: Downloaded → converted OGG→WAV (ffmpeg) → transcribed → processed → optional voice response
-- **Authorization**: `allowedUsers` and `allowedChats` allowlists
+- **Authorization**: `allowedUsers` and `allowedChats` allowlists (configured in client config)
 - **Sessions**: Scoped by `telegram_<chatID>`
-- **User context**: Every message sent to the LLM includes a `<!--MAGEC_META:{...}:MAGEC_META-->` prefix with Telegram metadata as JSON (source, user ID, username, display name, chat ID, chat title, chat type) so the agent always knows who is talking and from where. This format is shared across all clients (Telegram, voice-ui with future OpenID JWT claims) and is stripped from user-facing views by the `stripMetadata()` utility
-- **Response mode**: Configurable via `responseMode` in the agent's Telegram settings (admin API). Can also be changed at runtime with the `/responsemode` Telegram command (persists until pod restart)
+- **User context**: Every message sent to the LLM includes a `<!--MAGEC_META:{...}:MAGEC_META-->` prefix with Telegram metadata as JSON
+- **Response mode**: Configurable via `responseMode` in client config. Can be changed at runtime with `/responsemode` command
 
-#### Telegram Commands
+### Webhook Client
 
-| Command | Description |
-|---------|-------------|
-| `/responsemode` | Show current response mode |
-| `/responsemode text` | Force text-only responses |
-| `/responsemode voice` | Force voice-only responses (requires TTS) |
-| `/responsemode mirror` | Reply in the same format as the input |
-| `/responsemode both` | Reply with both text and voice |
-| `/responsemode reset` | Revert to the config file default |
+- **Endpoint**: `POST /api/v1/webhooks/{clientId}` on port 8080
+- **Auth**: `Authorization: Bearer <mgc_token>` (client's own token)
+- **Passthrough mode** (`passthrough: true`): prompt comes from request body `{"prompt": "..."}`
+- **Fixed command mode** (`passthrough: false`): prompt comes from referenced Command, body ignored
+- **Execution**: Runs against ALL agents in client's `allowedAgents` list
+- **Bypass**: Not subject to `clientAuthMiddleware` — has its own auth in webhook.go
 
-#### Response Modes
+### Cron Client
 
-| Mode | Behavior |
-|------|----------|
-| `text` | Always reply with text only (default) |
-| `voice` | Always reply with voice only (requires TTS) |
-| `mirror` | Reply in the same format as the input (text→text, voice→voice) |
-| `both` | Reply with both text and voice (requires TTS) |
+- **Schedule**: 5-field cron expressions (`0 0 * * *`) or shorthands (`@daily`, `@hourly`, `@weekly`, `@monthly`, `@yearly`, `@annually`, `@midnight`)
+- **Command**: References a Command entity by ID
+- **Execution**: Fires `RunClient()` on schedule against all `allowedAgents`
+- **Scheduler**: `trigger/scheduler.go` filters cron-type clients from store, manages next-fire times
 
 ## Development
 
@@ -429,6 +439,12 @@ make dev                # Build and run with config.yaml
 make swagger            # Regenerate Swagger docs from annotations
 make clean              # Remove build artifacts
 make download-model     # Download wake word + pretrained models (interactive)
+
+# Regenerate userapi swagger
+cd server && go run github.com/swaggo/swag/cmd/swag init --dir ./userapi --generalInfo doc.go --output ./userapi/docs --parseDependency --parseInternal --instanceName userapi
+
+# Regenerate admin swagger
+cd server && go run github.com/swaggo/swag/cmd/swag init --dir ./admin --generalInfo doc.go --output ./admin/docs --parseDependency --parseInternal
 ```
 
 ### Infrastructure (Docker)
@@ -441,16 +457,6 @@ make infra              # postgres + redis
 make infra-stop         # Stop postgres + redis
 make infra-clean        # Remove all containers and volumes
 ```
-
-### Backend Types
-
-Backends are created via the Admin API (`POST /api/v1/admin/backends`).
-
-| Type | Description | Required Fields |
-|------|-------------|-----------------|
-| `openai` | OpenAI-compatible API (OpenAI, Ollama, LM Studio, etc.) | `url` and/or `apiKey` |
-| `anthropic` | Anthropic Claude API | `apiKey` |
-| `gemini` | Google Gemini API | `apiKey` |
 
 ## Docker Compose Deployments
 
@@ -469,29 +475,9 @@ Fully self-hosted. No API keys needed. All AI runs locally.
 - **parakeet** - Speech-to-text
 - **tts** - Text-to-speech (openai-edge-tts)
 
-```bash
-cd deploy/docker/fully-local
-docker compose up -d
-```
-
 ### OpenAI (`deploy/docker/remote-openai/`)
 
 Only infra runs locally. LLM, STT, TTS, and embeddings use OpenAI APIs.
-
-**Services:**
-- **magec** - Main server (port 8080) + Admin UI (port 8081)
-- **redis** - Session storage
-- **postgres** - Long-term memory (pgvector)
-
-```bash
-cd deploy/docker/remote-openai
-export OPENAI_API_KEY=sk-...
-docker compose up -d
-```
-
-### Legacy (`deploy/docker/legacy/`)
-
-Original hybrid deployment. Still functional but superseded by the above.
 
 ## Dependencies
 
@@ -505,20 +491,6 @@ Original hybrid deployment. Still functional but superseded by the above.
 **Frontend (CDN):**
 - Tailwind CSS - Styling
 
-## Wake Word Models
-
-Models in `models/`, configured in `wakewords.yaml`:
-
-| ID | Phrase | Threshold |
-|----|--------|-----------|
-| `oye-magec` | "Oye Magec" | 0.5 |
-| `magec` | "Magec" | 0.3 |
-
-Pretrained models in `pretrained/`:
-- `mel-spectrogram.onnx` - Audio to mel-spectrogram
-- `speech-embedding.onnx` - Mel to speech embedding
-- `silero-vad.onnx` - Voice activity detection
-
 ## Gotchas
 
 1. **Voice-UI has no build step**: Dependencies loaded from CDN. No npm required. **Admin-UI uses Vite** — `make build-admin` or `cd admin-ui && npx vite build`.
@@ -527,7 +499,7 @@ Pretrained models in `pretrained/`:
 
 3. **Wake word models location**: ONNX models in `models/` at project root.
 
-4. **VAD stops recording**: When VAD detects speech end, recording automatically stops. No volume-threshold fallback needed.
+4. **VAD stops recording**: When VAD detects speech end, recording automatically stops.
 
 5. **Memory is optional**: Without Redis/PostgreSQL, sessions are in-memory and long-term memory is disabled.
 
@@ -535,35 +507,39 @@ Pretrained models in `pretrained/`:
 
 7. **PWA over HTTP**: Requires Chrome flag for non-localhost addresses.
 
-8. **Telegram voice**: Requires TTS backend configured for voice responses. ffmpeg required in container for OGG→WAV conversion.
+8. **Telegram voice**: Requires TTS backend configured for voice responses. ffmpeg required in container.
 
-9. **Security**: Always set `allowedUsers` in Telegram config to restrict access.
+9. **Security**: Always set `allowedUsers` in Telegram client config to restrict access.
 
-10. **Telegram user context**: The LLM receives a `[context: telegram_user_id: ..., telegram_username: @..., ...]` prefix on every message. This is injected by the Telegram client, not configurable.
+10. **Memory providers use connectionString**: Both Redis and Postgres use a universal `connectionString` field. Provider-specific extra fields live in the `config` map.
 
-11. **Memory providers use connectionString**: Both Redis and Postgres use a universal `connectionString` field (`redis://...`, `postgres://...`). Provider-specific extra fields (like `ttl` for Redis) live in the `config` map alongside the connection string.
+11. **Memory provider registry**: Providers register via `init()` + blank imports in `main.go`. The `Provider` interface requires `Type()`, `DisplayName()`, `SupportedCategories()`, `ConfigFields()`, and `Ping(ctx, config)`.
 
-12. **Memory provider registry**: Providers register via `init()` + blank imports in `main.go`. Adding a new type = new package under `server/memory/<name>/` + blank import. The `Provider` interface requires `Type()`, `DisplayName()`, `SupportedCategories()`, `ConfigFields()`, and `Ping(ctx, config)`.
+12. **Client type registry**: Same pattern as memory — `init()` + blank imports. Provider interface: `Type()`, `DisplayName()`, `ConfigSchema()`. Config validation via `ValidateConfig()` walks JSON Schema recursively (supports `oneOf`, `required`, `properties`).
 
-13. **Schema-driven memory forms**: The admin UI renders memory provider forms dynamically from `ConfigFields()` specs returned by `/memory/types`. Zero hardcoded fields per provider type — new providers get forms for free.
+13. **JSON Schema extensions for client configs**: `x-entity: "commands"` (entity select), `x-format: "password"` (password input), `x-placeholder: "..."` (placeholder text). Frontend renders forms dynamically from these.
 
-14. **Category is per-instance, not per-type**: `MemoryProvider.Category` (string in store) vs `Provider.SupportedCategories()` (capability). A single type like Redis could serve both session and long-term roles.
+14. **Webhook auth is separate from middleware**: `clientAuthMiddleware` is bypassed for `/api/v1/webhooks/` paths. Webhook handler validates Bearer token against the client's own `cl.Token` directly.
 
-15. **Voice endpoint proxy forwards API keys**: `serveSpeechProxy` and `serveTranscriptionProxy` forward the backend's `apiKey` as `Authorization: Bearer` to the upstream. Without this, backends that require API keys (like OpenAI Edge TTS) return 401.
+15. **Cron supports both 5-field and shorthand expressions**: `@daily`, `@hourly`, `@weekly`, `@monthly`, `@yearly`, `@annually`, `@midnight` are all valid. They expand to their 5-field equivalents before parsing.
 
-16. **Immutable IDs**: All entities use UUID v4 (`google/uuid`). Cross-references store IDs not names. On first load, `migrateIDs()` auto-generates UUIDs for entities without them and rewrites name-based cross-references to IDs. Idempotent — uses `isUUID()` regex to skip already-migrated fields.
+16. **Immutable IDs**: All entities use UUID v4 (`google/uuid`). Cross-references store IDs not names. Migration chain on first load converts legacy name-based refs.
 
-17. **Hot-reload**: Store changes (via admin API) fire `OnChange()` channel → `agentRouterHandler` rebuilds the ADK agent with 500ms debounce. No server restart needed for config changes.
+17. **Hot-reload**: Store changes fire `OnChange()` channel → `agentRouterHandler` rebuilds with 500ms debounce. No server restart needed.
 
-18. **Multi-agent routing**: ADK uses `appName` in requests to route to the correct agent via `NewMultiLoader`. Voice-UI must send the correct `appName` matching the agent ID in the store.
+18. **Multi-agent routing**: ADK uses `appName` in requests to route to the correct agent via `NewMultiLoader`.
 
-19. **Admin UI dialog validation**: Cancel/close buttons use `formnovalidate` to bypass HTML5 validation on required fields. Without this, dialogs with required empty fields cannot be dismissed.
+19. **Flow editor is nested HTML, not a graph library**: The flow data model is a strict recursive tree. `FlowCanvas.vue` handles pan/zoom, `FlowBlock.vue` is recursive with `vuedraggable`.
 
-20. **Flow editor is nested HTML, not a graph library**: The flow data model is a strict recursive tree (not a DAG/graph), so Vue Flow was replaced with nested HTML divs + `vuedraggable`. `FlowCanvas.vue` handles pan/zoom via pointer events + CSS transforms. `FlowBlock.vue` is recursive. Each step gets a `__key` property for vuedraggable's `item-key` — stripped by `cleanStep()` in `FlowDialog.vue` before API calls.
+20. **OutputKey on AgentDefinition, not FlowStep**: ADK's `OutputKey` is set on the agent, not per flow step.
 
-21. **Flow editor drag `.stop` modifiers are critical**: The toolbar→canvas drop uses HTML5 drag events. All three events on the container drop zone (`@dragover.prevent.stop`, `@dragleave.stop`, `@drop.prevent.stop`) need `.stop` to prevent event bubbling to parent containers. Without this, dropping into a nested container adds the item to both the target and its parent.
+21. **Migration chain order matters**: On `loadFromDisk`: devices→clients → cronJobs→triggers → triggers→clients → device→direct → migrateIDs. Each step idempotent.
 
-22. **OutputKey on AgentDefinition, not FlowStep**: ADK's `OutputKey` (saves agent output to session state under a key) is set on the `AgentDefinition`, not per flow step. It's passed to `llmagent.Config` when the agent is created in `agent.go`. This keeps flows simple — they just look up pre-built agents by ID. The output key is configured in the Agents tab of the admin UI.
+22. **Triggers entity eliminated**: Cron and webhook are now client types. The `Trigger` struct exists only as a legacy type for migration deserialization.
+
+23. **Webhook modes are exclusive**: Either `commandId` is set (fixed mode) OR `passthrough` is true (prompt from body). Enforced via `oneOf` in JSON Schema and server-side validation.
+
+24. **Cron/webhook execute against ALL allowedAgents**: Not a single agentId. The same command runs against every agent in the client's `allowedAgents` list. Results joined with `\n---\n`.
 
 ## Testing
 

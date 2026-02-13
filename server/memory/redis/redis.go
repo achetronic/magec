@@ -22,10 +22,23 @@ func (p *redisProvider) SupportedCategories() []memory.Category {
 	return []memory.Category{memory.CategorySession}
 }
 
-func (p *redisProvider) ConfigFields() []memory.FieldSpec {
-	return []memory.FieldSpec{
-		{Key: "connectionString", Label: "Connection String", Type: "text", Required: true, Placeholder: "redis://localhost:6379/0"},
-		{Key: "ttl", Label: "TTL", Type: "text", Placeholder: "24h", Default: "24h"},
+func (p *redisProvider) ConfigSchema() memory.Schema {
+	return memory.Schema{
+		"type": "object",
+		"properties": memory.Schema{
+			"connectionString": memory.Schema{
+				"type":          "string",
+				"title":         "Connection String",
+				"x-placeholder": "redis://localhost:6379/0",
+			},
+			"ttl": memory.Schema{
+				"type":          "string",
+				"title":         "TTL",
+				"default":       "24h",
+				"x-placeholder": "24h",
+			},
+		},
+		"required": []string{"connectionString"},
 	}
 }
 

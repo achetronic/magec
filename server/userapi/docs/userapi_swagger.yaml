@@ -9,7 +9,7 @@ definitions:
         example: Magec
         type: string
     type: object
-  userapi.DeviceInfoResponse:
+  userapi.ClientInfoResponse:
     properties:
       allowedAgents:
         items:
@@ -63,7 +63,7 @@ info:
   title: Magec User API
   version: "1.0"
 paths:
-  /device/info:
+  /client/info:
     get:
       description: Returns client pairing status, name, default agent, and allowed
         agents. Requires Bearer token via Authorization header.
@@ -77,16 +77,16 @@ paths:
               description: Set by auth middleware
               type: string
           schema:
-            $ref: '#/definitions/userapi.DeviceInfoResponse'
+            $ref: '#/definitions/userapi.ClientInfoResponse'
         "404":
           description: Not Found
           schema:
             $ref: '#/definitions/userapi.ErrorResponse'
       security:
       - BearerAuth: []
-      summary: Device info
+      summary: Client info
       tags:
-      - device
+      - client
   /health:
     get:
       description: Returns 200 if the server is healthy

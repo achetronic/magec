@@ -95,7 +95,8 @@ func (e *Executor) callAgent(ctx context.Context, agentID, prompt, token string)
 	userID := "trigger"
 	sessionID := uuid.New().String()
 
-	if err := e.ensureSession(ctx, agentID, userID, sessionID, token); err != nil {
+	initialState := e.collectOutputKeys()
+	if err := e.ensureSession(ctx, agentID, userID, sessionID, token, initialState); err != nil {
 		e.logger.Warn("Failed to ensure session, continuing anyway", "error", err)
 	}
 
@@ -147,13 +148,31 @@ func (e *Executor) callAgent(ctx context.Context, agentID, prompt, token string)
 	return extractResponseText(events), nil
 }
 
-func (e *Executor) ensureSession(ctx context.Context, agentID, userID, sessionID, token string) error {
+// collectOutputKeys returns a map with empty strings for every agent outputKey
+// in the store. This pre-seeds session state so flow agents using {outputKey}
+// template variables in their prompts don't fail before the keys are written.
+func (e *Executor) collectOutputKeys() map[string]interface{} {
+	state := map[string]interface{}{}
+	for _, a := range e.store.ListAgents() {
+		if a.OutputKey != "" {
+			state[a.OutputKey] = ""
+		}
+	}
+	return state
+}
+
+func (e *Executor) ensureSession(ctx context.Context, agentID, userID, sessionID, token string, initialState map[string]interface{}) error {
 	url := fmt.Sprintf("%s/apps/%s/users/%s/sessions/%s", e.agentURL, agentID, userID, sessionID)
 
 	sessCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 
-	req, err := http.NewRequestWithContext(sessCtx, "POST", url, bytes.NewReader([]byte("{}")))
+	body := map[string]interface{}{}
+	if len(initialState) > 0 {
+		body["state"] = initialState
+	}
+	bodyJSON, _ := json.Marshal(body)
+	req, err := http.NewRequestWithContext(sessCtx, "POST", url, bytes.NewReader(bodyJSON))
 	if err != nil {
 		return err
 	}
@@ -175,7 +194,7 @@ func (e *Executor) ensureSession(ctx context.Context, agentID, userID, sessionID
 }
 
 func extractResponseText(events []map[string]interface{}) string {
-	var result string
+	var lastText string
 	for _, event := range events {
 		content, ok := event["content"].(map[string]interface{})
 		if !ok {
@@ -185,18 +204,22 @@ func extractResponseText(events []map[string]interface{}) string {
 		if !ok {
 			continue
 		}
+		var eventText string
 		for _, part := range parts {
 			partMap, ok := part.(map[string]interface{})
 			if !ok {
 				continue
 			}
 			if text, ok := partMap["text"].(string); ok {
-				result += text
+				eventText += text
 			}
 		}
+		if eventText != "" {
+			lastText = eventText
+		}
 	}
-	if result == "" {
+	if lastText == "" {
 		return "(no response)"
 	}
-	return result
+	return lastText
 }

@@ -4,6 +4,8 @@
 
 Admin UI migrada completamente de vanilla JS a **Vue 3 + Vite + Tailwind v4 + Pinia**. El editor de flows usa un **canvas interactivo** con pan/zoom, toolbar de bloques draggable, y nesting infinito de contenedores. No se usa Vue Flow — es HTML/CSS puro con `vuedraggable` para el drag & drop.
 
+**Último refactor completado**: Triggers consolidados en Client types. Los webhooks y cron jobs ya no son entidades separadas — son tipos de client (`webhook`, `cron`), al igual que `telegram` o `direct`. El sistema de configuración **tanto de client types como de memory providers** migrado de `FieldSpec` custom a **OpenAPI JSON Schema** con extensiones (`x-entity`, `x-format`, `x-placeholder`). Los flows ahora se registran por UUID (no por nombre). El cron parser soporta atajos (`@daily`, `@hourly`, etc.).
+
 ## Trabajo Completado
 
 ### 1. Migración Admin UI a Vue 3
@@ -12,14 +14,14 @@ Admin UI migrada completamente de vanilla JS a **Vue 3 + Vite + Tailwind v4 + Pi
 
 **Estructura**:
 - `admin-ui/src/main.js` — App entry, Pinia
-- `admin-ui/src/App.vue` — Layout, tabs via `location.hash`, global ConfirmDialog
+- `admin-ui/src/App.vue` — Layout, sidebar navigation, global ConfirmDialog/Toast/SearchPalette
 - `admin-ui/src/style.css` — Tailwind v4 `@theme` con colores custom (piedra/atlantico/lava/sol/arena)
 - `admin-ui/src/lib/api/` — Fetch wrapper + CRUD por recurso
 - `admin-ui/src/lib/stores/data.js` — Pinia store central
-- `admin-ui/src/components/` — Shared: AppDialog, Card, Badge, EmptyState, FormInput, FormSelect, FormLabel, DetailRow, Icon, OverviewBadges, ConfirmDialog
+- `admin-ui/src/components/` — Shared: AppDialog, Card, Badge, EmptyState, FormInput, FormSelect, FormLabel, DetailRow, Icon, OverviewBadges, ConfirmDialog, Sidebar, TopBar, Toast, Tooltip, SkeletonCard, SearchPalette
 - `admin-ui/src/views/` — Una carpeta por entidad con `*List.vue` + `*Dialog.vue`
 
-**Todas las entidades migradas y funcionando**: backends, memory, mcps, agents, clients, crons, flows.
+**Todas las entidades migradas y funcionando**: backends, memory, mcps, agents, clients, flows, commands.
 
 ### 2. Editor de Flows — Canvas con bloques anidados
 
@@ -63,29 +65,65 @@ ADK `OutputKey` permite que un agente guarde su output final en el session state
 - `admin-ui/src/views/flows/FlowBlock.vue` — Eliminado campo outputKey del bloque de agente
 - `admin-ui/src/views/flows/FlowDialog.vue` — `cleanStep()` ya no preserva outputKey; help text actualizado
 
-### 5. Commands + Triggers — Implementado (CRUD + UI, scheduler/webhook pendientes)
+### 5. Triggers→Clients Consolidación + JSON Schema
 
-Separación de prompts (Commands) y automatización (Triggers):
+**Decisión de diseño**: Cron y webhook no son entidades separadas (Triggers) — son **client types**. Un client ES una identidad (token + permisos). Un cron/webhook necesita auth para llamar al agent API, así que ES un client. La entidad `Command` sobrevive como prompt reutilizable independiente.
 
-**Command**: Prompt reutilizable con nombre, descripción, prompt, y agente por defecto (opcional).
+**Nuevos client types**:
 
-**Trigger**: Dos tipos:
-- **Cron**: schedule + command + agent + client (token auth). Scheduler aún no implementado.
-- **Webhook**: endpoint único por trigger. Modo fijo (command + agent) o passthrough (prompt viene del request body). Secret auto-generado para auth entrante.
+| Type | Descripción | JSON Schema config |
+|------|-------------|-------------------|
+| `direct` | Voice-UI tablets, apps sin config extra | `{}` (vacío) |
+| `telegram` | Bot de Telegram | `botToken` (required, x-format:password), `allowedUsers`, `allowedChats`, `responseMode` (enum) |
+| `cron` | Tarea programada | `schedule` (required), `commandId` (required, x-entity:commands) |
+| `webhook` | Endpoint HTTP | `oneOf`: passthrough=true (sin commandId) XOR passthrough=false + commandId (x-entity:commands) |
 
-**Migración**: Los CronJob legacy se convierten automáticamente a Command + Trigger tipo cron en `migrateCronsToTriggers()`.
+**Cambios clave**:
 
-**Cambios**:
-- `server/store/types.go` — `Command`, `Trigger`, `CronConfig`, `WebhookConfig`. CronJob mantenido como legacy
-- `server/store/store.go` — CRUD para Commands y Triggers. Migración automática CronJob→Command+Trigger
-- `server/admin/commands.go` — CRUD handlers
-- `server/admin/triggers.go` — CRUD handlers con validación por tipo
-- `admin-ui/src/views/commands/` — CommandsList + CommandDialog (color: indigo)
-- `admin-ui/src/views/triggers/` — TriggersList + TriggerDialog (color: teal, tipo toggle chips)
-- `admin-ui/src/App.vue` — Tabs actualizados: Crons reemplazado por Commands + Triggers
-- `.agents/ENTITY_COLORS.md` — Commands = indigo, Triggers = teal (antes "Crons")
+- **`server/client/provider.go`** — `FieldSpec` eliminado. Nuevo: `Schema = map[string]interface{}`. Interface: `ConfigSchema() Schema`
+- **`server/client/registry.go`** — `ValidateRequired()` → `ValidateConfig()` con soporte `oneOf`, `required`, `properties` recursivo
+- **`server/client/{direct,cron,webhook}/`** — Nuevos providers con JSON Schema
+- **`server/client/telegram/`** — Reescrito para usar `ConfigSchema()` en vez de `ConfigFields()`
+- **`server/admin/clients.go`** — `ClientTypeInfo.Fields []FieldSpec` → `ConfigSchema client.Schema`
+- **`server/store/types.go`** — `ClientConfig` con `Cron *CronClientConfig` y `Webhook *WebhookClientConfig`
+- **`server/store/store.go`** — Triggers CRUD eliminado. Nuevas migraciones: `migrateTriggersToClients()`, `migrateDeviceToDirectType()`
+- **`server/admin/handler.go`** — Rutas de triggers eliminadas
+- **`server/trigger/executor.go`** — `RunTrigger()` → `RunClient()`, ejecuta contra TODOS los `allowedAgents`
+- **`server/trigger/scheduler.go`** — Filtra clients tipo `cron` del store
+- **`server/trigger/webhook.go`** — Auth via Bearer token del client (no secret separado)
 
-### 6. Admin UI Polish — Completado
+**Frontend**:
+- **`ClientDialog.vue`** — Reescrito: renderiza formularios dinámicamente desde JSON Schema. Soporta `oneOf` (visibilidad condicional), `x-entity` (select de entidades del store), `enum` (select), `boolean` (toggle), `x-format:password`
+- **`ClientsList.vue`** — Badges de tipo (teal para cron/webhook, lava para direct/telegram), muestra schedule, passthrough, commandRef
+- **Triggers eliminados de**: App.vue, Sidebar.vue, SearchPalette.vue, TopBar.vue, data.js, api/index.js
+- **`admin-ui/src/views/triggers/`** — Directorio eliminado
+
+**Cadena de migración** (en `loadFromDisk`):
+1. `devices → clients` (legacy)
+2. `cronJobs → triggers` (legacy)
+3. `triggers → clients` (`migrateTriggersToClients`)
+4. `device → direct` (`migrateDeviceToDirectType`)
+5. `migrateIDs` (UUIDs)
+
+**Extensiones JSON Schema custom**:
+- `x-entity: "commands"` — UI renderiza select poblado desde store.commands
+- `x-format: "password"` — UI usa input type password
+- `x-placeholder: "..."` — Placeholder text para inputs
+
+### 6. Webhook Endpoint + Swagger
+
+**Webhook endpoint** documentado en swagger de userapi:
+- `POST /api/v1/webhooks/{clientId}` en puerto 8080
+- Auth: `Authorization: Bearer <mgc_token>` (token del client)
+- Modo passthrough: body `{"prompt": "texto"}` — el prompt viene del request
+- Modo fixed command: body vacío/ignorado — el prompt viene del Command referenciado
+- Ejecuta contra todos los agents en `allowedAgents` del client
+- Bypass `clientAuthMiddleware` — auth propia en webhook.go
+
+**Swagger userapi** (`server/userapi/docs/`): regenerado con endpoint webhook.
+**Swagger admin**: NO regenerado tras los últimos cambios (pendiente).
+
+### 7. Admin UI Polish — Completado
 
 9 mejoras de UX implementadas:
 
@@ -93,19 +131,18 @@ Separación de prompts (Commands) y automatización (Triggers):
 - `Toast.vue` — Notificaciones animadas (success/error/info) en esquina inferior derecha. Teleport to body, TransitionGroup.
 - `SkeletonCard.vue` — Placeholders con `animate-pulse` durante carga inicial. Soporta grid y stacked.
 - `Tooltip.vue` — Tooltip CSS-only con `group-hover` y flecha. Max 240px, multi-line.
-- `SearchPalette.vue` — Cmd+K search modal con navegación por teclado (↑↓ Enter Esc), busca por nombre/descripción en las 8 entidades. Icono y color por entidad.
+- `SearchPalette.vue` — Cmd+K search modal con navegación por teclado (↑↓ Enter Esc), busca por nombre/descripción en las 7 entidades. Icono y color por entidad.
 
 **Cambios en componentes existentes**:
 - `EmptyState.vue` — Reescrito: ahora acepta `icon`, `color`, `actionLabel` props. Icono grande coloreado + botón CTA.
 - `App.vue` — Transition `section` mode out-in, mobile backdrop, SearchPalette, Toast, provide `toast`/`registerNew`.
-- `Sidebar.vue` — Prop `mobileOpen`: fixed overlay z-40 en mobile, hidden en desktop.
-- `TopBar.vue` — Botón search con hint ⌘K, hamburger menu (mobile only), emits `search`/`menu`.
+- `Sidebar.vue` — Prop `mobileOpen`: fixed overlay z-40 en mobile, hidden en desktop. 3 grupos: Infraestructura, Agentes, Conexiones.
+- `TopBar.vue` — Botón search con hint ⌘K, hamburger menu (mobile only), emits `search`/`menu`. 3 stats: agents, backends, clients.
 
-**Cambios en todas las vistas (9 List + 9 Dialog)**:
+**Cambios en todas las vistas (7 List + 7 Dialog)**:
 - List views: `inject('toast')`, `inject('registerNew')`, SkeletonCard durante loading, EmptyState con icon/color/CTA.
 - Dialog views: `inject('toast')`, todos los `alert()` reemplazados por `toast.error()`.
-- BackendsList, McpsList, TriggersList, ClientsList: Tooltip en badges de cross-referencia.
-- TriggersList: Status dot (green/gray) en icono de trigger card.
+- BackendsList, McpsList, ClientsList: Tooltip en badges de cross-referencia.
 
 **Keyboard shortcuts** (App.vue global):
 - `n` → crear nueva entidad (delegado al view activo via `registerNew`)
@@ -115,25 +152,31 @@ Separación de prompts (Commands) y automatización (Triggers):
 
 ## Lo que NO se ha tocado
 
-- **Swagger docs**: No regeneradas tras los cambios
+- **Memory provider migration a JSON Schema**: El paquete memory sigue usando su propio sistema `FieldSpec`. Podría migrarse a JSON Schema también, pero fuera de scope
+- **Admin API Swagger regeneration**: Solo userapi swagger fue regenerado. El swagger de admin en `server/admin/docs/` aún referencia `client.FieldSpec` viejo — necesita regeneración via `swag init --dir ./admin`
 - **Consolidar `/types` en `/schemas/{entity}`**: Discutido pero no implementado
-- **Cron scheduler**: Triggers tipo cron son solo datos — no hay motor de ejecución
-- **Webhook handler**: Triggers tipo webhook no tienen endpoint HTTP aún
 
 ## Datos de Prueba
 
 - 2 flows: "Test Sequential Flow" (seq: Magec→Itahisa), "Complex Flow" (seq: Root→parallel(Magec,Itahisa)→loop×3(Root))
 - 3 agents: Magec, Itahisa, Root
 - 3 backends: Ollama, Parakeet TDT, OpenAI Edge TTS
+- Clients migrados de triggers anteriores (tipo cron/webhook) + direct + telegram
 
 ## Comandos
 
 ```bash
-cd admin-ui && npx vite build    # Build admin UI (~1.2s)
+cd admin-ui && npx vite build    # Build admin UI (~1.3s)
 cd admin-ui && npx vite          # Dev server con hot-reload (proxy a :8081)
 make build                       # Build admin-ui + Go binary
 make dev                         # Build todo + arrancar server
 cd server && go build ./...      # Solo Go
+
+# Regenerar swagger userapi
+cd server && go run github.com/swaggo/swag/cmd/swag init --dir ./userapi --generalInfo doc.go --output ./userapi/docs --parseDependency --parseInternal --instanceName userapi
+
+# Regenerar swagger admin (PENDIENTE de ejecutar)
+cd server && go run github.com/swaggo/swag/cmd/swag init --dir ./admin --generalInfo doc.go --output ./admin/docs --parseDependency --parseInternal
 ```
 
 ## Entorno
@@ -141,6 +184,7 @@ cd server && go build ./...      # Solo Go
 - Go 1.25.5 (GOPATH=GOROOT warning es cosmético)
 - Node 22+ con Vite 7.3, Vue 3.5, Tailwind 4.1
 - ADK v0.4.0, adk-utils-go v0.2.0
-- Server: :8080 (main) + :8081 (admin UI + admin API)
+- Server: :8080 (main/user API + webhooks) + :8081 (admin UI + admin API)
 - Store: `data/store.json`
 - Errores de Telegram son por tokens fake en datos de prueba
+- Cron warning `"@daily"` — el parser solo soporta expresiones de 5 campos, no shorthand

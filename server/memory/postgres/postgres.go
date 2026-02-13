@@ -23,9 +23,17 @@ func (p *postgresProvider) SupportedCategories() []memory.Category {
 	return []memory.Category{memory.CategoryLongTerm}
 }
 
-func (p *postgresProvider) ConfigFields() []memory.FieldSpec {
-	return []memory.FieldSpec{
-		{Key: "connectionString", Label: "Connection String", Type: "text", Required: true, Placeholder: "postgres://user:pass@localhost:5432/db?sslmode=disable"},
+func (p *postgresProvider) ConfigSchema() memory.Schema {
+	return memory.Schema{
+		"type": "object",
+		"properties": memory.Schema{
+			"connectionString": memory.Schema{
+				"type":          "string",
+				"title":         "Connection String",
+				"x-placeholder": "postgres://user:pass@localhost:5432/db?sslmode=disable",
+			},
+		},
+		"required": []string{"connectionString"},
 	}
 }
 

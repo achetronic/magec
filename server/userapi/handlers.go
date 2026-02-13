@@ -7,16 +7,16 @@ import (
 	"github.com/achetronic/magec/server/store"
 )
 
-// DeviceInfoResponse is returned when a client is authenticated.
-type DeviceInfoResponse struct {
+// ClientInfoResponse is returned when a client is authenticated.
+type ClientInfoResponse struct {
 	Paired        bool              `json:"paired" example:"true"`
 	Name          string            `json:"name,omitempty" example:"my-tablet"`
 	DefaultAgent  string            `json:"defaultAgent,omitempty" example:"magec"`
 	AllowedAgents []AgentSummary    `json:"allowedAgents,omitempty"`
 }
 
-// DeviceInfoUnpairedResponse is returned when no auth token is provided.
-type DeviceInfoUnpairedResponse struct {
+// ClientInfoUnpairedResponse is returned when no auth token is provided.
+type ClientInfoUnpairedResponse struct {
 	Paired bool `json:"paired" example:"false"`
 }
 
@@ -63,22 +63,22 @@ func (h *Handler) Health(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("ok"))
 }
 
-// DeviceInfo returns pairing and agent info for the authenticated client.
-// @Summary      Device info
+// ClientInfo returns pairing and agent info for the authenticated client.
+// @Summary      Client info
 // @Description  Returns client pairing status, name, default agent, and allowed agents. Requires Bearer token via Authorization header.
-// @Tags         device
+// @Tags         client
 // @Produce      json
-// @Success      200  {object}  DeviceInfoResponse          "Authenticated client info"
+// @Success      200  {object}  ClientInfoResponse          "Authenticated client info"
 // @Header       200  {string}  X-Client-ID                 "Set by auth middleware"
 // @Failure      404  {object}  ErrorResponse
 // @Security     BearerAuth
-// @Router       /device/info [get]
-func (h *Handler) DeviceInfo(w http.ResponseWriter, r *http.Request) {
+// @Router       /client/info [get]
+func (h *Handler) ClientInfo(w http.ResponseWriter, r *http.Request) {
 	clientID := r.Header.Get("X-Client-ID")
 	if clientID == "" {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(DeviceInfoUnpairedResponse{Paired: false})
+		json.NewEncoder(w).Encode(ClientInfoUnpairedResponse{Paired: false})
 		return
 	}
 	cl, ok := h.store.GetClient(clientID)
@@ -103,7 +103,7 @@ func (h *Handler) DeviceInfo(w http.ResponseWriter, r *http.Request) {
 		defaultAgent = cl.AllowedAgents[0]
 	}
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(DeviceInfoResponse{
+	json.NewEncoder(w).Encode(ClientInfoResponse{
 		Paired:        true,
 		Name:          cl.Name,
 		DefaultAgent:  defaultAgent,

@@ -15,7 +15,7 @@ const docTemplateuserapi = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
-        "/device/info": {
+        "/client/info": {
             "get": {
                 "security": [
                     {
@@ -27,14 +27,14 @@ const docTemplateuserapi = `{
                     "application/json"
                 ],
                 "tags": [
-                    "device"
+                    "client"
                 ],
-                "summary": "Device info",
+                "summary": "Client info",
                 "responses": {
                     "200": {
                         "description": "Authenticated client info",
                         "schema": {
-                            "$ref": "#/definitions/userapi.DeviceInfoResponse"
+                            "$ref": "#/definitions/userapi.ClientInfoResponse"
                         },
                         "headers": {
                             "X-Client-ID": {
@@ -317,7 +317,7 @@ const docTemplateuserapi = `{
                 }
             }
         },
-        "userapi.DeviceInfoResponse": {
+        "userapi.ClientInfoResponse": {
             "type": "object",
             "properties": {
                 "allowedAgents": {

@@ -68,3 +68,26 @@ dialog::backdrop {
 .fade-enter-from, .fade-leave-to {
   opacity: 0;
 }
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #3d3d44 transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background-color: #3d3d44;
+  border-radius: 3px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background-color: #52525b;
+}

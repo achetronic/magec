@@ -1,17 +1,17 @@
-const STORAGE_KEY = 'magec_device_token';
+const STORAGE_KEY = 'magec_client_token';
 
-class DeviceAuth {
+class ClientAuth {
     constructor() {
         this._token = localStorage.getItem(STORAGE_KEY) || '';
-        this._deviceInfo = null;
+        this._clientInfo = null;
         this._patchFetch();
     }
 
     get token() { return this._token; }
-    get isPaired() { return !!this._deviceInfo?.paired; }
-    get deviceName() { return this._deviceInfo?.name || ''; }
-    get defaultAgent() { return this._deviceInfo?.defaultAgent || ''; }
-    get allowedAgents() { return this._deviceInfo?.allowedAgents || []; }
+    get isPaired() { return !!this._clientInfo?.paired; }
+    get clientName() { return this._clientInfo?.name || ''; }
+    get defaultAgent() { return this._clientInfo?.defaultAgent || ''; }
+    get allowedAgents() { return this._clientInfo?.allowedAgents || []; }
 
     setToken(token) {
         this._token = token;
@@ -21,7 +21,7 @@ class DeviceAuth {
     clearToken() {
         this._token = '';
         localStorage.removeItem(STORAGE_KEY);
-        this._deviceInfo = null;
+        this._clientInfo = null;
     }
 
     async checkPairing() {
@@ -30,14 +30,14 @@ class DeviceAuth {
             if (this._token) {
                 headers['Authorization'] = `Bearer ${this._token}`;
             }
-            const res = await fetch('/api/v1/device/info', { headers });
+            const res = await fetch('/api/v1/client/info', { headers });
             if (res.status === 401) {
                 this.clearToken();
                 return false;
             }
             if (!res.ok) return false;
-            this._deviceInfo = await res.json();
-            return this._deviceInfo.paired === true;
+            this._clientInfo = await res.json();
+            return this._clientInfo.paired === true;
         } catch {
             return false;
         }
@@ -69,4 +69,4 @@ class DeviceAuth {
     }
 }
 
-export const deviceAuth = new DeviceAuth();
+export const clientAuth = new ClientAuth();

@@ -116,7 +116,7 @@ func main() {
 
 	userAPI := userapi.New(dataStore)
 	httpMux.HandleFunc("/api/v1/health", userAPI.Health)
-	httpMux.HandleFunc("/api/v1/device/info", userAPI.DeviceInfo)
+	httpMux.HandleFunc("/api/v1/client/info", userAPI.ClientInfo)
 
 	httpMux.Handle("/swagger/", httpSwagger.Handler(
 		httpSwagger.URL("/swagger/doc.json"),
@@ -363,7 +363,7 @@ func clientAuthMiddleware(next http.Handler, dataStore *store.Store) http.Handle
 			return
 		}
 
-		if path == "/api/v1/device/info" {
+		if path == "/api/v1/client/info" {
 			next.ServeHTTP(w, r)
 			return
 		}

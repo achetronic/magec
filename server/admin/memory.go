@@ -108,10 +108,10 @@ func (h *Handler) checkMemoryProviderHealth(w http.ResponseWriter, r *http.Reque
 }
 
 type MemoryTypeInfo struct {
-	Type        string             `json:"type" example:"redis"`
-	DisplayName string             `json:"displayName" example:"Redis"`
-	Categories  []string           `json:"categories" example:"session"`
-	Fields      []memory.FieldSpec `json:"fields"`
+	Type         string        `json:"type" example:"redis"`
+	DisplayName  string        `json:"displayName" example:"Redis"`
+	Categories   []string      `json:"categories" example:"session"`
+	ConfigSchema memory.Schema `json:"configSchema"`
 }
 
 func (h *Handler) listMemoryTypes(w http.ResponseWriter, r *http.Request) {
@@ -122,10 +122,10 @@ func (h *Handler) listMemoryTypes(w http.ResponseWriter, r *http.Request) {
 			cats[i] = string(c)
 		}
 		types = append(types, MemoryTypeInfo{
-			Type:        p.Type(),
-			DisplayName: p.DisplayName(),
-			Categories:  cats,
-			Fields:      p.ConfigFields(),
+			Type:         p.Type(),
+			DisplayName:  p.DisplayName(),
+			Categories:   cats,
+			ConfigSchema: p.ConfigSchema(),
 		})
 	}
 	writeJSON(w, http.StatusOK, types)

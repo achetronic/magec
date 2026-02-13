@@ -21,18 +21,10 @@ type HealthResult struct {
 	Detail  string `json:"detail"`
 }
 
-// FieldSpec describes a single configuration field for a provider.
-// The admin UI uses this to dynamically render forms — no hardcoded
-// fields per provider type. Adding a new provider with new fields
-// requires zero UI changes.
-type FieldSpec struct {
-	Key         string `json:"key"`
-	Label       string `json:"label"`
-	Type        string `json:"type"`
-	Required    bool   `json:"required,omitempty"`
-	Placeholder string `json:"placeholder,omitempty"`
-	Default     string `json:"default,omitempty"`
-}
+// Schema is a JSON Schema object represented as a plain map so providers can
+// define arbitrarily complex schemas (oneOf, if/then, etc.) without the
+// framework imposing structural limits.
+type Schema = map[string]interface{}
 
 // Provider defines what every memory provider type must implement.
 // To add a new provider (e.g. Memcached, Qdrant, Milvus):
@@ -51,10 +43,10 @@ type Provider interface {
 	// SupportedCategories returns the memory roles this provider type can fill.
 	SupportedCategories() []Category
 
-	// ConfigFields returns the field specifications for this provider's config.
-	// The admin UI renders form inputs dynamically from these specs.
-	// Each field corresponds to a key in store.MemoryProvider.Config.
-	ConfigFields() []FieldSpec
+	// ConfigSchema returns the JSON Schema describing this provider's configuration.
+	// The admin UI renders form inputs dynamically from this schema.
+	// Each property corresponds to a key in store.MemoryProvider.Config.
+	ConfigSchema() Schema
 
 	// Ping tests the connection using the given config fields.
 	Ping(ctx context.Context, config map[string]interface{}) HealthResult
