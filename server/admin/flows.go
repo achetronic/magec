@@ -10,11 +10,27 @@ import (
 	"github.com/achetronic/magec/server/store"
 )
 
+// listFlows returns all flows.
+// @Summary      List flows
+// @Description  Returns all configured agent orchestration flows
+// @Tags         flows
+// @Produce      json
+// @Success      200  {array}  store.FlowDefinition
+// @Router       /flows [get]
 func (h *Handler) listFlows(w http.ResponseWriter, r *http.Request) {
 	flows := h.store.ListFlows()
 	writeJSON(w, http.StatusOK, flows)
 }
 
+// getFlow returns a single flow by ID.
+// @Summary      Get flow
+// @Description  Returns a flow by its unique ID
+// @Tags         flows
+// @Produce      json
+// @Param        id    path      string  true  "Flow ID"
+// @Success      200   {object}  store.FlowDefinition
+// @Failure      404   {object}  ErrorResponse
+// @Router       /flows/{id} [get]
 func (h *Handler) getFlow(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
 	f, ok := h.store.GetFlow(id)
@@ -25,6 +41,17 @@ func (h *Handler) getFlow(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, f)
 }
 
+// createFlow creates a new flow.
+// @Summary      Create flow
+// @Description  Creates a new agent orchestration flow with a recursive step tree
+// @Tags         flows
+// @Accept       json
+// @Produce      json
+// @Param        body  body      store.FlowDefinition  true  "Flow definition with root step tree"
+// @Success      201   {object}  store.FlowDefinition
+// @Failure      400   {object}  ErrorResponse
+// @Failure      409   {object}  ErrorResponse
+// @Router       /flows [post]
 func (h *Handler) createFlow(w http.ResponseWriter, r *http.Request) {
 	var f store.FlowDefinition
 	if err := json.NewDecoder(r.Body).Decode(&f); err != nil {
@@ -47,6 +74,18 @@ func (h *Handler) createFlow(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, created)
 }
 
+// updateFlow updates an existing flow.
+// @Summary      Update flow
+// @Description  Updates a flow by ID
+// @Tags         flows
+// @Accept       json
+// @Produce      json
+// @Param        id    path      string                true  "Flow ID"
+// @Param        body  body      store.FlowDefinition  true  "Flow definition"
+// @Success      200   {object}  store.FlowDefinition
+// @Failure      400   {object}  ErrorResponse
+// @Failure      404   {object}  ErrorResponse
+// @Router       /flows/{id} [put]
 func (h *Handler) updateFlow(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
 	var f store.FlowDefinition
@@ -66,6 +105,14 @@ func (h *Handler) updateFlow(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, updated)
 }
 
+// deleteFlow deletes a flow.
+// @Summary      Delete flow
+// @Description  Deletes a flow by ID
+// @Tags         flows
+// @Param        id  path  string  true  "Flow ID"
+// @Success      204
+// @Failure      404  {object}  ErrorResponse
+// @Router       /flows/{id} [delete]
 func (h *Handler) deleteFlow(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
 	if err := h.store.DeleteFlow(id); err != nil {

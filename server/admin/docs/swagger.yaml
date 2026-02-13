@@ -17,8 +17,80 @@ definitions:
         example: resource not found
         type: string
     type: object
+  admin.MemoryTypeInfo:
+    properties:
+      categories:
+        example:
+        - session
+        items:
+          type: string
+        type: array
+      configSchema:
+        $ref: '#/definitions/memory.Schema'
+      displayName:
+        example: Redis
+        type: string
+      type:
+        example: redis
+        type: string
+    type: object
   client.Schema:
     additionalProperties: true
+    type: object
+  memory.HealthResult:
+    properties:
+      detail:
+        type: string
+      healthy:
+        type: boolean
+    type: object
+  memory.Schema:
+    additionalProperties: true
+    type: object
+  store.AgentDefinition:
+    properties:
+      description:
+        type: string
+      id:
+        type: string
+      llm:
+        $ref: '#/definitions/store.BackendRef'
+      mcpServers:
+        items:
+          type: string
+        type: array
+      memory:
+        $ref: '#/definitions/store.MemoryRef'
+      name:
+        type: string
+      outputKey:
+        type: string
+      systemPrompt:
+        type: string
+      transcription:
+        $ref: '#/definitions/store.BackendRef'
+      tts:
+        $ref: '#/definitions/store.TTSRef'
+    type: object
+  store.BackendDefinition:
+    properties:
+      apiKey:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      type:
+        type: string
+      url:
+        type: string
+    type: object
+  store.BackendRef:
+    properties:
+      backend:
+        type: string
+      model:
+        type: string
     type: object
   store.ClientConfig:
     properties:
@@ -52,6 +124,17 @@ definitions:
       type:
         type: string
     type: object
+  store.Command:
+    properties:
+      description:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      prompt:
+        type: string
+    type: object
   store.CronClientConfig:
     properties:
       commandId:
@@ -74,6 +157,84 @@ definitions:
       guildId:
         type: string
     type: object
+  store.FlowDefinition:
+    properties:
+      description:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      root:
+        $ref: '#/definitions/store.FlowStep'
+    type: object
+  store.FlowStep:
+    properties:
+      agentId:
+        type: string
+      maxIterations:
+        type: integer
+      responseAgent:
+        type: boolean
+      steps:
+        items:
+          $ref: '#/definitions/store.FlowStep'
+        type: array
+      type:
+        type: string
+    type: object
+  store.MCPServer:
+    properties:
+      args:
+        items:
+          type: string
+        type: array
+      command:
+        type: string
+      endpoint:
+        type: string
+      env:
+        additionalProperties:
+          type: string
+        type: object
+      headers:
+        additionalProperties:
+          type: string
+        type: object
+      id:
+        type: string
+      name:
+        type: string
+      systemPrompt:
+        type: string
+      type:
+        type: string
+      workDir:
+        type: string
+    type: object
+  store.MemoryProvider:
+    properties:
+      category:
+        type: string
+      config:
+        additionalProperties: true
+        type: object
+      embedding:
+        $ref: '#/definitions/store.BackendRef'
+      id:
+        type: string
+      name:
+        type: string
+      type:
+        type: string
+    type: object
+  store.MemoryRef:
+    properties:
+      longTerm:
+        type: string
+      session:
+        type: string
+    type: object
   store.SlackClientConfig:
     properties:
       allowedChannels:
@@ -87,6 +248,17 @@ definitions:
       botToken:
         type: string
       signingSecret:
+        type: string
+    type: object
+  store.TTSRef:
+    properties:
+      backend:
+        type: string
+      model:
+        type: string
+      speed:
+        type: number
+      voice:
         type: string
     type: object
   store.TelegramClientConfig:
@@ -118,6 +290,317 @@ info:
   title: Magec Admin API
   version: "1.0"
 paths:
+  /agents:
+    get:
+      description: Returns all configured AI agents
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/store.AgentDefinition'
+            type: array
+      summary: List agents
+      tags:
+      - agents
+    post:
+      consumes:
+      - application/json
+      description: Creates a new AI agent with LLM, TTS, and memory configuration
+      parameters:
+      - description: Agent definition
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/store.AgentDefinition'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/store.AgentDefinition'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/admin.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/admin.ErrorResponse'
+      summary: Create agent
+      tags:
+      - agents
+  /agents/{id}:
+    delete:
+      description: Deletes an agent by ID
+      parameters:
+      - description: Agent ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/admin.ErrorResponse'
+      summary: Delete agent
+      tags:
+      - agents
+    get:
+      description: Returns an agent by its unique ID
+      parameters:
+      - description: Agent ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/store.AgentDefinition'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/admin.ErrorResponse'
+      summary: Get agent
+      tags:
+      - agents
+    put:
+      consumes:
+      - application/json
+      description: Updates an agent by ID
+      parameters:
+      - description: Agent ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Agent definition
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/store.AgentDefinition'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/store.AgentDefinition'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/admin.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/admin.ErrorResponse'
+      summary: Update agent
+      tags:
+      - agents
+  /agents/{id}/mcps:
+    get:
+      description: Returns the MCP servers linked to a specific agent
+      parameters:
+      - description: Agent ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/store.MCPServer'
+            type: array
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/admin.ErrorResponse'
+      summary: List agent MCP servers
+      tags:
+      - agents
+  /agents/{id}/mcps/{mcpId}:
+    delete:
+      description: Removes the association between an MCP server and an agent
+      parameters:
+      - description: Agent ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: MCP Server ID
+        in: path
+        name: mcpId
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/admin.ErrorResponse'
+      summary: Unlink MCP from agent
+      tags:
+      - agents
+    put:
+      description: Associates an MCP server with an agent, giving the agent access
+        to its tools
+      parameters:
+      - description: Agent ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: MCP Server ID
+        in: path
+        name: mcpId
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/admin.ErrorResponse'
+      summary: Link MCP to agent
+      tags:
+      - agents
+  /backends:
+    get:
+      description: Returns all configured LLM/TTS/transcription backends
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/store.BackendDefinition'
+            type: array
+      summary: List backends
+      tags:
+      - backends
+    post:
+      consumes:
+      - application/json
+      description: Creates a new LLM/TTS/transcription backend
+      parameters:
+      - description: Backend definition
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/store.BackendDefinition'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/store.BackendDefinition'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/admin.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/admin.ErrorResponse'
+      summary: Create backend
+      tags:
+      - backends
+  /backends/{id}:
+    delete:
+      description: Deletes a backend by ID
+      parameters:
+      - description: Backend ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/admin.ErrorResponse'
+      summary: Delete backend
+      tags:
+      - backends
+    get:
+      description: Returns a backend by its unique ID
+      parameters:
+      - description: Backend ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/store.BackendDefinition'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/admin.ErrorResponse'
+      summary: Get backend
+      tags:
+      - backends
+    put:
+      consumes:
+      - application/json
+      description: Updates a backend by ID
+      parameters:
+      - description: Backend ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Backend definition
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/store.BackendDefinition'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/store.BackendDefinition'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/admin.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/admin.ErrorResponse'
+      summary: Update backend
+      tags:
+      - backends
   /clients:
     get:
       description: Returns all configured clients (devices, Telegram bots, etc.)
@@ -277,6 +760,521 @@ paths:
       summary: List client types
       tags:
       - clients
+  /commands:
+    get:
+      description: Returns all configured reusable prompt commands
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/store.Command'
+            type: array
+      summary: List commands
+      tags:
+      - commands
+    post:
+      consumes:
+      - application/json
+      description: Creates a new reusable prompt command
+      parameters:
+      - description: Command definition
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/store.Command'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/store.Command'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/admin.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/admin.ErrorResponse'
+      summary: Create command
+      tags:
+      - commands
+  /commands/{id}:
+    delete:
+      description: Deletes a command by ID
+      parameters:
+      - description: Command ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/admin.ErrorResponse'
+      summary: Delete command
+      tags:
+      - commands
+    get:
+      description: Returns a command by its unique ID
+      parameters:
+      - description: Command ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/store.Command'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/admin.ErrorResponse'
+      summary: Get command
+      tags:
+      - commands
+    put:
+      consumes:
+      - application/json
+      description: Updates a command by ID
+      parameters:
+      - description: Command ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Command definition
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/store.Command'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/store.Command'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/admin.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/admin.ErrorResponse'
+      summary: Update command
+      tags:
+      - commands
+  /flows:
+    get:
+      description: Returns all configured agent orchestration flows
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/store.FlowDefinition'
+            type: array
+      summary: List flows
+      tags:
+      - flows
+    post:
+      consumes:
+      - application/json
+      description: Creates a new agent orchestration flow with a recursive step tree
+      parameters:
+      - description: Flow definition with root step tree
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/store.FlowDefinition'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/store.FlowDefinition'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/admin.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/admin.ErrorResponse'
+      summary: Create flow
+      tags:
+      - flows
+  /flows/{id}:
+    delete:
+      description: Deletes a flow by ID
+      parameters:
+      - description: Flow ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/admin.ErrorResponse'
+      summary: Delete flow
+      tags:
+      - flows
+    get:
+      description: Returns a flow by its unique ID
+      parameters:
+      - description: Flow ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/store.FlowDefinition'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/admin.ErrorResponse'
+      summary: Get flow
+      tags:
+      - flows
+    put:
+      consumes:
+      - application/json
+      description: Updates a flow by ID
+      parameters:
+      - description: Flow ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Flow definition
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/store.FlowDefinition'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/store.FlowDefinition'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/admin.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/admin.ErrorResponse'
+      summary: Update flow
+      tags:
+      - flows
+  /mcps:
+    get:
+      description: Returns all configured MCP (Model Context Protocol) servers
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/store.MCPServer'
+            type: array
+      summary: List MCP servers
+      tags:
+      - mcps
+    post:
+      consumes:
+      - application/json
+      description: Creates a new MCP server configuration
+      parameters:
+      - description: MCP server definition
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/store.MCPServer'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/store.MCPServer'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/admin.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/admin.ErrorResponse'
+      summary: Create MCP server
+      tags:
+      - mcps
+  /mcps/{id}:
+    delete:
+      description: Deletes an MCP server by ID
+      parameters:
+      - description: MCP Server ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/admin.ErrorResponse'
+      summary: Delete MCP server
+      tags:
+      - mcps
+    get:
+      description: Returns an MCP server by its unique ID
+      parameters:
+      - description: MCP Server ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/store.MCPServer'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/admin.ErrorResponse'
+      summary: Get MCP server
+      tags:
+      - mcps
+    put:
+      consumes:
+      - application/json
+      description: Updates an MCP server by ID
+      parameters:
+      - description: MCP Server ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: MCP server definition
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/store.MCPServer'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/store.MCPServer'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/admin.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/admin.ErrorResponse'
+      summary: Update MCP server
+      tags:
+      - mcps
+  /memory:
+    get:
+      description: Returns all configured memory providers (Redis, Postgres, etc.)
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/store.MemoryProvider'
+            type: array
+      summary: List memory providers
+      tags:
+      - memory
+    post:
+      consumes:
+      - application/json
+      description: Creates a new memory provider (session, semantic, etc.)
+      parameters:
+      - description: Memory provider definition
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/store.MemoryProvider'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/store.MemoryProvider'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/admin.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/admin.ErrorResponse'
+      summary: Create memory provider
+      tags:
+      - memory
+  /memory/{id}:
+    delete:
+      description: Deletes a memory provider by ID
+      parameters:
+      - description: Memory Provider ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/admin.ErrorResponse'
+      summary: Delete memory provider
+      tags:
+      - memory
+    get:
+      description: Returns a memory provider by its unique ID
+      parameters:
+      - description: Memory Provider ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/store.MemoryProvider'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/admin.ErrorResponse'
+      summary: Get memory provider
+      tags:
+      - memory
+    put:
+      consumes:
+      - application/json
+      description: Updates a memory provider by ID
+      parameters:
+      - description: Memory Provider ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Memory provider definition
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/store.MemoryProvider'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/store.MemoryProvider'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/admin.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/admin.ErrorResponse'
+      summary: Update memory provider
+      tags:
+      - memory
+  /memory/{id}/health:
+    get:
+      description: Pings the memory provider to verify connectivity
+      parameters:
+      - description: Memory Provider ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/memory.HealthResult'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/admin.ErrorResponse'
+      summary: Check memory provider health
+      tags:
+      - memory
+  /memory/types:
+    get:
+      description: Returns registered memory provider types with config schemas for
+        dynamic form rendering
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/admin.MemoryTypeInfo'
+            type: array
+      summary: List memory types
+      tags:
+      - memory
 schemes:
 - http
 swagger: "2.0"

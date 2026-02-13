@@ -79,13 +79,6 @@ func (h *Handler) buildRouter() *mux.Router {
 	r.HandleFunc("/clients/{id}", h.deleteClient).Methods("DELETE")
 	r.HandleFunc("/clients/{id}/regenerate-token", h.regenerateClientToken).Methods("POST")
 
-	// Cron Jobs (legacy, kept for backward compatibility)
-	r.HandleFunc("/crons", h.listCronJobs).Methods("GET")
-	r.HandleFunc("/crons", h.createCronJob).Methods("POST")
-	r.HandleFunc("/crons/{id}", h.getCronJob).Methods("GET")
-	r.HandleFunc("/crons/{id}", h.updateCronJob).Methods("PUT")
-	r.HandleFunc("/crons/{id}", h.deleteCronJob).Methods("DELETE")
-
 	// Commands
 	r.HandleFunc("/commands", h.listCommands).Methods("GET")
 	r.HandleFunc("/commands", h.createCommand).Methods("POST")

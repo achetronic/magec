@@ -5,7 +5,6 @@ import {
   agentsApi,
   memoryApi,
   mcpsApi,
-  cronsApi,
   clientsApi,
   flowsApi,
   commandsApi,
@@ -16,7 +15,6 @@ export const useDataStore = defineStore('data', () => {
   const agents = ref([])
   const memory = ref([])
   const mcps = ref([])
-  const crons = ref([])
   const clients = ref([])
   const flows = ref([])
   const commands = ref([])
@@ -38,7 +36,6 @@ export const useDataStore = defineStore('data', () => {
         agentsApi.list(),
         memoryApi.list(),
         mcpsApi.list(),
-        cronsApi.list(),
         clientsApi.list(),
         flowsApi.list(),
         commandsApi.list(),
@@ -47,10 +44,9 @@ export const useDataStore = defineStore('data', () => {
       agents.value = results[1] || []
       memory.value = results[2] || []
       mcps.value = results[3] || []
-      crons.value = results[4] || []
-      clients.value = results[5] || []
-      flows.value = results[6] || []
-      commands.value = results[7] || []
+      clients.value = results[4] || []
+      flows.value = results[5] || []
+      commands.value = results[6] || []
     } catch (e) {
       console.error('Failed to load data:', e)
     } finally {
@@ -87,7 +83,6 @@ export const useDataStore = defineStore('data', () => {
     agents,
     memory,
     mcps,
-    crons,
     clients,
     flows,
     commands,

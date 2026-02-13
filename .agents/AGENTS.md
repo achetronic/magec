@@ -60,7 +60,6 @@ magec/
 │   │   ├── commands.go         # Command CRUD handlers
 │   │   ├── memory.go           # Memory provider CRUD + health check + /types
 │   │   ├── flows.go            # Flow CRUD handlers + recursive validation
-│   │   ├── crons.go            # Cron Job CRUD handlers (legacy, auto-migrated)
 │   │   └── overview.go         # Overview/health handler
 │   ├── client/                 # Client type provider registry (JSON Schema based)
 │   │   ├── provider.go         # Provider interface: Type(), DisplayName(), ConfigSchema()
@@ -70,7 +69,7 @@ magec/
 │   │   ├── cron/cron.go        # Cron provider (schedule, commandId)
 │   │   └── webhook/webhook.go  # Webhook provider (passthrough/commandId oneOf)
 │   ├── store/                  # In-memory data store with JSON persistence
-│   │   ├── store.go            # Store struct, CRUD ops, persistence, migration chain
+│   │   ├── store.go            # Store struct, CRUD ops, persistence
 │   │   └── types.go            # All entity types (ClientDefinition, Command, FlowDefinition, etc.)
 │   ├── trigger/                # Automation execution engine
 │   │   ├── executor.go         # RunClient() — executes commands against all allowedAgents
@@ -155,7 +154,7 @@ magec/
 | `server/client/` | Client type provider registry — JSON Schema based. Each type declares its config schema. Validation supports `oneOf`, `required`, `properties` |
 | `server/trigger/` | Automation execution: cron scheduler + webhook HTTP handler + executor that runs commands against agents |
 | `server/memory/` | Extensible provider registry — interface + init() auto-registration pattern |
-| `server/store/` | In-memory data store with JSON persistence (`data/store.json`). Immutable UUID v4 IDs. Auto-migration chain on load |
+| `server/store/` | In-memory data store with JSON persistence (`data/store.json`). Immutable UUID v4 IDs |
 | `server/userapi/` | User-facing API handlers + Swagger docs (health, device info, voice, webhooks) |
 | `server/voice/` | Server-side voice detection (wake word + VAD) via ONNX |
 | `server/clients/telegram/` | Telegram bot with voice message support |
@@ -237,12 +236,6 @@ magec/
 | GET | `/api/v1/admin/flows/{id}` | Get a flow by ID |
 | PUT | `/api/v1/admin/flows/{id}` | Update a flow |
 | DELETE | `/api/v1/admin/flows/{id}` | Delete a flow |
-| | **Cron Jobs (legacy)** | |
-| GET | `/api/v1/admin/crons` | List all cron jobs (legacy, auto-migrated) |
-| POST | `/api/v1/admin/crons` | Create a cron job |
-| GET | `/api/v1/admin/crons/{id}` | Get a cron job by ID |
-| PUT | `/api/v1/admin/crons/{id}` | Update a cron job |
-| DELETE | `/api/v1/admin/crons/{id}` | Delete a cron job |
 
 See [MULTI_AGENT_ADMIN_API.md](MULTI_AGENT_ADMIN_API.md) for full API reference with request/response schemas.
 
@@ -544,7 +537,7 @@ Only infra runs locally. LLM, STT, TTS, and embeddings use OpenAI APIs.
 
 15. **Cron supports both 5-field and shorthand expressions**: `@daily`, `@hourly`, `@weekly`, `@monthly`, `@yearly`, `@annually`, `@midnight` are all valid. They expand to their 5-field equivalents before parsing.
 
-16. **Immutable IDs**: All entities use UUID v4 (`google/uuid`). Cross-references store IDs not names. Migration chain on first load converts legacy name-based refs.
+16. **Immutable IDs**: All entities use UUID v4 (`google/uuid`). Cross-references store IDs not names.
 
 17. **Hot-reload**: Store changes fire `OnChange()` channel → `agentRouterHandler` rebuilds with 500ms debounce. No server restart needed.
 
@@ -554,15 +547,11 @@ Only infra runs locally. LLM, STT, TTS, and embeddings use OpenAI APIs.
 
 20. **OutputKey on AgentDefinition, not FlowStep**: ADK's `OutputKey` is set on the agent, not per flow step.
 
-21. **Migration chain order matters**: On `loadFromDisk`: devices→clients → cronJobs→triggers → triggers→clients → device→direct → migrateIDs. Each step idempotent.
+21. **Webhook modes are exclusive**: Either `commandId` is set (fixed mode) OR `passthrough` is true (prompt from body). Enforced via `oneOf` in JSON Schema and server-side validation.
 
-22. **Triggers entity eliminated**: Cron and webhook are now client types. The `Trigger` struct exists only as a legacy type for migration deserialization.
+22. **Cron/webhook execute against ALL allowedAgents**: Not a single agentId. The same command runs against every agent in the client's `allowedAgents` list. Results joined with `\n---\n`.
 
-23. **Webhook modes are exclusive**: Either `commandId` is set (fixed mode) OR `passthrough` is true (prompt from body). Enforced via `oneOf` in JSON Schema and server-side validation.
-
-24. **Cron/webhook execute against ALL allowedAgents**: Not a single agentId. The same command runs against every agent in the client's `allowedAgents` list. Results joined with `\n---\n`.
-
-25. **`responseAgent` is per-flow-step, not per-agent**: The flag lives on `FlowStep` in the flow definition. The executor resolves it at runtime via `flow.ResponseAgentIDs()`. If none marked, all events returned (backwards-compat). The flag is toggled in the flow editor UI via a broadcast icon on agent nodes.
+23. **`responseAgent` is per-flow-step, not per-agent**: The flag lives on `FlowStep` in the flow definition. The executor resolves it at runtime via `flow.ResponseAgentIDs()`. If none marked, all events returned (backwards-compat). The flag is toggled in the flow editor UI via a broadcast icon on agent nodes.
 
 ## Testing
 

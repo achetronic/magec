@@ -202,44 +202,4 @@ type StoreData struct {
 	Clients         []ClientDefinition  `json:"clients"`
 	Flows           []FlowDefinition    `json:"flows"`
 	Commands        []Command           `json:"commands"`
-
-	// Legacy fields kept for data migration only.
-	CronJobs []CronJob `json:"cronJobs,omitempty"`
-	Triggers []Trigger `json:"triggers,omitempty"`
-}
-
-// CronJob is a legacy type kept for data migration. New code uses ClientDefinition with type "cron".
-type CronJob struct {
-	ID          string `json:"id" yaml:"id"`
-	Name        string `json:"name" yaml:"name"`
-	Schedule    string `json:"schedule" yaml:"schedule"`
-	AgentID     string `json:"agentId" yaml:"agentId"`
-	Prompt      string `json:"prompt" yaml:"prompt"`
-	Description string `json:"description,omitempty" yaml:"description,omitempty"`
-	Enabled     bool   `json:"enabled" yaml:"enabled"`
-}
-
-// Trigger is a legacy type kept for data migration. New code uses ClientDefinition with type "cron" or "webhook".
-type Trigger struct {
-	ID          string         `json:"id" yaml:"id"`
-	Name        string         `json:"name" yaml:"name"`
-	Description string         `json:"description,omitempty" yaml:"description,omitempty"`
-	Type        string         `json:"type" yaml:"type"`
-	Enabled     bool           `json:"enabled" yaml:"enabled"`
-	AgentID     string         `json:"agentId,omitempty" yaml:"agentId,omitempty"`
-	CommandID   string         `json:"commandId,omitempty" yaml:"commandId,omitempty"`
-	ClientID    string         `json:"clientId,omitempty" yaml:"clientId,omitempty"`
-	Cron        *CronConfig    `json:"cron,omitempty" yaml:"cron,omitempty"`
-	Webhook     *WebhookConfig `json:"webhook,omitempty" yaml:"webhook,omitempty"`
-}
-
-// CronConfig is a legacy type kept for data migration.
-type CronConfig struct {
-	Schedule string `json:"schedule" yaml:"schedule"`
-}
-
-// WebhookConfig is a legacy type kept for data migration.
-type WebhookConfig struct {
-	Passthrough bool   `json:"passthrough" yaml:"passthrough"`
-	Secret      string `json:"secret,omitempty" yaml:"secret,omitempty"`
 }

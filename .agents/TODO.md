@@ -102,6 +102,25 @@ See `.agents/ADK_TOOLS.md` for full details on `toolconfirmation`.
 
 ---
 
+### Evaluate Subagent-as-Tool Pattern
+
+**Context**: ADK supports registering agents as tools that another agent can invoke on-demand during its reasoning loop (rather than through a fixed sequential/parallel flow). This enables an orchestrator agent to decide *at runtime* which specialists to call, how many times, and in what order — based on the user's input.
+
+**Why it's interesting**:
+- More flexible than static flows: the orchestrator agent reasons about *when* to call each subagent, rather than following a hardcoded graph.
+- Natural fit for open-ended questions that might need 1, 2, or all specialists depending on complexity.
+- Subagents become tools alongside MCP tools — the LLM picks what to call.
+
+**Open UX/GUI questions**:
+1. How to represent this in the admin UI? A flow has a clear visual tree. An agent-with-subagent-tools is conceptually different — the orchestrator *chooses* which tools to call. The flow editor doesn't map to this model.
+2. Should this be a new agent config section ("Sub-agents" alongside MCP Servers)? Or a special flow step type?
+3. How to surface tool-call decisions to the user? The orchestrator might call a subagent 0 or N times — harder to predict/debug than a fixed flow.
+4. Does `responseAgent` still make sense here? The orchestrator itself is the response agent by definition, since it decides what to return.
+
+**No action required now** — design evaluation for when the current sequential/parallel flow model feels too rigid.
+
+---
+
 ## Low Priority
 
 ### Add More TTS Voices Configuration UI
