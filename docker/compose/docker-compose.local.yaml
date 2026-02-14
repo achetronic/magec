@@ -1,0 +1,31 @@
+# Magec - Fully local override
+# No API keys needed. Adds qwen3:8b for LLM.
+# GPU: Uncomment the 'deploy' section below for NVIDIA.
+
+services:
+  magec:
+    environment:
+      - MAGEC_SEED=${MAGEC_SEED:-voice-ui}
+
+  ollama:
+    # Uncomment to use NVIDIA GPU:
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [gpu]
+
+  ollama-setup:
+    command:
+      - |
+        echo "Waiting for Ollama to be ready..."
+        until curl -sf http://ollama:11434/api/tags > /dev/null 2>&1; do
+          sleep 2
+        done
+        echo "Pulling qwen3:8b (LLM)..."
+        curl -sf http://ollama:11434/api/pull -d '{"name":"qwen3:8b"}' > /dev/null
+        echo "Pulling nomic-embed-text (embeddings)..."
+        curl -sf http://ollama:11434/api/pull -d '{"name":"nomic-embed-text"}' > /dev/null
+        echo "Models ready."

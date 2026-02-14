@@ -182,7 +182,7 @@ img { max-width: 100%; height: auto; }
 .terminal {
   background: var(--piedra-900); border: 1px solid var(--piedra-700);
   border-radius: 16px; overflow: hidden; text-align: left;
-  max-width: 520px; margin: 0 auto; box-shadow: 0 4px 24px rgba(0,0,0,.3);
+  max-width: 620px; margin: 0 auto; box-shadow: 0 4px 24px rgba(0,0,0,.3);
 }
 .terminal__bar {
   display: flex; align-items: center; gap: 6px; padding: .75rem 1rem;
@@ -342,6 +342,20 @@ section { padding: 6rem 0; }
 .quickstart-card__title { font-size: 1.125rem; font-weight: 700; margin-bottom: .5rem; color: var(--arena-50); }
 .quickstart-card__desc { font-size: .875rem; color: var(--arena-400); margin-bottom: 1.5rem; line-height: 1.6; }
 .quickstart-card__note { font-size: .8125rem; color: var(--arena-500); line-height: 1.5; }
+
+.quickstart-oneliner {
+  background: var(--piedra-900); border: 1px solid rgba(245,158,11,.25);
+  border-radius: 16px; padding: 2rem; margin-bottom: 2rem; text-align: center;
+}
+.quickstart-oneliner pre {
+  background: var(--piedra-950); border-radius: 10px; padding: 1.25rem 1.5rem;
+  margin: 1rem auto 0; max-width: 640px; text-align: left; overflow-x: auto;
+}
+.quickstart-oneliner code { font-size: .9375rem; }
+.quickstart-oneliner__desc { font-size: .875rem; color: var(--arena-400); margin-bottom: .25rem; }
+.quickstart-oneliner__flags { font-size: .8125rem; color: var(--arena-500); margin-top: 1rem; line-height: 1.7; }
+.quickstart-oneliner__flags code { font-size: .8125rem; background: rgba(255,255,255,.06); padding: .15em .4em; border-radius: 4px; }
+.quickstart-separator { font-size: .8125rem; color: var(--arena-500); text-transform: uppercase; letter-spacing: .1em; text-align: center; margin-bottom: 1.5rem; }
 
 /* ---------- ARCHITECTURE ---------- */
 

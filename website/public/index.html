@@ -72,12 +72,14 @@
       <div class="terminal">
         <div class="terminal__bar"><span class="terminal__dot"></span><span class="terminal__dot"></span><span class="terminal__dot"></span></div>
         <div class="terminal__body">
-          <span class="terminal__comment"># Fully local — no API keys needed</span><br>
-          <span class="terminal__prompt">$</span> git clone <span class="terminal__url">https://github.com/achetronic/magec.git</span><br>
-          <span class="terminal__prompt">$</span> cd magec/docker/compose/fully-local<br>
-          <span class="terminal__prompt">$</span> docker compose up -d<br><br>
-          <span class="terminal__comment"># Admin UI → <span class="terminal__url">http://localhost:8081</span></span><br>
-          <span class="terminal__comment"># Voice UI → <span class="terminal__url">http://localhost:8080</span></span>
+          <span class="terminal__comment"># Fully local. No API keys.</span><br>
+          <span class="terminal__prompt">$</span> curl -fsSL <span class="terminal__url">https://magec.dev/install</span> | bash<br><br>
+          <span class="terminal__comment"># Or pick your cloud provider</span><br>
+          <span class="terminal__prompt">$</span> ... | bash -s -- --openai<br>
+          <span class="terminal__prompt">$</span> ... | bash -s -- --anthropic<br>
+          <span class="terminal__prompt">$</span> ... | bash -s -- --gemini<br><br>
+          <span class="terminal__comment"># Admin UI → <span class="terminal__url">localhost:8081</span></span><br>
+          <span class="terminal__comment"># Voice UI → <span class="terminal__url">localhost:8080</span></span>
         </div>
       </div>
     </div>
@@ -207,25 +209,33 @@
   <div class="container">
     <div class="section-header reveal">
       <span class="section-label">Quick Start</span>
-      <h2 class="section-title">Running in 3 commands</h2>
+      <h2 class="section-title">One command to go</h2>
     </div>
+    <div class="quickstart-oneliner reveal">
+      <p class="quickstart-oneliner__desc">Fully local. No API keys, no sign-ups.</p>
+      <pre><code><span class="terminal__prompt">$</span> curl -fsSL https://raw.githubusercontent.com/achetronic/magec/main/scripts/install.sh | bash</code></pre>
+      <p class="quickstart-oneliner__flags"><code>--openai</code> · <code>--anthropic</code> · <code>--gemini</code> to use cloud APIs · <code>--gpu</code> for NVIDIA · <code>--help</code> for all options</p>
+    </div>
+    <p class="quickstart-separator reveal">or manually</p>
     <div class="quickstart-options reveal">
       <div class="quickstart-card">
         <span class="quickstart-card__tag quickstart-card__tag--local">Fully Local</span>
         <h3 class="quickstart-card__title">No API keys needed</h3>
         <p class="quickstart-card__desc">Everything runs on your machine — LLM, speech-to-text, text-to-speech, embeddings.</p>
         <pre><code><span class="terminal__prompt">$</span> git clone https://github.com/achetronic/magec.git
-<span class="terminal__prompt">$</span> cd magec/docker/compose/fully-local
+<span class="terminal__prompt">$</span> cd magec/docker/compose
+<span class="terminal__prompt">$</span> cp docker-compose.local.yaml docker-compose.override.yaml
 <span class="terminal__prompt">$</span> docker compose up -d</code></pre>
         <p class="quickstart-card__note">First start downloads ~5GB of models. For NVIDIA GPU, uncomment the <code>deploy</code> section.</p>
       </div>
       <div class="quickstart-card">
         <span class="quickstart-card__tag quickstart-card__tag--cloud">Cloud APIs</span>
         <h3 class="quickstart-card__title">Just an API key</h3>
-        <p class="quickstart-card__desc">Only Redis and PostgreSQL locally. LLM, STT, TTS, and embeddings via cloud.</p>
+        <p class="quickstart-card__desc">Pick your provider: <code>openai</code>, <code>anthropic</code>, or <code>gemini</code>.</p>
         <pre><code><span class="terminal__prompt">$</span> git clone https://github.com/achetronic/magec.git
-<span class="terminal__prompt">$</span> cd magec/docker/compose/remote-openai
-<span class="terminal__prompt">$</span> export OPENAI_API_KEY=sk-...
+<span class="terminal__prompt">$</span> cd magec/docker/compose
+<span class="terminal__prompt">$</span> cp docker-compose.anthropic.yaml docker-compose.override.yaml
+<span class="terminal__prompt">$</span> export ANTHROPIC_API_KEY=sk-ant-...
 <span class="terminal__prompt">$</span> docker compose up -d</code></pre>
         <p class="quickstart-card__note">Configure agents at <code>http://localhost:8081</code>, chat at <code>http://localhost:8080</code>.</p>
       </div>

@@ -26,22 +26,47 @@ Your server, your data, your rules.
 
 ## Quick Start
 
+```bash
+curl -fsSL https://raw.githubusercontent.com/achetronic/magec/main/scripts/install.sh | bash
+```
+
+That's it. Magec starts fully local — no API keys, no sign-ups.
+
+Prefer a cloud provider? Export your key and pick a flag:
+
+```bash
+export OPENAI_API_KEY=sk-...      && curl -fsSL .../install.sh | bash -s -- --openai
+export ANTHROPIC_API_KEY=sk-ant-... && curl -fsSL .../install.sh | bash -s -- --anthropic
+export GEMINI_API_KEY=AI...       && curl -fsSL .../install.sh | bash -s -- --gemini
+```
+
+Add `--gpu` for NVIDIA acceleration, or `--help` for all options.
+
+<details>
+<summary>Manual setup</summary>
+
 ### Fully local (no API keys)
 
 ```bash
 git clone https://github.com/achetronic/magec.git
-cd magec/docker/compose/fully-local
+cd magec/docker/compose
+cp docker-compose.local.yaml docker-compose.override.yaml
 docker compose up -d
 ```
 
-### Cloud APIs
+### Cloud (e.g. Anthropic)
 
 ```bash
 git clone https://github.com/achetronic/magec.git
-cd magec/docker/compose/remote-openai
-export OPENAI_API_KEY=sk-...
+cd magec/docker/compose
+cp docker-compose.anthropic.yaml docker-compose.override.yaml
+export ANTHROPIC_API_KEY=sk-ant-...
 docker compose up -d
 ```
+
+Overrides available: `local`, `openai`, `anthropic`, `gemini`.
+
+</details>
 
 **Admin UI** → http://localhost:8081 · **Voice UI** → http://localhost:8080
 

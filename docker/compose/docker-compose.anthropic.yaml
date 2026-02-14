@@ -1,0 +1,10 @@
+# Magec - Anthropic override
+# Uses Anthropic for LLM. STT, TTS, and embeddings run locally.
+#
+# Requires: ANTHROPIC_API_KEY
+
+services:
+  magec:
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - MAGEC_SEED=${MAGEC_SEED:-voice-ui-anthropic}

@@ -1,12 +1,5 @@
-# Magec - Fully local deployment
-# Everything runs locally: LLM, STT, TTS, embeddings. No API keys needed.
-#
-# Usage:
-#   cp config.yaml.example config.yaml
-#   docker compose up -d
-#
-# First start will be slow: Ollama downloads qwen3:8b (~5GB) and nomic-embed-text (~274MB).
-# GPU: To use NVIDIA GPU with Ollama, uncomment the 'deploy' section in the ollama service.
+# Magec - Base services
+# Use with an override: cp docker-compose.{local,openai,...}.yaml docker-compose.override.yaml
 
 services:
   magec:
@@ -14,8 +7,6 @@ services:
     ports:
       - "8080:8080"
       - "8081:8081"
-    environment:
-      - MAGEC_SEED=${MAGEC_SEED:-voice-ui}
     volumes:
       - ./config.yaml:/app/config.yaml
       - magec_data:/app/data
@@ -52,17 +43,8 @@ services:
     image: ollama/ollama:latest
     volumes:
       - ollama_data:/root/.ollama
-    # Uncomment to use NVIDIA GPU:
-    # deploy:
-    #   resources:
-    #     reservations:
-    #       devices:
-    #         - driver: nvidia
-    #           count: all
-    #           capabilities: [gpu]
     restart: unless-stopped
 
-  # Init container: pulls models on first start, then exits
   ollama-setup:
     image: ollama/ollama:latest
     depends_on:
@@ -75,8 +57,6 @@ services:
         until curl -sf http://ollama:11434/api/tags > /dev/null 2>&1; do
           sleep 2
         done
-        echo "Pulling qwen3:8b (LLM)..."
-        curl -sf http://ollama:11434/api/pull -d '{"name":"qwen3:8b"}' > /dev/null
         echo "Pulling nomic-embed-text (embeddings)..."
         curl -sf http://ollama:11434/api/pull -d '{"name":"nomic-embed-text"}' > /dev/null
         echo "Models ready."
@@ -87,6 +67,8 @@ services:
 
   tts:
     image: travisvn/openai-edge-tts:latest
+    environment:
+      - API_KEY=sk-unused
     restart: unless-stopped
 
 volumes:

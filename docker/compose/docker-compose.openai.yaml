@@ -1,0 +1,35 @@
+# Magec - OpenAI override
+# Uses OpenAI for everything (LLM, STT, TTS, embeddings). Local AI services disabled.
+#
+# Requires: OPENAI_API_KEY
+
+services:
+  magec:
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - MAGEC_SEED=${MAGEC_SEED:-voice-ui-openai}
+    depends_on:
+      redis:
+        condition: service_started
+      postgres:
+        condition: service_started
+
+  # Disabled: embeddings via OpenAI text-embedding-3-small, no local model needed
+  ollama:
+    entrypoint: ["true"]
+    restart: "no"
+
+  # Disabled: no local models to pull
+  ollama-setup:
+    entrypoint: ["true"]
+    command: []
+
+  # Disabled: STT via OpenAI Whisper API
+  parakeet:
+    entrypoint: ["true"]
+    restart: "no"
+
+  # Disabled: TTS via OpenAI TTS API
+  tts:
+    entrypoint: ["true"]
+    restart: "no"

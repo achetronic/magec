@@ -1,0 +1,10 @@
+# Magec - Gemini override
+# Uses Google Gemini for LLM. STT, TTS, and embeddings run locally.
+#
+# Requires: GEMINI_API_KEY
+
+services:
+  magec:
+    environment:
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - MAGEC_SEED=${MAGEC_SEED:-voice-ui-gemini}
