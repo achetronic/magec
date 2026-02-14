@@ -32,3 +32,4 @@ test/
 
 # Runtime data (admin store)
 data/
+!data/seeds/

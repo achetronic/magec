@@ -15,8 +15,10 @@ services:
       - "8081:8081"
     environment:
       - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - MAGEC_SEED=${MAGEC_SEED:-voice-ui}
     volumes:
       - ./config.yaml:/app/config.yaml
+      - magec_data:/app/data
     depends_on:
       - redis
       - postgres
@@ -39,5 +41,6 @@ services:
     restart: unless-stopped
 
 volumes:
+  magec_data:
   redis_data:
   postgres_data:

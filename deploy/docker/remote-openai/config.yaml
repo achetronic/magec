@@ -8,6 +8,10 @@ server:
   port: 8080
   adminPort: 8081
 
+voice:
+  ui:
+    enabled: true
+
 log:
   level: info
   format: console

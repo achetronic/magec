@@ -98,3 +98,35 @@ El struct en Go usa sub-structs: `Config.Voice.UI.Enabled` (*bool, default true)
 y `Config.Voice.OnnxLibraryPath` (string).
 
 **No poner**: campos de voz dentro de `Server` — ese bloque es solo red/puertos.
+
+---
+
+## Store seeds para Docker
+
+**Fecha**: 2026-02-14
+**Estado**: Implementado
+
+Al arrancar el contenedor Docker, el usuario elige un preset de datos iniciales
+mediante la variable de entorno `MAGEC_SEED`:
+
+| Valor | Comportamiento |
+|-------|---------------|
+| (vacío / no definido) | Store vacío — el usuario configura todo desde la Admin UI |
+| `voice-ui` | Agente Magec + backend Ollama + STT/TTS + memory + cliente VoiceUI |
+| `examples` | Todo lo anterior + Research Pipeline + Debate Arena + Software Factory + Telegram + webhooks |
+
+Los ficheros seed viven en `data/seeds/`:
+```
+data/seeds/
+├── voice-ui.json    ← mínimo para Voice UI funcional
+└── examples.json    ← demo completa (equivale al store.json de desarrollo)
+```
+
+La lógica está en `store.New()`: si el fichero `data/store.json` **no existe** y
+`MAGEC_SEED` apunta a un seed válido, se copia el seed como store inicial.
+Si el fichero ya existe, el seed se ignora (no se sobreescribe datos del usuario).
+
+Los seeds usan `${VARIABLES}` para credenciales (apiKey, botToken), expandidas
+por `os.ExpandEnv()` al cargar el store.
+
+**No hacer**: Seeds con credenciales hardcodeadas. Usar siempre `${VAR}`.

@@ -33,6 +33,8 @@ RUN tar -xzf /tmp/onnxruntime.tgz -C /tmp && \
 
 COPY --from=builder /build/magec .
 COPY voice-ui/ ./voice-ui/
+COPY admin-ui/dist/ ./admin-ui/dist/
+COPY data/seeds/ ./data/seeds/
 
 # Models at root level (for server-side wake word detection)
 COPY models/ ./models/

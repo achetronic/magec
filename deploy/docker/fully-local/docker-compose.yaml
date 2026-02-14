@@ -14,8 +14,11 @@ services:
     ports:
       - "8080:8080"
       - "8081:8081"
+    environment:
+      - MAGEC_SEED=${MAGEC_SEED:-voice-ui}
     volumes:
       - ./config.yaml:/app/config.yaml
+      - magec_data:/app/data
     depends_on:
       ollama-setup:
         condition: service_completed_successfully
@@ -87,6 +90,7 @@ services:
     restart: unless-stopped
 
 volumes:
+  magec_data:
   redis_data:
   postgres_data:
   ollama_data:
