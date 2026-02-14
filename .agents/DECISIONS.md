@@ -122,9 +122,13 @@ data/seeds/
 └── examples.json    ← demo completa (equivale al store.json de desarrollo)
 ```
 
-La lógica está en `store.New()`: si el fichero `data/store.json` **no existe** y
-`MAGEC_SEED` apunta a un seed válido, se copia el seed como store inicial.
+La lógica está en `docker/build/entrypoint.sh`: si `data/store.json` **no existe** y
+`MAGEC_SEED` apunta a un seed válido, copia el seed como store inicial antes de
+arrancar el servidor. El código Go no sabe nada de seeds — solo lee `store.json`.
 Si el fichero ya existe, el seed se ignora (no se sobreescribe datos del usuario).
+
+**No hacer**: Lógica de seeds dentro del código Go. Es responsabilidad del
+entrypoint del contenedor, no de la aplicación.
 
 Los seeds usan `${VARIABLES}` para credenciales (apiKey, botToken), expandidas
 por `os.ExpandEnv()` al cargar el store.

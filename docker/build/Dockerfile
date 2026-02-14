@@ -32,6 +32,7 @@ RUN tar -xzf /tmp/onnxruntime.tgz -C /tmp && \
     ldconfig
 
 COPY --from=builder /build/magec .
+COPY docker/build/entrypoint.sh .
 COPY voice-ui/ ./voice-ui/
 COPY admin-ui/dist/ ./admin-ui/dist/
 COPY data/seeds/ ./data/seeds/
@@ -42,5 +43,5 @@ COPY --from=models /build/pretrained/ ./pretrained/
 
 EXPOSE 8080
 
-ENTRYPOINT ["./magec"]
+ENTRYPOINT ["./entrypoint.sh"]
 CMD ["--config", "/app/config.yaml"]

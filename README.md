@@ -78,7 +78,7 @@ Everything runs on your machine — LLM, speech-to-text, text-to-speech, embeddi
 
 ```bash
 git clone https://github.com/achetronic/magec.git
-cd magec/deploy/docker/fully-local
+cd magec/docker/compose/fully-local
 cp config.yaml config.yaml.bak   # optional backup
 docker compose up -d
 ```
@@ -603,11 +603,10 @@ magec/
 │   └── logging/          # Structured logging
 ├── models/               # Wake word ONNX models + wakewords.yaml
 ├── pretrained/           # Shared models (mel-spectrogram, embeddings)
-├── deploy/               # Deployment configurations
-│   └── docker/           # Docker Compose deployments
-│   └── docker-compose/   # One-command deployment with docker-compose
+├── docker/               # Docker build & compose
+│   ├── build/            # Dockerfile + entrypoint.sh
+│   └── compose/          # Docker Compose deployments
 ├── config.example.yaml   # Config template for development
-├── Dockerfile
 └── Makefile
 ```
 

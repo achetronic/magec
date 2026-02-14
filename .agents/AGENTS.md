@@ -32,7 +32,7 @@ Personal AI assistant from the Canary Islands 🇮🇨 that you control.
 
 ```bash
 # Docker Compose (recommended)
-cd deploy/docker/fully-local
+cd docker/compose/fully-local
 docker-compose up -d
 
 # OR from source
@@ -140,11 +140,10 @@ magec/
 ├── pretrained/                 # Shared ONNX models (mel-spec, VAD, embeddings)
 ├── scripts/
 │   └── download-model.go       # Wake word model downloader
-├── deploy/
-│   └── docker/                 # Docker Compose deployments
-│   └── docker-compose/         # Production deployment
+├── docker/
+│   ├── build/                  # Dockerfile + entrypoint
+│   └── compose/                # Docker Compose deployments
 ├── config.example.yaml
-├── Dockerfile
 ├── Makefile
 └── README.md
 ```

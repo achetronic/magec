@@ -5,7 +5,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"log/slog"
 	"os"
 	"path/filepath"
 	"slices"
@@ -41,22 +40,6 @@ func New(filePath string) (*Store, error) {
 		if _, err := os.Stat(filePath); err == nil {
 			if err := s.loadFromDisk(); err != nil {
 				return nil, fmt.Errorf("failed to load store from %s: %w", filePath, err)
-			}
-		} else if seedName := os.Getenv("MAGEC_SEED"); seedName != "" {
-			seedPath := filepath.Join(filepath.Dir(filePath), "seeds", seedName+".json")
-			if seedData, err := os.ReadFile(seedPath); err == nil {
-				if err := os.MkdirAll(filepath.Dir(filePath), 0755); err != nil {
-					return nil, fmt.Errorf("failed to create store directory: %w", err)
-				}
-				if err := os.WriteFile(filePath, seedData, 0644); err != nil {
-					return nil, fmt.Errorf("failed to write seed to store: %w", err)
-				}
-				slog.Info("Store seeded from preset", "seed", seedName, "path", seedPath)
-				if err := s.loadFromDisk(); err != nil {
-					return nil, fmt.Errorf("failed to load seeded store: %w", err)
-				}
-			} else {
-				slog.Warn("Seed file not found, starting with empty store", "seed", seedName, "path", seedPath)
 			}
 		}
 	}
