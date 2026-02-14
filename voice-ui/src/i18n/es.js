@@ -18,7 +18,7 @@
 export default {
   app: {
     title: "Magec",
-    subtitle: "Asistente de Voz",
+    subtitle: "Voice UI",
   },
 
   status: {

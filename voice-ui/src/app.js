@@ -403,9 +403,19 @@ class MagecApp {
         this._refreshSessionList();
     }
 
+    _parseSessionTimestamp(id) {
+        const parts = (id || '').split('_');
+        if (parts.length >= 2) {
+            const ts = parseInt(parts[1], 36);
+            if (!isNaN(ts) && ts > 0) return ts;
+        }
+        return 0;
+    }
+
     async _refreshSessionList() {
         const sessions = await this.sessionService.listSessions();
         const currentSessionId = this.sessionManager.getCurrentSessionId();
+        const history = this.sessionManager.getSessionHistory();
         
         const enrichedSessions = await Promise.all(
             sessions.map(async (session) => ({
@@ -413,8 +423,9 @@ class MagecApp {
                 preview: this.sessionService.getSessionPreview(
                     await this.sessionService.getSession(session.id)
                 ),
-                createdAt: this.sessionManager.getSessionHistory()
-                    .find(s => s.id === session.id)?.createdAt || Date.now()
+                createdAt: this._parseSessionTimestamp(session.id)
+                    || history.find(s => s.id === session.id)?.createdAt
+                    || 0
             }))
         );
         
