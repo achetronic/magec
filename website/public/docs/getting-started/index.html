@@ -30,11 +30,11 @@
     </button>
     <ul class="nav__links">
       
+      <li><a href="/magec/" class="nav__link">Quick Start</a></li>
+      
       <li><a href="/magec/#features" class="nav__link">Features</a></li>
       
       <li><a href="/magec/#screenshots" class="nav__link">Screenshots</a></li>
-      
-      <li><a href="/magec/#quickstart" class="nav__link">Quick Start</a></li>
       
       <li><a href="/magec/docs/" class="nav__link">Docs</a></li>
       
@@ -61,8 +61,6 @@
         <a href="/magec/docs/getting-started/" class="docs-sidebar__link docs-sidebar__link--active">Installation</a>
         
         <a href="/magec/docs/configuration/" class="docs-sidebar__link">Configuration</a>
-        
-        <a href="/magec/docs/seeds/" class="docs-sidebar__link">Store Seeds</a>
         
       </div>
       
@@ -111,8 +109,6 @@
         
         <a href="/magec/docs/voice-system/" class="docs-sidebar__link">Voice System</a>
         
-        <a href="/magec/docs/docker/" class="docs-sidebar__link">Docker</a>
-        
       </div>
       
       
@@ -124,34 +120,77 @@
       </button>
       <h1>Getting Started</h1>
       <h2 id="installation">Installation</h2>
-<h3 id="option-a-fully-local-no-api-keys">Option A: Fully local (no API keys)</h3>
-<p>Everything runs on your machine — LLM, speech-to-text, text-to-speech, embeddings.</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">git clone https://github.com/achetronic/magec.git
-</span></span><span class="line"><span class="cl"><span class="nb">cd</span> magec/docker/compose/fully-local
-</span></span><span class="line"><span class="cl">docker compose up -d
+<p>The install script downloads the Docker Compose files, picks the right configuration for your chosen mode, and starts everything with a single command.</p>
+<p><strong>Requirements:</strong> Docker and Docker Compose.</p>
+<h3 id="fully-local-default">Fully local (default)</h3>
+<p>No API keys, no sign-ups. LLM, speech-to-text, text-to-speech, and embeddings all run on your machine.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">curl -fsSL https://raw.githubusercontent.com/achetronic/magec/main/scripts/install.sh <span class="p">|</span> bash
 </span></span></code></pre></div>
 
 
 <div class="docs-callout docs-callout--info">
-  <strong>First start</strong> downloads ~5GB of models (Ollama qwen3:8b + nomic-embed-text). For NVIDIA GPU support, uncomment the <code>deploy</code> section in <code>docker-compose.yaml</code>.
+  <strong>First start</strong> downloads ~5GB of models (Ollama qwen3:8b + nomic-embed-text). Track progress with <code>docker compose logs -f ollama-setup</code>.
 </div>
 
-<h3 id="option-b-cloud-apis">Option B: Cloud APIs</h3>
-<p>Only Redis and PostgreSQL run locally. LLM, STT, TTS, and embeddings use cloud providers.</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">git clone https://github.com/achetronic/magec.git
-</span></span><span class="line"><span class="cl"><span class="nb">cd</span> magec/docker/compose/remote-openai
+<h3 id="cloud-apis">Cloud APIs</h3>
+<p>Only Redis and PostgreSQL run locally. LLM, STT, TTS, and embeddings use your cloud provider.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># OpenAI</span>
 </span></span><span class="line"><span class="cl"><span class="nb">export</span> <span class="nv">OPENAI_API_KEY</span><span class="o">=</span>sk-...
-</span></span><span class="line"><span class="cl">docker compose up -d
-</span></span></code></pre></div><h3 id="option-c-from-source">Option C: From source</h3>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">make infra           <span class="c1"># Start PostgreSQL + Redis</span>
-</span></span><span class="line"><span class="cl">cp config.example.yaml config.yaml
-</span></span><span class="line"><span class="cl">make dev             <span class="c1"># Build and run (includes Admin UI)</span>
-</span></span></code></pre></div><p>Once running:</p>
+</span></span><span class="line"><span class="cl">curl -fsSL .../install.sh <span class="p">|</span> bash -s -- --openai
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Anthropic</span>
+</span></span><span class="line"><span class="cl"><span class="nb">export</span> <span class="nv">ANTHROPIC_API_KEY</span><span class="o">=</span>sk-ant-...
+</span></span><span class="line"><span class="cl">curl -fsSL .../install.sh <span class="p">|</span> bash -s -- --anthropic
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Google Gemini</span>
+</span></span><span class="line"><span class="cl"><span class="nb">export</span> <span class="nv">GEMINI_API_KEY</span><span class="o">=</span>AI...
+</span></span><span class="line"><span class="cl">curl -fsSL .../install.sh <span class="p">|</span> bash -s -- --gemini
+</span></span></code></pre></div><h3 id="options">Options</h3>
+<table>
+  <thead>
+      <tr>
+          <th>Flag</th>
+          <th>Description</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td><code>--local</code></td>
+          <td>Fully local deployment (default)</td>
+      </tr>
+      <tr>
+          <td><code>--openai</code></td>
+          <td>Use OpenAI APIs. Requires <code>OPENAI_API_KEY</code></td>
+      </tr>
+      <tr>
+          <td><code>--anthropic</code></td>
+          <td>Use Anthropic APIs. Requires <code>ANTHROPIC_API_KEY</code></td>
+      </tr>
+      <tr>
+          <td><code>--gemini</code></td>
+          <td>Use Google Gemini APIs. Requires <code>GEMINI_API_KEY</code></td>
+      </tr>
+      <tr>
+          <td><code>--gpu</code></td>
+          <td>Enable NVIDIA GPU support for Ollama (local mode only)</td>
+      </tr>
+      <tr>
+          <td><code>--dir NAME</code></td>
+          <td>Installation directory (default: <code>magec</code>)</td>
+      </tr>
+  </tbody>
+</table>
+<h3 id="once-running">Once running</h3>
 <ul>
-<li><strong>Admin UI</strong> → <code>http://localhost:8081</code> — configure your agents</li>
+<li><strong>Admin UI</strong> → <code>http://localhost:8081</code> — configure your agents, backends, memory, and clients</li>
 <li><strong>Voice UI</strong> → <code>http://localhost:8080</code> — start chatting</li>
 </ul>
-
+<h3 id="managing-the-deployment">Managing the deployment</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="nb">cd</span> magec                        <span class="c1"># or your --dir path</span>
+</span></span><span class="line"><span class="cl">docker compose logs -f          <span class="c1"># follow logs</span>
+</span></span><span class="line"><span class="cl">docker compose down             <span class="c1"># stop everything</span>
+</span></span><span class="line"><span class="cl">docker compose up -d            <span class="c1"># start again</span>
+</span></span></code></pre></div>
     </div>
   </div>
 </div>

@@ -17,16 +17,16 @@ theme = 'magec'
 
 [menu]
   [[menu.main]]
+    name = 'Quick Start'
+    url = '/'
+    weight = 1
+  [[menu.main]]
     name = 'Features'
     url = '/#features'
-    weight = 1
+    weight = 2
   [[menu.main]]
     name = 'Screenshots'
     url = '/#screenshots'
-    weight = 2
-  [[menu.main]]
-    name = 'Quick Start'
-    url = '/#quickstart'
     weight = 3
   [[menu.main]]
     name = 'Docs'
@@ -48,11 +48,6 @@ theme = 'magec'
     parent = 'getting-started'
     url = '/docs/configuration/'
     weight = 2
-  [[menu.docs]]
-    name = 'Store Seeds'
-    parent = 'getting-started'
-    url = '/docs/seeds/'
-    weight = 3
 
   [[menu.docs]]
     identifier = 'core'
@@ -133,11 +128,6 @@ theme = 'magec'
     parent = 'reference'
     url = '/docs/voice-system/'
     weight = 2
-  [[menu.docs]]
-    name = 'Docker'
-    parent = 'reference'
-    url = '/docs/docker/'
-    weight = 3
 
 [outputs]
   home = ['HTML']

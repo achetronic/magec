@@ -4,40 +4,61 @@ title: "Getting Started"
 
 ## Installation
 
-### Option A: Fully local (no API keys)
+The install script downloads the Docker Compose files, picks the right configuration for your chosen mode, and starts everything with a single command.
 
-Everything runs on your machine — LLM, speech-to-text, text-to-speech, embeddings.
+**Requirements:** Docker and Docker Compose.
+
+### Fully local (default)
+
+No API keys, no sign-ups. LLM, speech-to-text, text-to-speech, and embeddings all run on your machine.
 
 ```bash
-git clone https://github.com/achetronic/magec.git
-cd magec/docker/compose/fully-local
-docker compose up -d
+curl -fsSL https://raw.githubusercontent.com/achetronic/magec/main/scripts/install.sh | bash
 ```
 
 {{< callout type="info" >}}
-**First start** downloads ~5GB of models (Ollama qwen3:8b + nomic-embed-text). For NVIDIA GPU support, uncomment the `deploy` section in `docker-compose.yaml`.
+**First start** downloads ~5GB of models (Ollama qwen3:8b + nomic-embed-text). Track progress with `docker compose logs -f ollama-setup`.
 {{< /callout >}}
 
-### Option B: Cloud APIs
+### Cloud APIs
 
-Only Redis and PostgreSQL run locally. LLM, STT, TTS, and embeddings use cloud providers.
+Only Redis and PostgreSQL run locally. LLM, STT, TTS, and embeddings use your cloud provider.
 
 ```bash
-git clone https://github.com/achetronic/magec.git
-cd magec/docker/compose/remote-openai
+# OpenAI
 export OPENAI_API_KEY=sk-...
-docker compose up -d
+curl -fsSL .../install.sh | bash -s -- --openai
+
+# Anthropic
+export ANTHROPIC_API_KEY=sk-ant-...
+curl -fsSL .../install.sh | bash -s -- --anthropic
+
+# Google Gemini
+export GEMINI_API_KEY=AI...
+curl -fsSL .../install.sh | bash -s -- --gemini
 ```
 
-### Option C: From source
+### Options
+
+| Flag | Description |
+|------|-------------|
+| `--local` | Fully local deployment (default) |
+| `--openai` | Use OpenAI APIs. Requires `OPENAI_API_KEY` |
+| `--anthropic` | Use Anthropic APIs. Requires `ANTHROPIC_API_KEY` |
+| `--gemini` | Use Google Gemini APIs. Requires `GEMINI_API_KEY` |
+| `--gpu` | Enable NVIDIA GPU support for Ollama (local mode only) |
+| `--dir NAME` | Installation directory (default: `magec`) |
+
+### Once running
+
+- **Admin UI** → `http://localhost:8081` — configure your agents, backends, memory, and clients
+- **Voice UI** → `http://localhost:8080` — start chatting
+
+### Managing the deployment
 
 ```bash
-make infra           # Start PostgreSQL + Redis
-cp config.example.yaml config.yaml
-make dev             # Build and run (includes Admin UI)
+cd magec                        # or your --dir path
+docker compose logs -f          # follow logs
+docker compose down             # stop everything
+docker compose up -d            # start again
 ```
-
-Once running:
-
-- **Admin UI** → `http://localhost:8081` — configure your agents
-- **Voice UI** → `http://localhost:8080` — start chatting

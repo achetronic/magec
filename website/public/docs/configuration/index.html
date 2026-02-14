@@ -30,11 +30,11 @@
     </button>
     <ul class="nav__links">
       
+      <li><a href="/magec/" class="nav__link">Quick Start</a></li>
+      
       <li><a href="/magec/#features" class="nav__link">Features</a></li>
       
       <li><a href="/magec/#screenshots" class="nav__link">Screenshots</a></li>
-      
-      <li><a href="/magec/#quickstart" class="nav__link">Quick Start</a></li>
       
       <li><a href="/magec/docs/" class="nav__link">Docs</a></li>
       
@@ -61,8 +61,6 @@
         <a href="/magec/docs/getting-started/" class="docs-sidebar__link">Installation</a>
         
         <a href="/magec/docs/configuration/" class="docs-sidebar__link docs-sidebar__link--active">Configuration</a>
-        
-        <a href="/magec/docs/seeds/" class="docs-sidebar__link">Store Seeds</a>
         
       </div>
       
@@ -111,8 +109,6 @@
         
         <a href="/magec/docs/voice-system/" class="docs-sidebar__link">Voice System</a>
         
-        <a href="/magec/docs/docker/" class="docs-sidebar__link">Docker</a>
-        
       </div>
       
       
@@ -123,7 +119,34 @@
         Navigation
       </button>
       <h1>Configuration</h1>
-      <p>Magec uses a YAML config file for server infrastructure. All resources (agents, backends, memory, tools, clients) are managed through the Admin UI and stored in <code>data/store.json</code>.</p>
+      <p>Magec splits configuration into two separate layers:</p>
+<table>
+  <thead>
+      <tr>
+          <th>Layer</th>
+          <th>File</th>
+          <th>Purpose</th>
+          <th>Managed by</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td><strong>Infrastructure</strong></td>
+          <td><code>config.yaml</code></td>
+          <td>Server ports, logging, voice/ONNX settings</td>
+          <td>You (text editor or env vars)</td>
+      </tr>
+      <tr>
+          <td><strong>Resources</strong></td>
+          <td><code>data/store.json</code></td>
+          <td>Agents, backends, memory, MCP servers, clients, commands, flows</td>
+          <td>Admin UI or Admin API</td>
+      </tr>
+  </tbody>
+</table>
+<p><code>config.yaml</code> is read once at startup. <code>data/store.json</code> is read/written at runtime — changes made through the Admin UI take effect immediately without restarting the server.</p>
+<h2 id="configyaml--infrastructure">config.yaml — Infrastructure</h2>
+<p>This file controls <strong>only</strong> how the server itself runs. It has nothing to do with agents, backends, or any AI resource.</p>
 <div class="highlight"><pre tabindex="0" class="chroma"><code class="language-yaml" data-lang="yaml"><span class="line"><span class="cl"><span class="nt">server</span><span class="p">:</span><span class="w">
 </span></span></span><span class="line"><span class="cl"><span class="w">  </span><span class="nt">host</span><span class="p">:</span><span class="w"> </span><span class="m">0.0.0.0</span><span class="w">
 </span></span></span><span class="line"><span class="cl"><span class="w">  </span><span class="nt">port</span><span class="p">:</span><span class="w"> </span><span class="m">8080</span><span class="w">          </span><span class="c"># Voice UI + User API</span><span class="w">
@@ -137,8 +160,8 @@
 </span></span></span><span class="line"><span class="cl"><span class="nt">log</span><span class="p">:</span><span class="w">
 </span></span></span><span class="line"><span class="cl"><span class="w">  </span><span class="nt">level</span><span class="p">:</span><span class="w"> </span><span class="l">info        </span><span class="w"> </span><span class="c"># debug, info, warn, error</span><span class="w">
 </span></span></span><span class="line"><span class="cl"><span class="w">  </span><span class="nt">format</span><span class="p">:</span><span class="w"> </span><span class="l">console    </span><span class="w"> </span><span class="c"># console, json</span><span class="w">
-</span></span></span></code></pre></div><p>Config values support <code>${VAR}</code> syntax for environment variable expansion.</p>
-<h2 id="server-block">Server block</h2>
+</span></span></span></code></pre></div><p>Values support <code>${VAR}</code> syntax for environment variable expansion.</p>
+<h3 id="server-block">Server block</h3>
 <table>
   <thead>
       <tr>
@@ -165,7 +188,7 @@
       </tr>
   </tbody>
 </table>
-<h2 id="voice-block">Voice block</h2>
+<h3 id="voice-block">Voice block</h3>
 <table>
   <thead>
       <tr>
@@ -187,7 +210,7 @@
       </tr>
   </tbody>
 </table>
-<h2 id="log-block">Log block</h2>
+<h3 id="log-block">Log block</h3>
 <table>
   <thead>
       <tr>
@@ -209,6 +232,62 @@
       </tr>
   </tbody>
 </table>
+<h2 id="datastorejson--resources">data/store.json — Resources</h2>
+<p>Magec uses <code>data/store.json</code> as its internal database. Every resource you create, edit, or delete through the Admin UI is persisted to this file automatically. The server keeps it in memory for fast access and writes it to disk on every change — no external database is needed for the store itself.</p>
+<p>You should never need to edit <code>store.json</code> by hand. All resources are managed at runtime through the <strong>Admin UI</strong> at <code>http://localhost:8081</code> or the <strong>Admin REST API</strong>.</p>
+<table>
+  <thead>
+      <tr>
+          <th>Resource</th>
+          <th>Description</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td><strong>Backends</strong></td>
+          <td>AI provider connections (OpenAI, Anthropic, Gemini, Ollama)</td>
+      </tr>
+      <tr>
+          <td><strong>Memory</strong></td>
+          <td>Session storage (Redis) and long-term memory (PostgreSQL + pgvector)</td>
+      </tr>
+      <tr>
+          <td><strong>MCP Servers</strong></td>
+          <td>External tool servers via Model Context Protocol</td>
+      </tr>
+      <tr>
+          <td><strong>Agents</strong></td>
+          <td>Independent units with their own LLM, memory, voice, tools, and prompts</td>
+      </tr>
+      <tr>
+          <td><strong>Commands</strong></td>
+          <td>Reusable prompts referenced by cron and webhook clients</td>
+      </tr>
+      <tr>
+          <td><strong>Clients</strong></td>
+          <td>Access points (Voice UI, Telegram, webhooks, cron) with token-based auth</td>
+      </tr>
+      <tr>
+          <td><strong>Flows</strong></td>
+          <td>Multi-agent workflows (sequential, parallel, loop)</td>
+      </tr>
+  </tbody>
+</table>
+<p>On first run, the store starts empty. You configure everything from the Admin UI.</p>
+
+
+
+<div class="docs-callout docs-callout--info">
+  <code>store.json</code> supports <code>${VAR}</code> expansion for credentials, so you can use environment variables instead of hardcoding API keys or tokens.
+</div>
+
+
+
+
+<div class="docs-callout docs-callout--info">
+  To back up your Magec configuration, just copy <code>data/store.json</code>. To restore it, put it back and restart the server.
+</div>
+
 
     </div>
   </div>
