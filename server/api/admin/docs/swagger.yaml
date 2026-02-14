@@ -3,7 +3,7 @@ definitions:
   admin.ClientTypeInfo:
     properties:
       configSchema:
-        $ref: '#/definitions/client.Schema'
+        $ref: '#/definitions/clients.Schema'
       displayName:
         example: Telegram
         type: string
@@ -34,7 +34,7 @@ definitions:
         example: redis
         type: string
     type: object
-  client.Schema:
+  clients.Schema:
     additionalProperties: true
     type: object
   memory.HealthResult:

@@ -10,7 +10,11 @@ server:
   host: 0.0.0.0 # Use 127.0.0.1 to restrict to localhost only
   port: 8080
   adminPort: 8081 # Admin UI + API (separate port for security)
-  # onnxLibraryPath: /usr/lib/libonnxruntime.so  # Custom ONNX library path
+
+voice:
+  ui:
+    enabled: true # Enable/disable Voice UI, voice routes and static files (default: true)
+  # onnxLibraryPath: /usr/lib/libonnxruntime.so  # Custom ONNX Runtime library path
 
 log:
   level: info # debug, info, warn, error

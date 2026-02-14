@@ -35,15 +35,26 @@ const (
 // All resources (agents, backends, MCPs, memory, etc.) are managed via the admin API and persisted in the store.
 type Config struct {
 	Server Server `yaml:"server"`
+	Voice  Voice  `yaml:"voice"`
 	Log    Log    `yaml:"log"`
 }
 
 // Server holds network and runtime settings for the HTTP servers.
 type Server struct {
-	Host            string `yaml:"host"`
-	Port            int    `yaml:"port"`
-	AdminPort       int    `yaml:"adminPort"`
-	OnnxLibraryPath string `yaml:"onnxLibraryPath"`
+	Host      string `yaml:"host"`
+	Port      int    `yaml:"port"`
+	AdminPort int    `yaml:"adminPort"`
+}
+
+// Voice holds voice-related configuration (UI, ONNX runtime, etc.).
+type Voice struct {
+	UI              VoiceUI `yaml:"ui"`
+	OnnxLibraryPath string  `yaml:"onnxLibraryPath"`
+}
+
+// VoiceUI controls whether the Voice UI frontend and voice routes are enabled.
+type VoiceUI struct {
+	Enabled *bool `yaml:"enabled"`
 }
 
 // Log configures the application logger
@@ -118,5 +129,9 @@ func (c *Config) applyDefaults() {
 	}
 	if c.Log.Format == "" {
 		c.Log.Format = "console"
+	}
+	if c.Voice.UI.Enabled == nil {
+		enabled := true
+		c.Voice.UI.Enabled = &enabled
 	}
 }

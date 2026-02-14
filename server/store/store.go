@@ -638,8 +638,10 @@ func (s *Store) loadFromDisk() error {
 		return err
 	}
 
+	expanded := os.ExpandEnv(string(data))
+
 	var storeData StoreData
-	if err := json.Unmarshal(data, &storeData); err != nil {
+	if err := json.Unmarshal([]byte(expanded), &storeData); err != nil {
 		return err
 	}
 

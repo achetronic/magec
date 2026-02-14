@@ -110,7 +110,9 @@ func main() {
 
 	httpMux := http.NewServeMux()
 	httpMux.Handle("/api/v1/agent/", agentRouter)
-	httpMux.Handle("/api/v1/voice/", newVoiceHandler(dataStore, agentRouter))
+	if *cfg.Voice.UI.Enabled {
+		httpMux.Handle("/api/v1/voice/", newVoiceHandler(dataStore, agentRouter))
+	}
 
 	userAPI := user.New(dataStore)
 	httpMux.HandleFunc("/api/v1/health", userAPI.Health)
@@ -122,48 +124,52 @@ func main() {
 	))
 
 	// Voice events WebSocket handler (wake word + VAD)
-	const (
-		voiceModelsPath        = "models"
-		voicePretrainedPath    = "pretrained"
-		defaultOnnxLibraryPath = "/usr/lib/libonnxruntime.so"
-	)
-	onnxLibraryPath := defaultOnnxLibraryPath
-	if cfg.Server.OnnxLibraryPath != "" {
-		onnxLibraryPath = cfg.Server.OnnxLibraryPath
-	}
 	var voiceDetector *voice.Detector
-	wakeWordModelsCfg, err := config.LoadWakeWordModels(voiceModelsPath)
-	if err != nil {
-		slog.Warn("Wake word models not available", "error", err)
-	} else if len(wakeWordModelsCfg.Models) == 0 {
-		slog.Warn("No wake word models configured in wakewords.yaml")
-	} else {
-		models := make([]voice.ModelConfig, len(wakeWordModelsCfg.Models))
-		for i, m := range wakeWordModelsCfg.Models {
-			models[i] = voice.ModelConfig{
-				ID:        m.ID,
-				Name:      m.Name,
-				File:      fmt.Sprintf("%s/%s", voiceModelsPath, m.File),
-				Phrase:    m.Phrase,
-				Threshold: m.Threshold,
+	if *cfg.Voice.UI.Enabled {
+		const (
+			voiceModelsPath        = "models"
+			voicePretrainedPath    = "pretrained"
+			defaultOnnxLibraryPath = "/usr/lib/libonnxruntime.so"
+		)
+		onnxLibraryPath := defaultOnnxLibraryPath
+		if cfg.Voice.OnnxLibraryPath != "" {
+			onnxLibraryPath = cfg.Voice.OnnxLibraryPath
+		}
+		wakeWordModelsCfg, err := config.LoadWakeWordModels(voiceModelsPath)
+		if err != nil {
+			slog.Warn("Wake word models not available", "error", err)
+		} else if len(wakeWordModelsCfg.Models) == 0 {
+			slog.Warn("No wake word models configured in wakewords.yaml")
+		} else {
+			models := make([]voice.ModelConfig, len(wakeWordModelsCfg.Models))
+			for i, m := range wakeWordModelsCfg.Models {
+				models[i] = voice.ModelConfig{
+					ID:        m.ID,
+					Name:      m.Name,
+					File:      fmt.Sprintf("%s/%s", voiceModelsPath, m.File),
+					Phrase:    m.Phrase,
+					Threshold: m.Threshold,
+				}
+			}
+
+			voiceDetector = voice.NewDetector(voice.DetectorConfig{
+				MelspecModelPath:   fmt.Sprintf("%s/mel-spectrogram.onnx", voicePretrainedPath),
+				EmbeddingModelPath: fmt.Sprintf("%s/speech-embedding.onnx", voicePretrainedPath),
+				VADModelPath:       fmt.Sprintf("%s/silero-vad.onnx", voicePretrainedPath),
+				Models:             models,
+				OnnxLibraryPath:    onnxLibraryPath,
+			}, slog.Default())
+
+			if err := voiceDetector.Load(); err != nil {
+				slog.Warn("Failed to load voice detection models", "error", err)
+			} else {
+				voiceHandler := voice.NewHandler(voiceDetector, slog.Default())
+				httpMux.Handle("/api/v1/voice/events", voiceHandler)
+				slog.Info("Voice detection enabled", "wakeWordModels", len(models), "vadEnabled", true)
 			}
 		}
-
-		voiceDetector = voice.NewDetector(voice.DetectorConfig{
-			MelspecModelPath:   fmt.Sprintf("%s/mel-spectrogram.onnx", voicePretrainedPath),
-			EmbeddingModelPath: fmt.Sprintf("%s/speech-embedding.onnx", voicePretrainedPath),
-			VADModelPath:       fmt.Sprintf("%s/silero-vad.onnx", voicePretrainedPath),
-			Models:             models,
-			OnnxLibraryPath:    onnxLibraryPath,
-		}, slog.Default())
-
-		if err := voiceDetector.Load(); err != nil {
-			slog.Warn("Failed to load voice detection models", "error", err)
-		} else {
-			voiceHandler := voice.NewHandler(voiceDetector, slog.Default())
-			httpMux.Handle("/api/v1/voice/events", voiceHandler)
-			slog.Info("Voice detection enabled", "wakeWordModels", len(models), "vadEnabled", true)
-		}
+	} else {
+		slog.Info("Voice UI disabled via config")
 	}
 
 	// Watch for store changes and hot-reload the agent
@@ -183,7 +189,9 @@ func main() {
 	httpMux.Handle("/api/v1/webhooks/", http.StripPrefix("/api/v1/webhooks", webhookHandler))
 
 	// Static files
-	httpMux.Handle("/", http.FileServer(http.Dir("voice-ui")))
+	if *cfg.Voice.UI.Enabled {
+		httpMux.Handle("/", http.FileServer(http.Dir("voice-ui")))
+	}
 
 	addr := fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port)
 	server := &http.Server{

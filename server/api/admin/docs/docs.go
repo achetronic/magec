@@ -1505,7 +1505,7 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "configSchema": {
-                    "$ref": "#/definitions/client.Schema"
+                    "$ref": "#/definitions/clients.Schema"
                 },
                 "displayName": {
                     "type": "string",
@@ -1551,7 +1551,7 @@ const docTemplate = `{
                 }
             }
         },
-        "client.Schema": {
+        "clients.Schema": {
             "type": "object",
             "additionalProperties": true
         },

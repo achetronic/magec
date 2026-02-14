@@ -74,3 +74,27 @@ manual. La librería:
 
 **No usar**: validadores manuales de `required`/`oneOf` ni helpers tipo `matchOneOf`
 o `jsonEqual`. Delegar siempre en la librería.
+
+---
+
+## Configuración de voz como bloque independiente
+
+**Fecha**: 2026-02-14
+**Estado**: Implementado
+
+La configuración relacionada con voz (UI, ONNX runtime) vive en su propio bloque
+`voice` en el YAML, **no** dentro de `server`. ONNX Runtime se usa para modelos de
+voz de distintos tipos (wake word, VAD, embeddings), así que pertenece al dominio
+de voz, no al de infraestructura HTTP.
+
+```yaml
+voice:
+  ui:
+    enabled: true          # Activa/desactiva Voice UI, rutas y static files
+  onnxLibraryPath: ""      # Ruta a libonnxruntime.so (default: /usr/lib/libonnxruntime.so)
+```
+
+El struct en Go usa sub-structs: `Config.Voice.UI.Enabled` (*bool, default true)
+y `Config.Voice.OnnxLibraryPath` (string).
+
+**No poner**: campos de voz dentro de `Server` — ese bloque es solo red/puertos.

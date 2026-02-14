@@ -135,6 +135,19 @@ See `.agents/ADK_TOOLS.md` for full details on `toolconfirmation`.
 
 ---
 
+---
+
+### Gestión de credenciales desde la Admin UI
+
+**Problema**: Las credenciales (API keys de backends, bot tokens de Telegram, etc.) están en claro en `data/store.json`. Ahora se soporta `${VAR}` via `os.ExpandEnv()` al cargar el store, pero no hay forma de gestionar esas variables desde la UI.
+
+**Objetivo**: Diseñar un mecanismo para que la Admin UI permita definir/editar credenciales sin exponerlas en el JSON. Opciones a evaluar:
+- `.env` file que el servidor cargue al arrancar + UI para editarlo
+- Secrets store separado (fichero cifrado, vault externo)
+- Campos `x-format: "password"` en los schemas ya marcan qué campos son sensibles — aprovechar eso para enmascarar/persistir de forma diferente
+
+---
+
 ### Add More TTS Voices Configuration UI
 
 Currently voice selection is server-side only. Could add UI for users to preview and select voices if backend supports it.

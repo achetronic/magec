@@ -1502,7 +1502,7 @@
             "type": "object",
             "properties": {
                 "configSchema": {
-                    "$ref": "#/definitions/client.Schema"
+                    "$ref": "#/definitions/clients.Schema"
                 },
                 "displayName": {
                     "type": "string",
@@ -1548,7 +1548,7 @@
                 }
             }
         },
-        "client.Schema": {
+        "clients.Schema": {
             "type": "object",
             "additionalProperties": true
         },
