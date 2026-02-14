@@ -1,0 +1,145 @@
+baseURL = 'https://achetronic.github.io/magec/'
+languageCode = 'en'
+title = 'Magec — Self-hosted Multi-Agent AI Platform'
+theme = 'magec'
+
+[params]
+  description = 'Define multiple AI agents, chain them into workflows, connect tools. Voice, Telegram, webhooks, cron. Your server, your rules.'
+  github = 'https://github.com/achetronic/magec'
+
+[markup]
+  [markup.highlight]
+    noClasses = false
+    style = 'monokai'
+  [markup.goldmark]
+    [markup.goldmark.renderer]
+      unsafe = true
+
+[menu]
+  [[menu.main]]
+    name = 'Features'
+    url = '/#features'
+    weight = 1
+  [[menu.main]]
+    name = 'Screenshots'
+    url = '/#screenshots'
+    weight = 2
+  [[menu.main]]
+    name = 'Quick Start'
+    url = '/#quickstart'
+    weight = 3
+  [[menu.main]]
+    name = 'Docs'
+    url = '/docs/'
+    weight = 4
+
+  # Docs sidebar menu
+  [[menu.docs]]
+    identifier = 'getting-started'
+    name = 'Getting Started'
+    weight = 1
+  [[menu.docs]]
+    name = 'Installation'
+    parent = 'getting-started'
+    url = '/docs/getting-started/'
+    weight = 1
+  [[menu.docs]]
+    name = 'Configuration'
+    parent = 'getting-started'
+    url = '/docs/configuration/'
+    weight = 2
+  [[menu.docs]]
+    name = 'Store Seeds'
+    parent = 'getting-started'
+    url = '/docs/seeds/'
+    weight = 3
+
+  [[menu.docs]]
+    identifier = 'core'
+    name = 'Core Concepts'
+    weight = 2
+  [[menu.docs]]
+    name = 'Agents'
+    parent = 'core'
+    url = '/docs/agents/'
+    weight = 1
+  [[menu.docs]]
+    name = 'Agentic Flows'
+    parent = 'core'
+    url = '/docs/flows/'
+    weight = 2
+  [[menu.docs]]
+    name = 'AI Backends'
+    parent = 'core'
+    url = '/docs/backends/'
+    weight = 3
+  [[menu.docs]]
+    name = 'Memory'
+    parent = 'core'
+    url = '/docs/memory/'
+    weight = 4
+  [[menu.docs]]
+    name = 'MCP Tools'
+    parent = 'core'
+    url = '/docs/mcp/'
+    weight = 5
+  [[menu.docs]]
+    name = 'Commands'
+    parent = 'core'
+    url = '/docs/commands/'
+    weight = 6
+
+  [[menu.docs]]
+    identifier = 'clients'
+    name = 'Clients'
+    weight = 3
+  [[menu.docs]]
+    name = 'Voice UI'
+    parent = 'clients'
+    url = '/docs/voice-ui/'
+    weight = 1
+  [[menu.docs]]
+    name = 'Telegram'
+    parent = 'clients'
+    url = '/docs/telegram/'
+    weight = 2
+  [[menu.docs]]
+    name = 'Webhooks'
+    parent = 'clients'
+    url = '/docs/webhooks/'
+    weight = 3
+  [[menu.docs]]
+    name = 'Cron'
+    parent = 'clients'
+    url = '/docs/cron/'
+    weight = 4
+
+  [[menu.docs]]
+    identifier = 'reference'
+    name = 'Reference'
+    weight = 4
+  [[menu.docs]]
+    name = 'API Reference'
+    parent = 'reference'
+    url = '/docs/api/'
+    weight = 1
+  [[menu.docs]]
+    name = 'Voice System'
+    parent = 'reference'
+    url = '/docs/voice-system/'
+    weight = 2
+  [[menu.docs]]
+    name = 'Docker'
+    parent = 'reference'
+    url = '/docs/docker/'
+    weight = 3
+  [[menu.docs]]
+    name = 'Development'
+    parent = 'reference'
+    url = '/docs/development/'
+    weight = 4
+
+[outputs]
+  home = ['HTML']
+  section = ['HTML']
+  page = ['HTML']

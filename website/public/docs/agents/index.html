@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Agents — Magec — Self-hosted Multi-Agent AI Platform</title>
+  <meta name="description" content="Define multiple AI agents, chain them into workflows, connect tools. Voice, Telegram, webhooks, cron. Your server, your rules.">
+  <meta name="theme-color" content="#1c1917">
+  <link rel="icon" type="image/svg+xml" href="/magec/img/logo.svg">
+  <link rel="stylesheet" href="/magec/css/style.css">
+  <meta property="og:title" content="Agents">
+  <meta property="og:description" content="Define multiple AI agents, chain them into workflows, connect tools. Voice, Telegram, webhooks, cron. Your server, your rules.">
+  <meta property="og:type" content="website">
+</head>
+<body>
+  <nav class="nav scrolled">
+  <div class="nav__inner">
+    <a href="/" class="nav__logo">
+      <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <defs><linearGradient id="ng" x1="0%" y1="100%" x2="100%" y2="0%"><stop offset="0%" stop-color="#f59e0b"/><stop offset="100%" stop-color="#f87171"/></linearGradient></defs>
+        <circle cx="32" cy="32" r="26" fill="url(#ng)"/>
+        <circle cx="20" cy="24" r="2" fill="white" opacity=".9"/><circle cx="26" cy="18" r="1.5" fill="white" opacity=".7"/>
+        <circle cx="40" cy="22" r="1.8" fill="white" opacity=".8"/><circle cx="46" cy="30" r="1.2" fill="white" opacity=".6"/>
+        <circle cx="38" cy="38" r="2" fill="white" opacity=".75"/><circle cx="24" cy="40" r="1.4" fill="white" opacity=".65"/>
+      </svg>
+      Magec
+    </a>
+    <button class="nav__toggle" aria-label="Toggle menu">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+    </button>
+    <ul class="nav__links">
+      
+      <li><a href="/magec/#features" class="nav__link">Features</a></li>
+      
+      <li><a href="/magec/#screenshots" class="nav__link">Screenshots</a></li>
+      
+      <li><a href="/magec/#quickstart" class="nav__link">Quick Start</a></li>
+      
+      <li><a href="/magec/docs/" class="nav__link">Docs</a></li>
+      
+      <li>
+        <a href="https://github.com/achetronic/magec" class="nav__cta" target="_blank" rel="noopener">
+          <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+          GitHub
+        </a>
+      </li>
+    </ul>
+  </div>
+</nav>
+
+  <main>
+    
+<div class="container">
+  <div class="docs-layout">
+    <aside class="docs-sidebar">
+      
+      
+      <div class="docs-sidebar__group">
+        <div class="docs-sidebar__label">Getting Started</div>
+        
+        <a href="/magec/docs/getting-started/" class="docs-sidebar__link">Installation</a>
+        
+        <a href="/magec/docs/configuration/" class="docs-sidebar__link">Configuration</a>
+        
+        <a href="/magec/docs/seeds/" class="docs-sidebar__link">Store Seeds</a>
+        
+      </div>
+      
+      
+      
+      <div class="docs-sidebar__group">
+        <div class="docs-sidebar__label">Core Concepts</div>
+        
+        <a href="/magec/docs/agents/" class="docs-sidebar__link docs-sidebar__link--active">Agents</a>
+        
+        <a href="/magec/docs/flows/" class="docs-sidebar__link">Agentic Flows</a>
+        
+        <a href="/magec/docs/backends/" class="docs-sidebar__link">AI Backends</a>
+        
+        <a href="/magec/docs/memory/" class="docs-sidebar__link">Memory</a>
+        
+        <a href="/magec/docs/mcp/" class="docs-sidebar__link">MCP Tools</a>
+        
+        <a href="/magec/docs/commands/" class="docs-sidebar__link">Commands</a>
+        
+      </div>
+      
+      
+      
+      <div class="docs-sidebar__group">
+        <div class="docs-sidebar__label">Clients</div>
+        
+        <a href="/magec/docs/voice-ui/" class="docs-sidebar__link">Voice UI</a>
+        
+        <a href="/magec/docs/telegram/" class="docs-sidebar__link">Telegram</a>
+        
+        <a href="/magec/docs/webhooks/" class="docs-sidebar__link">Webhooks</a>
+        
+        <a href="/magec/docs/cron/" class="docs-sidebar__link">Cron</a>
+        
+      </div>
+      
+      
+      
+      <div class="docs-sidebar__group">
+        <div class="docs-sidebar__label">Reference</div>
+        
+        <a href="/magec/docs/api/" class="docs-sidebar__link">API Reference</a>
+        
+        <a href="/magec/docs/voice-system/" class="docs-sidebar__link">Voice System</a>
+        
+        <a href="/magec/docs/docker/" class="docs-sidebar__link">Docker</a>
+        
+        <a href="/magec/docs/development/" class="docs-sidebar__link">Development</a>
+        
+      </div>
+      
+      
+    </aside>
+    <div class="docs-content">
+      <button class="docs-sidebar-toggle btn btn--ghost">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+        Navigation
+      </button>
+      <h1>Agents</h1>
+      <p>Each agent is an independent AI entity with its own LLM backend, system prompt, memory, voice settings, and tools. Agents are created and managed from the Admin UI.</p>
+<div class="screenshots" style="margin-bottom: 2rem;">
+
+
+
+<img src="/magec/img/screenshots/admin-agents.png" alt="Admin UI — Agents list" class="screenshot screenshot--desktop">
+
+</div>
+<h2 id="agent-properties">Agent properties</h2>
+<table>
+  <thead>
+      <tr>
+          <th>Field</th>
+          <th>Description</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td><code>name</code></td>
+          <td>Display name shown in UIs and logs</td>
+      </tr>
+      <tr>
+          <td><code>model</code></td>
+          <td>Model identifier (e.g. <code>gpt-4.1</code>, <code>claude-sonnet-4-20250514</code>, <code>qwen3:8b</code>)</td>
+      </tr>
+      <tr>
+          <td><code>systemPrompt</code></td>
+          <td>Instructions that define the agent&rsquo;s behavior and personality</td>
+      </tr>
+      <tr>
+          <td><code>backendId</code></td>
+          <td>Which AI backend to use for LLM inference</td>
+      </tr>
+      <tr>
+          <td><code>embeddingsBackendId</code></td>
+          <td>Backend for embeddings (long-term memory search)</td>
+      </tr>
+      <tr>
+          <td><code>embeddingsModel</code></td>
+          <td>Embedding model (e.g. <code>nomic-embed-text</code>, <code>text-embedding-3-small</code>)</td>
+      </tr>
+      <tr>
+          <td><code>sttBackendId</code></td>
+          <td>Backend for speech-to-text</td>
+      </tr>
+      <tr>
+          <td><code>sttModel</code></td>
+          <td>STT model (e.g. <code>whisper-1</code>)</td>
+      </tr>
+      <tr>
+          <td><code>ttsBackendId</code></td>
+          <td>Backend for text-to-speech</td>
+      </tr>
+      <tr>
+          <td><code>ttsModel</code></td>
+          <td>TTS model (e.g. <code>tts-1</code>)</td>
+      </tr>
+      <tr>
+          <td><code>ttsVoice</code></td>
+          <td>Voice name for TTS output</td>
+      </tr>
+      <tr>
+          <td><code>ttsSpeed</code></td>
+          <td>TTS playback speed (e.g. <code>1.0</code>)</td>
+      </tr>
+      <tr>
+          <td><code>sessionMemoryId</code></td>
+          <td>Redis memory provider for conversation history</td>
+      </tr>
+      <tr>
+          <td><code>longTermMemoryId</code></td>
+          <td>PostgreSQL/pgvector provider for semantic memory</td>
+      </tr>
+      <tr>
+          <td><code>mcpIds</code></td>
+          <td>List of MCP server IDs to connect as tools</td>
+      </tr>
+  </tbody>
+</table>
+
+
+
+<div class="docs-callout">
+  <strong>Hot-reload:</strong> Changes to agents take effect immediately — no server restart needed.
+</div>
+
+
+    </div>
+  </div>
+</div>
+
+  </main>
+  <div id="lightbox" class="lightbox">
+  <button class="lightbox__close" aria-label="Close">✕</button>
+  <img id="lightbox-img" src="" alt="">
+</div>
+
+  <footer class="footer">
+  <div class="container">
+    <div class="footer__inner">
+      <div class="footer__brand">
+        <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" width="20" height="20">
+          <defs><linearGradient id="fg" x1="0%" y1="100%" x2="100%" y2="0%"><stop offset="0%" stop-color="#f59e0b"/><stop offset="100%" stop-color="#f87171"/></linearGradient></defs>
+          <circle cx="32" cy="32" r="26" fill="url(#fg)"/>
+          <circle cx="20" cy="24" r="2" fill="white" opacity=".9"/><circle cx="40" cy="22" r="1.8" fill="white" opacity=".8"/>
+          <circle cx="38" cy="38" r="2" fill="white" opacity=".75"/>
+        </svg>
+        Magec · Apache 2.0
+      </div>
+      <ul class="footer__links">
+        <li><a href="https://github.com/achetronic/magec" target="_blank" rel="noopener">GitHub</a></li>
+        <li><a href="/magec/docs/">Docs</a></li>
+        <li><a href="https://github.com/achetronic/magec/issues" target="_blank" rel="noopener">Issues</a></li>
+      </ul>
+    </div>
+  </div>
+</footer>
+
+  <script type="module" src="/magec/js/main.js"></script>
+</body>
+</html>

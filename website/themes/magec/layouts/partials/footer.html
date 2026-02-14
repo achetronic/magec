@@ -1,0 +1,20 @@
+<footer class="footer">
+  <div class="container">
+    <div class="footer__inner">
+      <div class="footer__brand">
+        <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" width="20" height="20">
+          <defs><linearGradient id="fg" x1="0%" y1="100%" x2="100%" y2="0%"><stop offset="0%" stop-color="#f59e0b"/><stop offset="100%" stop-color="#f87171"/></linearGradient></defs>
+          <circle cx="32" cy="32" r="26" fill="url(#fg)"/>
+          <circle cx="20" cy="24" r="2" fill="white" opacity=".9"/><circle cx="40" cy="22" r="1.8" fill="white" opacity=".8"/>
+          <circle cx="38" cy="38" r="2" fill="white" opacity=".75"/>
+        </svg>
+        Magec · Apache 2.0
+      </div>
+      <ul class="footer__links">
+        <li><a href="{{ .Site.Params.github }}" target="_blank" rel="noopener">GitHub</a></li>
+        <li><a href="{{ "docs/" | relURL }}">Docs</a></li>
+        <li><a href="{{ .Site.Params.github }}/issues" target="_blank" rel="noopener">Issues</a></li>
+      </ul>
+    </div>
+  </div>
+</footer>

@@ -1,0 +1,21 @@
+---
+title: "AI Backends"
+---
+
+Backends represent connections to AI providers. Each backend can serve as LLM, embedding provider, STT (Whisper-compatible), or TTS — and you assign them per-agent.
+
+<div class="screenshots" style="margin-bottom: 2rem;">
+{{< screenshot src="img/screenshots/admin-backends.png" alt="Admin UI — Backends" >}}
+</div>
+
+## Backend types
+
+| Type | Provider | Required fields |
+|------|----------|-----------------|
+| `openai` | OpenAI, Ollama, LM Studio, vLLM, TGI, OpenRouter, any OpenAI-compatible | `url` and/or `apiKey` |
+| `anthropic` | Anthropic Claude | `apiKey` |
+| `gemini` | Google Gemini | `apiKey` |
+
+{{< callout type="info" >}}
+**Tip:** The `openai` type works with any API that follows the OpenAI chat completions format. Point it at Ollama (`http://ollama:11434/v1`), LM Studio, vLLM, or any compatible server.
+{{< /callout >}}

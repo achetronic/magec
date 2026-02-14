@@ -1,0 +1,6 @@
+{{ $type := .Get "type" | default "warning" }}
+{{ $class := "docs-callout" }}
+{{ if eq $type "info" }}{{ $class = "docs-callout docs-callout--info" }}{{ end }}
+<div class="{{ $class }}">
+  {{ .Inner | markdownify }}
+</div>

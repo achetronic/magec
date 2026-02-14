@@ -1,0 +1,35 @@
+{{ define "main" }}
+<div class="container">
+  <div class="docs-layout">
+    <aside class="docs-sidebar">
+      {{ range .Site.Menus.docs }}
+      {{ if .HasChildren }}
+      <div class="docs-sidebar__group">
+        <div class="docs-sidebar__label">{{ .Name }}</div>
+        {{ range .Children }}
+        <a href="{{ .URL }}" class="docs-sidebar__link{{ if eq $.RelPermalink .URL }} docs-sidebar__link--active{{ end }}">{{ .Name }}</a>
+        {{ end }}
+      </div>
+      {{ end }}
+      {{ end }}
+    </aside>
+    <div class="docs-content">
+      <h1>Documentation</h1>
+      <p>Magec is a self-hosted multi-agent AI platform. Choose a section from the sidebar to get started.</p>
+      <div class="docs-callout">
+        <strong>New to Magec?</strong> Start with the <a href="{{ "docs/getting-started/" | relURL }}">Getting Started</a> guide.
+      </div>
+      {{ range .Site.Menus.docs }}
+      {{ if .HasChildren }}
+      <h2>{{ .Name }}</h2>
+      <ul>
+        {{ range .Children }}
+        <li><a href="{{ .URL }}">{{ .Name }}</a></li>
+        {{ end }}
+      </ul>
+      {{ end }}
+      {{ end }}
+    </div>
+  </div>
+</div>
+{{ end }}

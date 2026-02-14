@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta name="generator" content="Hugo 0.155.3">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Magec — Self-hosted Multi-Agent AI Platform</title>
+  <meta name="description" content="Define multiple AI agents, chain them into workflows, connect tools. Voice, Telegram, webhooks, cron. Your server, your rules.">
+  <meta name="theme-color" content="#1c1917">
+  <link rel="icon" type="image/svg+xml" href="/magec/img/logo.svg">
+  <link rel="stylesheet" href="/magec/css/style.css">
+  <meta property="og:title" content="Magec — Self-hosted Multi-Agent AI Platform">
+  <meta property="og:description" content="Define multiple AI agents, chain them into workflows, connect tools. Voice, Telegram, webhooks, cron. Your server, your rules.">
+  <meta property="og:type" content="website">
+</head>
+<body>
+  <nav class="nav">
+  <div class="nav__inner">
+    <a href="/" class="nav__logo">
+      <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <defs><linearGradient id="ng" x1="0%" y1="100%" x2="100%" y2="0%"><stop offset="0%" stop-color="#f59e0b"/><stop offset="100%" stop-color="#f87171"/></linearGradient></defs>
+        <circle cx="32" cy="32" r="26" fill="url(#ng)"/>
+        <circle cx="20" cy="24" r="2" fill="white" opacity=".9"/><circle cx="26" cy="18" r="1.5" fill="white" opacity=".7"/>
+        <circle cx="40" cy="22" r="1.8" fill="white" opacity=".8"/><circle cx="46" cy="30" r="1.2" fill="white" opacity=".6"/>
+        <circle cx="38" cy="38" r="2" fill="white" opacity=".75"/><circle cx="24" cy="40" r="1.4" fill="white" opacity=".65"/>
+      </svg>
+      Magec
+    </a>
+    <button class="nav__toggle" aria-label="Toggle menu">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+    </button>
+    <ul class="nav__links">
+      
+      <li><a href="/magec/#features" class="nav__link">Features</a></li>
+      
+      <li><a href="/magec/#screenshots" class="nav__link">Screenshots</a></li>
+      
+      <li><a href="/magec/#quickstart" class="nav__link">Quick Start</a></li>
+      
+      <li><a href="/magec/docs/" class="nav__link">Docs</a></li>
+      
+      <li>
+        <a href="https://github.com/achetronic/magec" class="nav__cta" target="_blank" rel="noopener">
+          <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+          GitHub
+        </a>
+      </li>
+    </ul>
+  </div>
+</nav>
+
+  <main>
+    
+<!-- HERO -->
+<section class="hero">
+  <canvas id="hero-orb" class="hero__orb"></canvas>
+  <div class="hero__content">
+    <div class="hero__badge">✦ Self-hosted · Open Source · Apache 2.0</div>
+    <h1 class="hero__title">Your AI agents,<br><span>your rules.</span></h1>
+    <p class="hero__subtitle">Define multiple agents with their own LLMs, memory, and tools. Chain them into workflows. Access via voice, Telegram, webhooks, or cron. Manage it all from a visual panel.</p>
+    <div class="hero__actions">
+      <a href="#quickstart" class="btn btn--primary">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        Get Started
+      </a>
+      <a href="docs/" class="btn btn--ghost">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+        Documentation
+      </a>
+    </div>
+    <div class="hero__terminal">
+      <div class="terminal">
+        <div class="terminal__bar"><span class="terminal__dot"></span><span class="terminal__dot"></span><span class="terminal__dot"></span></div>
+        <div class="terminal__body">
+          <span class="terminal__comment"># Fully local — no API keys needed</span><br>
+          <span class="terminal__prompt">$</span> git clone <span class="terminal__url">https://github.com/achetronic/magec.git</span><br>
+          <span class="terminal__prompt">$</span> cd magec/docker/compose/fully-local<br>
+          <span class="terminal__prompt">$</span> docker compose up -d<br><br>
+          <span class="terminal__comment"># Admin UI → <span class="terminal__url">http://localhost:8081</span></span><br>
+          <span class="terminal__comment"># Voice UI → <span class="terminal__url">http://localhost:8080</span></span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+<!-- FEATURES -->
+<section id="features">
+  <div class="container">
+    <div class="section-header reveal">
+      <span class="section-label">Features</span>
+      <h2 class="section-title">Everything you need to run AI agents</h2>
+      <p class="section-desc">From single agents to complex multi-step workflows, with full control over every component.</p>
+    </div>
+    <div class="features-grid stagger-children">
+      <div class="feature-card">
+        <div class="feature-card__icon feature-card__icon--sol">✦</div>
+        <h3 class="feature-card__title">Multi-Agent System</h3>
+        <p class="feature-card__desc">Define as many agents as you need, each with independent configuration.</p>
+        <ul class="feature-card__list">
+          <li>Per-agent LLM — different models and providers</li>
+          <li>Per-agent memory — session (Redis) and long-term (pgvector)</li>
+          <li>Per-agent voice — individual STT/TTS backends</li>
+          <li>Per-agent tools — different MCP servers</li>
+          <li>Hot-reload — no restart needed</li>
+        </ul>
+      </div>
+      <div class="feature-card">
+        <div class="feature-card__icon feature-card__icon--pink">⛓</div>
+        <h3 class="feature-card__title">Agentic Flows</h3>
+        <p class="feature-card__desc">Chain agents into multi-step workflows with a visual drag-and-drop editor.</p>
+        <ul class="feature-card__list">
+          <li>Sequential — run agents one after another</li>
+          <li>Parallel — run simultaneously, merge results</li>
+          <li>Loop — iterate until a condition is met</li>
+          <li>Nested — combine any of the above</li>
+          <li>Built-in: Research, Debate, Software Factory</li>
+        </ul>
+      </div>
+      <div class="feature-card">
+        <div class="feature-card__icon feature-card__icon--purple">⚡</div>
+        <h3 class="feature-card__title">AI Backends</h3>
+        <p class="feature-card__desc">Works with virtually any LLM provider — cloud or local.</p>
+        <ul class="feature-card__list">
+          <li>OpenAI — GPT-4.1, o3, whisper, tts</li>
+          <li>Anthropic — Claude Opus, Sonnet, Haiku</li>
+          <li>Google Gemini — Pro, Flash</li>
+          <li>Ollama, LM Studio — run locally</li>
+          <li>Any OpenAI-compatible API</li>
+        </ul>
+      </div>
+      <div class="feature-card">
+        <div class="feature-card__icon feature-card__icon--green">🔧</div>
+        <h3 class="feature-card__title">Tool Integration (MCP)</h3>
+        <p class="feature-card__desc">Connect agents to external tools via the Model Context Protocol.</p>
+        <ul class="feature-card__list">
+          <li>HTTP and Stdio transport</li>
+          <li>Per-agent tool assignment</li>
+          <li>System prompt injection per MCP</li>
+          <li>Home Assistant, GitHub, databases, and hundreds more</li>
+        </ul>
+      </div>
+      <div class="feature-card">
+        <div class="feature-card__icon feature-card__icon--atlantico">🧠</div>
+        <h3 class="feature-card__title">Memory</h3>
+        <p class="feature-card__desc">Agents remember context across sessions — short and long term.</p>
+        <ul class="feature-card__list">
+          <li>Session memory — Redis with configurable TTL</li>
+          <li>Long-term — PostgreSQL + pgvector semantic search</li>
+          <li>Per-agent configuration</li>
+          <li>Auto-save — agents learn preferences over time</li>
+        </ul>
+      </div>
+      <div class="feature-card">
+        <div class="feature-card__icon feature-card__icon--lava">🎙</div>
+        <h3 class="feature-card__title">Voice Capabilities</h3>
+        <p class="feature-card__desc">Server-side voice processing powered by ONNX Runtime.</p>
+        <ul class="feature-card__list">
+          <li>Wake word detection — "Oye Magec"</li>
+          <li>Voice Activity Detection (Silero VAD)</li>
+          <li>Any Whisper-compatible STT</li>
+          <li>Any OpenAI-compatible TTS</li>
+          <li>WebSocket streaming for low latency</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+<!-- ARCHITECTURE -->
+<section id="architecture" class="architecture">
+  <div class="container">
+    <div class="section-header reveal">
+      <span class="section-label">Architecture</span>
+      <h2 class="section-title">How it all connects</h2>
+      <p class="section-desc">Clients on one side, AI backends on the other, Magec orchestrating in the middle.</p>
+    </div>
+    <div class="reveal">
+      <img src="img/architecture.svg" alt="Magec Architecture" class="architecture__img">
+    </div>
+  </div>
+</section>
+<!-- SCREENSHOTS -->
+<section id="screenshots">
+  <div class="container">
+    <div class="section-header reveal">
+      <span class="section-label">Admin Panel</span>
+      <h2 class="section-title">Manage everything visually</h2>
+      <p class="section-desc">7 resource types. Visual flow editor. Dynamic forms. Live health checks. Keyboard shortcuts.</p>
+    </div>
+    <div class="screenshots reveal">
+      <img src="img/screenshots/admin-agents.png" alt="Admin UI — 19 agents configured" class="screenshot screenshot--desktop">
+      <img src="img/screenshots/admin-flows.png" alt="Admin UI — Software Factory pipeline" class="screenshot screenshot--desktop">
+    </div>
+    <div class="screenshots reveal" style="margin-top: 1rem;">
+      <img src="img/screenshots/admin-backends.png" alt="Admin UI — AI Backends" class="screenshot screenshot--desktop">
+      <img src="img/screenshots/admin-clients.png" alt="Admin UI — Clients" class="screenshot screenshot--desktop">
+    </div>
+    <div class="section-header reveal" style="margin-top: 4rem;">
+      <span class="section-label">Voice Interface</span>
+      <h2 class="section-title">Talk to your agents</h2>
+      <p class="section-desc">Wake word, push-to-talk, animated orb, session management. Installable as PWA.</p>
+    </div>
+    <div class="screenshots reveal">
+      <img src="img/screenshots/home.png" alt="Voice UI — Home" class="screenshot screenshot--phone">
+      <img src="img/screenshots/chat.png" alt="Voice UI — Chat" class="screenshot screenshot--phone">
+      <img src="img/screenshots/settings.png" alt="Voice UI — Settings" class="screenshot screenshot--phone">
+      <img src="img/screenshots/notifications.png" alt="Voice UI — Notifications" class="screenshot screenshot--phone">
+    </div>
+  </div>
+</section>
+<!-- CLIENTS -->
+<section id="clients">
+  <div class="container">
+    <div class="section-header reveal">
+      <span class="section-label">Clients</span>
+      <h2 class="section-title">Multiple ways to reach your agents</h2>
+    </div>
+    <div class="clients-grid stagger-children">
+      <div class="client-card"><div><div class="client-card__name">Voice UI</div><div class="client-card__status client-card__status--ready">✓ Available</div><p class="client-card__desc">Web app with wake word, push-to-talk, waveform visualizer, sessions. PWA.</p></div></div>
+      <div class="client-card"><div><div class="client-card__name">Admin UI</div><div class="client-card__status client-card__status--ready">✓ Available</div><p class="client-card__desc">Full management panel — agents, flows, backends, memory, tools, clients.</p></div></div>
+      <div class="client-card"><div><div class="client-card__name">Telegram</div><div class="client-card__status client-card__status--ready">✓ Available</div><p class="client-card__desc">Text and voice messages. Response modes: text, voice, mirror, both.</p></div></div>
+      <div class="client-card"><div><div class="client-card__name">Webhooks</div><div class="client-card__status client-card__status--ready">✓ Available</div><p class="client-card__desc">HTTP endpoints with token auth. Passthrough or fixed commands.</p></div></div>
+      <div class="client-card"><div><div class="client-card__name">Cron</div><div class="client-card__status client-card__status--ready">✓ Available</div><p class="client-card__desc">Scheduled agent invocations with cron expressions.</p></div></div>
+      <div class="client-card"><div><div class="client-card__name">REST API</div><div class="client-card__status client-card__status--ready">✓ Available</div><p class="client-card__desc">Full API with Swagger docs. SSE streaming. WebSocket for voice.</p></div></div>
+      <div class="client-card"><div><div class="client-card__name">Discord</div><div class="client-card__status client-card__status--soon">Coming soon</div><p class="client-card__desc">Typed and ready, implementation pending.</p></div></div>
+      <div class="client-card"><div><div class="client-card__name">Slack</div><div class="client-card__status client-card__status--soon">Coming soon</div><p class="client-card__desc">Typed and ready, implementation pending.</p></div></div>
+    </div>
+  </div>
+</section>
+<!-- PROVIDERS -->
+<section id="providers">
+  <div class="container">
+    <div class="section-header reveal">
+      <span class="section-label">AI Backends</span>
+      <h2 class="section-title">Bring any model</h2>
+      <p class="section-desc">Cloud APIs, local inference, or a mix. Each agent can use a different backend.</p>
+    </div>
+    <div class="providers-grid stagger-children">
+      <div class="provider-card"><div class="provider-card__name">OpenAI</div><div class="provider-card__type">Cloud</div></div>
+      <div class="provider-card"><div class="provider-card__name">Anthropic</div><div class="provider-card__type">Cloud</div></div>
+      <div class="provider-card"><div class="provider-card__name">Google Gemini</div><div class="provider-card__type">Cloud</div></div>
+      <div class="provider-card"><div class="provider-card__name">Ollama</div><div class="provider-card__type">Local</div></div>
+      <div class="provider-card"><div class="provider-card__name">LM Studio</div><div class="provider-card__type">Local</div></div>
+      <div class="provider-card"><div class="provider-card__name">OpenRouter</div><div class="provider-card__type">Cloud</div></div>
+      <div class="provider-card"><div class="provider-card__name">vLLM / TGI</div><div class="provider-card__type">Self-hosted</div></div>
+      <div class="provider-card"><div class="provider-card__name">Any OpenAI-compatible</div><div class="provider-card__type">Any</div></div>
+    </div>
+  </div>
+</section>
+<!-- QUICK START -->
+<section id="quickstart">
+  <div class="container">
+    <div class="section-header reveal">
+      <span class="section-label">Quick Start</span>
+      <h2 class="section-title">Running in 3 commands</h2>
+    </div>
+    <div class="quickstart-options reveal">
+      <div class="quickstart-card">
+        <span class="quickstart-card__tag quickstart-card__tag--local">Fully Local</span>
+        <h3 class="quickstart-card__title">No API keys needed</h3>
+        <p class="quickstart-card__desc">Everything runs on your machine — LLM, speech-to-text, text-to-speech, embeddings.</p>
+        <pre><code><span class="terminal__prompt">$</span> git clone https://github.com/achetronic/magec.git
+<span class="terminal__prompt">$</span> cd magec/docker/compose/fully-local
+<span class="terminal__prompt">$</span> docker compose up -d</code></pre>
+        <p class="quickstart-card__note">First start downloads ~5GB of models. For NVIDIA GPU, uncomment the <code>deploy</code> section.</p>
+      </div>
+      <div class="quickstart-card">
+        <span class="quickstart-card__tag quickstart-card__tag--cloud">Cloud APIs</span>
+        <h3 class="quickstart-card__title">Just an API key</h3>
+        <p class="quickstart-card__desc">Only Redis and PostgreSQL locally. LLM, STT, TTS, and embeddings via cloud.</p>
+        <pre><code><span class="terminal__prompt">$</span> git clone https://github.com/achetronic/magec.git
+<span class="terminal__prompt">$</span> cd magec/docker/compose/remote-openai
+<span class="terminal__prompt">$</span> export OPENAI_API_KEY=sk-...
+<span class="terminal__prompt">$</span> docker compose up -d</code></pre>
+        <p class="quickstart-card__note">Configure agents at <code>http://localhost:8081</code>, chat at <code>http://localhost:8080</code>.</p>
+      </div>
+    </div>
+  </div>
+</section>
+<!-- ABOUT -->
+<section id="about">
+  <div class="container container--narrow">
+    <div class="section-header reveal">
+      <span class="section-label">About</span>
+      <h2 class="section-title">Why "Magec"?</h2>
+      <p class="section-desc"><strong>Magec</strong> (/maˈxek/) was the god of the Sun worshipped by the Guanches, the aboriginal Berber inhabitants of Tenerife in the Canary Islands. The name honors this Canarian heritage while reflecting the project's purpose: to illuminate and assist.</p>
+    </div>
+  </div>
+</section>
+
+
+  </main>
+  <div id="lightbox" class="lightbox">
+  <button class="lightbox__close" aria-label="Close">✕</button>
+  <img id="lightbox-img" src="" alt="">
+</div>
+
+  <footer class="footer">
+  <div class="container">
+    <div class="footer__inner">
+      <div class="footer__brand">
+        <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" width="20" height="20">
+          <defs><linearGradient id="fg" x1="0%" y1="100%" x2="100%" y2="0%"><stop offset="0%" stop-color="#f59e0b"/><stop offset="100%" stop-color="#f87171"/></linearGradient></defs>
+          <circle cx="32" cy="32" r="26" fill="url(#fg)"/>
+          <circle cx="20" cy="24" r="2" fill="white" opacity=".9"/><circle cx="40" cy="22" r="1.8" fill="white" opacity=".8"/>
+          <circle cx="38" cy="38" r="2" fill="white" opacity=".75"/>
+        </svg>
+        Magec · Apache 2.0
+      </div>
+      <ul class="footer__links">
+        <li><a href="https://github.com/achetronic/magec" target="_blank" rel="noopener">GitHub</a></li>
+        <li><a href="/magec/docs/">Docs</a></li>
+        <li><a href="https://github.com/achetronic/magec/issues" target="_blank" rel="noopener">Issues</a></li>
+      </ul>
+    </div>
+  </div>
+</footer>
+
+  <script type="module" src="/magec/js/main.js"></script>
+</body>
+</html>

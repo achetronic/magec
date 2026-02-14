@@ -134,3 +134,36 @@ Los seeds usan `${VARIABLES}` para credenciales (apiKey, botToken), expandidas
 por `os.ExpandEnv()` al cargar el store.
 
 **No hacer**: Seeds con credenciales hardcodeadas. Usar siempre `${VAR}`.
+
+---
+
+## Website estática para documentación
+
+**Fecha**: 2026-02-14
+**Estado**: Implementado
+
+La documentación y landing page del proyecto vive en `website/` como HTML/CSS/JS
+estático, preparada para GitHub Pages. No usa frameworks (ni React, ni Hugo, ni
+Docusaurus) — solo archivos estáticos que se sirven directamente.
+
+```
+website/
+├── index.html              ← Landing page con hero, features, arquitectura
+├── docs.html               ← Documentación completa con sidebar navegable
+├── css/
+│   ├── tokens.css          ← Design tokens (colores Canarios, espaciado, etc.)
+│   └── style.css           ← Estilos completos
+├── js/
+│   ├── centella.js         ← Orbe animado (versión decorativa del WaveformRenderer)
+│   └── main.js             ← Nav, scroll, reveal animations, docs sidebar
+└── assets/                 ← Logo, architecture SVG, screenshots, OG banner
+```
+
+Respeta la paleta del proyecto: piedra (volcanic stone), atlántico (cyan),
+lava (red), sol (gold), arena (sand text). Dark mode only.
+
+El README.md queda simplificado — highlights y quick start, apuntando a la web
+para documentación detallada.
+
+**No hacer**: Meter frameworks de build (Next, Astro, etc.). Es una web estática
+que debe funcionar abriendo `index.html` o sirviéndola con cualquier servidor.

@@ -143,6 +143,12 @@ magec/
 ├── docker/
 │   ├── build/                  # Dockerfile + entrypoint
 │   └── compose/                # Docker Compose deployments
+├── website/                   # Static landing page + docs (GitHub Pages)
+│   ├── index.html             # Landing page with hero, features, architecture
+│   ├── docs.html              # Full documentation with sidebar navigation
+│   ├── css/                   # Design tokens + styles (Canarian palette)
+│   ├── js/                    # Centella orb + nav + animations
+│   └── assets/                # Logo, screenshots, architecture SVG
 ├── config.example.yaml
 ├── Makefile
 └── README.md
