@@ -30,6 +30,6 @@ pretrained/*.onnx
 # Test audio
 test/
 
-# Runtime data (admin store)
-data/
+# Runtime data (admin store — ignore everything except seeds)
+data/*
 !data/seeds/

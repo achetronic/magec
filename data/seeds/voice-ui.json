@@ -1,0 +1,90 @@
+{
+  "backends": [
+    {
+      "id": "b0000000-0000-0000-0000-000000000001",
+      "name": "Ollama",
+      "type": "openai",
+      "url": "${OLLAMA_URL:-http://ollama:11434/v1}"
+    },
+    {
+      "id": "b0000000-0000-0000-0000-000000000002",
+      "name": "Parakeet STT",
+      "type": "openai",
+      "url": "${PARAKEET_URL:-http://parakeet:5092/v1}"
+    },
+    {
+      "id": "b0000000-0000-0000-0000-000000000003",
+      "name": "Edge TTS",
+      "type": "openai",
+      "url": "${TTS_URL:-http://tts:5050/v1}",
+      "apiKey": "sk-unused"
+    }
+  ],
+  "memoryProviders": [
+    {
+      "id": "m0000000-0000-0000-0000-000000000001",
+      "name": "Redis",
+      "type": "redis",
+      "category": "session",
+      "config": {
+        "connectionString": "${REDIS_URL:-redis://redis:6379/0}",
+        "ttl": "24h"
+      }
+    },
+    {
+      "id": "m0000000-0000-0000-0000-000000000002",
+      "name": "Postgres",
+      "type": "postgres",
+      "category": "longterm",
+      "config": {
+        "connectionString": "${POSTGRES_URL:-postgres://magec:magec@postgres:5432/magec?sslmode=disable}"
+      },
+      "embedding": {
+        "backend": "b0000000-0000-0000-0000-000000000001",
+        "model": "nomic-embed-text"
+      }
+    }
+  ],
+  "mcpServers": [],
+  "agents": [
+    {
+      "id": "a0000000-0000-0000-0000-000000000001",
+      "name": "Magec",
+      "systemPrompt": "You are Magec, a voice assistant created in the Canary Islands. Named after the Guanche sun god, you bring clarity to every question.\n\nPersonality:\n  - Warm but efficient. You respect the user's time: get to the point, then offer to elaborate.\n  - Quietly confident. You know your stuff but never lecture. If you are unsure, say so rather than guess.\n  - Dry humor when the moment calls for it. Never forced, never corny.\n\nVoice interaction rules:\n  - Lead with the answer. Context and caveats come after, only if needed.\n  - One idea per sentence. Short sentences. Natural rhythm for spoken delivery.\n  - No markdown, no bullet points, no numbered lists. This is spoken, not read.\n  - Avoid filler: no \"certainly\", no \"of course\", no \"great question\". Just answer.\n  - Numbers: say \"twenty three degrees\" not \"23C\". Say \"about half\" not \"approximately 50%\".\n  - Time: say \"ten thirty\" not \"10:30\". Say \"in about two hours\" not \"at 14:00\".\n  - When listing things, limit to three. If there are more, summarize and offer details on request.\n\nMemory:\n  - You remember previous conversations. Reference them naturally when relevant, not to show off.\n  - If the user corrects you or states a preference, acknowledge it and remember it.\n\nLanguage:\n  - Respond in whatever language the user speaks to you.",
+      "outputKey": "magec_result",
+      "llm": {
+        "backend": "b0000000-0000-0000-0000-000000000001",
+        "model": "${LLM_MODEL:-qwen3:8b}"
+      },
+      "transcription": {
+        "backend": "b0000000-0000-0000-0000-000000000002",
+        "model": "whisper-1"
+      },
+      "tts": {
+        "backend": "b0000000-0000-0000-0000-000000000003",
+        "model": "tts-1-hd",
+        "voice": "${TTS_VOICE:-es-ES-AlvaroNeural}",
+        "speed": 1.2
+      },
+      "memory": {
+        "session": "m0000000-0000-0000-0000-000000000001",
+        "longTerm": "m0000000-0000-0000-0000-000000000002"
+      },
+      "mcpServers": [],
+      "tags": ["voice", "assistant"]
+    }
+  ],
+  "clients": [
+    {
+      "id": "c0000000-0000-0000-0000-000000000001",
+      "name": "VoiceUI",
+      "type": "direct",
+      "token": "mgc_seed_voiceui_default_token",
+      "allowedAgents": ["a0000000-0000-0000-0000-000000000001"],
+      "enabled": true,
+      "config": {}
+    }
+  ],
+  "flows": [],
+  "commands": []
+}
