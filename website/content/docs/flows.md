@@ -19,13 +19,13 @@ Steps can be nested freely — a sequential step can contain parallel branches, 
 
 ## From simple to complex
 
-A basic flow might be a sequential pipeline with 3 agents: a researcher, a writer, and an editor. Each one takes the output of the previous one and builds on it.
+The Research Pipeline is a good example of a simple flow: parallel research + critique, then fact-checking, then synthesis. 4 agents working together in a clean, readable graph.
 
 <div class="screenshots" style="margin-bottom: 2rem;">
-{{< screenshot src="img/screenshots/admin-flow-simple.png" alt="Admin UI — Simple 3-agent flow" >}}
+{{< screenshot src="img/screenshots/admin-flow-simple.png" alt="Admin UI — Research Pipeline flow (4 agents)" >}}
 </div>
 
-But the same editor lets you build much larger workflows. The Software Factory example below chains 13 agents through a full SDLC: product manager → architect → developers → QA → documentation → deployment — with parallel branches and loops for iterative refinement.
+But the same editor lets you build much larger workflows. The Software Factory below chains 13 agents through a full SDLC: product manager → architect → developers → QA → documentation → deployment — with parallel branches and loops for iterative refinement.
 
 <div class="screenshots" style="margin-bottom: 2rem;">
 {{< screenshot src="img/screenshots/admin-flows.png" alt="Admin UI — Software Factory flow (13 agents)" >}}

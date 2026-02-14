@@ -105,7 +105,7 @@
             <div class="text-center mb-8">
                 <img src="assets/logo.svg" alt="Magec" class="w-16 h-16 mx-auto mb-4">
                 <h1 class="text-2xl font-semibold text-arena-50">Magec</h1>
-                <p class="text-sm text-arena-500 mt-1">Introduce el token del dispositivo para emparejar</p>
+                <p class="text-sm text-arena-500 mt-1" data-i18n="pairing.subtitle">Enter the device token to pair</p>
             </div>
             <div class="space-y-4">
                 <div>
@@ -115,11 +115,11 @@
                 </div>
                 <button id="pairingConnectBtn" 
                     class="w-full px-4 py-3 bg-sol-500 hover:bg-sol-600 disabled:bg-piedra-700 disabled:text-arena-500 text-piedra-950 text-sm font-semibold rounded-xl transition-colors"
-                    disabled>
-                    Emparejar
+                    disabled data-i18n="pairing.connect">
+                    Pair
                 </button>
-                <p id="pairingError" class="text-xs text-lava-400 text-center hidden">Token inválido o dispositivo deshabilitado</p>
-                <p class="text-[10px] text-arena-600 text-center">Genera el token en el panel de Admin &gt; Devices</p>
+                <p id="pairingError" class="text-xs text-lava-400 text-center hidden" data-i18n="pairing.error">Invalid token or device disabled</p>
+                <p class="text-[10px] text-arena-600 text-center" data-i18n="pairing.hint">Generate the token in Admin &gt; Devices</p>
             </div>
         </div>
     </div>

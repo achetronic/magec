@@ -27,26 +27,38 @@
       <div>
         <FormLabel label="Allowed Agents & Flows" />
         <div v-if="store.agents.length || store.flows.length" class="flex flex-wrap gap-1.5">
-          <label
-            v-for="a in store.agents" :key="a.id"
-            class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border cursor-pointer transition-all text-xs"
-            :class="form.allowedAgents.includes(a.id)
-              ? 'bg-sol-500/10 border-sol-500/40 text-sol-300'
-              : 'bg-piedra-800/60 border-piedra-700/50 text-arena-400 hover:border-piedra-600'"
+          <template v-for="(a, i) in store.agents" :key="a.id">
+            <label
+              v-if="showAllEntities || i < maxVisibleEntities"
+              class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border cursor-pointer transition-all text-xs"
+              :class="form.allowedAgents.includes(a.id)
+                ? 'bg-sol-500/10 border-sol-500/40 text-sol-300'
+                : 'bg-piedra-800/60 border-piedra-700/50 text-arena-400 hover:border-piedra-600'"
+            >
+              <input type="checkbox" :value="a.id" v-model="form.allowedAgents" class="hidden" />
+              <span>{{ a.name || a.id }}</span>
+            </label>
+          </template>
+          <template v-for="(f, i) in store.flows" :key="f.id">
+            <label
+              v-if="showAllEntities || (store.agents.length + i) < maxVisibleEntities"
+              class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border cursor-pointer transition-all text-xs"
+              :class="form.allowedAgents.includes(f.id)
+                ? 'bg-rose-500/10 border-rose-500/40 text-rose-300'
+                : 'bg-piedra-800/60 border-piedra-700/50 text-arena-400 hover:border-piedra-600'"
+            >
+              <input type="checkbox" :value="f.id" v-model="form.allowedAgents" class="hidden" />
+              <span>⤳ {{ f.name || f.id }}</span>
+            </label>
+          </template>
+          <button
+            v-if="totalEntities > maxVisibleEntities"
+            type="button"
+            @click="showAllEntities = !showAllEntities"
+            class="px-2.5 py-1 rounded-lg border border-piedra-700/50 text-[11px] text-arena-500 hover:text-arena-300 hover:border-piedra-600 transition-all cursor-pointer"
           >
-            <input type="checkbox" :value="a.id" v-model="form.allowedAgents" class="hidden" />
-            <span>{{ a.name || a.id }}</span>
-          </label>
-          <label
-            v-for="f in store.flows" :key="f.id"
-            class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border cursor-pointer transition-all text-xs"
-            :class="form.allowedAgents.includes(f.id)
-              ? 'bg-rose-500/10 border-rose-500/40 text-rose-300'
-              : 'bg-piedra-800/60 border-piedra-700/50 text-arena-400 hover:border-piedra-600'"
-          >
-            <input type="checkbox" :value="f.id" v-model="form.allowedAgents" class="hidden" />
-            <span>⤳ {{ f.name || f.id }}</span>
-          </label>
+            {{ showAllEntities ? 'Less' : `+${totalEntities - maxVisibleEntities} more` }}
+          </button>
         </div>
         <p v-else class="text-xs text-arena-500">No agents or flows defined yet</p>
         <p class="text-[10px] text-arena-500 mt-1">Agents and flows this client can interact with. Cron/webhook clients run commands against all selected items.</p>
@@ -140,6 +152,10 @@ const dialogRef = ref(null)
 const editId = ref(null)
 const isEdit = ref(false)
 const tokenVisible = ref(false)
+const showAllEntities = ref(false)
+const maxVisibleEntities = 6
+
+const totalEntities = computed(() => store.agents.length + store.flows.length)
 
 const form = reactive({
   name: '',
@@ -266,6 +282,7 @@ function open(client = null) {
   form.config = { ...(client?.config?.[client?.type] || {}) }
   form.token = client?.token || ''
   tokenVisible.value = false
+  showAllEntities.value = false
   dialogRef.value?.open()
 }
 

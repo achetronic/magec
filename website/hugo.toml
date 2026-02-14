@@ -94,25 +94,30 @@ theme = 'magec'
     name = 'Clients'
     weight = 3
   [[menu.docs]]
+    name = 'Overview'
+    parent = 'clients'
+    url = '/docs/clients/'
+    weight = 1
+  [[menu.docs]]
     name = 'Voice UI'
     parent = 'clients'
     url = '/docs/voice-ui/'
-    weight = 1
+    weight = 2
   [[menu.docs]]
     name = 'Telegram'
     parent = 'clients'
     url = '/docs/telegram/'
-    weight = 2
+    weight = 3
   [[menu.docs]]
     name = 'Webhooks'
     parent = 'clients'
     url = '/docs/webhooks/'
-    weight = 3
+    weight = 4
   [[menu.docs]]
     name = 'Cron'
     parent = 'clients'
     url = '/docs/cron/'
-    weight = 4
+    weight = 5
 
   [[menu.docs]]
     identifier = 'reference'
@@ -133,11 +138,6 @@ theme = 'magec'
     parent = 'reference'
     url = '/docs/docker/'
     weight = 3
-  [[menu.docs]]
-    name = 'Development'
-    parent = 'reference'
-    url = '/docs/development/'
-    weight = 4
 
 [outputs]
   home = ['HTML']

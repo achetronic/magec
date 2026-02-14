@@ -46,73 +46,33 @@ title: "Magec — Self-hosted Multi-Agent AI Platform"
     <div class="features-grid stagger-children">
       <div class="feature-card">
         <div class="feature-card__icon feature-card__icon--sol">✦</div>
-        <h3 class="feature-card__title">Multi-Agent System</h3>
-        <p class="feature-card__desc">Define as many agents as you need, each with independent configuration.</p>
-        <ul class="feature-card__list">
-          <li>Per-agent LLM — different models and providers</li>
-          <li>Per-agent memory — session (Redis) and long-term (pgvector)</li>
-          <li>Per-agent voice — individual STT/TTS backends</li>
-          <li>Per-agent tools — different MCP servers</li>
-          <li>Hot-reload — no restart needed</li>
-        </ul>
+        <h3 class="feature-card__title">Multi-Agent</h3>
+        <p class="feature-card__desc">Independent agents, each with its own LLM, memory, voice, and tools. Hot-reload from the Admin UI.</p>
       </div>
       <div class="feature-card">
         <div class="feature-card__icon feature-card__icon--pink">⛓</div>
         <h3 class="feature-card__title">Agentic Flows</h3>
-        <p class="feature-card__desc">Chain agents into multi-step workflows with a visual drag-and-drop editor.</p>
-        <ul class="feature-card__list">
-          <li>Sequential — run agents one after another</li>
-          <li>Parallel — run simultaneously, merge results</li>
-          <li>Loop — iterate until a condition is met</li>
-          <li>Nested — combine any of the above</li>
-          <li>Built-in: Research, Debate, Software Factory</li>
-        </ul>
+        <p class="feature-card__desc">Visual drag-and-drop editor. Sequential, parallel, loop, nested. From 3 agents to 13.</p>
       </div>
       <div class="feature-card">
         <div class="feature-card__icon feature-card__icon--purple">⚡</div>
         <h3 class="feature-card__title">AI Backends</h3>
-        <p class="feature-card__desc">Works with virtually any LLM provider — cloud or local.</p>
-        <ul class="feature-card__list">
-          <li>OpenAI — GPT-4.1, o3, whisper, tts</li>
-          <li>Anthropic — Claude Opus, Sonnet, Haiku</li>
-          <li>Google Gemini — Pro, Flash</li>
-          <li>Ollama, LM Studio — run locally</li>
-          <li>Any OpenAI-compatible API</li>
-        </ul>
+        <p class="feature-card__desc">OpenAI, Anthropic, Gemini, Ollama. Mix cloud and local models per agent.</p>
       </div>
       <div class="feature-card">
         <div class="feature-card__icon feature-card__icon--green">🔧</div>
-        <h3 class="feature-card__title">Tool Integration (MCP)</h3>
-        <p class="feature-card__desc">Connect agents to external tools via the Model Context Protocol.</p>
-        <ul class="feature-card__list">
-          <li>HTTP and Stdio transport</li>
-          <li>Per-agent tool assignment</li>
-          <li>System prompt injection per MCP</li>
-          <li>Home Assistant, GitHub, databases, and hundreds more</li>
-        </ul>
+        <h3 class="feature-card__title">MCP Tools</h3>
+        <p class="feature-card__desc">Home Assistant, GitHub, databases, and hundreds more via Model Context Protocol.</p>
       </div>
       <div class="feature-card">
         <div class="feature-card__icon feature-card__icon--atlantico">🧠</div>
         <h3 class="feature-card__title">Memory</h3>
-        <p class="feature-card__desc">Agents remember context across sessions — short and long term.</p>
-        <ul class="feature-card__list">
-          <li>Session memory — Redis with configurable TTL</li>
-          <li>Long-term — PostgreSQL + pgvector semantic search</li>
-          <li>Per-agent configuration</li>
-          <li>Auto-save — agents learn preferences over time</li>
-        </ul>
+        <p class="feature-card__desc">Session memory (Redis) and long-term semantic search (PostgreSQL + pgvector). Per agent.</p>
       </div>
       <div class="feature-card">
         <div class="feature-card__icon feature-card__icon--lava">🎙</div>
-        <h3 class="feature-card__title">Voice Capabilities</h3>
-        <p class="feature-card__desc">Server-side voice processing powered by ONNX Runtime.</p>
-        <ul class="feature-card__list">
-          <li>Wake word detection — "Oye Magec"</li>
-          <li>Voice Activity Detection (Silero VAD)</li>
-          <li>Any Whisper-compatible STT</li>
-          <li>Any OpenAI-compatible TTS</li>
-          <li>WebSocket streaming for low latency</li>
-        </ul>
+        <h3 class="feature-card__title">Voice</h3>
+        <p class="feature-card__desc">Wake word, VAD, STT, TTS. Server-side via ONNX Runtime. WebSocket streaming.</p>
       </div>
     </div>
   </div>
@@ -151,13 +111,13 @@ title: "Magec — Self-hosted Multi-Agent AI Platform"
     <div class="section-header reveal" style="margin-top: 4rem;">
       <span class="section-label">Voice Interface</span>
       <h2 class="section-title">Talk to your agents</h2>
-      <p class="section-desc">Wake word, push-to-talk, animated orb, session management. Installable as PWA.</p>
+      <p class="section-desc">Just say "Oye Magec" or tap to talk. Your conversations are saved. Install it on your phone like a native app.</p>
     </div>
     <div class="screenshots reveal">
-      <img src="img/screenshots/home.png" alt="Voice UI — Home" class="screenshot screenshot--phone">
-      <img src="img/screenshots/chat.png" alt="Voice UI — Chat" class="screenshot screenshot--phone">
-      <img src="img/screenshots/settings.png" alt="Voice UI — Settings" class="screenshot screenshot--phone">
-      <img src="img/screenshots/notifications.png" alt="Voice UI — Notifications" class="screenshot screenshot--phone">
+      <img src="img/screenshots/voice-ui-home-idle.png" alt="Voice UI — Home" class="screenshot screenshot--phone">
+      <img src="img/screenshots/voice-ui-home-recording.png" alt="Voice UI — Recording" class="screenshot screenshot--phone">
+      <img src="img/screenshots/voice-ui-chat.png" alt="Voice UI — Chat" class="screenshot screenshot--phone">
+      <img src="img/screenshots/voice-ui-settings.png" alt="Voice UI — Settings" class="screenshot screenshot--phone">
     </div>
   </div>
 </section>
@@ -170,14 +130,14 @@ title: "Magec — Self-hosted Multi-Agent AI Platform"
       <h2 class="section-title">Multiple ways to reach your agents</h2>
     </div>
     <div class="clients-grid stagger-children">
-      <div class="client-card"><div><div class="client-card__name">Voice UI</div><div class="client-card__status client-card__status--ready">✓ Available</div><p class="client-card__desc">Web app with wake word, push-to-talk, waveform visualizer, sessions. PWA.</p></div></div>
-      <div class="client-card"><div><div class="client-card__name">Admin UI</div><div class="client-card__status client-card__status--ready">✓ Available</div><p class="client-card__desc">Full management panel — agents, flows, backends, memory, tools, clients.</p></div></div>
-      <div class="client-card"><div><div class="client-card__name">Telegram</div><div class="client-card__status client-card__status--ready">✓ Available</div><p class="client-card__desc">Text and voice messages. Response modes: text, voice, mirror, both.</p></div></div>
-      <div class="client-card"><div><div class="client-card__name">Webhooks</div><div class="client-card__status client-card__status--ready">✓ Available</div><p class="client-card__desc">HTTP endpoints with token auth. Passthrough or fixed commands.</p></div></div>
-      <div class="client-card"><div><div class="client-card__name">Cron</div><div class="client-card__status client-card__status--ready">✓ Available</div><p class="client-card__desc">Scheduled agent invocations with cron expressions.</p></div></div>
-      <div class="client-card"><div><div class="client-card__name">REST API</div><div class="client-card__status client-card__status--ready">✓ Available</div><p class="client-card__desc">Full API with Swagger docs. SSE streaming. WebSocket for voice.</p></div></div>
-      <div class="client-card"><div><div class="client-card__name">Discord</div><div class="client-card__status client-card__status--soon">Coming soon</div><p class="client-card__desc">Typed and ready, implementation pending.</p></div></div>
-      <div class="client-card"><div><div class="client-card__name">Slack</div><div class="client-card__status client-card__status--soon">Coming soon</div><p class="client-card__desc">Typed and ready, implementation pending.</p></div></div>
+      <div class="client-card"><div><div class="client-card__name">Voice UI</div><div class="client-card__status client-card__status--ready">✓ Available</div><p class="client-card__desc">Talk to your agents from the browser. Installable on your phone.</p></div></div>
+      <div class="client-card"><div><div class="client-card__name">Admin UI</div><div class="client-card__status client-card__status--ready">✓ Available</div><p class="client-card__desc">Manage everything visually. No config files needed.</p></div></div>
+      <div class="client-card"><div><div class="client-card__name">Telegram</div><div class="client-card__status client-card__status--ready">✓ Available</div><p class="client-card__desc">Chat with your agents on Telegram. Text or voice.</p></div></div>
+      <div class="client-card"><div><div class="client-card__name">Webhooks</div><div class="client-card__status client-card__status--ready">✓ Available</div><p class="client-card__desc">Trigger agents from any external system via HTTP.</p></div></div>
+      <div class="client-card"><div><div class="client-card__name">Cron</div><div class="client-card__status client-card__status--ready">✓ Available</div><p class="client-card__desc">Run agents on a schedule. Daily reports, checks, whatever you need.</p></div></div>
+      <div class="client-card"><div><div class="client-card__name">REST API</div><div class="client-card__status client-card__status--ready">✓ Available</div><p class="client-card__desc">Build your own integration. Full Swagger docs included.</p></div></div>
+      <div class="client-card"><div><div class="client-card__name">Discord</div><div class="client-card__status client-card__status--soon">Coming soon</div><p class="client-card__desc">On the way.</p></div></div>
+      <div class="client-card"><div><div class="client-card__name">Slack</div><div class="client-card__status client-card__status--soon">Coming soon</div><p class="client-card__desc">On the way.</p></div></div>
     </div>
   </div>
 </section>
@@ -195,10 +155,6 @@ title: "Magec — Self-hosted Multi-Agent AI Platform"
       <div class="provider-card"><div class="provider-card__name">Anthropic</div><div class="provider-card__type">Cloud</div></div>
       <div class="provider-card"><div class="provider-card__name">Google Gemini</div><div class="provider-card__type">Cloud</div></div>
       <div class="provider-card"><div class="provider-card__name">Ollama</div><div class="provider-card__type">Local</div></div>
-      <div class="provider-card"><div class="provider-card__name">LM Studio</div><div class="provider-card__type">Local</div></div>
-      <div class="provider-card"><div class="provider-card__name">OpenRouter</div><div class="provider-card__type">Cloud</div></div>
-      <div class="provider-card"><div class="provider-card__name">vLLM / TGI</div><div class="provider-card__type">Self-hosted</div></div>
-      <div class="provider-card"><div class="provider-card__name">Any OpenAI-compatible</div><div class="provider-card__type">Any</div></div>
     </div>
   </div>
 </section>

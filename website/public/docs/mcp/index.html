@@ -90,6 +90,8 @@
       <div class="docs-sidebar__group">
         <div class="docs-sidebar__label">Clients</div>
         
+        <a href="/magec/docs/clients/" class="docs-sidebar__link">Overview</a>
+        
         <a href="/magec/docs/voice-ui/" class="docs-sidebar__link">Voice UI</a>
         
         <a href="/magec/docs/telegram/" class="docs-sidebar__link">Telegram</a>
@@ -111,8 +113,6 @@
         
         <a href="/magec/docs/docker/" class="docs-sidebar__link">Docker</a>
         
-        <a href="/magec/docs/development/" class="docs-sidebar__link">Development</a>
-        
       </div>
       
       
@@ -123,69 +123,33 @@
         Navigation
       </button>
       <h1>MCP Tools</h1>
-      <p>Connect agents to external tools via the <a href="https://modelcontextprotocol.io">Model Context Protocol</a> (MCP). Each MCP server provides one or more tools that agents can invoke during inference.</p>
+      <p>Connect agents to external tools via the <a href="https://modelcontextprotocol.io">Model Context Protocol</a> (MCP). Each MCP server provides one or more tools that agents can invoke during inference — file access, web search, database queries, smart home control, and anything else you can imagine.</p>
 <h2 id="transport-types">Transport types</h2>
-<table>
-  <thead>
-      <tr>
-          <th>Type</th>
-          <th>Description</th>
-          <th>Use when</th>
-      </tr>
-  </thead>
-  <tbody>
-      <tr>
-          <td><code>http</code></td>
-          <td>Connect to a remote MCP server via HTTP/SSE</td>
-          <td>MCP server runs as a separate service</td>
-      </tr>
-      <tr>
-          <td><code>stdio</code></td>
-          <td>Launch a local MCP server as a subprocess</td>
-          <td>MCP server is a CLI tool</td>
-      </tr>
-  </tbody>
-</table>
-<h2 id="configuration-fields">Configuration fields</h2>
-<table>
-  <thead>
-      <tr>
-          <th>Field</th>
-          <th>Description</th>
-      </tr>
-  </thead>
-  <tbody>
-      <tr>
-          <td><code>name</code></td>
-          <td>Display name</td>
-      </tr>
-      <tr>
-          <td><code>transport</code></td>
-          <td><code>http</code> or <code>stdio</code></td>
-      </tr>
-      <tr>
-          <td><code>url</code></td>
-          <td>Server URL (HTTP transport)</td>
-      </tr>
-      <tr>
-          <td><code>command</code></td>
-          <td>Executable path (Stdio transport)</td>
-      </tr>
-      <tr>
-          <td><code>args</code></td>
-          <td>Command arguments (Stdio transport)</td>
-      </tr>
-      <tr>
-          <td><code>headers</code></td>
-          <td>Custom HTTP headers (auth tokens, etc.)</td>
-      </tr>
-      <tr>
-          <td><code>systemPrompt</code></td>
-          <td>Additional context injected into the agent&rsquo;s system prompt when this MCP is active</td>
-      </tr>
-  </tbody>
-</table>
-<p>Works with any MCP server: <a href="https://github.com/achetronic/hass-mcp">Home Assistant</a>, GitHub, filesystem, databases, Slack, Google Drive, and <a href="https://github.com/modelcontextprotocol/servers">hundreds more</a>.</p>
+<p>There are two ways to connect to an MCP server, depending on how it runs:</p>
+<h3 id="http">HTTP</h3>
+<p>For MCP servers that run as separate services (their own process, a container, a remote server). You just point Magec at the URL and it connects via HTTP/SSE.</p>
+<div class="screenshots" style="margin-bottom: 2rem;">
+
+
+
+<img src="/magec/img/screenshots/admin-mcp-http.png" alt="Admin UI — New MCP Server (HTTP)" class="screenshot screenshot--desktop">
+
+</div>
+<p>Give it a name, set the type to <strong>HTTP</strong>, paste the endpoint URL, and optionally add a system prompt with instructions for the LLM about when and how to use this tool.</p>
+<h3 id="stdio">Stdio</h3>
+<p>For MCP servers that are CLI tools — Magec launches them as subprocesses and communicates over stdin/stdout. Perfect for tools like <code>uvx</code>, <code>npx</code>, or any local binary.</p>
+<div class="screenshots" style="margin-bottom: 2rem;">
+
+
+
+<img src="/magec/img/screenshots/admin-mcp-stdio.png" alt="Admin UI — New MCP Server (Stdio)" class="screenshot screenshot--desktop">
+
+</div>
+<p>Set the type to <strong>Stdio</strong>, provide the command to execute and its arguments (comma-separated). The system prompt works the same way — extra context for the LLM about what this tool does.</p>
+<h2 id="system-prompt">System Prompt</h2>
+<p>Every MCP server has an optional system prompt field. Whatever you write here gets injected into the agent&rsquo;s context when this MCP is active. Use it to tell the LLM things like &ldquo;use this tool to control smart home devices&rdquo; or &ldquo;only call this tool when the user explicitly asks for file operations&rdquo;.</p>
+<h2 id="compatible-servers">Compatible servers</h2>
+<p>Works with any MCP-compliant server: <a href="https://github.com/achetronic/hass-mcp">Home Assistant</a>, GitHub, filesystem, databases, Slack, Google Drive, and <a href="https://github.com/modelcontextprotocol/servers">hundreds more</a>.</p>
 
     </div>
   </div>

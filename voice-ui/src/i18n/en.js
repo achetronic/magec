@@ -99,6 +99,14 @@ export default {
     daysAgo: "{n}d ago",
   },
 
+  pairing: {
+    subtitle: "Enter the device token to pair",
+    connect: "Pair",
+    connecting: "Connecting...",
+    error: "Invalid token or device disabled",
+    hint: "Generate the token in Admin > Devices",
+  },
+
   errors: {
     microphoneAccess: "Could not access microphone. Check permissions.",
     connectionFailed: "Connection error",

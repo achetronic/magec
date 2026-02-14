@@ -18,7 +18,7 @@ import es from './es.js';
 import en from './en.js';
 
 const STORAGE_KEY = 'magec_language';
-const DEFAULT_LANGUAGE = 'es';
+const DEFAULT_LANGUAGE = 'en';
 
 const languages = { es, en };
 

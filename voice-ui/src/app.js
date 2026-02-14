@@ -104,7 +104,7 @@ class MagecApp {
 
         btn.addEventListener('click', async () => {
             btn.disabled = true;
-            btn.textContent = 'Conectando...';
+            btn.textContent = t('pairing.connecting');
             error.classList.add('hidden');
 
             const ok = await clientAuth.pair(input.value.trim());
@@ -115,7 +115,7 @@ class MagecApp {
             } else {
                 error.classList.remove('hidden');
                 btn.disabled = false;
-                btn.textContent = 'Emparejar';
+                btn.textContent = t('pairing.connect');
                 input.value = '';
                 input.focus();
             }

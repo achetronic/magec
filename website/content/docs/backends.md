@@ -12,10 +12,10 @@ Backends represent connections to AI providers. Each backend can serve as LLM, e
 
 | Type | Provider | Required fields |
 |------|----------|-----------------|
-| `openai` | OpenAI, Ollama, LM Studio, vLLM, TGI, OpenRouter, any OpenAI-compatible | `url` and/or `apiKey` |
+| `openai` | OpenAI, Ollama | `url` and/or `apiKey` |
 | `anthropic` | Anthropic Claude | `apiKey` |
 | `gemini` | Google Gemini | `apiKey` |
 
 {{< callout type="info" >}}
-**Tip:** The `openai` type works with any API that follows the OpenAI chat completions format. Point it at Ollama (`http://ollama:11434/v1`), LM Studio, vLLM, or any compatible server.
+**Tip:** The `openai` type works with Ollama too. Point it at `http://ollama:11434/v1` and use any local model.
 {{< /callout >}}

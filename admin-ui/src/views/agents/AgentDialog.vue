@@ -39,9 +39,12 @@
       </details>
 
       <!-- LLM -->
-      <fieldset class="border border-piedra-700/40 rounded-xl p-4 space-y-3">
-        <legend class="text-xs font-medium text-arena-400 px-1.5">LLM</legend>
-        <div class="grid grid-cols-2 gap-3">
+      <details class="group border border-piedra-700/40 rounded-xl">
+        <summary class="flex items-center justify-between px-4 py-3 cursor-pointer select-none text-xs font-medium text-arena-400 hover:text-arena-300">
+          <span>LLM</span>
+          <Icon name="chevronDown" size="md" class="text-arena-500 transition-transform group-open:rotate-180" />
+        </summary>
+        <div class="px-4 pb-4 grid grid-cols-2 gap-3">
           <div>
             <FormLabel label="Backend" />
             <FormSelect v-model="form.llmBackend">
@@ -53,7 +56,7 @@
             <FormInput v-model="form.llmModel" placeholder="qwen3:8b" />
           </div>
         </div>
-      </fieldset>
+      </details>
 
       <!-- Memory -->
       <details class="group border border-piedra-700/40 rounded-xl">

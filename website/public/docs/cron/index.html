@@ -90,6 +90,8 @@
       <div class="docs-sidebar__group">
         <div class="docs-sidebar__label">Clients</div>
         
+        <a href="/magec/docs/clients/" class="docs-sidebar__link">Overview</a>
+        
         <a href="/magec/docs/voice-ui/" class="docs-sidebar__link">Voice UI</a>
         
         <a href="/magec/docs/telegram/" class="docs-sidebar__link">Telegram</a>
@@ -111,8 +113,6 @@
         
         <a href="/magec/docs/docker/" class="docs-sidebar__link">Docker</a>
         
-        <a href="/magec/docs/development/" class="docs-sidebar__link">Development</a>
-        
       </div>
       
       
@@ -123,22 +123,51 @@
         Navigation
       </button>
       <h1>Cron</h1>
-      <p>Scheduled agent invocations using cron expressions. Each cron client references a command (reusable prompt + agent pair) and fires on schedule.</p>
+      <p>Cron clients run <a href="/magec/docs/commands/">commands</a> on a schedule. Define a cron expression, pick a command, and Magec will execute it automatically — no external scheduler needed.</p>
+<div class="screenshots" style="margin-bottom: 2rem;">
+
+
+
+<img src="/magec/img/screenshots/admin-clients-cron.png" alt="Admin UI — Cron client" class="screenshot screenshot--desktop">
+
+</div>
+<p>Set the <strong>schedule</strong> using a standard cron expression (e.g. <code>0 9 * * *</code> for every day at 9am) and select the <strong>command</strong> to run. The command defines the prompt and which agent handles it — the cron client just decides when it fires.</p>
+<p>This is useful for things that need to happen regularly without anyone pressing a button: daily summaries, periodic health checks, scheduled reports, automated maintenance tasks.</p>
+<h2 id="schedule-shorthands">Schedule shorthands</h2>
+<p>Besides standard cron expressions, you can use these shorthands:</p>
 <table>
   <thead>
       <tr>
-          <th>Field</th>
-          <th>Description</th>
+          <th>Shorthand</th>
+          <th>Equivalent</th>
+          <th>Runs</th>
       </tr>
   </thead>
   <tbody>
       <tr>
-          <td><code>schedule</code></td>
-          <td>Cron expression (e.g. <code>0 9 * * *</code> for every day at 9am)</td>
+          <td><code>@yearly</code></td>
+          <td><code>0 0 1 1 *</code></td>
+          <td>Once a year (Jan 1, midnight)</td>
       </tr>
       <tr>
-          <td><code>commandId</code></td>
-          <td>Which command to execute</td>
+          <td><code>@monthly</code></td>
+          <td><code>0 0 1 * *</code></td>
+          <td>Once a month (1st, midnight)</td>
+      </tr>
+      <tr>
+          <td><code>@weekly</code></td>
+          <td><code>0 0 * * 0</code></td>
+          <td>Once a week (Sunday, midnight)</td>
+      </tr>
+      <tr>
+          <td><code>@daily</code></td>
+          <td><code>0 0 * * *</code></td>
+          <td>Once a day (midnight)</td>
+      </tr>
+      <tr>
+          <td><code>@hourly</code></td>
+          <td><code>0 * * * *</code></td>
+          <td>Once an hour</td>
       </tr>
   </tbody>
 </table>

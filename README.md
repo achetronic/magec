@@ -49,7 +49,7 @@ docker compose up -d
 
 - **Multi-agent** — Per-agent LLM, memory, voice, and tools. Hot-reload from the Admin UI.
 - **Agentic Flows** — Visual drag-and-drop editor. Sequential, parallel, loop, nested.
-- **Any backend** — OpenAI, Anthropic, Gemini, Ollama, LM Studio, OpenRouter, any OpenAI-compatible API.
+- **Any backend** — OpenAI, Anthropic, Gemini, Ollama.
 - **MCP tools** — Home Assistant, GitHub, databases, and hundreds more via Model Context Protocol.
 - **Memory** — Session (Redis) + long-term semantic (PostgreSQL/pgvector).
 - **Voice** — Wake word, VAD, STT, TTS. All server-side via ONNX Runtime.
@@ -80,7 +80,38 @@ docker compose up -d
 
 ## Documentation
 
-Full docs at **[achetronic.github.io/magec](https://achetronic.github.io/magec/docs.html)** — configuration, agents, flows, backends, memory, MCP tools, clients, API reference, deployment, and development.
+Full docs at **[achetronic.github.io/magec](https://achetronic.github.io/magec/docs.html)** — configuration, agents, flows, backends, memory, MCP tools, clients, API reference, and deployment.
+
+## Development
+
+### Requirements
+
+- Go 1.21+
+- Node.js (for Admin UI build)
+- Docker (for infrastructure services)
+
+### Make commands
+
+| Command | Description |
+|---------|-------------|
+| `make build` | Build Admin UI + server binary |
+| `make dev` | Build all and start server |
+| `make dev-admin` | Start Admin UI dev server (Vite, hot-reload) |
+| `make swagger` | Regenerate Swagger docs |
+| `make infra` | Start PostgreSQL + Redis |
+| `make ollama` | Start Ollama with qwen3:8b + nomic-embed-text |
+| `make clean` | Remove build artifacts |
+
+### Key dependencies
+
+| Dependency | Purpose |
+|------------|---------|
+| [google.golang.org/adk](https://pkg.go.dev/google.golang.org/adk) | Google Agent Development Kit |
+| [google/jsonschema-go](https://github.com/google/jsonschema-go) | JSON Schema generation for dynamic forms |
+| [achetronic/adk-utils-go](https://github.com/achetronic/adk-utils-go) | ADK providers, session, memory |
+| [modelcontextprotocol/go-sdk](https://github.com/modelcontextprotocol/go-sdk) | MCP client |
+| [yalue/onnxruntime_go](https://github.com/yalue/onnxruntime_go) | ONNX Runtime for wake word/VAD |
+| [mymmrac/telego](https://github.com/mymmrac/telego) | Telegram bot |
 
 ## License
 

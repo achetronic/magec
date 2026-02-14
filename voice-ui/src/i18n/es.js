@@ -99,6 +99,14 @@ export default {
     daysAgo: "hace {n}d",
   },
 
+  pairing: {
+    subtitle: "Introduce el token del dispositivo para emparejar",
+    connect: "Emparejar",
+    connecting: "Conectando...",
+    error: "Token inválido o dispositivo deshabilitado",
+    hint: "Genera el token en el panel de Admin > Devices",
+  },
+
   errors: {
     microphoneAccess: "No se pudo acceder al micrófono. Revisa los permisos.",
     connectionFailed: "Error de conexión",

@@ -90,6 +90,8 @@
       <div class="docs-sidebar__group">
         <div class="docs-sidebar__label">Clients</div>
         
+        <a href="/magec/docs/clients/" class="docs-sidebar__link">Overview</a>
+        
         <a href="/magec/docs/voice-ui/" class="docs-sidebar__link">Voice UI</a>
         
         <a href="/magec/docs/telegram/" class="docs-sidebar__link">Telegram</a>
@@ -110,8 +112,6 @@
         <a href="/magec/docs/voice-system/" class="docs-sidebar__link">Voice System</a>
         
         <a href="/magec/docs/docker/" class="docs-sidebar__link">Docker</a>
-        
-        <a href="/magec/docs/development/" class="docs-sidebar__link">Development</a>
         
       </div>
       
@@ -154,15 +154,15 @@
 </table>
 <p>Steps can be nested freely — a sequential step can contain parallel branches, a parallel branch can contain loops, a loop can contain more sequences, etc.</p>
 <h2 id="from-simple-to-complex">From simple to complex</h2>
-<p>A basic flow might be a sequential pipeline with 3 agents: a researcher, a writer, and an editor. Each one takes the output of the previous one and builds on it.</p>
+<p>The Research Pipeline is a good example of a simple flow: parallel research + critique, then fact-checking, then synthesis. 4 agents working together in a clean, readable graph.</p>
 <div class="screenshots" style="margin-bottom: 2rem;">
 
 
 
-<img src="/magec/img/screenshots/admin-flow-simple.png" alt="Admin UI — Simple 3-agent flow" class="screenshot screenshot--desktop">
+<img src="/magec/img/screenshots/admin-flow-simple.png" alt="Admin UI — Research Pipeline flow (4 agents)" class="screenshot screenshot--desktop">
 
 </div>
-<p>But the same editor lets you build much larger workflows. The Software Factory example below chains 13 agents through a full SDLC: product manager → architect → developers → QA → documentation → deployment — with parallel branches and loops for iterative refinement.</p>
+<p>But the same editor lets you build much larger workflows. The Software Factory below chains 13 agents through a full SDLC: product manager → architect → developers → QA → documentation → deployment — with parallel branches and loops for iterative refinement.</p>
 <div class="screenshots" style="margin-bottom: 2rem;">
 
 

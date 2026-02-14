@@ -5,7 +5,7 @@ title: "Telegram"
 Connect to Magec via Telegram — send text or voice messages and get responses.
 
 <div class="screenshots" style="margin-bottom: 2rem;">
-{{< screenshot src="img/screenshots/admin-clients.png" alt="Admin UI — Clients" >}}
+{{< screenshot src="img/screenshots/admin-clients-telegram.png" alt="Admin UI — Telegram client" >}}
 </div>
 
 ## Setup
