@@ -1,13 +1,13 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
+<head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Getting Started — Magec — Self-hosted Multi-Agent AI Platform</title>
   <meta name="description" content="Define multiple AI agents, chain them into workflows, connect tools. Voice, Telegram, webhooks, cron. Your server, your rules.">
   <meta name="theme-color" content="#1c1917">
-  <link rel="icon" type="image/svg+xml" href="/magec/img/logo.svg">
-  <link rel="stylesheet" href="/magec/css/style.css">
+  <link rel="icon" type="image/svg+xml" href="/img/logo.svg">
+  <link rel="stylesheet" href="/css/style.css">
   <meta property="og:title" content="Getting Started">
   <meta property="og:description" content="Define multiple AI agents, chain them into workflows, connect tools. Voice, Telegram, webhooks, cron. Your server, your rules.">
   <meta property="og:type" content="website">
@@ -30,13 +30,13 @@
     </button>
     <ul class="nav__links">
       
-      <li><a href="/magec/" class="nav__link">Quick Start</a></li>
+      <li><a href="/" class="nav__link">Quick Start</a></li>
       
-      <li><a href="/magec/#features" class="nav__link">Features</a></li>
+      <li><a href="/#features" class="nav__link">Features</a></li>
       
-      <li><a href="/magec/#screenshots" class="nav__link">Screenshots</a></li>
+      <li><a href="/#screenshots" class="nav__link">Screenshots</a></li>
       
-      <li><a href="/magec/docs/" class="nav__link">Docs</a></li>
+      <li><a href="/docs/" class="nav__link">Docs</a></li>
       
       <li>
         <a href="https://github.com/achetronic/magec" class="nav__cta" target="_blank" rel="noopener">
@@ -58,9 +58,11 @@
       <div class="docs-sidebar__group">
         <div class="docs-sidebar__label">Getting Started</div>
         
-        <a href="/magec/docs/getting-started/" class="docs-sidebar__link docs-sidebar__link--active">Installation</a>
+        <a href="/docs/getting-started/" class="docs-sidebar__link docs-sidebar__link--active">Installation</a>
         
-        <a href="/magec/docs/configuration/" class="docs-sidebar__link">Configuration</a>
+        <a href="/docs/configuration/" class="docs-sidebar__link">Configuration</a>
+        
+        <a href="/docs/docker/" class="docs-sidebar__link">Docker Deployment</a>
         
       </div>
       
@@ -69,17 +71,17 @@
       <div class="docs-sidebar__group">
         <div class="docs-sidebar__label">Core Concepts</div>
         
-        <a href="/magec/docs/agents/" class="docs-sidebar__link">Agents</a>
+        <a href="/docs/agents/" class="docs-sidebar__link">Agents</a>
         
-        <a href="/magec/docs/flows/" class="docs-sidebar__link">Agentic Flows</a>
+        <a href="/docs/flows/" class="docs-sidebar__link">Agentic Flows</a>
         
-        <a href="/magec/docs/backends/" class="docs-sidebar__link">AI Backends</a>
+        <a href="/docs/backends/" class="docs-sidebar__link">AI Backends</a>
         
-        <a href="/magec/docs/memory/" class="docs-sidebar__link">Memory</a>
+        <a href="/docs/memory/" class="docs-sidebar__link">Memory</a>
         
-        <a href="/magec/docs/mcp/" class="docs-sidebar__link">MCP Tools</a>
+        <a href="/docs/mcp/" class="docs-sidebar__link">MCP Tools</a>
         
-        <a href="/magec/docs/commands/" class="docs-sidebar__link">Commands</a>
+        <a href="/docs/commands/" class="docs-sidebar__link">Commands</a>
         
       </div>
       
@@ -88,15 +90,15 @@
       <div class="docs-sidebar__group">
         <div class="docs-sidebar__label">Clients</div>
         
-        <a href="/magec/docs/clients/" class="docs-sidebar__link">Overview</a>
+        <a href="/docs/clients/" class="docs-sidebar__link">Overview</a>
         
-        <a href="/magec/docs/voice-ui/" class="docs-sidebar__link">Voice UI</a>
+        <a href="/docs/voice-ui/" class="docs-sidebar__link">Voice UI</a>
         
-        <a href="/magec/docs/telegram/" class="docs-sidebar__link">Telegram</a>
+        <a href="/docs/telegram/" class="docs-sidebar__link">Telegram</a>
         
-        <a href="/magec/docs/webhooks/" class="docs-sidebar__link">Webhooks</a>
+        <a href="/docs/webhooks/" class="docs-sidebar__link">Webhooks</a>
         
-        <a href="/magec/docs/cron/" class="docs-sidebar__link">Cron</a>
+        <a href="/docs/cron/" class="docs-sidebar__link">Cron</a>
         
       </div>
       
@@ -105,9 +107,9 @@
       <div class="docs-sidebar__group">
         <div class="docs-sidebar__label">Reference</div>
         
-        <a href="/magec/docs/api/" class="docs-sidebar__link">API Reference</a>
+        <a href="/docs/api/" class="docs-sidebar__link">API Reference</a>
         
-        <a href="/magec/docs/voice-system/" class="docs-sidebar__link">Voice System</a>
+        <a href="/docs/voice-system/" class="docs-sidebar__link">Voice System</a>
         
       </div>
       
@@ -119,33 +121,41 @@
         Navigation
       </button>
       <h1>Getting Started</h1>
-      <h2 id="installation">Installation</h2>
-<p>The install script downloads the Docker Compose files, picks the right configuration for your chosen mode, and starts everything with a single command.</p>
-<p><strong>Requirements:</strong> Docker and Docker Compose.</p>
+      <p>Magec runs as a set of Docker containers. The install script downloads the right Docker Compose configuration for your setup, pulls the images, and starts everything. In a few minutes, you&rsquo;ll have a working AI platform with a voice interface, an admin panel, and your first agent ready to go.</p>
+<p><strong>Requirements:</strong> Docker and Docker Compose installed on your machine.</p>
+<h2 id="choose-your-deployment">Choose your deployment</h2>
+<p>Magec can run fully local (no cloud accounts, no API keys) or connect to cloud AI providers. The only difference is where the LLM, speech, and embedding models run — everything else (memory, tools, voice processing, the UIs) is always local.</p>
 <h3 id="fully-local-default">Fully local (default)</h3>
-<p>No API keys, no sign-ups. LLM, speech-to-text, text-to-speech, and embeddings all run on your machine.</p>
+<p>Everything runs on your machine. The LLM (Qwen 3 8B via Ollama), speech-to-text (Parakeet), text-to-speech (OpenAI Edge TTS), and embeddings (nomic-embed-text) are all local. No accounts, no API keys, no data leaving your network.</p>
 <div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">curl -fsSL https://raw.githubusercontent.com/achetronic/magec/main/scripts/install.sh <span class="p">|</span> bash
 </span></span></code></pre></div>
 
 
 <div class="docs-callout docs-callout--info">
-  <strong>First start</strong> downloads ~5GB of models (Ollama qwen3:8b + nomic-embed-text). Track progress with <code>docker compose logs -f ollama-setup</code>.
+  <strong>First start</strong> downloads approximately 5 GB of AI models. This only happens once. You can track the progress with <code>docker compose logs -f ollama-setup</code>.
 </div>
 
-<h3 id="cloud-apis">Cloud APIs</h3>
-<p>Only Redis and PostgreSQL run locally. LLM, STT, TTS, and embeddings use your cloud provider.</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># OpenAI</span>
+<h3 id="cloud-providers">Cloud providers</h3>
+<p>If you prefer to use cloud models (faster, more capable for complex tasks), you can point Magec at your provider. Only Redis and PostgreSQL run locally — the AI inference happens in the cloud.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># OpenAI (GPT-4, Whisper, TTS)</span>
 </span></span><span class="line"><span class="cl"><span class="nb">export</span> <span class="nv">OPENAI_API_KEY</span><span class="o">=</span>sk-...
-</span></span><span class="line"><span class="cl">curl -fsSL .../install.sh <span class="p">|</span> bash -s -- --openai
+</span></span><span class="line"><span class="cl">curl -fsSL https://raw.githubusercontent.com/achetronic/magec/main/scripts/install.sh <span class="p">|</span> bash -s -- --openai
 </span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c1"># Anthropic</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># Anthropic (Claude) — STT and TTS still run locally</span>
 </span></span><span class="line"><span class="cl"><span class="nb">export</span> <span class="nv">ANTHROPIC_API_KEY</span><span class="o">=</span>sk-ant-...
-</span></span><span class="line"><span class="cl">curl -fsSL .../install.sh <span class="p">|</span> bash -s -- --anthropic
+</span></span><span class="line"><span class="cl">curl -fsSL https://raw.githubusercontent.com/achetronic/magec/main/scripts/install.sh <span class="p">|</span> bash -s -- --anthropic
 </span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c1"># Google Gemini</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># Google Gemini — STT and TTS still run locally</span>
 </span></span><span class="line"><span class="cl"><span class="nb">export</span> <span class="nv">GEMINI_API_KEY</span><span class="o">=</span>AI...
-</span></span><span class="line"><span class="cl">curl -fsSL .../install.sh <span class="p">|</span> bash -s -- --gemini
-</span></span></code></pre></div><h3 id="options">Options</h3>
+</span></span><span class="line"><span class="cl">curl -fsSL https://raw.githubusercontent.com/achetronic/magec/main/scripts/install.sh <span class="p">|</span> bash -s -- --gemini
+</span></span></code></pre></div>
+
+
+<div class="docs-callout docs-callout--info">
+  With Anthropic and Gemini, speech-to-text (Parakeet) and text-to-speech (OpenAI Edge TTS) still run locally because those providers don&rsquo;t offer voice APIs. Embeddings also use a local Ollama model. Only the LLM inference goes to the cloud.
+</div>
+
+<h3 id="install-options">Install options</h3>
 <table>
   <thead>
       <tr>
@@ -156,23 +166,23 @@
   <tbody>
       <tr>
           <td><code>--local</code></td>
-          <td>Fully local deployment (default)</td>
+          <td>Fully local deployment — no cloud APIs (default)</td>
       </tr>
       <tr>
           <td><code>--openai</code></td>
-          <td>Use OpenAI APIs. Requires <code>OPENAI_API_KEY</code></td>
+          <td>Use OpenAI for LLM, STT, TTS, and embeddings. Requires <code>OPENAI_API_KEY</code></td>
       </tr>
       <tr>
           <td><code>--anthropic</code></td>
-          <td>Use Anthropic APIs. Requires <code>ANTHROPIC_API_KEY</code></td>
+          <td>Use Anthropic for LLM. STT, TTS, and embeddings remain local. Requires <code>ANTHROPIC_API_KEY</code></td>
       </tr>
       <tr>
           <td><code>--gemini</code></td>
-          <td>Use Google Gemini APIs. Requires <code>GEMINI_API_KEY</code></td>
+          <td>Use Google Gemini for LLM. STT, TTS, and embeddings remain local. Requires <code>GEMINI_API_KEY</code></td>
       </tr>
       <tr>
           <td><code>--gpu</code></td>
-          <td>Enable NVIDIA GPU support for Ollama (local mode only)</td>
+          <td>Enable NVIDIA GPU support for Ollama (local mode only). Requires nvidia-container-toolkit</td>
       </tr>
       <tr>
           <td><code>--dir NAME</code></td>
@@ -180,17 +190,65 @@
       </tr>
   </tbody>
 </table>
-<h3 id="once-running">Once running</h3>
-<ul>
-<li><strong>Admin UI</strong> → <code>http://localhost:8081</code> — configure your agents, backends, memory, and clients</li>
-<li><strong>Voice UI</strong> → <code>http://localhost:8080</code> — start chatting</li>
-</ul>
-<h3 id="managing-the-deployment">Managing the deployment</h3>
+<h2 id="what-the-installer-creates">What the installer creates</h2>
+<p>The installer creates a directory (default: <code>magec/</code>) with the Docker Compose files and a <code>data/</code> directory where Magec stores its configuration. The structure looks like this:</p>
+<pre tabindex="0"><code>magec/
+├── docker-compose.yaml          # Base services
+├── docker-compose.override.yaml # Provider-specific config
+└── data/
+    └── store.json               # Your agents, backends, clients, etc.
+</code></pre><p>The <code>data/store.json</code> file is pre-populated with a working starter configuration (a &ldquo;seed&rdquo;) that includes a backend, a memory provider, and a Voice UI client — so you can start talking to an agent immediately after install.</p>
+<h2 id="once-running">Once running</h2>
+<p>Two UIs are available right away:</p>
+<table>
+  <thead>
+      <tr>
+          <th>URL</th>
+          <th>What it is</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td><strong><code>http://localhost:8081</code></strong></td>
+          <td><strong>Admin UI</strong> — Create and manage agents, backends, memory providers, MCP tools, flows, clients, and commands. This is your control panel.</td>
+      </tr>
+      <tr>
+          <td><strong><code>http://localhost:8080</code></strong></td>
+          <td><strong>Voice UI</strong> — Talk to your agents. Wake word (&ldquo;Oye Magec&rdquo;), push-to-talk, conversation history, agent switching. Installable as a phone app (PWA).</td>
+      </tr>
+  </tbody>
+</table>
+<p>The first time you open the Voice UI, it will ask for a pairing token. You can find this token in the Admin UI under <strong>Clients</strong> — the installer already created a Voice UI client for you.</p>
+<h2 id="your-first-conversation">Your first conversation</h2>
+<ol>
+<li>Open the <strong>Admin UI</strong> at <code>http://localhost:8081</code></li>
+<li>Go to <strong>Clients</strong> and copy the token of the pre-created Voice UI client</li>
+<li>Open the <strong>Voice UI</strong> at <code>http://localhost:8080</code></li>
+<li>Paste the token to pair</li>
+<li>Tap the microphone or say <strong>&ldquo;Oye Magec&rdquo;</strong> and start talking</li>
+</ol>
+<p>The default agent uses the LLM and voice configuration from your chosen deployment mode. From here, you can create new agents, change their prompts, add memory, connect MCP tools, build flows — all from the Admin UI.</p>
+<h2 id="managing-your-deployment">Managing your deployment</h2>
 <div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="nb">cd</span> magec                        <span class="c1"># or your --dir path</span>
-</span></span><span class="line"><span class="cl">docker compose logs -f          <span class="c1"># follow logs</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">docker compose logs -f          <span class="c1"># follow all logs</span>
+</span></span><span class="line"><span class="cl">docker compose logs -f magec    <span class="c1"># follow only the Magec server</span>
+</span></span><span class="line"><span class="cl">
 </span></span><span class="line"><span class="cl">docker compose down             <span class="c1"># stop everything</span>
 </span></span><span class="line"><span class="cl">docker compose up -d            <span class="c1"># start again</span>
-</span></span></code></pre></div>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">docker compose pull             <span class="c1"># update to latest images</span>
+</span></span><span class="line"><span class="cl">docker compose up -d            <span class="c1"># restart with new images</span>
+</span></span></code></pre></div><h2 id="what-to-do-next">What to do next</h2>
+<p>Now that Magec is running, here&rsquo;s the recommended path:</p>
+<ol>
+<li><strong><a href="/magec/docs/configuration/">Configuration</a></strong> — Understand the two configuration layers (infrastructure vs. resources)</li>
+<li><strong><a href="/magec/docs/agents/">Agents</a></strong> — Create your first custom agent with a specific personality and tools</li>
+<li><strong><a href="/magec/docs/backends/">AI Backends</a></strong> — Add more AI providers or mix local and cloud models</li>
+<li><strong><a href="/magec/docs/mcp/">MCP Tools</a></strong> — Connect external tools to make your agents actually useful (this is where it gets powerful)</li>
+<li><strong><a href="/magec/docs/flows/">Flows</a></strong> — Chain agents into multi-step workflows</li>
+</ol>
+
     </div>
   </div>
 </div>
@@ -215,13 +273,13 @@
       </div>
       <ul class="footer__links">
         <li><a href="https://github.com/achetronic/magec" target="_blank" rel="noopener">GitHub</a></li>
-        <li><a href="/magec/docs/">Docs</a></li>
+        <li><a href="/docs/">Docs</a></li>
         <li><a href="https://github.com/achetronic/magec/issues" target="_blank" rel="noopener">Issues</a></li>
       </ul>
     </div>
   </div>
 </footer>
 
-  <script type="module" src="/magec/js/main.js"></script>
+  <script type="module" src="/js/main.js"></script>
 </body>
 </html>

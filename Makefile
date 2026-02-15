@@ -62,7 +62,7 @@ clean:
 	@rm -rf bin
 	@rm -rf admin-ui/dist
 	@rm -rf voice-ui/dist
-	@rm -rf gui/pretrained
+	@rm -rf models/auxiliary
 	@find . -name ".DS_Store" -delete
 	@echo "Cleaned"
 

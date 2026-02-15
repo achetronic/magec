@@ -212,19 +212,9 @@ See `.agents/ADK_TOOLS.md` for full details on `toolconfirmation`.
 
 ## Low Priority
 
-### Unify `models/` and `pretrained/` directories
+### ~~Unify `models/` and `pretrained/` directories~~ ✅
 
-**Problem**: ONNX models are split across two top-level directories — `models/` (wake word models + `wakewords.yaml`) and `pretrained/` (mel-spectrogram, VAD, embeddings). The distinction is unclear and adds confusion.
-
-**Goal**: Merge both into a single `models/` directory with subdirectories by purpose (e.g. `models/wakeword/`, `models/vad/`, `models/embeddings/`).
-
-**Files to update**:
-- `server/voice/detector.go` — wake word model paths
-- `server/voice/vad.go` — VAD model path
-- `models/wakewords.yaml` — model path references
-- `scripts/download-model.go` — download targets
-- `docker/build/Dockerfile` — COPY paths
-- `config.example.yaml` — if any model paths are referenced
+Done. Models now live under `models/wakeword/` and `models/auxiliary/`.
 
 ---
 

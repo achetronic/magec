@@ -2,42 +2,44 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
   xmlns:xhtml="http://www.w3.org/1999/xhtml">
   <url>
-    <loc>https://achetronic.github.io/magec/docs/flows/</loc>
+    <loc>http://localhost:1313/docs/flows/</loc>
   </url><url>
-    <loc>https://achetronic.github.io/magec/docs/agents/</loc>
+    <loc>http://localhost:1313/docs/agents/</loc>
   </url><url>
-    <loc>https://achetronic.github.io/magec/docs/backends/</loc>
+    <loc>http://localhost:1313/docs/backends/</loc>
   </url><url>
-    <loc>https://achetronic.github.io/magec/docs/api/</loc>
+    <loc>http://localhost:1313/docs/api/</loc>
   </url><url>
-    <loc>https://achetronic.github.io/magec/categories/</loc>
+    <loc>http://localhost:1313/categories/</loc>
   </url><url>
-    <loc>https://achetronic.github.io/magec/docs/clients/</loc>
+    <loc>http://localhost:1313/docs/clients/</loc>
   </url><url>
-    <loc>https://achetronic.github.io/magec/docs/commands/</loc>
+    <loc>http://localhost:1313/docs/commands/</loc>
   </url><url>
-    <loc>https://achetronic.github.io/magec/docs/configuration/</loc>
+    <loc>http://localhost:1313/docs/configuration/</loc>
   </url><url>
-    <loc>https://achetronic.github.io/magec/docs/cron/</loc>
+    <loc>http://localhost:1313/docs/cron/</loc>
   </url><url>
-    <loc>https://achetronic.github.io/magec/docs/</loc>
+    <loc>http://localhost:1313/docs/docker/</loc>
   </url><url>
-    <loc>https://achetronic.github.io/magec/docs/getting-started/</loc>
+    <loc>http://localhost:1313/docs/</loc>
   </url><url>
-    <loc>https://achetronic.github.io/magec/</loc>
+    <loc>http://localhost:1313/docs/getting-started/</loc>
   </url><url>
-    <loc>https://achetronic.github.io/magec/docs/mcp/</loc>
+    <loc>http://localhost:1313/</loc>
   </url><url>
-    <loc>https://achetronic.github.io/magec/docs/memory/</loc>
+    <loc>http://localhost:1313/docs/mcp/</loc>
   </url><url>
-    <loc>https://achetronic.github.io/magec/tags/</loc>
+    <loc>http://localhost:1313/docs/memory/</loc>
   </url><url>
-    <loc>https://achetronic.github.io/magec/docs/telegram/</loc>
+    <loc>http://localhost:1313/tags/</loc>
   </url><url>
-    <loc>https://achetronic.github.io/magec/docs/voice-system/</loc>
+    <loc>http://localhost:1313/docs/telegram/</loc>
   </url><url>
-    <loc>https://achetronic.github.io/magec/docs/voice-ui/</loc>
+    <loc>http://localhost:1313/docs/voice-system/</loc>
   </url><url>
-    <loc>https://achetronic.github.io/magec/docs/webhooks/</loc>
+    <loc>http://localhost:1313/docs/voice-ui/</loc>
+  </url><url>
+    <loc>http://localhost:1313/docs/webhooks/</loc>
   </url>
 </urlset>

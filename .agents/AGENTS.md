@@ -140,8 +140,9 @@ magec/
 │   ├── index.html
 │   ├── vite.config.js          # Vue plugin + Tailwind plugin + dev proxy to :8081
 │   └── package.json            # vue, pinia, vuedraggable, tailwindcss v4
-├── models/                     # Wake word ONNX models + wakewords.yaml
-├── pretrained/                 # Shared ONNX models (mel-spec, VAD, embeddings)
+├── models/                     # ONNX models
+│   ├── wakeword/              # Wake word models + wakewords.yaml
+│   └── auxiliary/             # Shared models (mel-spec, VAD, embeddings)
 ├── scripts/
 │   └── download-model.go       # Wake word model downloader
 ├── docker/

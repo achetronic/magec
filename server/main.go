@@ -151,8 +151,8 @@ func main() {
 	var voiceDetector *voice.Detector
 	if *cfg.Voice.UI.Enabled {
 		const (
-			voiceModelsPath        = "models"
-			voicePretrainedPath    = "pretrained"
+			voiceModelsPath        = "models/wakeword"
+			voiceAuxiliaryPath     = "models/auxiliary"
 			defaultOnnxLibraryPath = "/usr/lib/libonnxruntime.so"
 		)
 		onnxLibraryPath := defaultOnnxLibraryPath
@@ -177,9 +177,9 @@ func main() {
 			}
 
 			voiceDetector = voice.NewDetector(voice.DetectorConfig{
-				MelspecModelPath:   fmt.Sprintf("%s/mel-spectrogram.onnx", voicePretrainedPath),
-				EmbeddingModelPath: fmt.Sprintf("%s/speech-embedding.onnx", voicePretrainedPath),
-				VADModelPath:       fmt.Sprintf("%s/silero-vad.onnx", voicePretrainedPath),
+				MelspecModelPath:   fmt.Sprintf("%s/mel-spectrogram.onnx", voiceAuxiliaryPath),
+				EmbeddingModelPath: fmt.Sprintf("%s/speech-embedding.onnx", voiceAuxiliaryPath),
+				VADModelPath:       fmt.Sprintf("%s/silero-vad.onnx", voiceAuxiliaryPath),
 				Models:             models,
 				OnnxLibraryPath:    onnxLibraryPath,
 			}, slog.Default())

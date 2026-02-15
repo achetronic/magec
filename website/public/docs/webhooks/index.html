@@ -1,13 +1,13 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
+<head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Webhooks — Magec — Self-hosted Multi-Agent AI Platform</title>
   <meta name="description" content="Define multiple AI agents, chain them into workflows, connect tools. Voice, Telegram, webhooks, cron. Your server, your rules.">
   <meta name="theme-color" content="#1c1917">
-  <link rel="icon" type="image/svg+xml" href="/magec/img/logo.svg">
-  <link rel="stylesheet" href="/magec/css/style.css">
+  <link rel="icon" type="image/svg+xml" href="/img/logo.svg">
+  <link rel="stylesheet" href="/css/style.css">
   <meta property="og:title" content="Webhooks">
   <meta property="og:description" content="Define multiple AI agents, chain them into workflows, connect tools. Voice, Telegram, webhooks, cron. Your server, your rules.">
   <meta property="og:type" content="website">
@@ -30,13 +30,13 @@
     </button>
     <ul class="nav__links">
       
-      <li><a href="/magec/" class="nav__link">Quick Start</a></li>
+      <li><a href="/" class="nav__link">Quick Start</a></li>
       
-      <li><a href="/magec/#features" class="nav__link">Features</a></li>
+      <li><a href="/#features" class="nav__link">Features</a></li>
       
-      <li><a href="/magec/#screenshots" class="nav__link">Screenshots</a></li>
+      <li><a href="/#screenshots" class="nav__link">Screenshots</a></li>
       
-      <li><a href="/magec/docs/" class="nav__link">Docs</a></li>
+      <li><a href="/docs/" class="nav__link">Docs</a></li>
       
       <li>
         <a href="https://github.com/achetronic/magec" class="nav__cta" target="_blank" rel="noopener">
@@ -58,9 +58,11 @@
       <div class="docs-sidebar__group">
         <div class="docs-sidebar__label">Getting Started</div>
         
-        <a href="/magec/docs/getting-started/" class="docs-sidebar__link">Installation</a>
+        <a href="/docs/getting-started/" class="docs-sidebar__link">Installation</a>
         
-        <a href="/magec/docs/configuration/" class="docs-sidebar__link">Configuration</a>
+        <a href="/docs/configuration/" class="docs-sidebar__link">Configuration</a>
+        
+        <a href="/docs/docker/" class="docs-sidebar__link">Docker Deployment</a>
         
       </div>
       
@@ -69,17 +71,17 @@
       <div class="docs-sidebar__group">
         <div class="docs-sidebar__label">Core Concepts</div>
         
-        <a href="/magec/docs/agents/" class="docs-sidebar__link">Agents</a>
+        <a href="/docs/agents/" class="docs-sidebar__link">Agents</a>
         
-        <a href="/magec/docs/flows/" class="docs-sidebar__link">Agentic Flows</a>
+        <a href="/docs/flows/" class="docs-sidebar__link">Agentic Flows</a>
         
-        <a href="/magec/docs/backends/" class="docs-sidebar__link">AI Backends</a>
+        <a href="/docs/backends/" class="docs-sidebar__link">AI Backends</a>
         
-        <a href="/magec/docs/memory/" class="docs-sidebar__link">Memory</a>
+        <a href="/docs/memory/" class="docs-sidebar__link">Memory</a>
         
-        <a href="/magec/docs/mcp/" class="docs-sidebar__link">MCP Tools</a>
+        <a href="/docs/mcp/" class="docs-sidebar__link">MCP Tools</a>
         
-        <a href="/magec/docs/commands/" class="docs-sidebar__link">Commands</a>
+        <a href="/docs/commands/" class="docs-sidebar__link">Commands</a>
         
       </div>
       
@@ -88,15 +90,15 @@
       <div class="docs-sidebar__group">
         <div class="docs-sidebar__label">Clients</div>
         
-        <a href="/magec/docs/clients/" class="docs-sidebar__link">Overview</a>
+        <a href="/docs/clients/" class="docs-sidebar__link">Overview</a>
         
-        <a href="/magec/docs/voice-ui/" class="docs-sidebar__link">Voice UI</a>
+        <a href="/docs/voice-ui/" class="docs-sidebar__link">Voice UI</a>
         
-        <a href="/magec/docs/telegram/" class="docs-sidebar__link">Telegram</a>
+        <a href="/docs/telegram/" class="docs-sidebar__link">Telegram</a>
         
-        <a href="/magec/docs/webhooks/" class="docs-sidebar__link docs-sidebar__link--active">Webhooks</a>
+        <a href="/docs/webhooks/" class="docs-sidebar__link docs-sidebar__link--active">Webhooks</a>
         
-        <a href="/magec/docs/cron/" class="docs-sidebar__link">Cron</a>
+        <a href="/docs/cron/" class="docs-sidebar__link">Cron</a>
         
       </div>
       
@@ -105,9 +107,9 @@
       <div class="docs-sidebar__group">
         <div class="docs-sidebar__label">Reference</div>
         
-        <a href="/magec/docs/api/" class="docs-sidebar__link">API Reference</a>
+        <a href="/docs/api/" class="docs-sidebar__link">API Reference</a>
         
-        <a href="/magec/docs/voice-system/" class="docs-sidebar__link">Voice System</a>
+        <a href="/docs/voice-system/" class="docs-sidebar__link">Voice System</a>
         
       </div>
       
@@ -119,33 +121,131 @@
         Navigation
       </button>
       <h1>Webhooks</h1>
-      <p>Webhook clients expose an HTTP endpoint that triggers agent invocations. Each webhook gets a unique URL and its own authentication token. External systems hit the endpoint, the agent processes the request, and the response comes back in the HTTP response body.</p>
-<p>There are two ways to use them depending on where the prompt comes from.</p>
+      <p>Webhook clients expose an HTTP endpoint that triggers agent invocations. External systems make an HTTP request, Magec processes it through an agent, and the response comes back in the HTTP response body. This is how you integrate Magec with CI/CD pipelines, form handlers, monitoring systems, or any tool that can make HTTP requests.</p>
+<p>Each webhook gets a unique URL and its own authentication token. There are two modes depending on where the prompt comes from.</p>
 <h2 id="command-mode">Command mode</h2>
-<p>The webhook runs a preconfigured <a href="/magec/docs/commands/">command</a> — a reusable prompt that you define once and trigger as many times as you want. The request body is ignored; the prompt is always the same.</p>
+<p>The webhook runs a preconfigured <a href="/magec/docs/commands/">command</a> — a reusable prompt that you define once and trigger as many times as you want. The request body is ignored; the prompt is always the same command.</p>
 <div class="screenshots" style="margin-bottom: 2rem;">
 
 
 
-<img src="/magec/img/screenshots/admin-clients-webhook-command.png" alt="Admin UI — Webhook client (command mode)" class="screenshot screenshot--desktop">
+<img src="/img/screenshots/admin-clients-webhook-command.png" alt="Admin UI — Webhook client (command mode)" class="screenshot screenshot--desktop">
 
 </div>
-<p>This is useful for recurring tasks: &ldquo;summarize today&rsquo;s news&rdquo;, &ldquo;generate the daily report&rdquo;, &ldquo;check for security alerts&rdquo;. Wire it to an external scheduler, a CI pipeline, or any system that can make an HTTP request.</p>
+<p>This is useful for recurring tasks that always do the same thing:</p>
+<ul>
+<li><strong>Daily reports</strong> — A monitoring system hits the webhook every morning, the agent queries data and generates a summary</li>
+<li><strong>CI/CD integration</strong> — A pipeline triggers the webhook after each deploy, the agent reviews the changelog</li>
+<li><strong>Scheduled checks</strong> — An external scheduler calls the webhook, the agent runs a security audit</li>
+</ul>
+<p>The agent, prompt, and behavior are all defined in the command. The webhook is just the trigger.</p>
+<h3 id="configuration">Configuration</h3>
+<table>
+  <thead>
+      <tr>
+          <th>Field</th>
+          <th>Description</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td><code>name</code></td>
+          <td>Display name</td>
+      </tr>
+      <tr>
+          <td><code>passthrough</code></td>
+          <td>Set to <code>false</code> for command mode</td>
+      </tr>
+      <tr>
+          <td><code>commandId</code></td>
+          <td>The command to run when the webhook is triggered</td>
+      </tr>
+      <tr>
+          <td><code>allowedAgents</code></td>
+          <td>Which agents/flows this webhook can access</td>
+      </tr>
+  </tbody>
+</table>
 <h2 id="passthrough-mode">Passthrough mode</h2>
 <p>The prompt comes from the outside. Whatever is sent in the request body gets forwarded to the agent as the user message. The webhook acts as a bridge between external systems and your agents.</p>
 <div class="screenshots" style="margin-bottom: 2rem;">
 
 
 
-<img src="/magec/img/screenshots/admin-clients-webhook-passthrough.png" alt="Admin UI — Webhook client (passthrough mode)" class="screenshot screenshot--desktop">
+<img src="/img/screenshots/admin-clients-webhook-passthrough.png" alt="Admin UI — Webhook client (passthrough mode)" class="screenshot screenshot--desktop">
 
 </div>
-<p>This is the mode you want when integrating with tools that need to send dynamic content — form submissions, alerts, notifications, or anything where the input changes every time.</p>
+<p>This is the mode you want when the input is dynamic:</p>
+<ul>
+<li><strong>Form submissions</strong> — A contact form sends the message to the agent for processing or classification</li>
+<li><strong>Alert handling</strong> — A monitoring system sends an alert, the agent analyzes it and decides on action</li>
+<li><strong>Chat integrations</strong> — A custom frontend or third-party service sends user messages through the webhook</li>
+<li><strong>Data processing</strong> — External systems send data for the agent to analyze, summarize, or transform</li>
+</ul>
+<h3 id="configuration-1">Configuration</h3>
+<table>
+  <thead>
+      <tr>
+          <th>Field</th>
+          <th>Description</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td><code>name</code></td>
+          <td>Display name</td>
+      </tr>
+      <tr>
+          <td><code>passthrough</code></td>
+          <td>Set to <code>true</code> for passthrough mode</td>
+      </tr>
+      <tr>
+          <td><code>allowedAgents</code></td>
+          <td>Which agents/flows this webhook can access</td>
+      </tr>
+  </tbody>
+</table>
 <h2 id="calling-a-webhook">Calling a webhook</h2>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">curl -X POST http://localhost:8080/api/v1/webhooks/WEBHOOK_ID <span class="se">\
+<p>Every webhook has a URL and a token. The URL format is:</p>
+<pre tabindex="0"><code>POST http://localhost:8080/api/v1/webhooks/{clientID}
+</code></pre><p>Authentication uses the client&rsquo;s token as a Bearer token:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># Command mode — body is ignored</span>
+</span></span><span class="line"><span class="cl">curl -X POST http://localhost:8080/api/v1/webhooks/YOUR_WEBHOOK_ID <span class="se">\
+</span></span></span><span class="line"><span class="cl">  -H <span class="s2">&#34;Authorization: Bearer mgc_your_token&#34;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Passthrough mode — body contains the prompt</span>
+</span></span><span class="line"><span class="cl">curl -X POST http://localhost:8080/api/v1/webhooks/YOUR_WEBHOOK_ID <span class="se">\
 </span></span></span><span class="line"><span class="cl">  -H <span class="s2">&#34;Authorization: Bearer mgc_your_token&#34;</span> <span class="se">\
 </span></span></span><span class="line"><span class="cl">  -H <span class="s2">&#34;Content-Type: application/json&#34;</span> <span class="se">\
-</span></span></span><span class="line"><span class="cl">  -d <span class="s1">&#39;{&#34;message&#34;: &#34;Summarize today news&#34;}&#39;</span>
+</span></span></span><span class="line"><span class="cl">  -d <span class="s1">&#39;{&#34;prompt&#34;: &#34;Analyze this error: connection timeout on service X&#34;}&#39;</span>
+</span></span></code></pre></div><p>The agent processes the request synchronously and the response is returned in the HTTP response body. This makes webhooks easy to integrate with any system that can make HTTP requests and read responses.</p>
+<h2 id="example-integrations">Example integrations</h2>
+<h3 id="github-actions">GitHub Actions</h3>
+<p>Trigger an agent after a deployment to generate release notes:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-yaml" data-lang="yaml"><span class="line"><span class="cl">- <span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l">Generate release notes</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">  </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="p">|</span><span class="sd">
+</span></span></span><span class="line"><span class="cl"><span class="sd">    curl -X POST ${{ secrets.MAGEC_WEBHOOK_URL }} \
+</span></span></span><span class="line"><span class="cl"><span class="sd">      -H &#34;Authorization: Bearer ${{ secrets.MAGEC_TOKEN }}&#34; \
+</span></span></span><span class="line"><span class="cl"><span class="sd">      -H &#34;Content-Type: application/json&#34; \
+</span></span></span><span class="line"><span class="cl"><span class="sd">      -d &#39;{&#34;prompt&#34;: &#34;Generate release notes for version ${{ github.ref_name }}&#34;}&#39;</span><span class="w">
+</span></span></span></code></pre></div><h3 id="monitoring-alerts">Monitoring alerts</h3>
+<p>Forward alerts from Prometheus, Grafana, or any monitoring tool:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">curl -X POST http://magec:8080/api/v1/webhooks/alert-handler <span class="se">\
+</span></span></span><span class="line"><span class="cl">  -H <span class="s2">&#34;Authorization: Bearer mgc_...&#34;</span> <span class="se">\
+</span></span></span><span class="line"><span class="cl">  -H <span class="s2">&#34;Content-Type: application/json&#34;</span> <span class="se">\
+</span></span></span><span class="line"><span class="cl">  -d <span class="s1">&#39;{&#34;prompt&#34;: &#34;Critical alert: CPU usage above 90% on prod-web-01 for 10 minutes. Analyze possible causes and suggest remediation.&#34;}&#39;</span>
+</span></span></code></pre></div><h3 id="form-processing">Form processing</h3>
+<p>Process contact form submissions through an agent:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-javascript" data-lang="javascript"><span class="line"><span class="cl"><span class="kr">const</span> <span class="nx">response</span> <span class="o">=</span> <span class="kr">await</span> <span class="nx">fetch</span><span class="p">(</span><span class="s1">&#39;http://magec:8080/api/v1/webhooks/form-handler&#39;</span><span class="p">,</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">  <span class="nx">method</span><span class="o">:</span> <span class="s1">&#39;POST&#39;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">  <span class="nx">headers</span><span class="o">:</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="s1">&#39;Authorization&#39;</span><span class="o">:</span> <span class="s1">&#39;Bearer mgc_...&#39;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="s1">&#39;Content-Type&#39;</span><span class="o">:</span> <span class="s1">&#39;application/json&#39;</span>
+</span></span><span class="line"><span class="cl">  <span class="p">},</span>
+</span></span><span class="line"><span class="cl">  <span class="nx">body</span><span class="o">:</span> <span class="nx">JSON</span><span class="p">.</span><span class="nx">stringify</span><span class="p">({</span>
+</span></span><span class="line"><span class="cl">    <span class="nx">prompt</span><span class="o">:</span> <span class="sb">`Classify this customer inquiry and draft a response:\n\n</span><span class="si">${</span><span class="nx">formData</span><span class="p">.</span><span class="nx">message</span><span class="si">}</span><span class="sb">`</span>
+</span></span><span class="line"><span class="cl">  <span class="p">})</span>
+</span></span><span class="line"><span class="cl"><span class="p">});</span>
 </span></span></code></pre></div>
     </div>
   </div>
@@ -171,13 +271,13 @@
       </div>
       <ul class="footer__links">
         <li><a href="https://github.com/achetronic/magec" target="_blank" rel="noopener">GitHub</a></li>
-        <li><a href="/magec/docs/">Docs</a></li>
+        <li><a href="/docs/">Docs</a></li>
         <li><a href="https://github.com/achetronic/magec/issues" target="_blank" rel="noopener">Issues</a></li>
       </ul>
     </div>
   </div>
 </footer>
 
-  <script type="module" src="/magec/js/main.js"></script>
+  <script type="module" src="/js/main.js"></script>
 </body>
 </html>

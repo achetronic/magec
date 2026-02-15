@@ -1,0 +1,99 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 200" fill="none">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="800" y2="200" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#1a1a1d"/>
+      <stop offset="100%" stop-color="#121214"/>
+    </linearGradient>
+    <filter id="shadow">
+      <feDropShadow dx="0" dy="2" stdDeviation="4" flood-color="#000" flood-opacity="0.4"/>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="800" height="200" rx="20" fill="url(#bg)"/>
+
+  <!-- Title -->
+  <text x="400" y="30" text-anchor="middle" fill="#d6d3d1" font-family="system-ui, sans-serif" font-size="13" font-weight="600">COMPLETE VOICE FLOW</text>
+
+  <!-- Step 1 -->
+  <rect x="16" y="52" width="88" height="72" rx="12" fill="#2a2a2f" stroke="#fbbf24" stroke-width="1.5" opacity="0.6" filter="url(#shadow)"/>
+  <text x="60" y="72" text-anchor="middle" fill="#fbbf24" font-family="system-ui, sans-serif" font-size="18">①</text>
+  <text x="60" y="90" text-anchor="middle" fill="#d6d3d1" font-family="system-ui, sans-serif" font-size="9" font-weight="600">Wake word</text>
+  <text x="60" y="104" text-anchor="middle" fill="#78716c" font-family="system-ui, sans-serif" font-size="7">"Oye Magec"</text>
+  <text x="60" y="118" text-anchor="middle" fill="#52525b" font-family="system-ui, sans-serif" font-size="7">~50ms</text>
+
+  <!-- Arrow 1→2 -->
+  <line x1="104" y1="88" x2="122" y2="88" stroke="#fbbf24" stroke-width="1.5" opacity="0.3"/>
+  <polygon points="122,85 128,88 122,91" fill="#fbbf24" opacity="0.4"/>
+
+  <!-- Step 2 -->
+  <rect x="130" y="52" width="88" height="72" rx="12" fill="#2a2a2f" stroke="#38bcd8" stroke-width="1.5" opacity="0.6" filter="url(#shadow)"/>
+  <text x="174" y="72" text-anchor="middle" fill="#38bcd8" font-family="system-ui, sans-serif" font-size="18">②</text>
+  <text x="174" y="90" text-anchor="middle" fill="#d6d3d1" font-family="system-ui, sans-serif" font-size="9" font-weight="600">VAD</text>
+  <text x="174" y="104" text-anchor="middle" fill="#78716c" font-family="system-ui, sans-serif" font-size="7">You speak...</text>
+  <text x="174" y="118" text-anchor="middle" fill="#52525b" font-family="system-ui, sans-serif" font-size="7">real-time</text>
+
+  <!-- Arrow 2→3 -->
+  <line x1="218" y1="88" x2="236" y2="88" stroke="#38bcd8" stroke-width="1.5" opacity="0.3"/>
+  <polygon points="236,85 242,88 236,91" fill="#38bcd8" opacity="0.4"/>
+
+  <!-- Step 3 -->
+  <rect x="244" y="52" width="88" height="72" rx="12" fill="#2a2a2f" stroke="#38bcd8" stroke-width="1" opacity="0.5" filter="url(#shadow)"/>
+  <text x="288" y="72" text-anchor="middle" fill="#38bcd8" font-family="system-ui, sans-serif" font-size="18">③</text>
+  <text x="288" y="90" text-anchor="middle" fill="#d6d3d1" font-family="system-ui, sans-serif" font-size="9" font-weight="600">Silence</text>
+  <text x="288" y="104" text-anchor="middle" fill="#78716c" font-family="system-ui, sans-serif" font-size="7">speech_end</text>
+  <text x="288" y="118" text-anchor="middle" fill="#52525b" font-family="system-ui, sans-serif" font-size="7">~2s after stop</text>
+
+  <!-- Arrow 3→4 -->
+  <line x1="332" y1="88" x2="350" y2="88" stroke="#7dd3e8" stroke-width="1.5" opacity="0.3"/>
+  <polygon points="350,85 356,88 350,91" fill="#7dd3e8" opacity="0.4"/>
+
+  <!-- Step 4 -->
+  <rect x="358" y="52" width="88" height="72" rx="12" fill="#2a2a2f" stroke="#7dd3e8" stroke-width="1.5" opacity="0.6" filter="url(#shadow)"/>
+  <text x="402" y="72" text-anchor="middle" fill="#7dd3e8" font-family="system-ui, sans-serif" font-size="18">④</text>
+  <text x="402" y="90" text-anchor="middle" fill="#d6d3d1" font-family="system-ui, sans-serif" font-size="9" font-weight="600">STT</text>
+  <text x="402" y="104" text-anchor="middle" fill="#78716c" font-family="system-ui, sans-serif" font-size="7">audio → text</text>
+  <text x="402" y="118" text-anchor="middle" fill="#52525b" font-family="system-ui, sans-serif" font-size="7">~1-3s</text>
+
+  <!-- Arrow 4→5 -->
+  <line x1="446" y1="88" x2="464" y2="88" stroke="#a78bfa" stroke-width="1.5" opacity="0.3"/>
+  <polygon points="464,85 470,88 464,91" fill="#a78bfa" opacity="0.4"/>
+
+  <!-- Step 5 -->
+  <rect x="472" y="52" width="88" height="72" rx="12" fill="#2a2a2f" stroke="#a78bfa" stroke-width="1.5" opacity="0.6" filter="url(#shadow)"/>
+  <text x="516" y="72" text-anchor="middle" fill="#a78bfa" font-family="system-ui, sans-serif" font-size="18">⑤</text>
+  <text x="516" y="90" text-anchor="middle" fill="#d6d3d1" font-family="system-ui, sans-serif" font-size="9" font-weight="600">Agent</text>
+  <text x="516" y="104" text-anchor="middle" fill="#78716c" font-family="system-ui, sans-serif" font-size="7">LLM + tools</text>
+  <text x="516" y="118" text-anchor="middle" fill="#52525b" font-family="system-ui, sans-serif" font-size="7">varies</text>
+
+  <!-- Arrow 5→6 -->
+  <line x1="560" y1="88" x2="578" y2="88" stroke="#4ade80" stroke-width="1.5" opacity="0.3"/>
+  <polygon points="578,85 584,88 578,91" fill="#4ade80" opacity="0.4"/>
+
+  <!-- Step 6 -->
+  <rect x="586" y="52" width="88" height="72" rx="12" fill="#2a2a2f" stroke="#4ade80" stroke-width="1.5" opacity="0.6" filter="url(#shadow)"/>
+  <text x="630" y="72" text-anchor="middle" fill="#4ade80" font-family="system-ui, sans-serif" font-size="18">⑥</text>
+  <text x="630" y="90" text-anchor="middle" fill="#d6d3d1" font-family="system-ui, sans-serif" font-size="9" font-weight="600">TTS</text>
+  <text x="630" y="104" text-anchor="middle" fill="#78716c" font-family="system-ui, sans-serif" font-size="7">text → audio</text>
+  <text x="630" y="118" text-anchor="middle" fill="#52525b" font-family="system-ui, sans-serif" font-size="7">~1-2s</text>
+
+  <!-- Arrow 6→7 -->
+  <line x1="674" y1="88" x2="692" y2="88" stroke="#4ade80" stroke-width="1.5" opacity="0.3"/>
+  <polygon points="692,85 698,88 692,91" fill="#4ade80" opacity="0.4"/>
+
+  <!-- Step 7 -->
+  <rect x="700" y="52" width="82" height="72" rx="12" fill="#2a2a2f" stroke="#4ade80" stroke-width="1" opacity="0.4" filter="url(#shadow)"/>
+  <text x="741" y="72" text-anchor="middle" fill="#4ade80" font-family="system-ui, sans-serif" font-size="18">⑦</text>
+  <text x="741" y="90" text-anchor="middle" fill="#d6d3d1" font-family="system-ui, sans-serif" font-size="9" font-weight="600">Play</text>
+  <text x="741" y="104" text-anchor="middle" fill="#78716c" font-family="system-ui, sans-serif" font-size="7">Speaker</text>
+
+  <!-- Annotation bar: local -->
+  <rect x="16" y="140" width="316" height="44" rx="10" fill="#fbbf24" fill-opacity="0.05" stroke="#fbbf24" stroke-width="1" stroke-opacity="0.15"/>
+  <text x="174" y="160" text-anchor="middle" fill="#fbbf24" font-family="system-ui, sans-serif" font-size="9" font-weight="600" opacity="0.7">Steps 1–3 · Always on your server</text>
+  <text x="174" y="174" text-anchor="middle" fill="#78716c" font-family="system-ui, sans-serif" font-size="8">Local ONNX models, nothing leaves the server</text>
+
+  <!-- Annotation bar: backends -->
+  <rect x="358" y="140" width="424" height="44" rx="10" fill="#a78bfa" fill-opacity="0.05" stroke="#a78bfa" stroke-width="1" stroke-opacity="0.15"/>
+  <text x="570" y="160" text-anchor="middle" fill="#a78bfa" font-family="system-ui, sans-serif" font-size="9" font-weight="600" opacity="0.7">Steps 4–7 · Your configured backends</text>
+  <text x="570" y="174" text-anchor="middle" fill="#78716c" font-family="system-ui, sans-serif" font-size="8">Local (Ollama, Parakeet) or cloud (OpenAI, etc.) — your choice</text>
+</svg>

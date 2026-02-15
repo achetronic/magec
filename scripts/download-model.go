@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Download pretrained models (VAD, embedding, etc) from HuggingFace Hey-Buddy.
+// Download auxiliary models (VAD, embedding, etc) from HuggingFace Hey-Buddy.
 package main
 
 import (
@@ -25,7 +25,7 @@ import (
 
 const baseURL = "https://huggingface.co/benjamin-paine/hey-buddy/resolve/main"
 
-var pretrainedModels = []string{
+var auxiliaryModels = []string{
 	"silero-vad.onnx",
 	"mel-spectrogram.onnx",
 	"speech-embedding.onnx",
@@ -67,11 +67,11 @@ func downloadFile(url, dest string) error {
 	return nil
 }
 
-func downloadPretrained() error {
-	fmt.Println("\nChecking pretrained models...")
+func downloadAuxiliary() error {
+	fmt.Println("\nChecking auxiliary models...")
 
-	for _, model := range pretrainedModels {
-		dest := filepath.Join("pretrained", model)
+	for _, model := range auxiliaryModels {
+		dest := filepath.Join("models", "auxiliary", model)
 
 		if _, err := os.Stat(dest); err == nil {
 			fmt.Printf("  %s already exists\n", model)
@@ -89,8 +89,8 @@ func downloadPretrained() error {
 
 func main() {
 
-	if err := downloadPretrained(); err != nil {
-		fmt.Printf("\nFailed to download pretrained models: %v\n", err)
+	if err := downloadAuxiliary(); err != nil {
+		fmt.Printf("\nFailed to download auxiliary models: %v\n", err)
 		os.Exit(1)
 	}
 

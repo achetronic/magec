@@ -1,14 +1,14 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
+<head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Docker — Magec — Self-hosted Multi-Agent AI Platform</title>
+  <title>Docker Deployment — Magec — Self-hosted Multi-Agent AI Platform</title>
   <meta name="description" content="Define multiple AI agents, chain them into workflows, connect tools. Voice, Telegram, webhooks, cron. Your server, your rules.">
   <meta name="theme-color" content="#1c1917">
-  <link rel="icon" type="image/svg+xml" href="/magec/img/logo.svg">
-  <link rel="stylesheet" href="/magec/css/style.css">
-  <meta property="og:title" content="Docker">
+  <link rel="icon" type="image/svg+xml" href="/img/logo.svg">
+  <link rel="stylesheet" href="/css/style.css">
+  <meta property="og:title" content="Docker Deployment">
   <meta property="og:description" content="Define multiple AI agents, chain them into workflows, connect tools. Voice, Telegram, webhooks, cron. Your server, your rules.">
   <meta property="og:type" content="website">
 </head>
@@ -30,13 +30,13 @@
     </button>
     <ul class="nav__links">
       
-      <li><a href="/magec/#features" class="nav__link">Features</a></li>
+      <li><a href="/" class="nav__link">Quick Start</a></li>
       
-      <li><a href="/magec/#screenshots" class="nav__link">Screenshots</a></li>
+      <li><a href="/#features" class="nav__link">Features</a></li>
       
-      <li><a href="/magec/#quickstart" class="nav__link">Quick Start</a></li>
+      <li><a href="/#screenshots" class="nav__link">Screenshots</a></li>
       
-      <li><a href="/magec/docs/" class="nav__link">Docs</a></li>
+      <li><a href="/docs/" class="nav__link">Docs</a></li>
       
       <li>
         <a href="https://github.com/achetronic/magec" class="nav__cta" target="_blank" rel="noopener">
@@ -58,9 +58,11 @@
       <div class="docs-sidebar__group">
         <div class="docs-sidebar__label">Getting Started</div>
         
-        <a href="/magec/docs/getting-started/" class="docs-sidebar__link">Installation</a>
+        <a href="/docs/getting-started/" class="docs-sidebar__link">Installation</a>
         
-        <a href="/magec/docs/configuration/" class="docs-sidebar__link">Configuration</a>
+        <a href="/docs/configuration/" class="docs-sidebar__link">Configuration</a>
+        
+        <a href="/docs/docker/" class="docs-sidebar__link docs-sidebar__link--active">Docker Deployment</a>
         
       </div>
       
@@ -69,17 +71,17 @@
       <div class="docs-sidebar__group">
         <div class="docs-sidebar__label">Core Concepts</div>
         
-        <a href="/magec/docs/agents/" class="docs-sidebar__link">Agents</a>
+        <a href="/docs/agents/" class="docs-sidebar__link">Agents</a>
         
-        <a href="/magec/docs/flows/" class="docs-sidebar__link">Agentic Flows</a>
+        <a href="/docs/flows/" class="docs-sidebar__link">Agentic Flows</a>
         
-        <a href="/magec/docs/backends/" class="docs-sidebar__link">AI Backends</a>
+        <a href="/docs/backends/" class="docs-sidebar__link">AI Backends</a>
         
-        <a href="/magec/docs/memory/" class="docs-sidebar__link">Memory</a>
+        <a href="/docs/memory/" class="docs-sidebar__link">Memory</a>
         
-        <a href="/magec/docs/mcp/" class="docs-sidebar__link">MCP Tools</a>
+        <a href="/docs/mcp/" class="docs-sidebar__link">MCP Tools</a>
         
-        <a href="/magec/docs/commands/" class="docs-sidebar__link">Commands</a>
+        <a href="/docs/commands/" class="docs-sidebar__link">Commands</a>
         
       </div>
       
@@ -88,15 +90,15 @@
       <div class="docs-sidebar__group">
         <div class="docs-sidebar__label">Clients</div>
         
-        <a href="/magec/docs/clients/" class="docs-sidebar__link">Overview</a>
+        <a href="/docs/clients/" class="docs-sidebar__link">Overview</a>
         
-        <a href="/magec/docs/voice-ui/" class="docs-sidebar__link">Voice UI</a>
+        <a href="/docs/voice-ui/" class="docs-sidebar__link">Voice UI</a>
         
-        <a href="/magec/docs/telegram/" class="docs-sidebar__link">Telegram</a>
+        <a href="/docs/telegram/" class="docs-sidebar__link">Telegram</a>
         
-        <a href="/magec/docs/webhooks/" class="docs-sidebar__link">Webhooks</a>
+        <a href="/docs/webhooks/" class="docs-sidebar__link">Webhooks</a>
         
-        <a href="/magec/docs/cron/" class="docs-sidebar__link">Cron</a>
+        <a href="/docs/cron/" class="docs-sidebar__link">Cron</a>
         
       </div>
       
@@ -105,11 +107,9 @@
       <div class="docs-sidebar__group">
         <div class="docs-sidebar__label">Reference</div>
         
-        <a href="/magec/docs/api/" class="docs-sidebar__link">API Reference</a>
+        <a href="/docs/api/" class="docs-sidebar__link">API Reference</a>
         
-        <a href="/magec/docs/voice-system/" class="docs-sidebar__link">Voice System</a>
-        
-        <a href="/magec/docs/docker/" class="docs-sidebar__link docs-sidebar__link--active">Docker</a>
+        <a href="/docs/voice-system/" class="docs-sidebar__link">Voice System</a>
         
       </div>
       
@@ -120,44 +120,219 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
         Navigation
       </button>
-      <h1>Docker</h1>
-      <h2 id="deployment-options">Deployment options</h2>
+      <h1>Docker Deployment</h1>
+      <p>Magec is designed to run as a set of Docker containers. The <a href="/magec/docs/getting-started/">install script</a> handles everything automatically, but this page explains what&rsquo;s happening under the hood — the container architecture, the different deployment modes, how seeds work, and how to customize your setup.</p>
+<h2 id="container-architecture">Container architecture</h2>
+<p>A full Magec deployment includes several containers working together:</p>
 <table>
   <thead>
       <tr>
-          <th>Deployment</th>
-          <th>Location</th>
-          <th>Description</th>
+          <th>Container</th>
+          <th>Purpose</th>
+          <th>Always present</th>
       </tr>
   </thead>
   <tbody>
       <tr>
-          <td>Fully local</td>
-          <td><code>docker/compose/fully-local/</code></td>
-          <td>Ollama + Parakeet + Edge TTS. No API keys.</td>
+          <td><strong>magec</strong></td>
+          <td>The Magec server — API, Admin UI, Voice UI, agent runtime</td>
+          <td>Yes</td>
       </tr>
       <tr>
-          <td>Cloud APIs</td>
-          <td><code>docker/compose/remote-openai/</code></td>
-          <td>Only Redis + PostgreSQL locally. LLM/STT/TTS via cloud.</td>
+          <td><strong>redis</strong></td>
+          <td>Session memory storage</td>
+          <td>Yes</td>
+      </tr>
+      <tr>
+          <td><strong>postgres</strong></td>
+          <td>Long-term memory storage (pgvector)</td>
+          <td>Yes</td>
+      </tr>
+      <tr>
+          <td><strong>ollama</strong></td>
+          <td>Local LLM and embeddings (Qwen 3, nomic-embed-text)</td>
+          <td>Local mode only</td>
+      </tr>
+      <tr>
+          <td><strong>ollama-setup</strong></td>
+          <td>Downloads Ollama models on first start, then exits</td>
+          <td>Local mode only</td>
+      </tr>
+      <tr>
+          <td><strong>parakeet</strong></td>
+          <td>Local speech-to-text (NVIDIA Parakeet)</td>
+          <td>Local, Anthropic, Gemini</td>
+      </tr>
+      <tr>
+          <td><strong>tts</strong></td>
+          <td>Local text-to-speech (OpenAI Edge TTS)</td>
+          <td>Local, Anthropic, Gemini</td>
       </tr>
   </tbody>
 </table>
-<h2 id="seed-data">Seed data</h2>
-<p>Set <code>MAGEC_SEED</code> to pre-populate your store on first run:</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="nv">MAGEC_SEED</span><span class="o">=</span>voice-ui docker compose up -d    <span class="c1"># Minimal voice assistant</span>
-</span></span><span class="line"><span class="cl"><span class="nv">MAGEC_SEED</span><span class="o">=</span>examples docker compose up -d    <span class="c1"># Full demo with all examples</span>
-</span></span><span class="line"><span class="cl">docker compose up -d                        <span class="c1"># Empty — configure yourself</span>
-</span></span></code></pre></div><h2 id="standalone-container">Standalone container</h2>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">docker run -d --name magec <span class="se">\
-</span></span></span><span class="line"><span class="cl">  -p 8080:8080 -p 8081:8081 <span class="se">\
-</span></span></span><span class="line"><span class="cl">  -v <span class="k">$(</span><span class="nb">pwd</span><span class="k">)</span>/config.yaml:/app/config.yaml <span class="se">\
-</span></span></span><span class="line"><span class="cl">  -v magec_data:/app/data <span class="se">\
-</span></span></span><span class="line"><span class="cl">  -e <span class="nv">MAGEC_SEED</span><span class="o">=</span>voice-ui <span class="se">\
-</span></span></span><span class="line"><span class="cl">  ghcr.io/achetronic/magec:latest
-</span></span></code></pre></div><h2 id="building-locally">Building locally</h2>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">docker build -f docker/build/Dockerfile -t magec .
+<p>In cloud modes (OpenAI, Anthropic, Gemini), some containers are replaced by cloud API calls. Redis and PostgreSQL always run locally because they store your data.</p>
+<h2 id="docker-compose-files">Docker Compose files</h2>
+<p>The installer downloads two Docker Compose files:</p>
+<h3 id="docker-composeyaml-base">docker-compose.yaml (base)</h3>
+<p>The base file defines all possible services with their default configuration. It includes Magec, Redis, PostgreSQL, Ollama, Parakeet, and TTS containers.</p>
+<h3 id="docker-composeoverrideyaml-provider-specific">docker-compose.override.yaml (provider-specific)</h3>
+<p>The override file is selected based on your deployment mode. It adjusts which services are active and sets environment variables for the chosen provider:</p>
+<table>
+  <thead>
+      <tr>
+          <th>Mode</th>
+          <th>Override file</th>
+          <th>What it configures</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td><code>--local</code></td>
+          <td>Local override</td>
+          <td>All services active. Ollama pulls <code>qwen3:8b</code> and <code>nomic-embed-text</code>.</td>
+      </tr>
+      <tr>
+          <td><code>--openai</code></td>
+          <td>OpenAI override</td>
+          <td>Disables Ollama, Parakeet, and TTS. Sets <code>OPENAI_API_KEY</code> from env.</td>
+      </tr>
+      <tr>
+          <td><code>--anthropic</code></td>
+          <td>Anthropic override</td>
+          <td>Disables only the Ollama LLM. Keeps Parakeet and TTS local. Sets <code>ANTHROPIC_API_KEY</code>.</td>
+      </tr>
+      <tr>
+          <td><code>--gemini</code></td>
+          <td>Gemini override</td>
+          <td>Disables only the Ollama LLM. Keeps Parakeet and TTS local. Sets <code>GEMINI_API_KEY</code>.</td>
+      </tr>
+  </tbody>
+</table>
+<h2 id="seeds-magec_seed">Seeds (MAGEC_SEED)</h2>
+<p>When Magec starts and finds an empty data store (<code>data/store.json</code> doesn&rsquo;t exist or is empty), it loads a <strong>seed</strong> — a pre-built configuration that gives you a working setup immediately.</p>
+<p>The seed is controlled by the <code>MAGEC_SEED</code> environment variable, which the Docker Compose override sets automatically:</p>
+<table>
+  <thead>
+      <tr>
+          <th>Seed value</th>
+          <th>Set by</th>
+          <th>Pre-configures</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td><code>voice-ui</code></td>
+          <td><code>--local</code></td>
+          <td>Ollama backend (LLM + embeddings), Redis session memory, PostgreSQL long-term memory, default agent with voice, Voice UI client</td>
+      </tr>
+      <tr>
+          <td><code>voice-ui-openai</code></td>
+          <td><code>--openai</code></td>
+          <td>OpenAI backend (LLM + STT + TTS + embeddings), Redis session memory, PostgreSQL long-term memory, default agent, Voice UI client</td>
+      </tr>
+      <tr>
+          <td><code>voice-ui-anthropic</code></td>
+          <td><code>--anthropic</code></td>
+          <td>Anthropic backend (LLM) + Ollama (embeddings) + Parakeet (STT) + Edge TTS, memory, agent, client</td>
+      </tr>
+      <tr>
+          <td><code>voice-ui-gemini</code></td>
+          <td><code>--gemini</code></td>
+          <td>Gemini backend (LLM) + Ollama (embeddings) + Parakeet (STT) + Edge TTS, memory, agent, client</td>
+      </tr>
+  </tbody>
+</table>
+<h3 id="how-seeds-work">How seeds work</h3>
+<ol>
+<li>Magec starts and checks for <code>data/store.json</code></li>
+<li>If the store is empty and <code>MAGEC_SEED</code> is set, the seed is loaded</li>
+<li>The seed populates the store with backends, memory providers, agents, and clients</li>
+<li>The server starts with a fully working configuration</li>
+<li>On subsequent starts, the seed is ignored — your configuration is yours</li>
+</ol>
+<p>Seeds are a one-time setup. After the first run, everything you change through the Admin UI persists in <code>store.json</code>. The seed never overwrites your configuration.</p>
+<h3 id="credentials-in-seeds">Credentials in seeds</h3>
+<p>Seeds use <code>${VAR}</code> syntax for sensitive values like API keys:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;apiKey&#34;</span><span class="p">:</span> <span class="s2">&#34;${OPENAI_API_KEY}&#34;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p>This means your API keys come from environment variables at runtime — they&rsquo;re never stored in plain text in the data directory.</p>
+<h2 id="gpu-support">GPU support</h2>
+<p>For local deployments, you can enable NVIDIA GPU acceleration for Ollama:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">curl -fsSL .../install.sh <span class="p">|</span> bash -s -- --gpu
+</span></span></code></pre></div><p>This adds the NVIDIA container runtime configuration to the Ollama service in Docker Compose. You need:</p>
+<ul>
+<li>An NVIDIA GPU</li>
+<li><a href="https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html">nvidia-container-toolkit</a> installed</li>
+<li>Docker configured to use the NVIDIA runtime</li>
+</ul>
+<p>GPU acceleration significantly speeds up local LLM inference and model loading.</p>
+<h2 id="data-persistence">Data persistence</h2>
+<p>All persistent data is stored in the <code>data/</code> directory, which is mounted as a Docker volume:</p>
+<pre tabindex="0"><code>data/
+├── store.json           # All configuration (agents, backends, clients, etc.)
+└── conversations.json   # Conversation history
+</code></pre><p>Redis and PostgreSQL also use Docker volumes for persistence. Your data survives container restarts, image updates, and <code>docker compose down/up</code> cycles.</p>
+<h2 id="customizing-your-deployment">Customizing your deployment</h2>
+<h3 id="adding-more-services">Adding more services</h3>
+<p>You can extend the Docker Compose configuration to add MCP servers or other services:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-yaml" data-lang="yaml"><span class="line"><span class="cl"><span class="nt">services</span><span class="p">:</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">  </span><span class="nt">hass-mcp</span><span class="p">:</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="nt">image</span><span class="p">:</span><span class="w"> </span><span class="l">ghcr.io/achetronic/hass-mcp:latest</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="nt">environment</span><span class="p">:</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">      </span>- <span class="l">HASS_URL=http://homeassistant:8123</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">      </span>- <span class="l">HASS_TOKEN=${HASS_TOKEN}</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="nt">ports</span><span class="p">:</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">      </span>- <span class="s2">&#34;8888:8080&#34;</span><span class="w">
+</span></span></span></code></pre></div><p>Then add the MCP server in the Admin UI pointing at <code>http://hass-mcp:8080/sse</code>.</p>
+<h3 id="changing-ports">Changing ports</h3>
+<p>Override the default ports in your Docker Compose:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-yaml" data-lang="yaml"><span class="line"><span class="cl"><span class="nt">services</span><span class="p">:</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">  </span><span class="nt">magec</span><span class="p">:</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="nt">ports</span><span class="p">:</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">      </span>- <span class="s2">&#34;3000:8080&#34;</span><span class="w">  </span><span class="c"># Voice UI + User API on port 3000</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">      </span>- <span class="s2">&#34;3001:8081&#34;</span><span class="w">  </span><span class="c"># Admin UI + Admin API on port 3001</span><span class="w">
+</span></span></span></code></pre></div><h3 id="environment-variables">Environment variables</h3>
+<p>All Magec configuration supports environment variable substitution. You can pass variables through Docker Compose:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-yaml" data-lang="yaml"><span class="line"><span class="cl"><span class="nt">services</span><span class="p">:</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">  </span><span class="nt">magec</span><span class="p">:</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="nt">environment</span><span class="p">:</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">      </span>- <span class="l">MAGEC_SEED=voice-ui</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">      </span>- <span class="l">OPENAI_API_KEY=${OPENAI_API_KEY}</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">      </span>- <span class="l">LOG_LEVEL=debug</span><span class="w">
+</span></span></span></code></pre></div><h2 id="common-operations">Common operations</h2>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="nb">cd</span> magec                                    <span class="c1"># your deployment directory</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Logs</span>
+</span></span><span class="line"><span class="cl">docker compose logs -f                      <span class="c1"># all services</span>
+</span></span><span class="line"><span class="cl">docker compose logs -f magec                <span class="c1"># Magec server only</span>
+</span></span><span class="line"><span class="cl">docker compose logs -f ollama               <span class="c1"># Ollama only</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Lifecycle</span>
+</span></span><span class="line"><span class="cl">docker compose down                         <span class="c1"># stop everything</span>
+</span></span><span class="line"><span class="cl">docker compose up -d                        <span class="c1"># start everything</span>
+</span></span><span class="line"><span class="cl">docker compose restart magec                <span class="c1"># restart Magec only</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Updates</span>
+</span></span><span class="line"><span class="cl">docker compose pull                         <span class="c1"># pull latest images</span>
+</span></span><span class="line"><span class="cl">docker compose up -d                        <span class="c1"># restart with new versions</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Backup</span>
+</span></span><span class="line"><span class="cl">cp data/store.json store-backup.json        <span class="c1"># backup configuration</span>
+</span></span><span class="line"><span class="cl">cp data/conversations.json conv-backup.json <span class="c1"># backup conversations</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Reset (start fresh)</span>
+</span></span><span class="line"><span class="cl">docker compose down -v                      <span class="c1"># stop and remove volumes</span>
+</span></span><span class="line"><span class="cl">rm -rf data/                                <span class="c1"># remove configuration</span>
+</span></span><span class="line"><span class="cl">docker compose up -d                        <span class="c1"># fresh start with seed</span>
 </span></span></code></pre></div>
+
+
+<div class="docs-callout docs-callout--info">
+  When updating, <code>docker compose pull &amp;&amp; docker compose up -d</code> is all you need. Your configuration in <code>data/</code> persists across image updates. The seed only runs on first start with an empty store.
+</div>
+
+
     </div>
   </div>
 </div>
@@ -182,13 +357,13 @@
       </div>
       <ul class="footer__links">
         <li><a href="https://github.com/achetronic/magec" target="_blank" rel="noopener">GitHub</a></li>
-        <li><a href="/magec/docs/">Docs</a></li>
+        <li><a href="/docs/">Docs</a></li>
         <li><a href="https://github.com/achetronic/magec/issues" target="_blank" rel="noopener">Issues</a></li>
       </ul>
     </div>
   </div>
 </footer>
 
-  <script type="module" src="/magec/js/main.js"></script>
+  <script type="module" src="/js/main.js"></script>
 </body>
 </html>

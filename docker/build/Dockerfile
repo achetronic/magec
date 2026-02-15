@@ -9,7 +9,7 @@ RUN go mod download
 COPY server/ ./
 RUN CGO_ENABLED=1 GOOS=linux go build -o magec .
 
-# Download pretrained models
+# Download auxiliary models (VAD, mel-spectrogram, embeddings)
 FROM golang:1.24-alpine AS models
 
 WORKDIR /build
@@ -37,9 +37,9 @@ COPY voice-ui/ ./voice-ui/
 COPY admin-ui/dist/ ./admin-ui/dist/
 COPY data/seeds/ ./data/seeds/
 
-# Models at root level (for server-side wake word detection)
-COPY models/ ./models/
-COPY --from=models /build/pretrained/ ./pretrained/
+# Models (wake word + auxiliary for server-side detection)
+COPY models/wakeword/ ./models/wakeword/
+COPY --from=models /build/models/auxiliary/ ./models/auxiliary/
 
 EXPOSE 8080
 

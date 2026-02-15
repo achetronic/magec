@@ -1,13 +1,13 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
+<head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>AI Backends — Magec — Self-hosted Multi-Agent AI Platform</title>
   <meta name="description" content="Define multiple AI agents, chain them into workflows, connect tools. Voice, Telegram, webhooks, cron. Your server, your rules.">
   <meta name="theme-color" content="#1c1917">
-  <link rel="icon" type="image/svg+xml" href="/magec/img/logo.svg">
-  <link rel="stylesheet" href="/magec/css/style.css">
+  <link rel="icon" type="image/svg+xml" href="/img/logo.svg">
+  <link rel="stylesheet" href="/css/style.css">
   <meta property="og:title" content="AI Backends">
   <meta property="og:description" content="Define multiple AI agents, chain them into workflows, connect tools. Voice, Telegram, webhooks, cron. Your server, your rules.">
   <meta property="og:type" content="website">
@@ -30,13 +30,13 @@
     </button>
     <ul class="nav__links">
       
-      <li><a href="/magec/" class="nav__link">Quick Start</a></li>
+      <li><a href="/" class="nav__link">Quick Start</a></li>
       
-      <li><a href="/magec/#features" class="nav__link">Features</a></li>
+      <li><a href="/#features" class="nav__link">Features</a></li>
       
-      <li><a href="/magec/#screenshots" class="nav__link">Screenshots</a></li>
+      <li><a href="/#screenshots" class="nav__link">Screenshots</a></li>
       
-      <li><a href="/magec/docs/" class="nav__link">Docs</a></li>
+      <li><a href="/docs/" class="nav__link">Docs</a></li>
       
       <li>
         <a href="https://github.com/achetronic/magec" class="nav__cta" target="_blank" rel="noopener">
@@ -58,9 +58,11 @@
       <div class="docs-sidebar__group">
         <div class="docs-sidebar__label">Getting Started</div>
         
-        <a href="/magec/docs/getting-started/" class="docs-sidebar__link">Installation</a>
+        <a href="/docs/getting-started/" class="docs-sidebar__link">Installation</a>
         
-        <a href="/magec/docs/configuration/" class="docs-sidebar__link">Configuration</a>
+        <a href="/docs/configuration/" class="docs-sidebar__link">Configuration</a>
+        
+        <a href="/docs/docker/" class="docs-sidebar__link">Docker Deployment</a>
         
       </div>
       
@@ -69,17 +71,17 @@
       <div class="docs-sidebar__group">
         <div class="docs-sidebar__label">Core Concepts</div>
         
-        <a href="/magec/docs/agents/" class="docs-sidebar__link">Agents</a>
+        <a href="/docs/agents/" class="docs-sidebar__link">Agents</a>
         
-        <a href="/magec/docs/flows/" class="docs-sidebar__link">Agentic Flows</a>
+        <a href="/docs/flows/" class="docs-sidebar__link">Agentic Flows</a>
         
-        <a href="/magec/docs/backends/" class="docs-sidebar__link docs-sidebar__link--active">AI Backends</a>
+        <a href="/docs/backends/" class="docs-sidebar__link docs-sidebar__link--active">AI Backends</a>
         
-        <a href="/magec/docs/memory/" class="docs-sidebar__link">Memory</a>
+        <a href="/docs/memory/" class="docs-sidebar__link">Memory</a>
         
-        <a href="/magec/docs/mcp/" class="docs-sidebar__link">MCP Tools</a>
+        <a href="/docs/mcp/" class="docs-sidebar__link">MCP Tools</a>
         
-        <a href="/magec/docs/commands/" class="docs-sidebar__link">Commands</a>
+        <a href="/docs/commands/" class="docs-sidebar__link">Commands</a>
         
       </div>
       
@@ -88,15 +90,15 @@
       <div class="docs-sidebar__group">
         <div class="docs-sidebar__label">Clients</div>
         
-        <a href="/magec/docs/clients/" class="docs-sidebar__link">Overview</a>
+        <a href="/docs/clients/" class="docs-sidebar__link">Overview</a>
         
-        <a href="/magec/docs/voice-ui/" class="docs-sidebar__link">Voice UI</a>
+        <a href="/docs/voice-ui/" class="docs-sidebar__link">Voice UI</a>
         
-        <a href="/magec/docs/telegram/" class="docs-sidebar__link">Telegram</a>
+        <a href="/docs/telegram/" class="docs-sidebar__link">Telegram</a>
         
-        <a href="/magec/docs/webhooks/" class="docs-sidebar__link">Webhooks</a>
+        <a href="/docs/webhooks/" class="docs-sidebar__link">Webhooks</a>
         
-        <a href="/magec/docs/cron/" class="docs-sidebar__link">Cron</a>
+        <a href="/docs/cron/" class="docs-sidebar__link">Cron</a>
         
       </div>
       
@@ -105,9 +107,9 @@
       <div class="docs-sidebar__group">
         <div class="docs-sidebar__label">Reference</div>
         
-        <a href="/magec/docs/api/" class="docs-sidebar__link">API Reference</a>
+        <a href="/docs/api/" class="docs-sidebar__link">API Reference</a>
         
-        <a href="/magec/docs/voice-system/" class="docs-sidebar__link">Voice System</a>
+        <a href="/docs/voice-system/" class="docs-sidebar__link">Voice System</a>
         
       </div>
       
@@ -119,48 +121,176 @@
         Navigation
       </button>
       <h1>AI Backends</h1>
-      <p>Backends represent connections to AI providers. Each backend can serve as LLM, embedding provider, STT (Whisper-compatible), or TTS — and you assign them per-agent.</p>
+      <p>A backend is a connection to an AI provider. It tells Magec where to send requests for text generation, embeddings, speech-to-text, or text-to-speech. You can have as many backends as you want — one per provider, or several pointing at different models or instances of the same provider.</p>
+<p>Every agent references a backend for its LLM. Optionally, an agent can also reference backends for voice (STT, TTS) and the memory system references one for embeddings. This means you can mix providers freely: one agent can use OpenAI for its brain and a local Ollama for embeddings, another can use Anthropic for reasoning and the same OpenAI for voice.</p>
 <div class="screenshots" style="margin-bottom: 2rem;">
 
 
 
-<img src="/magec/img/screenshots/admin-backends.png" alt="Admin UI — Backends" class="screenshot screenshot--desktop">
+<img src="/img/screenshots/admin-backends.png" alt="Admin UI — Backends" class="screenshot screenshot--desktop">
 
 </div>
 <h2 id="backend-types">Backend types</h2>
+<h3 id="openai-openai">OpenAI (<code>openai</code>)</h3>
+<p>Works with OpenAI&rsquo;s API and any service that implements the same protocol. This includes <strong>Ollama</strong>, <strong>LM Studio</strong>, <strong>vLLM</strong>, <strong>LocalAI</strong>, and many others. If a service exposes <code>/v1/chat/completions</code>, this is the type to use.</p>
 <table>
   <thead>
       <tr>
-          <th>Type</th>
-          <th>Provider</th>
-          <th>Required fields</th>
+          <th>Field</th>
+          <th>Required</th>
+          <th>Description</th>
       </tr>
   </thead>
   <tbody>
       <tr>
-          <td><code>openai</code></td>
-          <td>OpenAI, Ollama</td>
-          <td><code>url</code> and/or <code>apiKey</code></td>
+          <td><code>name</code></td>
+          <td>Yes</td>
+          <td>Display name (e.g., &ldquo;OpenAI Production&rdquo;, &ldquo;Local Ollama&rdquo;)</td>
       </tr>
       <tr>
-          <td><code>anthropic</code></td>
-          <td>Anthropic Claude</td>
-          <td><code>apiKey</code></td>
+          <td><code>url</code></td>
+          <td>No</td>
+          <td>API base URL. Defaults to <code>https://api.openai.com/v1</code>. For Ollama, use <code>http://ollama:11434/v1</code>.</td>
       </tr>
       <tr>
-          <td><code>gemini</code></td>
-          <td>Google Gemini</td>
           <td><code>apiKey</code></td>
+          <td>No</td>
+          <td>API key. Required for OpenAI. Not needed for local services without auth.</td>
       </tr>
   </tbody>
 </table>
+<p><strong>Common configurations:</strong></p>
+<pre tabindex="0"><code># OpenAI Cloud
+Name: OpenAI
+URL:  (leave empty — uses default)
+Key:  sk-...
 
+# Local Ollama
+Name: Ollama Local
+URL:  http://ollama:11434/v1
+Key:  (leave empty)
+
+# Local Parakeet (STT)
+Name: Parakeet
+URL:  http://parakeet:8888/v1
+Key:  (leave empty)
+
+# OpenAI Edge TTS (local TTS)
+Name: Edge TTS
+URL:  http://tts:5050/v1
+Key:  (leave empty)
+</code></pre>
 
 
 <div class="docs-callout docs-callout--info">
-  <strong>Tip:</strong> The <code>openai</code> type works with Ollama too. Point it at <code>http://ollama:11434/v1</code> and use any local model.
+  The <code>openai</code> type is the most versatile because the OpenAI API has become a de facto standard. Most local inference servers implement it, so you can run fully local without any code changes.
 </div>
 
+<h3 id="anthropic-anthropic">Anthropic (<code>anthropic</code>)</h3>
+<p>For Anthropic&rsquo;s Claude models. Uses the official Anthropic API protocol, which is different from OpenAI&rsquo;s.</p>
+<table>
+  <thead>
+      <tr>
+          <th>Field</th>
+          <th>Required</th>
+          <th>Description</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td><code>name</code></td>
+          <td>Yes</td>
+          <td>Display name</td>
+      </tr>
+      <tr>
+          <td><code>apiKey</code></td>
+          <td>Yes</td>
+          <td>Anthropic API key (starts with <code>sk-ant-</code>)</td>
+      </tr>
+  </tbody>
+</table>
+<p>Anthropic doesn&rsquo;t offer STT, TTS, or embedding APIs, so this backend type is used only for LLM inference. For voice and embeddings, add a separate <code>openai</code>-type backend pointing at a local service.</p>
+<h3 id="google-gemini-gemini">Google Gemini (<code>gemini</code>)</h3>
+<p>For Google&rsquo;s Gemini models. Uses the official Google GenAI SDK.</p>
+<table>
+  <thead>
+      <tr>
+          <th>Field</th>
+          <th>Required</th>
+          <th>Description</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td><code>name</code></td>
+          <td>Yes</td>
+          <td>Display name</td>
+      </tr>
+      <tr>
+          <td><code>apiKey</code></td>
+          <td>Yes</td>
+          <td>Google API key (starts with <code>AI</code>)</td>
+      </tr>
+  </tbody>
+</table>
+<p>Like Anthropic, Gemini is LLM-only in Magec. Use a separate backend for STT, TTS, and embeddings.</p>
+<h2 id="what-a-backend-can-power">What a backend can power</h2>
+<p>A single backend connection can serve multiple roles depending on the provider&rsquo;s capabilities:</p>
+<table>
+  <thead>
+      <tr>
+          <th>Role</th>
+          <th>Used for</th>
+          <th>Who references it</th>
+          <th>Example models</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td><strong>LLM</strong></td>
+          <td>Text generation, reasoning, tool use</td>
+          <td>Agents (required)</td>
+          <td><code>gpt-4.1</code>, <code>claude-sonnet-4-20250514</code>, <code>qwen3:8b</code></td>
+      </tr>
+      <tr>
+          <td><strong>Embeddings</strong></td>
+          <td>Semantic search for long-term memory</td>
+          <td>Memory providers</td>
+          <td><code>text-embedding-3-small</code>, <code>nomic-embed-text</code></td>
+      </tr>
+      <tr>
+          <td><strong>STT</strong></td>
+          <td>Speech-to-text (Whisper-compatible)</td>
+          <td>Agents (optional)</td>
+          <td><code>whisper-1</code>, <code>nvidia/parakeet-ctc-0.6b-rnnt</code></td>
+      </tr>
+      <tr>
+          <td><strong>TTS</strong></td>
+          <td>Text-to-speech</td>
+          <td>Agents (optional)</td>
+          <td><code>tts-1</code>, <code>tts-1-hd</code></td>
+      </tr>
+  </tbody>
+</table>
+<p>Not every backend supports every role. OpenAI supports all four. Ollama supports LLM and embeddings. Anthropic and Gemini support only LLM. For the roles a provider doesn&rsquo;t cover, you add a different backend.</p>
+<h2 id="creating-a-backend">Creating a backend</h2>
+<p>In the Admin UI, go to <strong>Backends</strong> and click <strong>New</strong>. Choose the type, fill in the connection details, and save. The backend is available immediately — no restart needed.</p>
+<p>You can then reference this backend in:</p>
+<ul>
+<li><strong>Agent → LLM</strong> — for text generation</li>
+<li><strong>Agent → Transcription (STT)</strong> — for speech-to-text</li>
+<li><strong>Agent → TTS</strong> — for text-to-speech</li>
+<li><strong>Memory Provider → Embedding</strong> — for semantic search in long-term memory</li>
+</ul>
+<h2 id="mixing-backends">Mixing backends</h2>
+<p>One of Magec&rsquo;s strengths is that each agent picks its own backend independently. In a single flow, you could have:</p>
+<ul>
+<li>Agent A using <strong>GPT-4</strong> (OpenAI) for complex reasoning</li>
+<li>Agent B using <strong>Qwen 3 8B</strong> (local Ollama) for fast, simple tasks</li>
+<li>Agent C using <strong>Claude</strong> (Anthropic) for careful analysis</li>
+<li>All sharing a <strong>local Parakeet</strong> backend for speech-to-text</li>
+</ul>
+<p>This lets you optimize for cost, speed, and capability at the individual agent level rather than committing your entire platform to one provider.</p>
 
     </div>
   </div>
@@ -186,13 +316,13 @@
       </div>
       <ul class="footer__links">
         <li><a href="https://github.com/achetronic/magec" target="_blank" rel="noopener">GitHub</a></li>
-        <li><a href="/magec/docs/">Docs</a></li>
+        <li><a href="/docs/">Docs</a></li>
         <li><a href="https://github.com/achetronic/magec/issues" target="_blank" rel="noopener">Issues</a></li>
       </ul>
     </div>
   </div>
 </footer>
 
-  <script type="module" src="/magec/js/main.js"></script>
+  <script type="module" src="/js/main.js"></script>
 </body>
 </html>

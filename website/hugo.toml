@@ -48,6 +48,11 @@ theme = 'magec'
     parent = 'getting-started'
     url = '/docs/configuration/'
     weight = 2
+  [[menu.docs]]
+    name = 'Docker Deployment'
+    parent = 'getting-started'
+    url = '/docs/docker/'
+    weight = 3
 
   [[menu.docs]]
     identifier = 'core'

@@ -1,13 +1,13 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
+<head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>API Reference — Magec — Self-hosted Multi-Agent AI Platform</title>
   <meta name="description" content="Define multiple AI agents, chain them into workflows, connect tools. Voice, Telegram, webhooks, cron. Your server, your rules.">
   <meta name="theme-color" content="#1c1917">
-  <link rel="icon" type="image/svg+xml" href="/magec/img/logo.svg">
-  <link rel="stylesheet" href="/magec/css/style.css">
+  <link rel="icon" type="image/svg+xml" href="/img/logo.svg">
+  <link rel="stylesheet" href="/css/style.css">
   <meta property="og:title" content="API Reference">
   <meta property="og:description" content="Define multiple AI agents, chain them into workflows, connect tools. Voice, Telegram, webhooks, cron. Your server, your rules.">
   <meta property="og:type" content="website">
@@ -30,13 +30,13 @@
     </button>
     <ul class="nav__links">
       
-      <li><a href="/magec/" class="nav__link">Quick Start</a></li>
+      <li><a href="/" class="nav__link">Quick Start</a></li>
       
-      <li><a href="/magec/#features" class="nav__link">Features</a></li>
+      <li><a href="/#features" class="nav__link">Features</a></li>
       
-      <li><a href="/magec/#screenshots" class="nav__link">Screenshots</a></li>
+      <li><a href="/#screenshots" class="nav__link">Screenshots</a></li>
       
-      <li><a href="/magec/docs/" class="nav__link">Docs</a></li>
+      <li><a href="/docs/" class="nav__link">Docs</a></li>
       
       <li>
         <a href="https://github.com/achetronic/magec" class="nav__cta" target="_blank" rel="noopener">
@@ -58,9 +58,11 @@
       <div class="docs-sidebar__group">
         <div class="docs-sidebar__label">Getting Started</div>
         
-        <a href="/magec/docs/getting-started/" class="docs-sidebar__link">Installation</a>
+        <a href="/docs/getting-started/" class="docs-sidebar__link">Installation</a>
         
-        <a href="/magec/docs/configuration/" class="docs-sidebar__link">Configuration</a>
+        <a href="/docs/configuration/" class="docs-sidebar__link">Configuration</a>
+        
+        <a href="/docs/docker/" class="docs-sidebar__link">Docker Deployment</a>
         
       </div>
       
@@ -69,17 +71,17 @@
       <div class="docs-sidebar__group">
         <div class="docs-sidebar__label">Core Concepts</div>
         
-        <a href="/magec/docs/agents/" class="docs-sidebar__link">Agents</a>
+        <a href="/docs/agents/" class="docs-sidebar__link">Agents</a>
         
-        <a href="/magec/docs/flows/" class="docs-sidebar__link">Agentic Flows</a>
+        <a href="/docs/flows/" class="docs-sidebar__link">Agentic Flows</a>
         
-        <a href="/magec/docs/backends/" class="docs-sidebar__link">AI Backends</a>
+        <a href="/docs/backends/" class="docs-sidebar__link">AI Backends</a>
         
-        <a href="/magec/docs/memory/" class="docs-sidebar__link">Memory</a>
+        <a href="/docs/memory/" class="docs-sidebar__link">Memory</a>
         
-        <a href="/magec/docs/mcp/" class="docs-sidebar__link">MCP Tools</a>
+        <a href="/docs/mcp/" class="docs-sidebar__link">MCP Tools</a>
         
-        <a href="/magec/docs/commands/" class="docs-sidebar__link">Commands</a>
+        <a href="/docs/commands/" class="docs-sidebar__link">Commands</a>
         
       </div>
       
@@ -88,15 +90,15 @@
       <div class="docs-sidebar__group">
         <div class="docs-sidebar__label">Clients</div>
         
-        <a href="/magec/docs/clients/" class="docs-sidebar__link">Overview</a>
+        <a href="/docs/clients/" class="docs-sidebar__link">Overview</a>
         
-        <a href="/magec/docs/voice-ui/" class="docs-sidebar__link">Voice UI</a>
+        <a href="/docs/voice-ui/" class="docs-sidebar__link">Voice UI</a>
         
-        <a href="/magec/docs/telegram/" class="docs-sidebar__link">Telegram</a>
+        <a href="/docs/telegram/" class="docs-sidebar__link">Telegram</a>
         
-        <a href="/magec/docs/webhooks/" class="docs-sidebar__link">Webhooks</a>
+        <a href="/docs/webhooks/" class="docs-sidebar__link">Webhooks</a>
         
-        <a href="/magec/docs/cron/" class="docs-sidebar__link">Cron</a>
+        <a href="/docs/cron/" class="docs-sidebar__link">Cron</a>
         
       </div>
       
@@ -105,9 +107,9 @@
       <div class="docs-sidebar__group">
         <div class="docs-sidebar__label">Reference</div>
         
-        <a href="/magec/docs/api/" class="docs-sidebar__link docs-sidebar__link--active">API Reference</a>
+        <a href="/docs/api/" class="docs-sidebar__link docs-sidebar__link--active">API Reference</a>
         
-        <a href="/magec/docs/voice-system/" class="docs-sidebar__link">Voice System</a>
+        <a href="/docs/voice-system/" class="docs-sidebar__link">Voice System</a>
         
       </div>
       
@@ -119,80 +121,57 @@
         Navigation
       </button>
       <h1>API Reference</h1>
-      <p>Magec exposes two separate HTTP servers, each with its own Swagger UI where you can explore every endpoint, see request/response schemas, and try things out directly from the browser.</p>
-<h2 id="user-api--8080">User API — <code>:8080</code></h2>
-<p>This is the API that clients use to talk to agents. The Voice UI, Telegram, webhooks, and any external integration goes through here.</p>
+      <p>Magec exposes two HTTP servers on separate ports. Each one has its own interactive Swagger UI where you can explore every endpoint, see request/response schemas, and test things directly from the browser.</p>
+<h2 id="user-api--port-8080">User API — Port 8080</h2>
+<p>This is the API that clients use to interact with agents. The Voice UI, Telegram, webhooks, and any custom integration goes through here.</p>
 <p><strong>Swagger UI →</strong> <code>http://localhost:8080/swagger/</code></p>
+<h3 id="authentication">Authentication</h3>
 <p>All endpoints require a client token: <code>Authorization: Bearer mgc_...</code></p>
-<p>What you&rsquo;ll find:</p>
-<ul>
-<li><strong>Agent runtime</strong> — Send messages to agents (<code>/agent/run</code> for blocking, <code>/agent/run_sse</code> for streaming). These follow the <a href="https://google.github.io/adk-docs/">Google ADK</a> protocol.</li>
-<li><strong>Sessions</strong> — Create, list, get, update, and delete conversation sessions. Each session holds the full message history for a user-agent pair.</li>
-<li><strong>Artifacts</strong> — Files and data generated by agents during a session. Versioned, so you can retrieve any past version.</li>
-<li><strong>Voice</strong> — Speech-to-text and text-to-speech proxies for agents that have STT/TTS configured. Plus a WebSocket endpoint for real-time wake word and VAD events.</li>
-<li><strong>Webhooks</strong> — Trigger endpoint for webhook clients.</li>
-<li><strong>Debug</strong> — Execution traces and event graphs for debugging agent behavior.</li>
-</ul>
-<h3 id="quick-example">Quick example</h3>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">curl -X POST http://localhost:8080/api/v1/agent/run <span class="se">\
-</span></span></span><span class="line"><span class="cl">  -H <span class="s2">&#34;Content-Type: application/json&#34;</span> <span class="se">\
-</span></span></span><span class="line"><span class="cl">  -H <span class="s2">&#34;Authorization: Bearer mgc_your_client_token&#34;</span> <span class="se">\
-</span></span></span><span class="line"><span class="cl">  -d <span class="s1">&#39;{
-</span></span></span><span class="line"><span class="cl"><span class="s1">    &#34;app_name&#34;: &#34;AGENT_ID&#34;,
-</span></span></span><span class="line"><span class="cl"><span class="s1">    &#34;user_id&#34;: &#34;user1&#34;,
-</span></span></span><span class="line"><span class="cl"><span class="s1">    &#34;session_id&#34;: &#34;session1&#34;,
-</span></span></span><span class="line"><span class="cl"><span class="s1">    &#34;new_message&#34;: {
-</span></span></span><span class="line"><span class="cl"><span class="s1">      &#34;role&#34;: &#34;user&#34;,
-</span></span></span><span class="line"><span class="cl"><span class="s1">      &#34;parts&#34;: [{ &#34;text&#34;: &#34;Hello!&#34; }]
-</span></span></span><span class="line"><span class="cl"><span class="s1">    }
-</span></span></span><span class="line"><span class="cl"><span class="s1">  }&#39;</span>
-</span></span></code></pre></div><h2 id="admin-api--8081">Admin API — <code>:8081</code></h2>
-<p>This is the management API that powers the Admin UI. Full CRUD for every resource type in the platform.</p>
-<p><strong>Swagger UI →</strong> <code>http://localhost:8081/swagger/</code></p>
-<p>No authentication required (bind it to localhost or a private network in production).</p>
-<table>
-  <thead>
-      <tr>
-          <th>Resource</th>
-          <th>What you can do</th>
-      </tr>
-  </thead>
-  <tbody>
-      <tr>
-          <td><strong>Agents</strong></td>
-          <td>Create, update, delete. Configure LLM, memory, voice, MCP tools per agent.</td>
-      </tr>
-      <tr>
-          <td><strong>Flows</strong></td>
-          <td>Create and edit multi-agent workflows with sequential, parallel, and loop steps.</td>
-      </tr>
-      <tr>
-          <td><strong>Backends</strong></td>
-          <td>Manage AI provider connections (OpenAI, Anthropic, Gemini, Ollama, etc.).</td>
-      </tr>
-      <tr>
-          <td><strong>Memory</strong></td>
-          <td>Configure session (Redis) and long-term (PostgreSQL/pgvector) memory providers. Health check included.</td>
-      </tr>
-      <tr>
-          <td><strong>MCP Servers</strong></td>
-          <td>Add external tools via HTTP or Stdio transport.</td>
-      </tr>
-      <tr>
-          <td><strong>Commands</strong></td>
-          <td>Define reusable prompts for cron jobs and webhooks.</td>
-      </tr>
-      <tr>
-          <td><strong>Clients</strong></td>
-          <td>Manage Direct, Telegram, Webhook, and Cron clients. Token regeneration.</td>
-      </tr>
-  </tbody>
-</table>
+<p>The token comes from the client configuration in the Admin UI. Each client has its own token, which determines what agents and flows it can access.</p>
 
 
 
 <div class="docs-callout docs-callout--info">
-  Both Swagger UIs are interactive — you can execute requests directly from the browser to test endpoints without writing any code.
+  When no clients exist (fresh install without a seed), the API runs in open mode with no authentication required. Authentication is enforced as soon as you create your first client.
+</div>
+
+<h3 id="agent-endpoints-adk">Agent endpoints (ADK)</h3>
+<p>All routes under <code>/api/v1/agent/*</code> implement the <a href="https://google.github.io/adk-docs/">Google Agent Development Kit (ADK)</a> protocol exposed as a REST API. This includes:</p>
+<ul>
+<li><strong>Execution</strong> — Send messages to agents (blocking or SSE streaming)</li>
+<li><strong>Sessions</strong> — Create, list, get, update, and delete conversation sessions</li>
+<li><strong>Artifacts</strong> — Retrieve files and structured data generated by agents, with version history</li>
+<li><strong>Debug</strong> — Execution traces and interaction graphs</li>
+</ul>
+<p>The request format for sending a message:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;app_name&#34;</span><span class="p">:</span> <span class="s2">&#34;AGENT_OR_FLOW_ID&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;user_id&#34;</span><span class="p">:</span> <span class="s2">&#34;user1&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;session_id&#34;</span><span class="p">:</span> <span class="s2">&#34;session1&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;new_message&#34;</span><span class="p">:</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="nt">&#34;role&#34;</span><span class="p">:</span> <span class="s2">&#34;user&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="nt">&#34;parts&#34;</span><span class="p">:</span> <span class="p">[{</span> <span class="nt">&#34;text&#34;</span><span class="p">:</span> <span class="s2">&#34;Hello!&#34;</span> <span class="p">}]</span>
+</span></span><span class="line"><span class="cl">  <span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><h3 id="other-endpoints">Other endpoints</h3>
+<p>Beyond ADK, the User API also serves:</p>
+<ul>
+<li><strong>Voice</strong> — STT and TTS proxies per agent, plus a WebSocket for real-time wake word and VAD events. See <a href="/magec/docs/voice-system/">Voice System</a>.</li>
+<li><strong>Webhooks</strong> — Trigger endpoint for webhook clients. See <a href="/magec/docs/webhooks/">Webhooks</a>.</li>
+<li><strong>Client info</strong> — Pairing info, allowed agents and flows, response agent markers.</li>
+<li><strong>Health</strong> — Simple health check at <code>/api/v1/health</code>.</li>
+</ul>
+<p>The Swagger UI documents all of these with full schemas and lets you try them interactively.</p>
+<h2 id="admin-api--port-8081">Admin API — Port 8081</h2>
+<p>This is the management API that powers the Admin UI. Full CRUD for every resource in the platform: agents, backends, memory providers, MCP servers, clients, commands, flows, settings, and conversations.</p>
+<p><strong>Swagger UI →</strong> <code>http://localhost:8081/swagger/</code></p>
+<p>No authentication required. In production, restrict access to this port (bind to localhost, firewall, or VPN).</p>
+<p>Every resource follows the same REST pattern (<code>GET</code>, <code>POST</code>, <code>PUT</code>, <code>DELETE</code>), plus type-specific extras like health checks for memory providers, token regeneration for clients, and MCP server linking for agents. The Swagger UI has it all.</p>
+
+
+
+<div class="docs-callout docs-callout--info">
+  Both Swagger UIs are fully interactive — you can execute requests directly from the browser without writing any code. This is the best way to explore the API.
 </div>
 
 
@@ -220,13 +199,13 @@
       </div>
       <ul class="footer__links">
         <li><a href="https://github.com/achetronic/magec" target="_blank" rel="noopener">GitHub</a></li>
-        <li><a href="/magec/docs/">Docs</a></li>
+        <li><a href="/docs/">Docs</a></li>
         <li><a href="https://github.com/achetronic/magec/issues" target="_blank" rel="noopener">Issues</a></li>
       </ul>
     </div>
   </div>
 </footer>
 
-  <script type="module" src="/magec/js/main.js"></script>
+  <script type="module" src="/js/main.js"></script>
 </body>
 </html>

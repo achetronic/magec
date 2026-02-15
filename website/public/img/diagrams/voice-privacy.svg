@@ -1,0 +1,154 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 520" fill="none">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="880" y2="520" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#1a1a1d"/>
+      <stop offset="100%" stop-color="#121214"/>
+    </linearGradient>
+    <linearGradient id="sol" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#fbbf24"/>
+      <stop offset="100%" stop-color="#f59e0b"/>
+    </linearGradient>
+    <linearGradient id="cyan" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#7dd3e8"/>
+      <stop offset="100%" stop-color="#38bcd8"/>
+    </linearGradient>
+    <linearGradient id="green" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#6ee7b7"/>
+      <stop offset="100%" stop-color="#4ade80"/>
+    </linearGradient>
+    <linearGradient id="lava" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#fca5a5"/>
+      <stop offset="100%" stop-color="#f87171"/>
+    </linearGradient>
+    <filter id="shadow">
+      <feDropShadow dx="0" dy="2" stdDeviation="6" flood-color="#000" flood-opacity="0.4"/>
+    </filter>
+    <filter id="glow-sol">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="8"/>
+    </filter>
+    <filter id="glow-cyan">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="6"/>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="880" height="520" rx="20" fill="url(#bg)"/>
+
+  <!-- Title -->
+  <text x="440" y="38" text-anchor="middle" fill="#d6d3d1" font-family="system-ui, sans-serif" font-size="14" font-weight="600">WHAT HAPPENS WITH YOUR AUDIO</text>
+
+  <!-- ==================== YOUR DEVICE (left) ==================== -->
+  <rect x="30" y="56" width="200" height="430" rx="16" fill="#212125" stroke="#3d3d44" stroke-width="1" filter="url(#shadow)"/>
+  <text x="130" y="82" text-anchor="middle" fill="#38bcd8" font-family="system-ui, sans-serif" font-size="12" font-weight="600">YOUR DEVICE</text>
+
+  <!-- Microphone icon -->
+  <rect x="80" y="110" width="100" height="60" rx="12" fill="#2a2a2f"/>
+  <circle cx="130" cy="134" r="10" fill="none" stroke="#f87171" stroke-width="1.5" opacity="0.7"/>
+  <rect x="128" y="124" width="4" height="14" rx="2" fill="#f87171" opacity="0.7"/>
+  <text x="130" y="162" text-anchor="middle" fill="#d6d3d1" font-family="system-ui, sans-serif" font-size="10" font-weight="500">Microphone</text>
+
+  <!-- Speaker icon -->
+  <rect x="80" y="390" width="100" height="60" rx="12" fill="#2a2a2f"/>
+  <rect x="118" y="410" width="8" height="14" rx="1" fill="#4ade80" opacity="0.7"/>
+  <path d="M126 408 L138 402 L138 428 L126 422 Z" fill="#4ade80" opacity="0.7"/>
+  <text x="130" y="442" text-anchor="middle" fill="#d6d3d1" font-family="system-ui, sans-serif" font-size="10" font-weight="500">Speaker</text>
+
+  <!-- ==================== YOUR SERVER (right) ==================== -->
+  <rect x="280" y="56" width="570" height="430" rx="16" fill="none" stroke="url(#sol)" stroke-width="1.5" filter="url(#shadow)"/>
+  <rect x="280" y="56" width="570" height="430" rx="16" fill="#212125" opacity="0.95"/>
+  <text x="565" y="82" text-anchor="middle" fill="#fbbf24" font-family="system-ui, sans-serif" font-size="12" font-weight="600">YOUR SERVER</text>
+
+  <!-- Arrow: Mic to Server -->
+  <line x1="180" y1="140" x2="310" y2="140" stroke="#38bcd8" stroke-width="1.5" opacity="0.5"/>
+  <polygon points="310,136 318,140 310,144" fill="#38bcd8" opacity="0.5"/>
+  <text x="249" y="133" text-anchor="middle" fill="#52525b" font-family="system-ui, sans-serif" font-size="9" font-weight="500">WebSocket</text>
+  <text x="249" y="145" text-anchor="middle" fill="#52525b" font-family="system-ui, sans-serif" font-size="8">audio frames</text>
+
+  <!-- ===== ALWAYS RUNNING ZONE ===== -->
+  <rect x="310" y="96" width="510" height="140" rx="14" fill="#2a2a2f" stroke="#3d3d44" stroke-width="1" stroke-dasharray="0"/>
+  <rect x="320" y="96" width="130" height="22" rx="6" fill="#2a2a2f"/>
+  <text x="325" y="111" fill="#78716c" font-family="system-ui, sans-serif" font-size="9" font-weight="600">ALWAYS RUNNING</text>
+
+  <!-- Audio frame box -->
+  <rect x="335" y="132" width="110" height="40" rx="10" fill="#1a1a1d" stroke="#3d3d44" stroke-width="1"/>
+  <text x="390" y="148" text-anchor="middle" fill="#d6d3d1" font-family="system-ui, sans-serif" font-size="10" font-weight="500">Audio Frame</text>
+  <text x="390" y="162" text-anchor="middle" fill="#52525b" font-family="system-ui, sans-serif" font-size="8">~32ms window</text>
+
+  <!-- Arrow to Wake Word -->
+  <line x1="445" y1="152" x2="490" y2="152" stroke="#fbbf24" stroke-width="1.5" opacity="0.4"/>
+  <polygon points="490,148 498,152 490,156" fill="#fbbf24" opacity="0.4"/>
+
+  <!-- Wake Word model box -->
+  <rect x="500" y="126" width="150" height="50" rx="10" fill="#1a1a1d" stroke="#fbbf24" stroke-width="1" opacity="0.6"/>
+  <circle cx="520" cy="145" r="6" fill="#fbbf24" opacity="0.15"/>
+  <text x="525" y="148" fill="#fbbf24" font-family="system-ui, sans-serif" font-size="10" font-weight="600">🔊</text>
+  <text x="545" y="146" fill="#d6d3d1" font-family="system-ui, sans-serif" font-size="10" font-weight="500">Wake Word</text>
+  <text x="575" y="162" text-anchor="middle" fill="#78716c" font-family="system-ui, sans-serif" font-size="8">"Oye Magec"? → yes/no</text>
+
+  <!-- Arrow from Wake Word to discard -->
+  <line x1="650" y1="152" x2="690" y2="152" stroke="#f87171" stroke-width="1.5" opacity="0.3"/>
+  <polygon points="690,148 698,152 690,156" fill="#f87171" opacity="0.3"/>
+
+  <!-- Discard box -->
+  <rect x="700" y="130" width="100" height="44" rx="10" fill="#1a1a1d" stroke="#f87171" stroke-width="1" opacity="0.3" stroke-dasharray="4,3"/>
+  <text x="750" y="149" text-anchor="middle" fill="#f87171" font-family="system-ui, sans-serif" font-size="10" font-weight="500" opacity="0.6">Discarded</text>
+  <text x="750" y="163" text-anchor="middle" fill="#52525b" font-family="system-ui, sans-serif" font-size="8">nothing saved</text>
+
+  <!-- Annotation -->
+  <text x="565" y="220" text-anchor="middle" fill="#52525b" font-family="system-ui, sans-serif" font-size="9" font-style="italic">Frames are analyzed and immediately thrown away. Nothing is stored or forwarded.</text>
+
+  <!-- ===== ONLY AFTER ACTIVATION ZONE ===== -->
+  <rect x="310" y="250" width="510" height="220" rx="14" fill="#2a2a2f" stroke="#38bcd8" stroke-width="1" opacity="0.8"/>
+  <rect x="320" y="250" width="190" height="22" rx="6" fill="#2a2a2f"/>
+  <text x="325" y="265" fill="#38bcd8" font-family="system-ui, sans-serif" font-size="9" font-weight="600">ONLY AFTER ACTIVATION</text>
+
+  <!-- VAD box -->
+  <rect x="335" y="284" width="120" height="50" rx="10" fill="#1a1a1d" stroke="#38bcd8" stroke-width="1" opacity="0.5"/>
+  <text x="395" y="304" text-anchor="middle" fill="#38bcd8" font-family="system-ui, sans-serif" font-size="10" font-weight="500">VAD Model</text>
+  <text x="395" y="318" text-anchor="middle" fill="#78716c" font-family="system-ui, sans-serif" font-size="8">speaking? → start/end</text>
+
+  <!-- Arrow VAD to STT -->
+  <line x1="455" y1="309" x2="490" y2="309" stroke="#38bcd8" stroke-width="1.5" opacity="0.4"/>
+  <polygon points="490,305 498,309 490,313" fill="#38bcd8" opacity="0.4"/>
+
+  <!-- STT box -->
+  <rect x="500" y="284" width="140" height="50" rx="10" fill="#1a1a1d" stroke="#7dd3e8" stroke-width="1" opacity="0.5"/>
+  <text x="570" y="304" text-anchor="middle" fill="#7dd3e8" font-family="system-ui, sans-serif" font-size="10" font-weight="500">STT Backend</text>
+  <text x="570" y="318" text-anchor="middle" fill="#78716c" font-family="system-ui, sans-serif" font-size="8">audio → text</text>
+
+  <!-- Arrow STT to Agent -->
+  <line x1="640" y1="309" x2="680" y2="309" stroke="#a78bfa" stroke-width="1.5" opacity="0.4"/>
+  <polygon points="680,305 688,309 680,313" fill="#a78bfa" opacity="0.4"/>
+
+  <!-- Agent box -->
+  <rect x="690" y="284" width="110" height="50" rx="10" fill="#1a1a1d" stroke="#a78bfa" stroke-width="1" opacity="0.5"/>
+  <text x="745" y="304" text-anchor="middle" fill="#a78bfa" font-family="system-ui, sans-serif" font-size="10" font-weight="500">Agent (LLM)</text>
+  <text x="745" y="318" text-anchor="middle" fill="#78716c" font-family="system-ui, sans-serif" font-size="8">think + respond</text>
+
+  <!-- Arrow Agent down to TTS -->
+  <line x1="745" y1="334" x2="745" y2="365" stroke="#4ade80" stroke-width="1.5" opacity="0.4"/>
+  <polygon points="741,365 745,373 749,365" fill="#4ade80" opacity="0.4"/>
+
+  <!-- TTS box -->
+  <rect x="660" y="375" width="140" height="50" rx="10" fill="#1a1a1d" stroke="#4ade80" stroke-width="1" opacity="0.5"/>
+  <text x="730" y="395" text-anchor="middle" fill="#4ade80" font-family="system-ui, sans-serif" font-size="10" font-weight="500">TTS Backend</text>
+  <text x="730" y="409" text-anchor="middle" fill="#78716c" font-family="system-ui, sans-serif" font-size="8">text → audio</text>
+
+  <!-- Arrow TTS out to left -->
+  <line x1="660" y1="400" x2="335" y2="400" stroke="#4ade80" stroke-width="1.5" opacity="0.3"/>
+  <line x1="335" y1="400" x2="250" y2="420" stroke="#4ade80" stroke-width="1.5" opacity="0.3"/>
+  <polygon points="254,416 246,420 250,424" fill="#4ade80" opacity="0.3"/>
+
+  <!-- Arrow: Server to Speaker -->
+  <line x1="250" y1="420" x2="180" y2="420" stroke="#4ade80" stroke-width="1.5" opacity="0.5"/>
+  <polygon points="180,416 172,420 180,424" fill="#4ade80" opacity="0.5"/>
+  <text x="215" y="413" text-anchor="middle" fill="#52525b" font-family="system-ui, sans-serif" font-size="9" font-weight="500">REST API</text>
+  <text x="215" y="435" text-anchor="middle" fill="#52525b" font-family="system-ui, sans-serif" font-size="8">audio response</text>
+
+  <!-- Annotation for after activation -->
+  <text x="500" y="455" text-anchor="middle" fill="#52525b" font-family="system-ui, sans-serif" font-size="9" font-style="italic">Speech is captured only between activation and silence. STT/TTS use your configured backends.</text>
+
+  <!-- Bottom trust message -->
+  <rect x="290" y="476" width="280" height="24" rx="8" fill="#fbbf24" opacity="0.08"/>
+  <text x="430" y="492" text-anchor="middle" fill="#fbbf24" font-family="system-ui, sans-serif" font-size="10" font-weight="600" opacity="0.8">Nothing leaves your server unless YOU choose a cloud backend</text>
+</svg>

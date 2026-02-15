@@ -1,13 +1,13 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
+<head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Memory — Magec — Self-hosted Multi-Agent AI Platform</title>
   <meta name="description" content="Define multiple AI agents, chain them into workflows, connect tools. Voice, Telegram, webhooks, cron. Your server, your rules.">
   <meta name="theme-color" content="#1c1917">
-  <link rel="icon" type="image/svg+xml" href="/magec/img/logo.svg">
-  <link rel="stylesheet" href="/magec/css/style.css">
+  <link rel="icon" type="image/svg+xml" href="/img/logo.svg">
+  <link rel="stylesheet" href="/css/style.css">
   <meta property="og:title" content="Memory">
   <meta property="og:description" content="Define multiple AI agents, chain them into workflows, connect tools. Voice, Telegram, webhooks, cron. Your server, your rules.">
   <meta property="og:type" content="website">
@@ -30,13 +30,13 @@
     </button>
     <ul class="nav__links">
       
-      <li><a href="/magec/" class="nav__link">Quick Start</a></li>
+      <li><a href="/" class="nav__link">Quick Start</a></li>
       
-      <li><a href="/magec/#features" class="nav__link">Features</a></li>
+      <li><a href="/#features" class="nav__link">Features</a></li>
       
-      <li><a href="/magec/#screenshots" class="nav__link">Screenshots</a></li>
+      <li><a href="/#screenshots" class="nav__link">Screenshots</a></li>
       
-      <li><a href="/magec/docs/" class="nav__link">Docs</a></li>
+      <li><a href="/docs/" class="nav__link">Docs</a></li>
       
       <li>
         <a href="https://github.com/achetronic/magec" class="nav__cta" target="_blank" rel="noopener">
@@ -58,9 +58,11 @@
       <div class="docs-sidebar__group">
         <div class="docs-sidebar__label">Getting Started</div>
         
-        <a href="/magec/docs/getting-started/" class="docs-sidebar__link">Installation</a>
+        <a href="/docs/getting-started/" class="docs-sidebar__link">Installation</a>
         
-        <a href="/magec/docs/configuration/" class="docs-sidebar__link">Configuration</a>
+        <a href="/docs/configuration/" class="docs-sidebar__link">Configuration</a>
+        
+        <a href="/docs/docker/" class="docs-sidebar__link">Docker Deployment</a>
         
       </div>
       
@@ -69,17 +71,17 @@
       <div class="docs-sidebar__group">
         <div class="docs-sidebar__label">Core Concepts</div>
         
-        <a href="/magec/docs/agents/" class="docs-sidebar__link">Agents</a>
+        <a href="/docs/agents/" class="docs-sidebar__link">Agents</a>
         
-        <a href="/magec/docs/flows/" class="docs-sidebar__link">Agentic Flows</a>
+        <a href="/docs/flows/" class="docs-sidebar__link">Agentic Flows</a>
         
-        <a href="/magec/docs/backends/" class="docs-sidebar__link">AI Backends</a>
+        <a href="/docs/backends/" class="docs-sidebar__link">AI Backends</a>
         
-        <a href="/magec/docs/memory/" class="docs-sidebar__link docs-sidebar__link--active">Memory</a>
+        <a href="/docs/memory/" class="docs-sidebar__link docs-sidebar__link--active">Memory</a>
         
-        <a href="/magec/docs/mcp/" class="docs-sidebar__link">MCP Tools</a>
+        <a href="/docs/mcp/" class="docs-sidebar__link">MCP Tools</a>
         
-        <a href="/magec/docs/commands/" class="docs-sidebar__link">Commands</a>
+        <a href="/docs/commands/" class="docs-sidebar__link">Commands</a>
         
       </div>
       
@@ -88,15 +90,15 @@
       <div class="docs-sidebar__group">
         <div class="docs-sidebar__label">Clients</div>
         
-        <a href="/magec/docs/clients/" class="docs-sidebar__link">Overview</a>
+        <a href="/docs/clients/" class="docs-sidebar__link">Overview</a>
         
-        <a href="/magec/docs/voice-ui/" class="docs-sidebar__link">Voice UI</a>
+        <a href="/docs/voice-ui/" class="docs-sidebar__link">Voice UI</a>
         
-        <a href="/magec/docs/telegram/" class="docs-sidebar__link">Telegram</a>
+        <a href="/docs/telegram/" class="docs-sidebar__link">Telegram</a>
         
-        <a href="/magec/docs/webhooks/" class="docs-sidebar__link">Webhooks</a>
+        <a href="/docs/webhooks/" class="docs-sidebar__link">Webhooks</a>
         
-        <a href="/magec/docs/cron/" class="docs-sidebar__link">Cron</a>
+        <a href="/docs/cron/" class="docs-sidebar__link">Cron</a>
         
       </div>
       
@@ -105,9 +107,9 @@
       <div class="docs-sidebar__group">
         <div class="docs-sidebar__label">Reference</div>
         
-        <a href="/magec/docs/api/" class="docs-sidebar__link">API Reference</a>
+        <a href="/docs/api/" class="docs-sidebar__link">API Reference</a>
         
-        <a href="/magec/docs/voice-system/" class="docs-sidebar__link">Voice System</a>
+        <a href="/docs/voice-system/" class="docs-sidebar__link">Voice System</a>
         
       </div>
       
@@ -119,9 +121,26 @@
         Navigation
       </button>
       <h1>Memory</h1>
-      <p>Agents can use two types of memory, configured independently per agent.</p>
+      <p>Memory is what turns a stateless chatbot into an assistant that actually knows you. Without memory, every conversation starts from zero — the agent has no idea who you are, what you&rsquo;ve discussed before, or what you prefer. With memory, agents remember.</p>
+<p>Magec provides two types of memory that work at different scales:</p>
+<ul>
+<li><strong>Session memory</strong> — Remembers the current conversation (short-term, like working memory)</li>
+<li><strong>Long-term memory</strong> — Remembers facts and preferences across all conversations (persistent, like a personal database)</li>
+</ul>
+<p>Both are configured as <strong>memory providers</strong> in the Admin UI, then assigned to individual agents. Each agent can use one, both, or neither — you decide based on what the agent needs.</p>
 <h2 id="session-memory-redis">Session memory (Redis)</h2>
-<p>Conversation history stored in Redis with a configurable TTL. Survives server restarts. Each user+session pair gets its own history.</p>
+<p>Session memory stores the recent conversation history for each user-agent pair. When enabled, the agent can reference what was said earlier in the conversation without the user repeating it.</p>
+<p>This is implemented with Redis, which provides fast read/write access and automatic expiration. Each conversation session gets its own entry in Redis, identified by the user ID and session ID.</p>
+<h3 id="how-it-works">How it works</h3>
+<ol>
+<li>User sends a message to the agent</li>
+<li>Magec loads the session history from Redis (all previous messages in this session)</li>
+<li>The agent sees the full conversation context and responds accordingly</li>
+<li>The new messages (user + agent response) are appended to the session</li>
+<li>After the configured TTL expires, old sessions are automatically cleaned up</li>
+</ol>
+<h3 id="configuration">Configuration</h3>
+<p>Create a session memory provider in the Admin UI under <strong>Memory</strong>:</p>
 <table>
   <thead>
       <tr>
@@ -130,22 +149,50 @@
       </tr>
   </thead>
   <tbody>
+      <tr>
+          <td><code>name</code></td>
+          <td>Display name (e.g., &ldquo;Redis Sessions&rdquo;)</td>
+      </tr>
       <tr>
           <td><code>type</code></td>
           <td><code>redis</code></td>
       </tr>
       <tr>
-          <td><code>url</code></td>
-          <td>Redis connection URL (e.g. <code>redis://redis:6379</code>)</td>
+          <td><code>connectionString</code></td>
+          <td>Redis URL — e.g., <code>redis://redis:6379</code> or <code>redis://user:password@host:6379/0</code></td>
       </tr>
       <tr>
           <td><code>ttl</code></td>
-          <td>Time-to-live for session entries (e.g. <code>24h</code>)</td>
+          <td>Time-to-live for session entries — e.g., <code>24h</code>, <code>72h</code>, <code>168h</code> (1 week). After this period, unused sessions expire.</td>
       </tr>
   </tbody>
 </table>
+<h3 id="when-to-use-it">When to use it</h3>
+<p>Most agents should have session memory enabled. Without it, the agent can&rsquo;t even remember what was said two messages ago — every message is processed in isolation, which makes for a very frustrating conversation experience.</p>
+<p>The main reason to disable it is for one-shot agents that process a single request and don&rsquo;t need conversational context (like an agent in a cron job).</p>
 <h2 id="long-term-memory-postgresql--pgvector">Long-term memory (PostgreSQL + pgvector)</h2>
-<p>Semantic memory using vector embeddings. Agents automatically search for relevant past interactions and save important user preferences. Requires a backend configured for embeddings.</p>
+<p>Long-term memory gives agents the ability to remember things across sessions and over time. It&rsquo;s a semantic memory system powered by vector embeddings — the agent doesn&rsquo;t just store raw text, it stores the meaning of information and can search by similarity.</p>
+<h3 id="how-it-works-1">How it works</h3>
+<p>When long-term memory is enabled, Magec automatically gives the agent two tools:</p>
+<ul>
+<li><strong><code>search_memory</code></strong> — Searches for relevant memories based on a query. The agent uses this at the start of conversations to recall relevant context (e.g., &ldquo;What do I know about this user?&rdquo;).</li>
+<li><strong><code>save_to_memory</code></strong> — Saves a piece of information for future recall. The agent uses this when it encounters important facts (e.g., user preferences, names, decisions).</li>
+</ul>
+<p>The agent decides when to use these tools based on instructions that Magec adds to its system prompt. You don&rsquo;t need to configure the behavior — the agent automatically:</p>
+<ol>
+<li>Searches for relevant memories at the start of each conversation</li>
+<li>Saves important user information and preferences as it encounters them</li>
+<li>References saved memories when they&rsquo;re relevant to the current conversation</li>
+</ol>
+<h3 id="what-makes-it-semantic">What makes it semantic</h3>
+<p>Traditional memory would require exact keyword matches. Magec&rsquo;s long-term memory uses <strong>vector embeddings</strong> — mathematical representations of meaning. This means:</p>
+<ul>
+<li>If you told the agent &ldquo;My name is Ana&rdquo; three weeks ago, and today you ask &ldquo;Do you know my name?&rdquo;, it finds the right memory even though the words are completely different.</li>
+<li>If you mentioned you&rsquo;re allergic to peanuts in one conversation, and later ask about restaurant recommendations, the agent can surface that allergy information because it&rsquo;s semantically relevant.</li>
+</ul>
+<p>This requires an <strong>embedding backend</strong> — a model that converts text into vectors. The embedding backend is configured on the memory provider, not on the agent. Any OpenAI-compatible embedding API works (OpenAI, Ollama with <code>nomic-embed-text</code>, etc.).</p>
+<h3 id="configuration-1">Configuration</h3>
+<p>Create a long-term memory provider in the Admin UI under <strong>Memory</strong>:</p>
 <table>
   <thead>
       <tr>
@@ -155,16 +202,54 @@
   </thead>
   <tbody>
       <tr>
+          <td><code>name</code></td>
+          <td>Display name (e.g., &ldquo;Long-Term Memory&rdquo;)</td>
+      </tr>
+      <tr>
           <td><code>type</code></td>
           <td><code>postgres</code></td>
       </tr>
       <tr>
-          <td><code>url</code></td>
-          <td>PostgreSQL connection URL</td>
+          <td><code>connectionString</code></td>
+          <td>PostgreSQL URL — e.g., <code>postgres://user:password@postgres:5432/magec?sslmode=disable</code></td>
+      </tr>
+      <tr>
+          <td><code>embeddingBackend</code></td>
+          <td>The backend to use for generating embeddings (must be OpenAI-compatible)</td>
+      </tr>
+      <tr>
+          <td><code>embeddingModel</code></td>
+          <td>Model name — e.g., <code>text-embedding-3-small</code>, <code>nomic-embed-text</code></td>
       </tr>
   </tbody>
 </table>
-<p>The Admin UI includes a health check feature to test memory provider connectivity.</p>
+
+
+
+<div class="docs-callout docs-callout--info">
+  Long-term memory requires PostgreSQL with the <strong>pgvector</strong> extension installed. The Docker Compose setup includes <code>pgvector/pgvector:pg17</code> which has this pre-configured.
+</div>
+
+<h3 id="when-to-use-it-1">When to use it</h3>
+<p>Long-term memory is most valuable for agents that interact with the same users repeatedly:</p>
+<ul>
+<li><strong>Personal assistants</strong> — Remember names, preferences, past decisions</li>
+<li><strong>Customer service</strong> — Remember past issues, preferred communication style</li>
+<li><strong>Home automation</strong> — Remember routines, preferences (&ldquo;I like the lights dimmed in the evening&rdquo;)</li>
+</ul>
+<p>It&rsquo;s less useful for agents in flows that process data rather than interact with humans, or for one-shot task agents.</p>
+<h2 id="assigning-memory-to-agents">Assigning memory to agents</h2>
+<p>Once you&rsquo;ve created memory providers, assign them to agents in the agent configuration:</p>
+<ol>
+<li>Open the agent in the Admin UI</li>
+<li>Expand the <strong>Memory</strong> section</li>
+<li>Select a session memory provider (Redis) and/or a long-term memory provider (PostgreSQL)</li>
+<li>Save</li>
+</ol>
+<p>The agent starts using memory immediately — no restart needed.</p>
+<p>Multiple agents can share the same memory providers. This means their sessions are stored in the same Redis instance and their long-term memories in the same PostgreSQL database. Each agent&rsquo;s data is kept separate through unique identifiers.</p>
+<h2 id="health-checks">Health checks</h2>
+<p>The Admin UI includes a health check button for each memory provider. Use it to verify that the connection to Redis or PostgreSQL is working correctly. This is especially useful after initial setup or when troubleshooting connectivity issues.</p>
 
     </div>
   </div>
@@ -190,13 +275,13 @@
       </div>
       <ul class="footer__links">
         <li><a href="https://github.com/achetronic/magec" target="_blank" rel="noopener">GitHub</a></li>
-        <li><a href="/magec/docs/">Docs</a></li>
+        <li><a href="/docs/">Docs</a></li>
         <li><a href="https://github.com/achetronic/magec/issues" target="_blank" rel="noopener">Issues</a></li>
       </ul>
     </div>
   </div>
 </footer>
 
-  <script type="module" src="/magec/js/main.js"></script>
+  <script type="module" src="/js/main.js"></script>
 </body>
 </html>

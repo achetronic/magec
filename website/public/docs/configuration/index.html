@@ -1,13 +1,13 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
+<head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Configuration — Magec — Self-hosted Multi-Agent AI Platform</title>
   <meta name="description" content="Define multiple AI agents, chain them into workflows, connect tools. Voice, Telegram, webhooks, cron. Your server, your rules.">
   <meta name="theme-color" content="#1c1917">
-  <link rel="icon" type="image/svg+xml" href="/magec/img/logo.svg">
-  <link rel="stylesheet" href="/magec/css/style.css">
+  <link rel="icon" type="image/svg+xml" href="/img/logo.svg">
+  <link rel="stylesheet" href="/css/style.css">
   <meta property="og:title" content="Configuration">
   <meta property="og:description" content="Define multiple AI agents, chain them into workflows, connect tools. Voice, Telegram, webhooks, cron. Your server, your rules.">
   <meta property="og:type" content="website">
@@ -30,13 +30,13 @@
     </button>
     <ul class="nav__links">
       
-      <li><a href="/magec/" class="nav__link">Quick Start</a></li>
+      <li><a href="/" class="nav__link">Quick Start</a></li>
       
-      <li><a href="/magec/#features" class="nav__link">Features</a></li>
+      <li><a href="/#features" class="nav__link">Features</a></li>
       
-      <li><a href="/magec/#screenshots" class="nav__link">Screenshots</a></li>
+      <li><a href="/#screenshots" class="nav__link">Screenshots</a></li>
       
-      <li><a href="/magec/docs/" class="nav__link">Docs</a></li>
+      <li><a href="/docs/" class="nav__link">Docs</a></li>
       
       <li>
         <a href="https://github.com/achetronic/magec" class="nav__cta" target="_blank" rel="noopener">
@@ -58,9 +58,11 @@
       <div class="docs-sidebar__group">
         <div class="docs-sidebar__label">Getting Started</div>
         
-        <a href="/magec/docs/getting-started/" class="docs-sidebar__link">Installation</a>
+        <a href="/docs/getting-started/" class="docs-sidebar__link">Installation</a>
         
-        <a href="/magec/docs/configuration/" class="docs-sidebar__link docs-sidebar__link--active">Configuration</a>
+        <a href="/docs/configuration/" class="docs-sidebar__link docs-sidebar__link--active">Configuration</a>
+        
+        <a href="/docs/docker/" class="docs-sidebar__link">Docker Deployment</a>
         
       </div>
       
@@ -69,17 +71,17 @@
       <div class="docs-sidebar__group">
         <div class="docs-sidebar__label">Core Concepts</div>
         
-        <a href="/magec/docs/agents/" class="docs-sidebar__link">Agents</a>
+        <a href="/docs/agents/" class="docs-sidebar__link">Agents</a>
         
-        <a href="/magec/docs/flows/" class="docs-sidebar__link">Agentic Flows</a>
+        <a href="/docs/flows/" class="docs-sidebar__link">Agentic Flows</a>
         
-        <a href="/magec/docs/backends/" class="docs-sidebar__link">AI Backends</a>
+        <a href="/docs/backends/" class="docs-sidebar__link">AI Backends</a>
         
-        <a href="/magec/docs/memory/" class="docs-sidebar__link">Memory</a>
+        <a href="/docs/memory/" class="docs-sidebar__link">Memory</a>
         
-        <a href="/magec/docs/mcp/" class="docs-sidebar__link">MCP Tools</a>
+        <a href="/docs/mcp/" class="docs-sidebar__link">MCP Tools</a>
         
-        <a href="/magec/docs/commands/" class="docs-sidebar__link">Commands</a>
+        <a href="/docs/commands/" class="docs-sidebar__link">Commands</a>
         
       </div>
       
@@ -88,15 +90,15 @@
       <div class="docs-sidebar__group">
         <div class="docs-sidebar__label">Clients</div>
         
-        <a href="/magec/docs/clients/" class="docs-sidebar__link">Overview</a>
+        <a href="/docs/clients/" class="docs-sidebar__link">Overview</a>
         
-        <a href="/magec/docs/voice-ui/" class="docs-sidebar__link">Voice UI</a>
+        <a href="/docs/voice-ui/" class="docs-sidebar__link">Voice UI</a>
         
-        <a href="/magec/docs/telegram/" class="docs-sidebar__link">Telegram</a>
+        <a href="/docs/telegram/" class="docs-sidebar__link">Telegram</a>
         
-        <a href="/magec/docs/webhooks/" class="docs-sidebar__link">Webhooks</a>
+        <a href="/docs/webhooks/" class="docs-sidebar__link">Webhooks</a>
         
-        <a href="/magec/docs/cron/" class="docs-sidebar__link">Cron</a>
+        <a href="/docs/cron/" class="docs-sidebar__link">Cron</a>
         
       </div>
       
@@ -105,9 +107,9 @@
       <div class="docs-sidebar__group">
         <div class="docs-sidebar__label">Reference</div>
         
-        <a href="/magec/docs/api/" class="docs-sidebar__link">API Reference</a>
+        <a href="/docs/api/" class="docs-sidebar__link">API Reference</a>
         
-        <a href="/magec/docs/voice-system/" class="docs-sidebar__link">Voice System</a>
+        <a href="/docs/voice-system/" class="docs-sidebar__link">Voice System</a>
         
       </div>
       
@@ -119,49 +121,51 @@
         Navigation
       </button>
       <h1>Configuration</h1>
-      <p>Magec splits configuration into two separate layers:</p>
+      <p>Magec uses two separate configuration layers. Understanding this split is important because they work differently and serve different purposes.</p>
+<h2 id="the-two-layers">The two layers</h2>
 <table>
   <thead>
       <tr>
           <th>Layer</th>
-          <th>File</th>
-          <th>Purpose</th>
-          <th>Managed by</th>
+          <th>What it controls</th>
+          <th>Where it lives</th>
+          <th>How you edit it</th>
       </tr>
   </thead>
   <tbody>
       <tr>
           <td><strong>Infrastructure</strong></td>
+          <td>Server ports, logging, voice toggle, ONNX paths</td>
           <td><code>config.yaml</code></td>
-          <td>Server ports, logging, voice/ONNX settings</td>
-          <td>You (text editor or env vars)</td>
+          <td>Text editor or environment variables</td>
       </tr>
       <tr>
           <td><strong>Resources</strong></td>
+          <td>Agents, backends, memory, MCP tools, clients, commands, flows</td>
           <td><code>data/store.json</code></td>
-          <td>Agents, backends, memory, MCP servers, clients, commands, flows</td>
-          <td>Admin UI or Admin API</td>
+          <td>Admin UI or Admin API (never by hand)</td>
       </tr>
   </tbody>
 </table>
-<p><code>config.yaml</code> is read once at startup. <code>data/store.json</code> is read/written at runtime — changes made through the Admin UI take effect immediately without restarting the server.</p>
+<p><strong>Infrastructure</strong> is about how the server runs. <strong>Resources</strong> are about what the server does.</p>
+<p>Think of it like this: <code>config.yaml</code> is the wiring of your house (ports, protocols, switches). <code>store.json</code> is the furniture and appliances inside (your agents, their tools, who can talk to them).</p>
 <h2 id="configyaml--infrastructure">config.yaml — Infrastructure</h2>
-<p>This file controls <strong>only</strong> how the server itself runs. It has nothing to do with agents, backends, or any AI resource.</p>
+<p>This file is read once at startup. Changes require a server restart. It controls only the server process itself — nothing about agents, backends, or AI.</p>
 <div class="highlight"><pre tabindex="0" class="chroma"><code class="language-yaml" data-lang="yaml"><span class="line"><span class="cl"><span class="nt">server</span><span class="p">:</span><span class="w">
 </span></span></span><span class="line"><span class="cl"><span class="w">  </span><span class="nt">host</span><span class="p">:</span><span class="w"> </span><span class="m">0.0.0.0</span><span class="w">
-</span></span></span><span class="line"><span class="cl"><span class="w">  </span><span class="nt">port</span><span class="p">:</span><span class="w"> </span><span class="m">8080</span><span class="w">          </span><span class="c"># Voice UI + User API</span><span class="w">
-</span></span></span><span class="line"><span class="cl"><span class="w">  </span><span class="nt">adminPort</span><span class="p">:</span><span class="w"> </span><span class="m">8081</span><span class="w">     </span><span class="c"># Admin UI + Admin API</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">  </span><span class="nt">port</span><span class="p">:</span><span class="w"> </span><span class="m">8080</span><span class="w">          </span><span class="c"># User API + Voice UI</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">  </span><span class="nt">adminPort</span><span class="p">:</span><span class="w"> </span><span class="m">8081</span><span class="w">     </span><span class="c"># Admin API + Admin UI</span><span class="w">
 </span></span></span><span class="line"><span class="cl"><span class="w">
 </span></span></span><span class="line"><span class="cl"><span class="nt">voice</span><span class="p">:</span><span class="w">
 </span></span></span><span class="line"><span class="cl"><span class="w">  </span><span class="nt">ui</span><span class="p">:</span><span class="w">
-</span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="nt">enabled: true     # Toggle Voice UI and voice routes (default</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="l">)</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="w">     </span><span class="c"># Toggle Voice UI and voice routes</span><span class="w">
 </span></span></span><span class="line"><span class="cl"><span class="w">  </span><span class="c"># onnxLibraryPath: /usr/lib/libonnxruntime.so</span><span class="w">
 </span></span></span><span class="line"><span class="cl"><span class="w">
 </span></span></span><span class="line"><span class="cl"><span class="nt">log</span><span class="p">:</span><span class="w">
 </span></span></span><span class="line"><span class="cl"><span class="w">  </span><span class="nt">level</span><span class="p">:</span><span class="w"> </span><span class="l">info        </span><span class="w"> </span><span class="c"># debug, info, warn, error</span><span class="w">
 </span></span></span><span class="line"><span class="cl"><span class="w">  </span><span class="nt">format</span><span class="p">:</span><span class="w"> </span><span class="l">console    </span><span class="w"> </span><span class="c"># console, json</span><span class="w">
-</span></span></span></code></pre></div><p>Values support <code>${VAR}</code> syntax for environment variable expansion.</p>
-<h3 id="server-block">Server block</h3>
+</span></span></span></code></pre></div><h3 id="server">Server</h3>
+<p>Controls where the server listens. Magec runs two HTTP servers on separate ports — one for users (API, Voice UI, webhooks) and one for administration (Admin UI, management API).</p>
 <table>
   <thead>
       <tr>
@@ -174,21 +178,22 @@
       <tr>
           <td><code>host</code></td>
           <td><code>0.0.0.0</code></td>
-          <td>Bind address</td>
+          <td>Bind address. Use <code>127.0.0.1</code> to restrict to localhost only.</td>
       </tr>
       <tr>
           <td><code>port</code></td>
           <td><code>8080</code></td>
-          <td>User-facing port (Voice UI, user API, webhooks)</td>
+          <td>User-facing port. The Voice UI, user API, webhook endpoints, and voice WebSocket all live here.</td>
       </tr>
       <tr>
           <td><code>adminPort</code></td>
           <td><code>8081</code></td>
-          <td>Admin-facing port (Admin UI, admin API)</td>
+          <td>Admin-facing port. The Admin UI and management API live here. In production, restrict access to this port.</td>
       </tr>
   </tbody>
 </table>
-<h3 id="voice-block">Voice block</h3>
+<h3 id="voice">Voice</h3>
+<p>Controls voice features at the server level. This is independent of per-agent voice settings — it&rsquo;s a global switch.</p>
 <table>
   <thead>
       <tr>
@@ -201,16 +206,16 @@
       <tr>
           <td><code>ui.enabled</code></td>
           <td><code>true</code></td>
-          <td>Enable Voice UI and all voice routes. Set to <code>false</code> for API-only mode.</td>
+          <td>When <code>true</code>, the Voice UI is served at the user port and all voice routes (STT proxy, TTS proxy, WebSocket) are active. Set to <code>false</code> for API-only deployments where you don&rsquo;t need voice.</td>
       </tr>
       <tr>
           <td><code>onnxLibraryPath</code></td>
-          <td><em>auto</em></td>
-          <td>Path to ONNX Runtime shared library. Only needed if auto-detection fails.</td>
+          <td><em>auto-detect</em></td>
+          <td>Path to the ONNX Runtime shared library (<code>.so</code> / <code>.dylib</code>). Magec tries to find it automatically. Only set this if auto-detection fails.</td>
       </tr>
   </tbody>
 </table>
-<h3 id="log-block">Log block</h3>
+<h3 id="log">Log</h3>
 <table>
   <thead>
       <tr>
@@ -223,71 +228,123 @@
       <tr>
           <td><code>level</code></td>
           <td><code>info</code></td>
-          <td>Log level: <code>debug</code>, <code>info</code>, <code>warn</code>, <code>error</code></td>
+          <td>Minimum log level. Use <code>debug</code> during development to see detailed agent execution, MCP tool calls, and voice events.</td>
       </tr>
       <tr>
           <td><code>format</code></td>
           <td><code>console</code></td>
-          <td>Output format: <code>console</code> (human), <code>json</code> (structured)</td>
+          <td><code>console</code> produces human-readable colored output. <code>json</code> produces structured logs for log aggregation systems.</td>
       </tr>
   </tbody>
 </table>
-<h2 id="datastorejson--resources">data/store.json — Resources</h2>
-<p>Magec uses <code>data/store.json</code> as its internal database. Every resource you create, edit, or delete through the Admin UI is persisted to this file automatically. The server keeps it in memory for fast access and writes it to disk on every change — no external database is needed for the store itself.</p>
-<p>You should never need to edit <code>store.json</code> by hand. All resources are managed at runtime through the <strong>Admin UI</strong> at <code>http://localhost:8081</code> or the <strong>Admin REST API</strong>.</p>
+<h3 id="environment-variables">Environment variables</h3>
+<p>All values in <code>config.yaml</code> support <code>${VAR}</code> syntax for environment variable substitution. This is useful for Docker deployments where you want to configure the server without modifying the file:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-yaml" data-lang="yaml"><span class="line"><span class="cl"><span class="nt">server</span><span class="p">:</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">  </span><span class="nt">port</span><span class="p">:</span><span class="w"> </span><span class="l">${MAGEC_PORT:-8080}</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="nt">log</span><span class="p">:</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">  </span><span class="nt">level</span><span class="p">:</span><span class="w"> </span><span class="l">${LOG_LEVEL:-info}</span><span class="w">
+</span></span></span></code></pre></div><h2 id="datastorejson--resources">data/store.json — Resources</h2>
+<p>This is Magec&rsquo;s internal database. Every agent, backend, memory provider, MCP server, client, command, and flow is stored here. The server keeps it in memory for fast access and writes to disk on every change.</p>
+<p><strong>You should never edit this file by hand.</strong> Use the Admin UI at <code>http://localhost:8081</code> or the Admin REST API. Both provide full CRUD for all resource types with validation, health checks, and immediate hot-reload.</p>
+<h3 id="whats-inside">What&rsquo;s inside</h3>
 <table>
   <thead>
       <tr>
           <th>Resource</th>
-          <th>Description</th>
+          <th>What it is</th>
+          <th>More info</th>
       </tr>
   </thead>
   <tbody>
       <tr>
           <td><strong>Backends</strong></td>
-          <td>AI provider connections (OpenAI, Anthropic, Gemini, Ollama)</td>
+          <td>Connections to AI providers (OpenAI, Anthropic, Gemini, Ollama)</td>
+          <td><a href="/magec/docs/backends/">AI Backends</a></td>
       </tr>
       <tr>
-          <td><strong>Memory</strong></td>
+          <td><strong>Memory Providers</strong></td>
           <td>Session storage (Redis) and long-term memory (PostgreSQL + pgvector)</td>
+          <td><a href="/magec/docs/memory/">Memory</a></td>
       </tr>
       <tr>
           <td><strong>MCP Servers</strong></td>
-          <td>External tool servers via Model Context Protocol</td>
+          <td>External tool connections via Model Context Protocol</td>
+          <td><a href="/magec/docs/mcp/">MCP Tools</a></td>
       </tr>
       <tr>
           <td><strong>Agents</strong></td>
-          <td>Independent units with their own LLM, memory, voice, tools, and prompts</td>
+          <td>AI entities with their own LLM, prompt, memory, voice, and tools</td>
+          <td><a href="/magec/docs/agents/">Agents</a></td>
       </tr>
       <tr>
           <td><strong>Commands</strong></td>
           <td>Reusable prompts referenced by cron and webhook clients</td>
+          <td><a href="/magec/docs/commands/">Commands</a></td>
       </tr>
       <tr>
           <td><strong>Clients</strong></td>
-          <td>Access points (Voice UI, Telegram, webhooks, cron) with token-based auth</td>
+          <td>Access points — Voice UI, Telegram, webhooks, cron — each with its own token</td>
+          <td><a href="/magec/docs/clients/">Clients</a></td>
       </tr>
       <tr>
           <td><strong>Flows</strong></td>
-          <td>Multi-agent workflows (sequential, parallel, loop)</td>
+          <td>Multi-agent workflows with sequential, parallel, and loop steps</td>
+          <td><a href="/magec/docs/flows/">Flows</a></td>
       </tr>
   </tbody>
 </table>
-<p>On first run, the store starts empty. You configure everything from the Admin UI.</p>
+<h3 id="hot-reload">Hot-reload</h3>
+<p>Changes made through the Admin UI or API take effect <strong>immediately</strong> — no server restart needed. When you update an agent&rsquo;s prompt, add a new backend, or modify a flow, the change is persisted to <code>store.json</code> and the server picks it up in real time.</p>
+<h3 id="environment-variables-in-storejson">Environment variables in store.json</h3>
+<p>Like <code>config.yaml</code>, the store also supports <code>${VAR}</code> substitution. This is particularly useful for keeping API keys and tokens out of the file:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;apiKey&#34;</span><span class="p">:</span> <span class="s2">&#34;${OPENAI_API_KEY}&#34;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p>The installer uses this for cloud deployments, so your API keys come from environment variables rather than being stored in plain text.</p>
+<h3 id="backup-and-restore">Backup and restore</h3>
+<p>To back up your entire Magec configuration, copy <code>data/store.json</code>. To restore it, put it back and restart the server. That single file contains every resource you&rsquo;ve configured.</p>
 
 
 
 <div class="docs-callout docs-callout--info">
-  <code>store.json</code> supports <code>${VAR}</code> expansion for credentials, so you can use environment variables instead of hardcoding API keys or tokens.
+  If you&rsquo;re running Magec via Docker Compose, the <code>data/</code> directory is mounted as a volume. Your configuration persists across container restarts and image updates.
 </div>
 
-
-
-
-<div class="docs-callout docs-callout--info">
-  To back up your Magec configuration, just copy <code>data/store.json</code>. To restore it, put it back and restart the server.
-</div>
-
+<h2 id="seeds--pre-built-configurations">Seeds — Pre-built configurations</h2>
+<p>When Magec starts and finds an empty store, it can load a <strong>seed</strong> — a pre-built configuration that gives you a working setup out of the box. Seeds are controlled by the <code>MAGEC_SEED</code> environment variable, which the installer sets automatically based on your chosen deployment mode.</p>
+<table>
+  <thead>
+      <tr>
+          <th>Seed</th>
+          <th>Set by</th>
+          <th>What it includes</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td><code>voice-ui</code></td>
+          <td><code>--local</code></td>
+          <td>Local Ollama backend, Redis session memory, PostgreSQL long-term memory, a default agent, and a Voice UI client</td>
+      </tr>
+      <tr>
+          <td><code>voice-ui-openai</code></td>
+          <td><code>--openai</code></td>
+          <td>OpenAI backend (using <code>${OPENAI_API_KEY}</code>), same memory and client setup</td>
+      </tr>
+      <tr>
+          <td><code>voice-ui-anthropic</code></td>
+          <td><code>--anthropic</code></td>
+          <td>Anthropic backend + local Ollama for embeddings, local Parakeet STT, local TTS</td>
+      </tr>
+      <tr>
+          <td><code>voice-ui-gemini</code></td>
+          <td><code>--gemini</code></td>
+          <td>Gemini backend + local Ollama for embeddings, local Parakeet STT, local TTS</td>
+      </tr>
+  </tbody>
+</table>
+<p>Seeds only apply on first run. Once you have a <code>store.json</code>, the seed is ignored — your configuration is yours to modify however you want.</p>
 
     </div>
   </div>
@@ -313,13 +370,13 @@
       </div>
       <ul class="footer__links">
         <li><a href="https://github.com/achetronic/magec" target="_blank" rel="noopener">GitHub</a></li>
-        <li><a href="/magec/docs/">Docs</a></li>
+        <li><a href="/docs/">Docs</a></li>
         <li><a href="https://github.com/achetronic/magec/issues" target="_blank" rel="noopener">Issues</a></li>
       </ul>
     </div>
   </div>
 </footer>
 
-  <script type="module" src="/magec/js/main.js"></script>
+  <script type="module" src="/js/main.js"></script>
 </body>
 </html>

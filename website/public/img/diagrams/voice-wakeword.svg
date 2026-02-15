@@ -1,0 +1,98 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 840 340" fill="none">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="840" y2="340" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#1a1a1d"/>
+      <stop offset="100%" stop-color="#121214"/>
+    </linearGradient>
+    <filter id="shadow">
+      <feDropShadow dx="0" dy="2" stdDeviation="4" flood-color="#000" flood-opacity="0.4"/>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="840" height="340" rx="20" fill="url(#bg)"/>
+
+  <!-- Title -->
+  <text x="420" y="34" text-anchor="middle" fill="#d6d3d1" font-family="system-ui, sans-serif" font-size="13" font-weight="600">WAKE WORD DETECTION</text>
+
+  <!-- Step 1: Audio Frame -->
+  <rect x="30" y="70" width="140" height="72" rx="14" fill="#2a2a2f" stroke="#3d3d44" stroke-width="1" filter="url(#shadow)"/>
+  <text x="100" y="98" text-anchor="middle" fill="#d6d3d1" font-family="system-ui, sans-serif" font-size="11" font-weight="600">Audio Frame</text>
+  <text x="100" y="116" text-anchor="middle" fill="#78716c" font-family="system-ui, sans-serif" font-size="9">~32ms of sound</text>
+
+  <!-- Arrow 1→2 -->
+  <line x1="170" y1="106" x2="208" y2="106" stroke="#fbbf24" stroke-width="1.5" opacity="0.4"/>
+  <polygon points="208,102 216,106 208,110" fill="#fbbf24" opacity="0.5"/>
+
+  <!-- Step 2: Mel Spectrogram -->
+  <rect x="218" y="70" width="150" height="72" rx="14" fill="#2a2a2f" stroke="#fbbf24" stroke-width="1" opacity="0.5" filter="url(#shadow)"/>
+  <text x="293" y="98" text-anchor="middle" fill="#fbbf24" font-family="system-ui, sans-serif" font-size="11" font-weight="600">Frequency Analysis</text>
+  <text x="293" y="116" text-anchor="middle" fill="#78716c" font-family="system-ui, sans-serif" font-size="9">What sounds are present?</text>
+  <!-- Mini waveform decoration -->
+  <path d="M248 132 Q258 124 268 132 Q278 140 288 132 Q298 124 308 132 Q318 140 328 132" stroke="#fbbf24" stroke-width="1" fill="none" opacity="0.2"/>
+
+  <!-- Arrow 2→3 -->
+  <line x1="368" y1="106" x2="406" y2="106" stroke="#fbbf24" stroke-width="1.5" opacity="0.4"/>
+  <polygon points="406,102 414,106 406,110" fill="#fbbf24" opacity="0.5"/>
+
+  <!-- Step 3: Speech Embedding -->
+  <rect x="416" y="70" width="150" height="72" rx="14" fill="#2a2a2f" stroke="#f59e0b" stroke-width="1" opacity="0.5" filter="url(#shadow)"/>
+  <text x="491" y="98" text-anchor="middle" fill="#f59e0b" font-family="system-ui, sans-serif" font-size="11" font-weight="600">Pattern Matching</text>
+  <text x="491" y="116" text-anchor="middle" fill="#78716c" font-family="system-ui, sans-serif" font-size="9">Does it sound like speech?</text>
+  <!-- Mini dots decoration -->
+  <circle cx="458" cy="132" r="2" fill="#f59e0b" opacity="0.15"/>
+  <circle cx="470" cy="132" r="2" fill="#f59e0b" opacity="0.2"/>
+  <circle cx="482" cy="132" r="2" fill="#f59e0b" opacity="0.3"/>
+  <circle cx="494" cy="132" r="2" fill="#f59e0b" opacity="0.35"/>
+  <circle cx="506" cy="132" r="2" fill="#f59e0b" opacity="0.25"/>
+  <circle cx="518" cy="132" r="2" fill="#f59e0b" opacity="0.15"/>
+
+  <!-- Arrow 3→4 -->
+  <line x1="566" y1="106" x2="604" y2="106" stroke="#fbbf24" stroke-width="1.5" opacity="0.4"/>
+  <polygon points="604,102 612,106 604,110" fill="#fbbf24" opacity="0.5"/>
+
+  <!-- Step 4: Classifier -->
+  <rect x="614" y="70" width="196" height="72" rx="14" fill="#2a2a2f" stroke="#fbbf24" stroke-width="1.5" opacity="0.7" filter="url(#shadow)"/>
+  <text x="712" y="98" text-anchor="middle" fill="#fbbf24" font-family="system-ui, sans-serif" font-size="11" font-weight="700">Is it "Oye Magec"?</text>
+  <text x="712" y="116" text-anchor="middle" fill="#78716c" font-family="system-ui, sans-serif" font-size="9">Probability score from 0 to 1</text>
+
+  <!-- ===== Decision split ===== -->
+  <line x1="712" y1="142" x2="712" y2="178" stroke="#d6d3d1" stroke-width="1.5" opacity="0.3"/>
+
+  <!-- Diamond decision -->
+  <polygon points="712,178 737,198 712,218 687,198" fill="#2a2a2f" stroke="#d6d3d1" stroke-width="1" opacity="0.5"/>
+  <text x="712" y="202" text-anchor="middle" fill="#d6d3d1" font-family="system-ui, sans-serif" font-size="9" font-weight="600">Match?</text>
+
+  <!-- YES path (left, green) -->
+  <line x1="687" y1="198" x2="440" y2="198" stroke="#4ade80" stroke-width="1.5" opacity="0.4"/>
+  <line x1="440" y1="198" x2="440" y2="248" stroke="#4ade80" stroke-width="1.5" opacity="0.4"/>
+  <polygon points="436,248 440,256 444,248" fill="#4ade80" opacity="0.5"/>
+
+  <!-- YES label -->
+  <rect x="530" y="185" width="42" height="18" rx="6" fill="#4ade80" opacity="0.12"/>
+  <text x="551" y="198" text-anchor="middle" fill="#4ade80" font-family="system-ui, sans-serif" font-size="10" font-weight="600">YES</text>
+
+  <!-- Activate box -->
+  <rect x="350" y="258" width="180" height="56" rx="14" fill="#2a2a2f" stroke="#4ade80" stroke-width="1.5" opacity="0.6" filter="url(#shadow)"/>
+  <text x="440" y="282" text-anchor="middle" fill="#4ade80" font-family="system-ui, sans-serif" font-size="12" font-weight="600">Activate!</text>
+  <text x="440" y="300" text-anchor="middle" fill="#78716c" font-family="system-ui, sans-serif" font-size="9">Start listening for speech</text>
+
+  <!-- NO path (right, red dashed) -->
+  <line x1="737" y1="198" x2="790" y2="198" stroke="#f87171" stroke-width="1.5" opacity="0.3" stroke-dasharray="4,3"/>
+  <line x1="790" y1="198" x2="790" y2="248" stroke="#f87171" stroke-width="1.5" opacity="0.3" stroke-dasharray="4,3"/>
+  <polygon points="786,248 790,256 794,248" fill="#f87171" opacity="0.3"/>
+
+  <!-- NO label -->
+  <rect x="745" y="185" width="32" height="18" rx="6" fill="#f87171" opacity="0.1"/>
+  <text x="761" y="198" text-anchor="middle" fill="#f87171" font-family="system-ui, sans-serif" font-size="10" font-weight="600">NO</text>
+
+  <!-- Discard box -->
+  <rect x="720" y="258" width="100" height="56" rx="14" fill="#2a2a2f" stroke="#f87171" stroke-width="1" opacity="0.3" stroke-dasharray="4,3" filter="url(#shadow)"/>
+  <text x="770" y="282" text-anchor="middle" fill="#f87171" font-family="system-ui, sans-serif" font-size="11" font-weight="500" opacity="0.6">Discard</text>
+  <text x="770" y="300" text-anchor="middle" fill="#52525b" font-family="system-ui, sans-serif" font-size="9">Next frame</text>
+
+  <!-- Loop arrow from discard back to step 1 -->
+  <path d="M720 286 Q700 286 700 306 Q700 326 100 326 Q30 326 30 200 Q30 155 30 150" stroke="#52525b" stroke-width="1" opacity="0.3" fill="none" stroke-dasharray="4,3"/>
+  <polygon points="26,154 30,146 34,154" fill="#52525b" opacity="0.3"/>
+  <text x="365" y="322" text-anchor="middle" fill="#52525b" font-family="system-ui, sans-serif" font-size="8" font-style="italic">continuous loop — every ~32ms</text>
+</svg>

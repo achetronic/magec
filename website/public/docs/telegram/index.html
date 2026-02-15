@@ -1,13 +1,13 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
+<head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Telegram — Magec — Self-hosted Multi-Agent AI Platform</title>
   <meta name="description" content="Define multiple AI agents, chain them into workflows, connect tools. Voice, Telegram, webhooks, cron. Your server, your rules.">
   <meta name="theme-color" content="#1c1917">
-  <link rel="icon" type="image/svg+xml" href="/magec/img/logo.svg">
-  <link rel="stylesheet" href="/magec/css/style.css">
+  <link rel="icon" type="image/svg+xml" href="/img/logo.svg">
+  <link rel="stylesheet" href="/css/style.css">
   <meta property="og:title" content="Telegram">
   <meta property="og:description" content="Define multiple AI agents, chain them into workflows, connect tools. Voice, Telegram, webhooks, cron. Your server, your rules.">
   <meta property="og:type" content="website">
@@ -30,13 +30,13 @@
     </button>
     <ul class="nav__links">
       
-      <li><a href="/magec/" class="nav__link">Quick Start</a></li>
+      <li><a href="/" class="nav__link">Quick Start</a></li>
       
-      <li><a href="/magec/#features" class="nav__link">Features</a></li>
+      <li><a href="/#features" class="nav__link">Features</a></li>
       
-      <li><a href="/magec/#screenshots" class="nav__link">Screenshots</a></li>
+      <li><a href="/#screenshots" class="nav__link">Screenshots</a></li>
       
-      <li><a href="/magec/docs/" class="nav__link">Docs</a></li>
+      <li><a href="/docs/" class="nav__link">Docs</a></li>
       
       <li>
         <a href="https://github.com/achetronic/magec" class="nav__cta" target="_blank" rel="noopener">
@@ -58,9 +58,11 @@
       <div class="docs-sidebar__group">
         <div class="docs-sidebar__label">Getting Started</div>
         
-        <a href="/magec/docs/getting-started/" class="docs-sidebar__link">Installation</a>
+        <a href="/docs/getting-started/" class="docs-sidebar__link">Installation</a>
         
-        <a href="/magec/docs/configuration/" class="docs-sidebar__link">Configuration</a>
+        <a href="/docs/configuration/" class="docs-sidebar__link">Configuration</a>
+        
+        <a href="/docs/docker/" class="docs-sidebar__link">Docker Deployment</a>
         
       </div>
       
@@ -69,17 +71,17 @@
       <div class="docs-sidebar__group">
         <div class="docs-sidebar__label">Core Concepts</div>
         
-        <a href="/magec/docs/agents/" class="docs-sidebar__link">Agents</a>
+        <a href="/docs/agents/" class="docs-sidebar__link">Agents</a>
         
-        <a href="/magec/docs/flows/" class="docs-sidebar__link">Agentic Flows</a>
+        <a href="/docs/flows/" class="docs-sidebar__link">Agentic Flows</a>
         
-        <a href="/magec/docs/backends/" class="docs-sidebar__link">AI Backends</a>
+        <a href="/docs/backends/" class="docs-sidebar__link">AI Backends</a>
         
-        <a href="/magec/docs/memory/" class="docs-sidebar__link">Memory</a>
+        <a href="/docs/memory/" class="docs-sidebar__link">Memory</a>
         
-        <a href="/magec/docs/mcp/" class="docs-sidebar__link">MCP Tools</a>
+        <a href="/docs/mcp/" class="docs-sidebar__link">MCP Tools</a>
         
-        <a href="/magec/docs/commands/" class="docs-sidebar__link">Commands</a>
+        <a href="/docs/commands/" class="docs-sidebar__link">Commands</a>
         
       </div>
       
@@ -88,15 +90,15 @@
       <div class="docs-sidebar__group">
         <div class="docs-sidebar__label">Clients</div>
         
-        <a href="/magec/docs/clients/" class="docs-sidebar__link">Overview</a>
+        <a href="/docs/clients/" class="docs-sidebar__link">Overview</a>
         
-        <a href="/magec/docs/voice-ui/" class="docs-sidebar__link">Voice UI</a>
+        <a href="/docs/voice-ui/" class="docs-sidebar__link">Voice UI</a>
         
-        <a href="/magec/docs/telegram/" class="docs-sidebar__link docs-sidebar__link--active">Telegram</a>
+        <a href="/docs/telegram/" class="docs-sidebar__link docs-sidebar__link--active">Telegram</a>
         
-        <a href="/magec/docs/webhooks/" class="docs-sidebar__link">Webhooks</a>
+        <a href="/docs/webhooks/" class="docs-sidebar__link">Webhooks</a>
         
-        <a href="/magec/docs/cron/" class="docs-sidebar__link">Cron</a>
+        <a href="/docs/cron/" class="docs-sidebar__link">Cron</a>
         
       </div>
       
@@ -105,9 +107,9 @@
       <div class="docs-sidebar__group">
         <div class="docs-sidebar__label">Reference</div>
         
-        <a href="/magec/docs/api/" class="docs-sidebar__link">API Reference</a>
+        <a href="/docs/api/" class="docs-sidebar__link">API Reference</a>
         
-        <a href="/magec/docs/voice-system/" class="docs-sidebar__link">Voice System</a>
+        <a href="/docs/voice-system/" class="docs-sidebar__link">Voice System</a>
         
       </div>
       
@@ -119,22 +121,66 @@
         Navigation
       </button>
       <h1>Telegram</h1>
-      <p>Connect to Magec via Telegram — send text or voice messages and get responses.</p>
+      <p>Magec can connect to Telegram through a bot. Users send text or voice messages to the bot, and the bot responds using your configured agents. It supports multiple response modes, per-chat agent switching, and voice messages in both directions.</p>
+<p>This is a great way to access your agents from anywhere — your phone, desktop, or any Telegram client — without opening the Voice UI or writing API calls.</p>
 <div class="screenshots" style="margin-bottom: 2rem;">
 
 
 
-<img src="/magec/img/screenshots/admin-clients-telegram.png" alt="Admin UI — Telegram client" class="screenshot screenshot--desktop">
+<img src="/img/screenshots/admin-clients-telegram.png" alt="Admin UI — Telegram client" class="screenshot screenshot--desktop">
 
 </div>
 <h2 id="setup">Setup</h2>
+<h3 id="1-create-a-telegram-bot">1. Create a Telegram bot</h3>
+<p>Open Telegram and talk to <a href="https://t.me/BotFather">@BotFather</a>:</p>
 <ol>
-<li>Create a bot with <a href="https://t.me/BotFather">@BotFather</a> and get the token</li>
-<li>Get your user ID from <a href="https://t.me/userinfobot">@userinfobot</a></li>
-<li>Create a Telegram client in the Admin UI with your bot token and allowed users</li>
-<li>Start chatting with your bot</li>
+<li>Send <code>/newbot</code></li>
+<li>Choose a name (e.g., &ldquo;My Magec Assistant&rdquo;)</li>
+<li>Choose a username (e.g., <code>my_magec_bot</code>)</li>
+<li>BotFather gives you a token — copy it</li>
 </ol>
+<h3 id="2-get-your-user-id">2. Get your user ID</h3>
+<p>Talk to <a href="https://t.me/userinfobot">@userinfobot</a> — it replies with your Telegram user ID (a number). You&rsquo;ll need this to restrict who can use your bot.</p>
+<h3 id="3-create-a-telegram-client-in-magec">3. Create a Telegram client in Magec</h3>
+<p>In the Admin UI, go to <strong>Clients</strong> → <strong>New</strong> → <strong>Telegram</strong>:</p>
+<table>
+  <thead>
+      <tr>
+          <th>Field</th>
+          <th>Description</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td><code>name</code></td>
+          <td>Display name for this client</td>
+      </tr>
+      <tr>
+          <td><code>botToken</code></td>
+          <td>The token from BotFather</td>
+      </tr>
+      <tr>
+          <td><code>allowedUsers</code></td>
+          <td>Comma-separated list of Telegram user IDs that can use this bot</td>
+      </tr>
+      <tr>
+          <td><code>allowedChats</code></td>
+          <td>Comma-separated list of chat IDs where the bot can respond (for group chats)</td>
+      </tr>
+      <tr>
+          <td><code>responseMode</code></td>
+          <td>How the bot responds — see below</td>
+      </tr>
+      <tr>
+          <td><code>allowedAgents</code></td>
+          <td>Which agents and flows this bot can access</td>
+      </tr>
+  </tbody>
+</table>
+<h3 id="4-start-chatting">4. Start chatting</h3>
+<p>Open your bot in Telegram and send a message. The bot responds using the first allowed agent.</p>
 <h2 id="response-modes">Response modes</h2>
+<p>The response mode controls the format of the bot&rsquo;s replies:</p>
 <table>
   <thead>
       <tr>
@@ -145,34 +191,85 @@
   <tbody>
       <tr>
           <td><code>text</code></td>
-          <td>Always reply with text (default)</td>
+          <td>Always respond with text (default). Simple and reliable.</td>
       </tr>
       <tr>
           <td><code>voice</code></td>
-          <td>Always reply with voice (requires TTS)</td>
+          <td>Always respond with a voice message. Requires the agent to have TTS configured.</td>
       </tr>
       <tr>
           <td><code>mirror</code></td>
-          <td>Reply in the same format as input</td>
+          <td>Mirror the user&rsquo;s format — text replies to text, voice replies to voice messages.</td>
       </tr>
       <tr>
           <td><code>both</code></td>
-          <td>Reply with both text and voice</td>
+          <td>Respond with both a text message and a voice message.</td>
       </tr>
   </tbody>
 </table>
+<p>Users can change the response mode at runtime with the <code>/responsemode</code> command.</p>
+<h2 id="voice-messages">Voice messages</h2>
+<p>Telegram voice messages work in both directions:</p>
+<p><strong>Incoming voice:</strong> When a user sends a voice message, Magec:</p>
+<ol>
+<li>Downloads the audio from Telegram</li>
+<li>Converts it from OGG to WAV (using ffmpeg inside the container)</li>
+<li>Sends it to the agent&rsquo;s STT backend for transcription</li>
+<li>The agent processes the transcribed text and responds</li>
+</ol>
+<p><strong>Outgoing voice:</strong> When the response mode requires voice, Magec:</p>
+<ol>
+<li>Sends the agent&rsquo;s text response to the TTS backend</li>
+<li>Gets the audio back</li>
+<li>Sends it as a Telegram voice message</li>
+</ol>
+<p>This means you can have a fully voice-based conversation through Telegram — speak a question, hear the answer.</p>
 <h2 id="bot-commands">Bot commands</h2>
-<ul>
-<li><code>/responsemode &lt;mode&gt;</code> — Change response mode at runtime</li>
-<li><code>/agent</code> — Switch the active agent for this chat</li>
-</ul>
+<table>
+  <thead>
+      <tr>
+          <th>Command</th>
+          <th>Description</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td><code>/start</code></td>
+          <td>Welcome message</td>
+      </tr>
+      <tr>
+          <td><code>/help</code></td>
+          <td>List available commands</td>
+      </tr>
+      <tr>
+          <td><code>/agent</code></td>
+          <td>Switch the active agent for this chat</td>
+      </tr>
+      <tr>
+          <td><code>/responsemode &lt;mode&gt;</code></td>
+          <td>Change the response mode (<code>text</code>, <code>voice</code>, <code>mirror</code>, <code>both</code>, <code>reset</code>)</td>
+      </tr>
+  </tbody>
+</table>
+<p>The <code>/agent</code> command shows a list of all agents and flows the bot has access to. Select one and all subsequent messages in that chat go to the selected agent. Different chats can use different agents simultaneously.</p>
+<h2 id="context-metadata">Context metadata</h2>
+<p>When a message arrives from Telegram, Magec injects metadata about the source — the Telegram user ID, username, display name, and chat ID. This information is available to the agent as part of the message context. You can use this in system prompts to personalize responses (e.g., <em>&ldquo;Address the user by their first name when available&rdquo;</em>).</p>
+<h2 id="security">Security</h2>
 
 
 
 <div class="docs-callout">
-  <strong>Security:</strong> Always set <code>allowedUsers</code> and/or <code>allowedChats</code> to restrict who can use your bot.
+  <strong>Always restrict access.</strong> Set <code>allowedUsers</code> and/or <code>allowedChats</code> to control who can use your bot. Without restrictions, anyone who discovers your bot&rsquo;s username can interact with your agents — and through them, any MCP tools those agents have access to.
 </div>
 
+<p>If a user not in the allowed list tries to message the bot, the message is silently ignored. The same applies for chats not in the allowed chats list.</p>
+<h2 id="multiple-bots">Multiple bots</h2>
+<p>You can create multiple Telegram clients, each with its own bot, its own set of allowed users, and its own agent access. For example:</p>
+<ul>
+<li>A <strong>personal bot</strong> with full access to all agents, restricted to your user ID</li>
+<li>A <strong>team bot</strong> with access to specific work agents, restricted to team member IDs</li>
+<li>A <strong>customer bot</strong> with access to a customer service agent, available to specific chat groups</li>
+</ul>
 
     </div>
   </div>
@@ -198,13 +295,13 @@
       </div>
       <ul class="footer__links">
         <li><a href="https://github.com/achetronic/magec" target="_blank" rel="noopener">GitHub</a></li>
-        <li><a href="/magec/docs/">Docs</a></li>
+        <li><a href="/docs/">Docs</a></li>
         <li><a href="https://github.com/achetronic/magec/issues" target="_blank" rel="noopener">Issues</a></li>
       </ul>
     </div>
   </div>
 </footer>
 
-  <script type="module" src="/magec/js/main.js"></script>
+  <script type="module" src="/js/main.js"></script>
 </body>
 </html>

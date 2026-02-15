@@ -1,13 +1,13 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
+<head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Commands — Magec — Self-hosted Multi-Agent AI Platform</title>
   <meta name="description" content="Define multiple AI agents, chain them into workflows, connect tools. Voice, Telegram, webhooks, cron. Your server, your rules.">
   <meta name="theme-color" content="#1c1917">
-  <link rel="icon" type="image/svg+xml" href="/magec/img/logo.svg">
-  <link rel="stylesheet" href="/magec/css/style.css">
+  <link rel="icon" type="image/svg+xml" href="/img/logo.svg">
+  <link rel="stylesheet" href="/css/style.css">
   <meta property="og:title" content="Commands">
   <meta property="og:description" content="Define multiple AI agents, chain them into workflows, connect tools. Voice, Telegram, webhooks, cron. Your server, your rules.">
   <meta property="og:type" content="website">
@@ -30,13 +30,13 @@
     </button>
     <ul class="nav__links">
       
-      <li><a href="/magec/" class="nav__link">Quick Start</a></li>
+      <li><a href="/" class="nav__link">Quick Start</a></li>
       
-      <li><a href="/magec/#features" class="nav__link">Features</a></li>
+      <li><a href="/#features" class="nav__link">Features</a></li>
       
-      <li><a href="/magec/#screenshots" class="nav__link">Screenshots</a></li>
+      <li><a href="/#screenshots" class="nav__link">Screenshots</a></li>
       
-      <li><a href="/magec/docs/" class="nav__link">Docs</a></li>
+      <li><a href="/docs/" class="nav__link">Docs</a></li>
       
       <li>
         <a href="https://github.com/achetronic/magec" class="nav__cta" target="_blank" rel="noopener">
@@ -58,9 +58,11 @@
       <div class="docs-sidebar__group">
         <div class="docs-sidebar__label">Getting Started</div>
         
-        <a href="/magec/docs/getting-started/" class="docs-sidebar__link">Installation</a>
+        <a href="/docs/getting-started/" class="docs-sidebar__link">Installation</a>
         
-        <a href="/magec/docs/configuration/" class="docs-sidebar__link">Configuration</a>
+        <a href="/docs/configuration/" class="docs-sidebar__link">Configuration</a>
+        
+        <a href="/docs/docker/" class="docs-sidebar__link">Docker Deployment</a>
         
       </div>
       
@@ -69,17 +71,17 @@
       <div class="docs-sidebar__group">
         <div class="docs-sidebar__label">Core Concepts</div>
         
-        <a href="/magec/docs/agents/" class="docs-sidebar__link">Agents</a>
+        <a href="/docs/agents/" class="docs-sidebar__link">Agents</a>
         
-        <a href="/magec/docs/flows/" class="docs-sidebar__link">Agentic Flows</a>
+        <a href="/docs/flows/" class="docs-sidebar__link">Agentic Flows</a>
         
-        <a href="/magec/docs/backends/" class="docs-sidebar__link">AI Backends</a>
+        <a href="/docs/backends/" class="docs-sidebar__link">AI Backends</a>
         
-        <a href="/magec/docs/memory/" class="docs-sidebar__link">Memory</a>
+        <a href="/docs/memory/" class="docs-sidebar__link">Memory</a>
         
-        <a href="/magec/docs/mcp/" class="docs-sidebar__link">MCP Tools</a>
+        <a href="/docs/mcp/" class="docs-sidebar__link">MCP Tools</a>
         
-        <a href="/magec/docs/commands/" class="docs-sidebar__link docs-sidebar__link--active">Commands</a>
+        <a href="/docs/commands/" class="docs-sidebar__link docs-sidebar__link--active">Commands</a>
         
       </div>
       
@@ -88,15 +90,15 @@
       <div class="docs-sidebar__group">
         <div class="docs-sidebar__label">Clients</div>
         
-        <a href="/magec/docs/clients/" class="docs-sidebar__link">Overview</a>
+        <a href="/docs/clients/" class="docs-sidebar__link">Overview</a>
         
-        <a href="/magec/docs/voice-ui/" class="docs-sidebar__link">Voice UI</a>
+        <a href="/docs/voice-ui/" class="docs-sidebar__link">Voice UI</a>
         
-        <a href="/magec/docs/telegram/" class="docs-sidebar__link">Telegram</a>
+        <a href="/docs/telegram/" class="docs-sidebar__link">Telegram</a>
         
-        <a href="/magec/docs/webhooks/" class="docs-sidebar__link">Webhooks</a>
+        <a href="/docs/webhooks/" class="docs-sidebar__link">Webhooks</a>
         
-        <a href="/magec/docs/cron/" class="docs-sidebar__link">Cron</a>
+        <a href="/docs/cron/" class="docs-sidebar__link">Cron</a>
         
       </div>
       
@@ -105,9 +107,9 @@
       <div class="docs-sidebar__group">
         <div class="docs-sidebar__label">Reference</div>
         
-        <a href="/magec/docs/api/" class="docs-sidebar__link">API Reference</a>
+        <a href="/docs/api/" class="docs-sidebar__link">API Reference</a>
         
-        <a href="/magec/docs/voice-system/" class="docs-sidebar__link">Voice System</a>
+        <a href="/docs/voice-system/" class="docs-sidebar__link">Voice System</a>
         
       </div>
       
@@ -119,7 +121,12 @@
         Navigation
       </button>
       <h1>Commands</h1>
-      <p>Commands are reusable prompts that can be referenced by cron jobs and webhooks. Instead of duplicating the same prompt across multiple triggers, define it once as a command and reference it by ID.</p>
+      <p>Commands are reusable prompts — predefined messages that you write once and trigger repeatedly through <a href="/magec/docs/cron/">cron jobs</a> and <a href="/magec/docs/webhooks/">webhooks</a>. Instead of duplicating the same prompt across multiple triggers, you define it as a command and reference it wherever you need it.</p>
+<h2 id="why-commands-exist">Why commands exist</h2>
+<p>Imagine you have a daily report that needs to be generated every morning. The prompt is always the same: <em>&ldquo;Generate a summary of yesterday&rsquo;s sales data, including total revenue, top products, and notable trends.&rdquo;</em> Without commands, you&rsquo;d have to write this prompt into every cron job or webhook that triggers it. If you want to change the wording, you&rsquo;d need to update it in multiple places.</p>
+<p>With commands, you write the prompt once. Every cron job or webhook that uses it just references the command by ID. Change the prompt in one place, and all triggers use the updated version.</p>
+<h2 id="creating-a-command">Creating a command</h2>
+<p>In the Admin UI, go to <strong>Commands</strong> and click <strong>New</strong>:</p>
 <table>
   <thead>
       <tr>
@@ -130,18 +137,69 @@
   <tbody>
       <tr>
           <td><code>name</code></td>
-          <td>Display name</td>
+          <td>Display name — appears in cron and webhook selectors</td>
+      </tr>
+      <tr>
+          <td><code>description</code></td>
+          <td>Optional note about what this command does</td>
       </tr>
       <tr>
           <td><code>prompt</code></td>
-          <td>The text to send to the agent</td>
+          <td>The text to send to the agent when the command is triggered</td>
       </tr>
       <tr>
           <td><code>agentId</code></td>
-          <td>Which agent (or flow) to invoke</td>
+          <td>Which agent (or flow) processes this command</td>
       </tr>
   </tbody>
 </table>
+<p>The <strong>prompt</strong> is the message that gets sent to the agent as if a user had typed it. The agent receives this prompt, processes it using its LLM, system prompt, memory, and tools, then produces a response.</p>
+<p>The <strong>agent</strong> field determines who handles the command. This can be a single agent or a flow. If it&rsquo;s a flow, the prompt enters the pipeline and is processed by all agents in the flow.</p>
+<h2 id="example-commands">Example commands</h2>
+<table>
+  <thead>
+      <tr>
+          <th>Name</th>
+          <th>Agent</th>
+          <th>Prompt</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>Daily Sales Report</td>
+          <td>Analytics Agent</td>
+          <td>&ldquo;Generate a summary of yesterday&rsquo;s sales. Include total revenue, top 5 products, and any anomalies.&rdquo;</td>
+      </tr>
+      <tr>
+          <td>Security Check</td>
+          <td>Security Agent</td>
+          <td>&ldquo;Check for any failed login attempts, unusual network activity, or expired certificates in the last 24 hours.&rdquo;</td>
+      </tr>
+      <tr>
+          <td>News Digest</td>
+          <td>Research Pipeline (flow)</td>
+          <td>&ldquo;Research and summarize the top 5 technology news stories from today.&rdquo;</td>
+      </tr>
+      <tr>
+          <td>Health Check</td>
+          <td>DevOps Agent</td>
+          <td>&ldquo;Check the status of all monitored services and report any that are down or degraded.&rdquo;</td>
+      </tr>
+  </tbody>
+</table>
+<h2 id="using-commands">Using commands</h2>
+<p>Commands are used by two client types:</p>
+<h3 id="in-cron-jobs">In cron jobs</h3>
+<p>A cron client runs a command on a schedule. You select the command and set the cron expression — the command fires automatically at the specified times. See <a href="/magec/docs/cron/">Cron</a> for details.</p>
+<h3 id="in-webhooks-command-mode">In webhooks (command mode)</h3>
+<p>A webhook client in command mode runs a predefined command when its endpoint is hit. The HTTP request body is ignored — the prompt always comes from the command. See <a href="/magec/docs/webhooks/">Webhooks</a> for details.</p>
+
+
+
+<div class="docs-callout docs-callout--info">
+  Commands are optional — you don&rsquo;t need them if you only use the Voice UI, Telegram, or webhooks in passthrough mode. They become useful when you want to automate tasks that always use the same prompt.
+</div>
+
 
     </div>
   </div>
@@ -167,13 +225,13 @@
       </div>
       <ul class="footer__links">
         <li><a href="https://github.com/achetronic/magec" target="_blank" rel="noopener">GitHub</a></li>
-        <li><a href="/magec/docs/">Docs</a></li>
+        <li><a href="/docs/">Docs</a></li>
         <li><a href="https://github.com/achetronic/magec/issues" target="_blank" rel="noopener">Issues</a></li>
       </ul>
     </div>
   </div>
 </footer>
 
-  <script type="module" src="/magec/js/main.js"></script>
+  <script type="module" src="/js/main.js"></script>
 </body>
 </html>

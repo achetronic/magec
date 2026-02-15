@@ -1,13 +1,13 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
+<head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Cron — Magec — Self-hosted Multi-Agent AI Platform</title>
   <meta name="description" content="Define multiple AI agents, chain them into workflows, connect tools. Voice, Telegram, webhooks, cron. Your server, your rules.">
   <meta name="theme-color" content="#1c1917">
-  <link rel="icon" type="image/svg+xml" href="/magec/img/logo.svg">
-  <link rel="stylesheet" href="/magec/css/style.css">
+  <link rel="icon" type="image/svg+xml" href="/img/logo.svg">
+  <link rel="stylesheet" href="/css/style.css">
   <meta property="og:title" content="Cron">
   <meta property="og:description" content="Define multiple AI agents, chain them into workflows, connect tools. Voice, Telegram, webhooks, cron. Your server, your rules.">
   <meta property="og:type" content="website">
@@ -30,13 +30,13 @@
     </button>
     <ul class="nav__links">
       
-      <li><a href="/magec/" class="nav__link">Quick Start</a></li>
+      <li><a href="/" class="nav__link">Quick Start</a></li>
       
-      <li><a href="/magec/#features" class="nav__link">Features</a></li>
+      <li><a href="/#features" class="nav__link">Features</a></li>
       
-      <li><a href="/magec/#screenshots" class="nav__link">Screenshots</a></li>
+      <li><a href="/#screenshots" class="nav__link">Screenshots</a></li>
       
-      <li><a href="/magec/docs/" class="nav__link">Docs</a></li>
+      <li><a href="/docs/" class="nav__link">Docs</a></li>
       
       <li>
         <a href="https://github.com/achetronic/magec" class="nav__cta" target="_blank" rel="noopener">
@@ -58,9 +58,11 @@
       <div class="docs-sidebar__group">
         <div class="docs-sidebar__label">Getting Started</div>
         
-        <a href="/magec/docs/getting-started/" class="docs-sidebar__link">Installation</a>
+        <a href="/docs/getting-started/" class="docs-sidebar__link">Installation</a>
         
-        <a href="/magec/docs/configuration/" class="docs-sidebar__link">Configuration</a>
+        <a href="/docs/configuration/" class="docs-sidebar__link">Configuration</a>
+        
+        <a href="/docs/docker/" class="docs-sidebar__link">Docker Deployment</a>
         
       </div>
       
@@ -69,17 +71,17 @@
       <div class="docs-sidebar__group">
         <div class="docs-sidebar__label">Core Concepts</div>
         
-        <a href="/magec/docs/agents/" class="docs-sidebar__link">Agents</a>
+        <a href="/docs/agents/" class="docs-sidebar__link">Agents</a>
         
-        <a href="/magec/docs/flows/" class="docs-sidebar__link">Agentic Flows</a>
+        <a href="/docs/flows/" class="docs-sidebar__link">Agentic Flows</a>
         
-        <a href="/magec/docs/backends/" class="docs-sidebar__link">AI Backends</a>
+        <a href="/docs/backends/" class="docs-sidebar__link">AI Backends</a>
         
-        <a href="/magec/docs/memory/" class="docs-sidebar__link">Memory</a>
+        <a href="/docs/memory/" class="docs-sidebar__link">Memory</a>
         
-        <a href="/magec/docs/mcp/" class="docs-sidebar__link">MCP Tools</a>
+        <a href="/docs/mcp/" class="docs-sidebar__link">MCP Tools</a>
         
-        <a href="/magec/docs/commands/" class="docs-sidebar__link">Commands</a>
+        <a href="/docs/commands/" class="docs-sidebar__link">Commands</a>
         
       </div>
       
@@ -88,15 +90,15 @@
       <div class="docs-sidebar__group">
         <div class="docs-sidebar__label">Clients</div>
         
-        <a href="/magec/docs/clients/" class="docs-sidebar__link">Overview</a>
+        <a href="/docs/clients/" class="docs-sidebar__link">Overview</a>
         
-        <a href="/magec/docs/voice-ui/" class="docs-sidebar__link">Voice UI</a>
+        <a href="/docs/voice-ui/" class="docs-sidebar__link">Voice UI</a>
         
-        <a href="/magec/docs/telegram/" class="docs-sidebar__link">Telegram</a>
+        <a href="/docs/telegram/" class="docs-sidebar__link">Telegram</a>
         
-        <a href="/magec/docs/webhooks/" class="docs-sidebar__link">Webhooks</a>
+        <a href="/docs/webhooks/" class="docs-sidebar__link">Webhooks</a>
         
-        <a href="/magec/docs/cron/" class="docs-sidebar__link docs-sidebar__link--active">Cron</a>
+        <a href="/docs/cron/" class="docs-sidebar__link docs-sidebar__link--active">Cron</a>
         
       </div>
       
@@ -105,9 +107,9 @@
       <div class="docs-sidebar__group">
         <div class="docs-sidebar__label">Reference</div>
         
-        <a href="/magec/docs/api/" class="docs-sidebar__link">API Reference</a>
+        <a href="/docs/api/" class="docs-sidebar__link">API Reference</a>
         
-        <a href="/magec/docs/voice-system/" class="docs-sidebar__link">Voice System</a>
+        <a href="/docs/voice-system/" class="docs-sidebar__link">Voice System</a>
         
       </div>
       
@@ -119,18 +121,100 @@
         Navigation
       </button>
       <h1>Cron</h1>
-      <p>Cron clients run <a href="/magec/docs/commands/">commands</a> on a schedule. Define a cron expression, pick a command, and Magec will execute it automatically — no external scheduler needed.</p>
+      <p>Cron clients run <a href="/magec/docs/commands/">commands</a> on a schedule. Define when and what, and Magec handles the rest — no external scheduler, no extra infrastructure. The command fires at the specified time, the agent processes it, and the result is logged.</p>
+<p>This is how you automate tasks that need to happen regularly without anyone pressing a button.</p>
 <div class="screenshots" style="margin-bottom: 2rem;">
 
 
 
-<img src="/magec/img/screenshots/admin-clients-cron.png" alt="Admin UI — Cron client" class="screenshot screenshot--desktop">
+<img src="/img/screenshots/admin-clients-cron.png" alt="Admin UI — Cron client" class="screenshot screenshot--desktop">
 
 </div>
-<p>Set the <strong>schedule</strong> using a standard cron expression (e.g. <code>0 9 * * *</code> for every day at 9am) and select the <strong>command</strong> to run. The command defines the prompt and which agent handles it — the cron client just decides when it fires.</p>
-<p>This is useful for things that need to happen regularly without anyone pressing a button: daily summaries, periodic health checks, scheduled reports, automated maintenance tasks.</p>
-<h2 id="schedule-shorthands">Schedule shorthands</h2>
-<p>Besides standard cron expressions, you can use these shorthands:</p>
+<h2 id="how-it-works">How it works</h2>
+<ol>
+<li>You create a <a href="/magec/docs/commands/">command</a> — a reusable prompt paired with an agent</li>
+<li>You create a cron client and select that command</li>
+<li>You set the schedule (when it should fire)</li>
+<li>Magec&rsquo;s built-in scheduler triggers the command at the specified times</li>
+</ol>
+<p>The command defines <strong>what</strong> happens (the prompt and which agent processes it). The cron client defines <strong>when</strong> it happens. This separation means you can reuse the same command across multiple cron jobs with different schedules, or change the schedule without touching the command.</p>
+<h2 id="configuration">Configuration</h2>
+<table>
+  <thead>
+      <tr>
+          <th>Field</th>
+          <th>Description</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td><code>name</code></td>
+          <td>Display name — helps you identify this job in the Admin UI</td>
+      </tr>
+      <tr>
+          <td><code>schedule</code></td>
+          <td>Cron expression or shorthand (see below)</td>
+      </tr>
+      <tr>
+          <td><code>commandId</code></td>
+          <td>Which command to run</td>
+      </tr>
+      <tr>
+          <td><code>allowedAgents</code></td>
+          <td>Which agents/flows this cron job can access</td>
+      </tr>
+  </tbody>
+</table>
+<h2 id="schedule-format">Schedule format</h2>
+<p>Magec uses standard 5-field cron expressions:</p>
+<pre tabindex="0"><code>┌───────────── minute (0-59)
+│ ┌───────────── hour (0-23)
+│ │ ┌───────────── day of month (1-31)
+│ │ │ ┌───────────── month (1-12)
+│ │ │ │ ┌───────────── day of week (0-6, Sunday = 0)
+│ │ │ │ │
+* * * * *
+</code></pre><h3 id="examples">Examples</h3>
+<table>
+  <thead>
+      <tr>
+          <th>Expression</th>
+          <th>Runs</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td><code>0 9 * * *</code></td>
+          <td>Every day at 9:00 AM</td>
+      </tr>
+      <tr>
+          <td><code>0 9 * * 1-5</code></td>
+          <td>Every weekday at 9:00 AM</td>
+      </tr>
+      <tr>
+          <td><code>*/15 * * * *</code></td>
+          <td>Every 15 minutes</td>
+      </tr>
+      <tr>
+          <td><code>0 0 * * *</code></td>
+          <td>Every day at midnight</td>
+      </tr>
+      <tr>
+          <td><code>0 8,12,18 * * *</code></td>
+          <td>At 8 AM, noon, and 6 PM daily</td>
+      </tr>
+      <tr>
+          <td><code>0 0 1 * *</code></td>
+          <td>First day of every month at midnight</td>
+      </tr>
+      <tr>
+          <td><code>30 14 * * 5</code></td>
+          <td>Every Friday at 2:30 PM</td>
+      </tr>
+  </tbody>
+</table>
+<h3 id="shorthands">Shorthands</h3>
+<p>For common schedules, you can use these instead of writing the full expression:</p>
 <table>
   <thead>
       <tr>
@@ -143,7 +227,7 @@
       <tr>
           <td><code>@yearly</code></td>
           <td><code>0 0 1 1 *</code></td>
-          <td>Once a year (Jan 1, midnight)</td>
+          <td>Once a year (January 1, midnight)</td>
       </tr>
       <tr>
           <td><code>@monthly</code></td>
@@ -163,10 +247,34 @@
       <tr>
           <td><code>@hourly</code></td>
           <td><code>0 * * * *</code></td>
-          <td>Once an hour</td>
+          <td>Once an hour (on the hour)</td>
       </tr>
   </tbody>
 </table>
+<h2 id="use-cases">Use cases</h2>
+<h3 id="daily-reports">Daily reports</h3>
+<p><em>&ldquo;Every morning at 8 AM, generate a summary of yesterday&rsquo;s metrics.&rdquo;</em></p>
+<p>Command prompt: <em>&ldquo;Query the database for yesterday&rsquo;s key metrics. Summarize total users, revenue, and notable events. Format as a brief executive summary.&rdquo;</em></p>
+<p>Schedule: <code>0 8 * * *</code></p>
+<h3 id="periodic-health-checks">Periodic health checks</h3>
+<p><em>&ldquo;Every hour, check all monitored services and report anything unusual.&rdquo;</em></p>
+<p>Command prompt: <em>&ldquo;Check the status of all services. Report any that are down, degraded, or showing unusual patterns. If everything is fine, just say so.&rdquo;</em></p>
+<p>Schedule: <code>@hourly</code></p>
+<h3 id="weekly-digest">Weekly digest</h3>
+<p><em>&ldquo;Every Monday morning, compile a digest of the past week.&rdquo;</em></p>
+<p>Command prompt: <em>&ldquo;Compile a digest of the past week&rsquo;s activity. Include completed tasks, open issues, and upcoming deadlines.&rdquo;</em></p>
+<p>Schedule: <code>0 9 * * 1</code></p>
+<h3 id="automated-maintenance">Automated maintenance</h3>
+<p><em>&ldquo;Every night at 2 AM, clean up temporary files and optimize the database.&rdquo;</em></p>
+<p>Command prompt: <em>&ldquo;Run the maintenance routine: check disk space, clean temporary files older than 7 days, and report the current system health.&rdquo;</em></p>
+<p>Schedule: <code>0 2 * * *</code></p>
+
+
+
+<div class="docs-callout docs-callout--info">
+  Cron clients use Magec&rsquo;s built-in scheduler — no need for system crontab, external schedulers, or additional containers. The scheduler polls every 30 seconds and automatically picks up changes when you modify a cron client&rsquo;s schedule.
+</div>
+
 
     </div>
   </div>
@@ -192,13 +300,13 @@
       </div>
       <ul class="footer__links">
         <li><a href="https://github.com/achetronic/magec" target="_blank" rel="noopener">GitHub</a></li>
-        <li><a href="/magec/docs/">Docs</a></li>
+        <li><a href="/docs/">Docs</a></li>
         <li><a href="https://github.com/achetronic/magec/issues" target="_blank" rel="noopener">Issues</a></li>
       </ul>
     </div>
   </div>
 </footer>
 
-  <script type="module" src="/magec/js/main.js"></script>
+  <script type="module" src="/js/main.js"></script>
 </body>
 </html>

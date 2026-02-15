@@ -11,7 +11,7 @@ docs/
 # Config files (except example)
 *.yaml
 !config.example.yaml
-!models/wakewords.yaml
+!models/wakeword/wakewords.yaml
 
 # System and temporary files
 .DS_Store
@@ -24,6 +24,5 @@ docs/
 .vscode/
 .idea/
 
-# Pretrained models (downloaded during build)
-pretrained/*.onnx
-gui/pretrained/*.onnx
+# Auxiliary models (downloaded during build)
+models/auxiliary/*.onnx

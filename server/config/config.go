@@ -63,7 +63,7 @@ type Log struct {
 	Format string `yaml:"format"` // console, json (default: console)
 }
 
-// WakeWordModelsConfig is loaded from models/wakewords.yaml
+// WakeWordModelsConfig is loaded from models/wakeword/wakewords.yaml
 type WakeWordModelsConfig struct {
 	Models []WakeWordModel `yaml:"models"`
 }
