@@ -22,8 +22,10 @@ type ClientInfoUnpairedResponse struct {
 
 // AgentSummary is a minimal agent descriptor.
 type AgentSummary struct {
-	ID   string `json:"id" example:"magec"`
-	Name string `json:"name" example:"Magec"`
+	ID     string         `json:"id" example:"magec"`
+	Name   string         `json:"name" example:"Magec"`
+	Type   string         `json:"type" example:"agent"`
+	Agents []AgentSummary `json:"agents,omitempty"`
 }
 
 // HealthResponse is the response from the health endpoint.
@@ -91,21 +93,24 @@ func (h *Handler) ClientInfo(w http.ResponseWriter, r *http.Request) {
 	agents := h.store.ListAgents()
 	flows := h.store.ListFlows()
 	allowedDetails := make([]AgentSummary, 0, len(cl.AllowedAgents))
+	agentMap := make(map[string]store.AgentDefinition, len(agents))
+	for _, a := range agents {
+		agentMap[a.ID] = a
+	}
 	for _, id := range cl.AllowedAgents {
-		found := false
-		for _, a := range agents {
-			if a.ID == id {
-				allowedDetails = append(allowedDetails, AgentSummary{ID: a.ID, Name: a.Name})
-				found = true
-				break
-			}
-		}
-		if found {
+		if a, ok := agentMap[id]; ok {
+			allowedDetails = append(allowedDetails, AgentSummary{ID: a.ID, Name: a.Name, Type: "agent"})
 			continue
 		}
 		for _, f := range flows {
 			if f.ID == id {
-				allowedDetails = append(allowedDetails, AgentSummary{ID: f.ID, Name: f.Name})
+				var nested []AgentSummary
+				for _, aid := range f.AgentIDs() {
+					if na, ok := agentMap[aid]; ok {
+						nested = append(nested, AgentSummary{ID: na.ID, Name: na.Name, Type: "agent"})
+					}
+				}
+				allowedDetails = append(allowedDetails, AgentSummary{ID: f.ID, Name: f.Name, Type: "flow", Agents: nested})
 				break
 			}
 		}

@@ -2,11 +2,18 @@ basePath: /api/v1
 definitions:
   user.AgentSummary:
     properties:
+      agents:
+        items:
+          $ref: '#/definitions/user.AgentSummary'
+        type: array
       id:
         example: magec
         type: string
       name:
         example: Magec
+        type: string
+      type:
+        example: agent
         type: string
     type: object
   user.ClientInfoResponse:

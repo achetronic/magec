@@ -185,6 +185,42 @@ func collectResponseAgents(step *FlowStep, ids *[]string) {
 	}
 }
 
+// FirstAgentID walks the flow tree depth-first and returns the first leaf
+// agent ID found. Used to resolve voice config (TTS/STT) for a flow.
+func (f *FlowDefinition) FirstAgentID() string {
+	return findFirstAgent(&f.Root)
+}
+
+func findFirstAgent(step *FlowStep) string {
+	if step.Type == FlowStepAgent && step.AgentID != "" {
+		return step.AgentID
+	}
+	for i := range step.Steps {
+		if id := findFirstAgent(&step.Steps[i]); id != "" {
+			return id
+		}
+	}
+	return ""
+}
+
+// AgentIDs walks the flow tree and returns all unique agent IDs (leaf nodes).
+func (f *FlowDefinition) AgentIDs() []string {
+	seen := map[string]bool{}
+	var ids []string
+	collectAgentIDs(&f.Root, seen, &ids)
+	return ids
+}
+
+func collectAgentIDs(step *FlowStep, seen map[string]bool, ids *[]string) {
+	if step.Type == FlowStepAgent && step.AgentID != "" && !seen[step.AgentID] {
+		seen[step.AgentID] = true
+		*ids = append(*ids, step.AgentID)
+	}
+	for i := range step.Steps {
+		collectAgentIDs(&step.Steps[i], seen, ids)
+	}
+}
+
 // FlowDefinition represents a multi-agent workflow stored as a recursive tree
 // of steps that maps directly to ADK workflow agents.
 type FlowDefinition struct {

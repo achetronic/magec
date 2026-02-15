@@ -73,18 +73,59 @@ Cliente → RecorderUser → FlowFilter → RecorderAdmin → ContextGuard → A
 
 ---
 
-### Migrate voice-ui to Vue 3
+### ~~Migrate voice-ui to Vue 3~~ ✅
 
-**Problem**: The voice-ui is vanilla JS with ES modules loaded from CDN (no build step). The admin-ui already uses Vue 3 + Vite + Tailwind v4 + Pinia. Having two different stacks increases maintenance burden and makes it harder to share components, styles, and patterns.
+**Completado**: Full migration to Vue 3 + Vite 7.3 + Tailwind 4.1 + Pinia 3. 14 components, single Pinia store, audio pipeline preserved as plain JS classes. Build: 55 modules, 138KB JS + 28KB CSS. Server serves from `voice-ui/dist/`.
 
-**Goal**: Rewrite voice-ui using the same stack as admin-ui (Vue 3 Composition API, Vite, Tailwind v4). Migrate the class-based architecture (`MagecApp`, `AudioCapture`, `AudioRecorder`, etc.) to Vue components with composables.
+---
 
-**Key considerations**:
-- PWA support must be preserved (manifest, service worker, installability)
-- Audio pipeline (AudioWorklet, WebSocket, wake word, VAD) needs careful handling — these are low-level Web APIs that don't map directly to Vue reactivity
-- i18n system (`data-i18n` attributes) should migrate to a Vue-native approach
-- The Centella/Magec orb visualizer (canvas-based) can be a standalone component
-- Session management, settings persistence, and error handling should use Pinia stores
+### Flow Voice Resolution: TTS/STT for Multi-Agent Flows
+
+**Problem**: When a client's active "agent" is a flow, voice endpoints (`/voice/{id}/speech`, `/voice/{id}/transcription`) need an `AgentDefinition` to resolve TTS/STT backend config. Flows don't have voice config — only agents do. Each agent in a flow can have different TTS voices and different STT backends.
+
+**Context**:
+- `/run` response is a JSON array where each event has `"author": "agent-id"` identifying which agent generated it
+- `FlowResponseFilter` preserves the `author` field — it only filters which events pass through
+- Voice-ui currently ignores `author` — `_extractResponses()` extracts only text, discarding agent info
+- STT happens **before** sending to the agent (no `author` available yet)
+- TTS happens **after** the response (has `author`)
+
+**Proposals under evaluation**:
+
+#### Proposal A: `voiceAgent` field on FlowStep
+- Add `VoiceAgent bool` to `FlowStep` (like `ResponseAgent`)
+- Radio button in admin flow editor — one agent per flow is the "voice agent"
+- Server resolves TTS/STT from that agent
+- **Pro**: Explicit, server-side, voice-ui doesn't need to know about flows
+- **Con**: Couples flows to voice config, ignores multi-voice potential, one voice for everything
+
+#### Proposal B: Resolve TTS by `author` from response
+- Voice-ui extracts `author` from each `/run` response event
+- Calls `/voice/{authorAgentId}/speech` for TTS
+- **Pro**: Multi-voice — each agent speaks with its own voice, zero config
+- **Con**: Only works for TTS. STT happens before response exists — no `author` available. Would need a different mechanism for STT, resulting in inconsistent resolution.
+
+#### Proposal C: Enrich `/client/info` + portavoz UI
+- `/client/info` returns flow agents inline (type, nested agents with IDs)
+- Voice-ui shows a "portavoz" selector when active agent is a flow
+- User picks one agent for both TTS and STT
+- **Pro**: User control, consistent for both TTS and STT, no flow model changes
+- **Con**: Manual selection, single voice (no multi-voice)
+
+#### Proposal D: Server resolves always
+- `/voice/{id}/speech` and `/voice/{id}/transcription` handle flow IDs server-side
+- Resolves to a configured agent (explicit field or fallback to first agent)
+- Voice-ui never knows about flows
+- **Pro**: Simplest for frontend, centralized logic
+- **Con**: Implicit behavior, no multi-voice, hard to make configurable without new fields
+
+#### Proposal E: Hybrid (C now + B future)
+- Implement C: `/client/info` enriched, voice-ui picks one agent as default for both TTS and STT
+- Future: add B as opt-in "multi-voice mode" where TTS resolves per-author from response
+- **Pro**: Clean immediate solution with future extensibility
+- **Con**: Two mechanisms to maintain long-term
+
+**Decision**: Pending. `/client/info` enrichment approved independently of voice resolution choice.
 
 ---
 

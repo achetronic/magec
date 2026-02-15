@@ -901,6 +901,287 @@ const docTemplate = `{
                 }
             }
         },
+        "/conversations": {
+            "get": {
+                "description": "Returns a paginated list of conversation audit logs, newest first. Filters by agent, source, or client.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "conversations"
+                ],
+                "summary": "List conversations",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Filter by agent or flow ID",
+                        "name": "agentId",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by source (voice-ui, telegram, executor, direct, cron, webhook)",
+                        "name": "source",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by client ID",
+                        "name": "clientId",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by perspective (admin, user)",
+                        "name": "perspective",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Max items to return (default 30, 0 for all)",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Items to skip (default 0)",
+                        "name": "offset",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/store.PaginatedResult-store_Conversation"
+                        }
+                    }
+                }
+            }
+        },
+        "/conversations/clear": {
+            "delete": {
+                "description": "Deletes all conversation audit logs. Does not affect ADK sessions.",
+                "tags": [
+                    "conversations"
+                ],
+                "summary": "Clear all conversations",
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/conversations/stats": {
+            "get": {
+                "description": "Returns total count and breakdowns by source and agent.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "conversations"
+                ],
+                "summary": "Conversation statistics",
+                "responses": {
+                    "200": {
+                        "description": "total, bySources, byAgents",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/conversations/{id}": {
+            "get": {
+                "description": "Returns a conversation by ID with paginated messages (latest first). Includes totalMessages for client-side pagination.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "conversations"
+                ],
+                "summary": "Get conversation",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Conversation ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Max messages to return (default 50, 0 for all)",
+                        "name": "msgLimit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Messages to skip from the end (default 0)",
+                        "name": "msgOffset",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "conversation + totalMessages",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Deletes a conversation audit log by ID. Does not affect the ADK session.",
+                "tags": [
+                    "conversations"
+                ],
+                "summary": "Delete conversation",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Conversation ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/conversations/{id}/reset-session": {
+            "post": {
+                "description": "Deletes the ADK session (in Redis or in-memory) for the agent/user/session referenced by this conversation. The user will start a fresh session on their next message. The conversation audit log is preserved.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "conversations"
+                ],
+                "summary": "Reset ADK session",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Conversation ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "message, agentId, sessionId",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ErrorResponse"
+                        }
+                    },
+                    "502": {
+                        "description": "Bad Gateway",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/conversations/{id}/summary": {
+            "put": {
+                "description": "Sets the summary text for a conversation. Used for context window summarization.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "conversations"
+                ],
+                "summary": "Update conversation summary",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Conversation ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Summary text",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "object"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/store.Conversation"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/flows": {
             "get": {
                 "description": "Returns all configured agent orchestration flows",
@@ -1498,6 +1779,70 @@ const docTemplate = `{
                     }
                 }
             }
+        },
+        "/settings": {
+            "get": {
+                "description": "Returns the global settings (session provider, long-term memory provider).",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "settings"
+                ],
+                "summary": "Get settings",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/store.Settings"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "Replaces the global settings. Changes take effect on next agent rebuild.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "settings"
+                ],
+                "summary": "Update settings",
+                "parameters": [
+                    {
+                        "description": "New settings",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/store.Settings"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/store.Settings"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ErrorResponse"
+                        }
+                    }
+                }
+            }
         }
     },
     "definitions": {
@@ -1711,6 +2056,96 @@ const docTemplate = `{
                 }
             }
         },
+        "store.Conversation": {
+            "type": "object",
+            "properties": {
+                "agentId": {
+                    "type": "string"
+                },
+                "agentName": {
+                    "type": "string"
+                },
+                "clientId": {
+                    "type": "string"
+                },
+                "clientName": {
+                    "type": "string"
+                },
+                "endedAt": {
+                    "type": "string"
+                },
+                "flowId": {
+                    "type": "string"
+                },
+                "flowName": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "messages": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/store.ConversationMessage"
+                    }
+                },
+                "parentId": {
+                    "type": "string"
+                },
+                "perspective": {
+                    "type": "string"
+                },
+                "preview": {
+                    "type": "string"
+                },
+                "rawEvents": {
+                    "type": "array",
+                    "items": {}
+                },
+                "sessionId": {
+                    "type": "string"
+                },
+                "source": {
+                    "type": "string"
+                },
+                "startedAt": {
+                    "type": "string"
+                },
+                "summary": {
+                    "type": "string"
+                },
+                "userId": {
+                    "type": "string"
+                }
+            }
+        },
+        "store.ConversationMessage": {
+            "type": "object",
+            "properties": {
+                "agent": {
+                    "type": "string"
+                },
+                "content": {
+                    "type": "string"
+                },
+                "metadata": {
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "role": {
+                    "type": "string"
+                },
+                "timestamp": {
+                    "type": "string"
+                },
+                "toolCalls": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/store.ToolCallInfo"
+                    }
+                }
+            }
+        },
         "store.CronClientConfig": {
             "type": "object",
             "properties": {
@@ -1864,6 +2299,31 @@ const docTemplate = `{
                 }
             }
         },
+        "store.PaginatedResult-store_Conversation": {
+            "type": "object",
+            "properties": {
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/store.Conversation"
+                    }
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
+        "store.Settings": {
+            "type": "object",
+            "properties": {
+                "longTermProvider": {
+                    "type": "string"
+                },
+                "sessionProvider": {
+                    "type": "string"
+                }
+            }
+        },
         "store.SlackClientConfig": {
             "type": "object",
             "properties": {
@@ -1925,6 +2385,16 @@ const docTemplate = `{
                 "responseMode": {
                     "type": "string"
                 }
+            }
+        },
+        "store.ToolCallInfo": {
+            "type": "object",
+            "properties": {
+                "args": {},
+                "name": {
+                    "type": "string"
+                },
+                "result": {}
             }
         },
         "store.WebhookClientConfig": {

@@ -1047,6 +1047,12 @@ const docTemplateuserapi = `{
         "user.AgentSummary": {
             "type": "object",
             "properties": {
+                "agents": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/user.AgentSummary"
+                    }
+                },
                 "id": {
                     "type": "string",
                     "example": "magec"
@@ -1054,6 +1060,10 @@ const docTemplateuserapi = `{
                 "name": {
                     "type": "string",
                     "example": "Magec"
+                },
+                "type": {
+                    "type": "string",
+                    "example": "agent"
                 }
             }
         },

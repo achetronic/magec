@@ -212,7 +212,7 @@ func main() {
 
 	// Static files
 	if *cfg.Voice.UI.Enabled {
-		httpMux.Handle("/", http.FileServer(http.Dir("voice-ui")))
+		httpMux.Handle("/", http.FileServer(http.Dir("voice-ui/dist")))
 	}
 
 	addr := fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port)
@@ -319,8 +319,22 @@ func newVoiceHandler(dataStore *store.Store, agentRouter *agentRouterHandler) ht
 
 		agentDef, ok := dataStore.GetAgent(agentID)
 		if !ok {
-			http.Error(w, `{"error":"agent not found"}`, http.StatusNotFound)
-			return
+			// If not found as agent, try resolving as a flow
+			flow, flowOk := dataStore.GetFlow(agentID)
+			if !flowOk {
+				http.Error(w, `{"error":"agent not found"}`, http.StatusNotFound)
+				return
+			}
+			firstID := flow.FirstAgentID()
+			if firstID == "" {
+				http.Error(w, `{"error":"flow has no agents"}`, http.StatusNotFound)
+				return
+			}
+			agentDef, ok = dataStore.GetAgent(firstID)
+			if !ok {
+				http.Error(w, `{"error":"flow agent not found"}`, http.StatusNotFound)
+				return
+			}
 		}
 
 		switch action {

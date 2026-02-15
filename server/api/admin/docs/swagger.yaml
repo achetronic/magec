@@ -139,6 +139,66 @@ definitions:
       prompt:
         type: string
     type: object
+  store.Conversation:
+    properties:
+      agentId:
+        type: string
+      agentName:
+        type: string
+      clientId:
+        type: string
+      clientName:
+        type: string
+      endedAt:
+        type: string
+      flowId:
+        type: string
+      flowName:
+        type: string
+      id:
+        type: string
+      messages:
+        items:
+          $ref: '#/definitions/store.ConversationMessage'
+        type: array
+      parentId:
+        type: string
+      perspective:
+        type: string
+      preview:
+        type: string
+      rawEvents:
+        items: {}
+        type: array
+      sessionId:
+        type: string
+      source:
+        type: string
+      startedAt:
+        type: string
+      summary:
+        type: string
+      userId:
+        type: string
+    type: object
+  store.ConversationMessage:
+    properties:
+      agent:
+        type: string
+      content:
+        type: string
+      metadata:
+        additionalProperties: true
+        type: object
+      role:
+        type: string
+      timestamp:
+        type: string
+      toolCalls:
+        items:
+          $ref: '#/definitions/store.ToolCallInfo'
+        type: array
+    type: object
   store.CronClientConfig:
     properties:
       commandId:
@@ -239,6 +299,22 @@ definitions:
       session:
         type: string
     type: object
+  store.PaginatedResult-store_Conversation:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/store.Conversation'
+        type: array
+      total:
+        type: integer
+    type: object
+  store.Settings:
+    properties:
+      longTermProvider:
+        type: string
+      sessionProvider:
+        type: string
+    type: object
   store.SlackClientConfig:
     properties:
       allowedChannels:
@@ -279,6 +355,13 @@ definitions:
         type: string
       responseMode:
         type: string
+    type: object
+  store.ToolCallInfo:
+    properties:
+      args: {}
+      name:
+        type: string
+      result: {}
     type: object
   store.WebhookClientConfig:
     properties:
@@ -883,6 +966,199 @@ paths:
       summary: Update command
       tags:
       - commands
+  /conversations:
+    get:
+      description: Returns a paginated list of conversation audit logs, newest first.
+        Filters by agent, source, or client.
+      parameters:
+      - description: Filter by agent or flow ID
+        in: query
+        name: agentId
+        type: string
+      - description: Filter by source (voice-ui, telegram, executor, direct, cron,
+          webhook)
+        in: query
+        name: source
+        type: string
+      - description: Filter by client ID
+        in: query
+        name: clientId
+        type: string
+      - description: Filter by perspective (admin, user)
+        in: query
+        name: perspective
+        type: string
+      - description: Max items to return (default 30, 0 for all)
+        in: query
+        name: limit
+        type: integer
+      - description: Items to skip (default 0)
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/store.PaginatedResult-store_Conversation'
+      summary: List conversations
+      tags:
+      - conversations
+  /conversations/{id}:
+    delete:
+      description: Deletes a conversation audit log by ID. Does not affect the ADK
+        session.
+      parameters:
+      - description: Conversation ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/admin.ErrorResponse'
+      summary: Delete conversation
+      tags:
+      - conversations
+    get:
+      description: Returns a conversation by ID with paginated messages (latest first).
+        Includes totalMessages for client-side pagination.
+      parameters:
+      - description: Conversation ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Max messages to return (default 50, 0 for all)
+        in: query
+        name: msgLimit
+        type: integer
+      - description: Messages to skip from the end (default 0)
+        in: query
+        name: msgOffset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: conversation + totalMessages
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/admin.ErrorResponse'
+      summary: Get conversation
+      tags:
+      - conversations
+  /conversations/{id}/reset-session:
+    post:
+      description: Deletes the ADK session (in Redis or in-memory) for the agent/user/session
+        referenced by this conversation. The user will start a fresh session on their
+        next message. The conversation audit log is preserved.
+      parameters:
+      - description: Conversation ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: message, agentId, sessionId
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/admin.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/admin.ErrorResponse'
+        "502":
+          description: Bad Gateway
+          schema:
+            $ref: '#/definitions/admin.ErrorResponse'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/admin.ErrorResponse'
+      summary: Reset ADK session
+      tags:
+      - conversations
+  /conversations/{id}/summary:
+    put:
+      consumes:
+      - application/json
+      description: Sets the summary text for a conversation. Used for context window
+        summarization.
+      parameters:
+      - description: Conversation ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Summary text
+        in: body
+        name: body
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/store.Conversation'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/admin.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/admin.ErrorResponse'
+      summary: Update conversation summary
+      tags:
+      - conversations
+  /conversations/clear:
+    delete:
+      description: Deletes all conversation audit logs. Does not affect ADK sessions.
+      responses:
+        "204":
+          description: No Content
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/admin.ErrorResponse'
+      summary: Clear all conversations
+      tags:
+      - conversations
+  /conversations/stats:
+    get:
+      description: Returns total count and breakdowns by source and agent.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: total, bySources, byAgents
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Conversation statistics
+      tags:
+      - conversations
   /flows:
     get:
       description: Returns all configured agent orchestration flows
@@ -1279,6 +1555,50 @@ paths:
       summary: List memory types
       tags:
       - memory
+  /settings:
+    get:
+      description: Returns the global settings (session provider, long-term memory
+        provider).
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/store.Settings'
+      summary: Get settings
+      tags:
+      - settings
+    put:
+      consumes:
+      - application/json
+      description: Replaces the global settings. Changes take effect on next agent
+        rebuild.
+      parameters:
+      - description: New settings
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/store.Settings'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/store.Settings'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/admin.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/admin.ErrorResponse'
+      summary: Update settings
+      tags:
+      - settings
 schemes:
 - http
 swagger: "2.0"
