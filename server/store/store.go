@@ -65,6 +65,23 @@ func (s *Store) Data() StoreData {
 	return s.data
 }
 
+// --- Settings ---
+
+// GetSettings returns the current global settings.
+func (s *Store) GetSettings() Settings {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.data.Settings
+}
+
+// UpdateSettings replaces the global settings and persists.
+func (s *Store) UpdateSettings(settings Settings) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.data.Settings = settings
+	return s.persist()
+}
+
 // --- Backends ---
 
 func (s *Store) ListBackends() []BackendDefinition {

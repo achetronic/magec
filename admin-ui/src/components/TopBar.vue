@@ -86,6 +86,7 @@ const sections = {
   flows:     { label: 'Flows',        icon: 'flow',      color: 'rose',      group: 'Agentes' },
   commands:  { label: 'Commands',     icon: 'command',   color: 'indigo',    group: 'Agentes' },
   clients:   { label: 'Clients',      icon: 'phone',     color: 'lava',      group: 'Conexiones' },
+  conversations: { label: 'Conversations', icon: 'chat', color: 'teal',      group: 'Auditoría' },
 }
 
 const section = computed(() => sections[props.activeTab] || sections.backends)

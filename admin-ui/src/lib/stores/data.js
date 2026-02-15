@@ -8,6 +8,7 @@ import {
   clientsApi,
   flowsApi,
   commandsApi,
+  settingsApi,
 } from '../api/index.js'
 
 export const useDataStore = defineStore('data', () => {
@@ -20,6 +21,7 @@ export const useDataStore = defineStore('data', () => {
   const commands = ref([])
   const memoryTypes = ref([])
   const clientTypes = ref([])
+  const settings = ref({ sessionProvider: '', longTermProvider: '' })
   const loading = ref(false)
 
   async function init() {
@@ -39,6 +41,7 @@ export const useDataStore = defineStore('data', () => {
         clientsApi.list(),
         flowsApi.list(),
         commandsApi.list(),
+        settingsApi.get(),
       ])
       backends.value = results[0] || []
       agents.value = results[1] || []
@@ -47,6 +50,7 @@ export const useDataStore = defineStore('data', () => {
       clients.value = results[4] || []
       flows.value = results[5] || []
       commands.value = results[6] || []
+      settings.value = results[7] || { sessionProvider: '', longTermProvider: '' }
     } catch (e) {
       console.error('Failed to load data:', e)
     } finally {
@@ -78,6 +82,10 @@ export const useDataStore = defineStore('data', () => {
     return c?.name || id
   }
 
+  async function saveSettings(newSettings) {
+    settings.value = await settingsApi.update(newSettings)
+  }
+
   return {
     backends,
     agents,
@@ -88,9 +96,11 @@ export const useDataStore = defineStore('data', () => {
     commands,
     memoryTypes,
     clientTypes,
+    settings,
     loading,
     init,
     refresh,
+    saveSettings,
     backendLabel,
     memoryLabel,
     agentLabel,

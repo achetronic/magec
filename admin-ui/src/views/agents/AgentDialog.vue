@@ -58,30 +58,6 @@
         </div>
       </details>
 
-      <!-- Memory -->
-      <details class="group border border-piedra-700/40 rounded-xl">
-        <summary class="flex items-center justify-between px-4 py-3 cursor-pointer select-none text-xs font-medium text-arena-400 hover:text-arena-300">
-          <span>Memory</span>
-          <Icon name="chevronDown" size="md" class="text-arena-500 transition-transform group-open:rotate-180" />
-        </summary>
-        <div class="px-4 pb-4 grid grid-cols-2 gap-3">
-          <div>
-            <FormLabel label="Session" />
-            <FormSelect v-model="form.memorySession">
-              <option value="">(none)</option>
-              <option v-for="m in sessionProviders" :key="m.id" :value="m.id">{{ m.name }}</option>
-            </FormSelect>
-          </div>
-          <div>
-            <FormLabel label="Long-term" />
-            <FormSelect v-model="form.memoryLongTerm">
-              <option value="">(none)</option>
-              <option v-for="m in longTermProviders" :key="m.id" :value="m.id">{{ m.name }}</option>
-            </FormSelect>
-          </div>
-        </div>
-      </details>
-
       <!-- MCPs -->
       <details class="group border border-piedra-700/40 rounded-xl">
         <summary class="flex items-center justify-between px-4 py-3 cursor-pointer select-none text-xs font-medium text-arena-400 hover:text-arena-300">
@@ -163,7 +139,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, inject } from 'vue'
+import { ref, reactive, inject } from 'vue'
 import { useDataStore } from '../../lib/stores/data.js'
 import { agentsApi } from '../../lib/api/index.js'
 import AppDialog from '../../components/AppDialog.vue'
@@ -187,8 +163,6 @@ const form = reactive({
   systemPrompt: '',
   llmBackend: '',
   llmModel: '',
-  memorySession: '',
-  memoryLongTerm: '',
   mcpServers: [],
   tags: [],
   transcriptionBackend: '',
@@ -198,9 +172,6 @@ const form = reactive({
   ttsVoice: '',
   ttsSpeed: '',
 })
-
-const sessionProviders = computed(() => store.memory.filter(m => m.category === 'session'))
-const longTermProviders = computed(() => store.memory.filter(m => m.category === 'longterm'))
 
 function toggleMcp(id) {
   const idx = form.mcpServers.indexOf(id)
@@ -229,8 +200,6 @@ function open(agent = null) {
   form.systemPrompt = agent?.systemPrompt || ''
   form.llmBackend = agent?.llm?.backend || ''
   form.llmModel = agent?.llm?.model || ''
-  form.memorySession = agent?.memory?.session || ''
-  form.memoryLongTerm = agent?.memory?.longTerm || ''
   form.mcpServers = [...(agent?.mcpServers || [])]
   form.tags = [...(agent?.tags || [])]
   form.transcriptionBackend = agent?.transcription?.backend || ''
@@ -258,7 +227,6 @@ async function save() {
     },
     mcpServers: form.mcpServers,
     tags: form.tags.length ? form.tags : undefined,
-    memory: { session: form.memorySession, longTerm: form.memoryLongTerm },
   }
   try {
     if (isEdit.value) {

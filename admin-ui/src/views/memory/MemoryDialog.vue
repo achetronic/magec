@@ -1,10 +1,21 @@
 <template>
   <AppDialog ref="dialogRef" :title="dialogTitle" @save="save">
     <div class="space-y-4">
+      <div class="flex items-center gap-1 p-0.5 rounded-lg bg-piedra-800 w-fit">
+        <button
+          v-for="cat in categories" :key="cat.value"
+          type="button"
+          @click="setCategory(cat.value)"
+          :disabled="isEdit"
+          class="px-3 py-1.5 text-xs font-medium rounded-md transition-colors cursor-pointer disabled:cursor-not-allowed"
+          :class="form.category === cat.value ? 'bg-piedra-700 text-arena-100' : 'text-arena-500 hover:text-arena-300'"
+        >{{ cat.label }}</button>
+      </div>
+
       <div class="grid grid-cols-2 gap-4">
         <div>
           <FormLabel label="Name" :required="true" />
-          <FormInput v-model="form.name" placeholder="redis-session" :required="true" />
+          <FormInput v-model="form.name" placeholder="My Memory" :required="true" />
         </div>
         <div>
           <FormLabel label="Type" />
@@ -127,10 +138,21 @@ const form = reactive({
   embeddingModel: '',
 })
 
-const dialogTitle = computed(() => {
-  const catLabel = form.category === 'session' ? 'Session Provider' : 'Long-Term Provider'
-  return isEdit.value ? `Edit ${catLabel}` : `New ${catLabel}`
-})
+const categories = [
+  { value: 'session', label: 'Session' },
+  { value: 'longterm', label: 'Long-term' },
+]
+
+const dialogTitle = computed(() => isEdit.value ? 'Edit Provider' : 'New Provider')
+
+function setCategory(cat) {
+  if (isEdit.value) return
+  form.category = cat
+  const types = typesInCategory.value
+  form.type = types[0]?.type || ''
+  form.config = {}
+  onTypeChange()
+}
 
 const typesInCategory = computed(() =>
   store.memoryTypes.filter(t => t.categories?.includes(form.category))

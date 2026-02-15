@@ -13,6 +13,7 @@ Each entity type in the admin UI has an assigned color for visual consistency ac
 | **Clients** | Lava (red) | `lava` | `#f87171` |
 | **Commands** | Indigo | `indigo` | `#818cf8` |
 | **Flows** | Rose | `rose` | `#fb7185` |
+| **Conversations** | Teal | `teal` | `#2dd4bf` |
 
 ## Client Type Badges
 

@@ -24,6 +24,21 @@
 
 ---
 
+### Migrate voice-ui to Vue 3
+
+**Problem**: The voice-ui is vanilla JS with ES modules loaded from CDN (no build step). The admin-ui already uses Vue 3 + Vite + Tailwind v4 + Pinia. Having two different stacks increases maintenance burden and makes it harder to share components, styles, and patterns.
+
+**Goal**: Rewrite voice-ui using the same stack as admin-ui (Vue 3 Composition API, Vite, Tailwind v4). Migrate the class-based architecture (`MagecApp`, `AudioCapture`, `AudioRecorder`, etc.) to Vue components with composables.
+
+**Key considerations**:
+- PWA support must be preserved (manifest, service worker, installability)
+- Audio pipeline (AudioWorklet, WebSocket, wake word, VAD) needs careful handling — these are low-level Web APIs that don't map directly to Vue reactivity
+- i18n system (`data-i18n` attributes) should migrate to a Vue-native approach
+- The Centella/Magec orb visualizer (canvas-based) can be a standalone component
+- Session management, settings persistence, and error handling should use Pinia stores
+
+---
+
 ## Medium Priority
 
 ### Add Voice Activity Detection During TTS
@@ -128,6 +143,22 @@ See `.agents/ADK_TOOLS.md` for full details on `toolconfirmation`.
 ---
 
 ## Low Priority
+
+### Unify `models/` and `pretrained/` directories
+
+**Problem**: ONNX models are split across two top-level directories — `models/` (wake word models + `wakewords.yaml`) and `pretrained/` (mel-spectrogram, VAD, embeddings). The distinction is unclear and adds confusion.
+
+**Goal**: Merge both into a single `models/` directory with subdirectories by purpose (e.g. `models/wakeword/`, `models/vad/`, `models/embeddings/`).
+
+**Files to update**:
+- `server/voice/detector.go` — wake word model paths
+- `server/voice/vad.go` — VAD model path
+- `models/wakewords.yaml` — model path references
+- `scripts/download-model.go` — download targets
+- `docker/build/Dockerfile` — COPY paths
+- `config.example.yaml` — if any model paths are referenced
+
+---
 
 ### ~~Unificar `client/` y `clients/`~~ ✅
 

@@ -70,7 +70,8 @@ When a user shares preferences or important information, proactively save it to 
 // Service wraps the ADK REST handler that serves all configured agents.
 // Incoming requests are routed to the correct agent by the appName field.
 type Service struct {
-	handler http.Handler
+	handler    http.Handler
+	sessionSvc session.Service
 }
 
 // New builds an ADK agent for every AgentDefinition in the store, wires up
@@ -78,7 +79,7 @@ type Service struct {
 // routes requests to the right agent based on the appName in the request body.
 // Any FlowDefinitions are translated into ADK workflow agents and registered
 // alongside the regular agents.
-func New(ctx context.Context, agents []store.AgentDefinition, backends []store.BackendDefinition, memoryProviders []store.MemoryProvider, mcpServers []store.MCPServer, flows []store.FlowDefinition) (*Service, error) {
+func New(ctx context.Context, agents []store.AgentDefinition, backends []store.BackendDefinition, memoryProviders []store.MemoryProvider, mcpServers []store.MCPServer, flows []store.FlowDefinition, settings store.Settings) (*Service, error) {
 	if len(agents) == 0 {
 		return nil, fmt.Errorf("no agents defined")
 	}
@@ -98,10 +99,18 @@ func New(ctx context.Context, agents []store.AgentDefinition, backends []store.B
 		mcpServerMap[m.ID] = m
 	}
 
+	sessionSvc, err := createSessionService(settings, memoryProviderMap)
+	if err != nil {
+		return nil, fmt.Errorf("session service: %w", err)
+	}
+
+	memorySvc, err := createMemoryService(ctx, settings, memoryProviderMap, backendMap)
+	if err != nil {
+		return nil, fmt.Errorf("memory service: %w", err)
+	}
+
 	var rootAgent agent.Agent
 	var otherAgents []agent.Agent
-	var firstSessionSvc session.Service
-	var firstMemorySvc memory.Service
 	adkAgentMap := make(map[string]agent.Agent, len(agents))
 
 	baseTset, err := newBaseToolset()
@@ -110,15 +119,6 @@ func New(ctx context.Context, agents []store.AgentDefinition, backends []store.B
 	}
 
 	for i, agentDef := range agents {
-		sessionSvc, err := createSessionService(agentDef, memoryProviderMap)
-		if err != nil {
-			return nil, fmt.Errorf("agent %q session: %w", agentDef.ID, err)
-		}
-
-		memorySvc, err := createMemoryService(ctx, agentDef, memoryProviderMap, backendMap)
-		if err != nil {
-			return nil, fmt.Errorf("agent %q memory: %w", agentDef.ID, err)
-		}
 
 		llmBackend, ok := backendMap[agentDef.LLM.Backend]
 		if !ok {
@@ -153,8 +153,6 @@ func New(ctx context.Context, agents []store.AgentDefinition, backends []store.B
 
 		if i == 0 {
 			rootAgent = adkAgent
-			firstSessionSvc = sessionSvc
-			firstMemorySvc = memorySvc
 		} else {
 			otherAgents = append(otherAgents, adkAgent)
 		}
@@ -179,15 +177,16 @@ func New(ctx context.Context, agents []store.AgentDefinition, backends []store.B
 	}
 
 	launcherCfg := &launcher.Config{
-		SessionService: firstSessionSvc,
+		SessionService: sessionSvc,
 		AgentLoader:    loader,
 	}
-	if firstMemorySvc != nil {
-		launcherCfg.MemoryService = firstMemorySvc
+	if memorySvc != nil {
+		launcherCfg.MemoryService = memorySvc
 	}
 
 	return &Service{
-		handler: adkrest.NewHandler(launcherCfg, 30*time.Second),
+		handler:    adkrest.NewHandler(launcherCfg, 30*time.Second),
+		sessionSvc: sessionSvc,
 	}, nil
 }
 
@@ -196,15 +195,19 @@ func (s *Service) Handler() http.Handler {
 	return s.handler
 }
 
-// createSessionService returns the session backend for an agent. If the agent
-// references a Redis memory provider it connects there; otherwise it falls
-// back to an in-memory store.
-func createSessionService(agentDef store.AgentDefinition, memoryProviders map[string]store.MemoryProvider) (session.Service, error) {
-	if agentDef.Memory.Session == "" {
+// SessionService returns the session.Service used by the launcher.
+func (s *Service) SessionService() session.Service {
+	return s.sessionSvc
+}
+
+// createSessionService returns the session backend based on global settings.
+// Falls back to in-memory if no provider is configured.
+func createSessionService(settings store.Settings, memoryProviders map[string]store.MemoryProvider) (session.Service, error) {
+	if settings.SessionProvider == "" {
 		return session.InMemoryService(), nil
 	}
 
-	provider, ok := memoryProviders[agentDef.Memory.Session]
+	provider, ok := memoryProviders[settings.SessionProvider]
 	if !ok {
 		return session.InMemoryService(), nil
 	}
@@ -265,15 +268,14 @@ func parseRedisURL(rawURL string) (addr, password string, db int) {
 	return
 }
 
-// createMemoryService returns the long-term memory backend for an agent.
-// If the agent references a Postgres memory provider with an embedding backend,
-// it creates a vector-backed memory service; otherwise it returns nil.
-func createMemoryService(ctx context.Context, agentDef store.AgentDefinition, memoryProviders map[string]store.MemoryProvider, backends map[string]store.BackendDefinition) (memory.Service, error) {
-	if agentDef.Memory.LongTerm == "" {
+// createMemoryService returns the long-term memory backend based on global settings.
+// Returns nil if no provider is configured.
+func createMemoryService(ctx context.Context, settings store.Settings, memoryProviders map[string]store.MemoryProvider, backends map[string]store.BackendDefinition) (memory.Service, error) {
+	if settings.LongTermProvider == "" {
 		return nil, nil
 	}
 
-	provider, ok := memoryProviders[agentDef.Memory.LongTerm]
+	provider, ok := memoryProviders[settings.LongTermProvider]
 	if !ok {
 		return nil, nil
 	}

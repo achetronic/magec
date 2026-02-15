@@ -78,8 +78,17 @@ func main() {
 	}
 	slog.Info("Store initialized", "agents", len(dataStore.Data().Agents), "backends", len(dataStore.Data().Backends))
 
+	// Initialize conversation store for audit logging
+	convoStore, err := store.NewConversationStore("data/conversations.json")
+	if err != nil {
+		slog.Warn("Failed to initialize conversation store", "error", err)
+		convoStore, _ = store.NewConversationStore("")
+	}
+	slog.Info("Conversation store initialized", "conversations", convoStore.Count())
+
 	// Admin API — start first so it's available even if agent init fails
 	adminHandler := admin.New(dataStore)
+	adminHandler.SetConversationStore(convoStore)
 
 	adminMux := http.NewServeMux()
 	adminMux.Handle("/api/v1/admin/", http.StripPrefix("/api/v1/admin", adminHandler))
@@ -105,11 +114,26 @@ func main() {
 	}()
 
 	// Swappable handler for agent-related routes (hot-reloaded on store changes)
-	agentRouter := &agentRouterHandler{}
+	agentRouter := &agentRouterHandler{adminHandler: adminHandler}
 	agentRouter.rebuild(ctx, dataStore)
 
+	// Executor for running commands against agents (cron, webhooks, etc.)
+	agentURL := fmt.Sprintf("http://127.0.0.1:%d/api/v1/agent", cfg.Server.Port)
+	executor := clients.NewExecutor(dataStore, agentURL, slog.Default())
+	executor.SetConversationStore(convoStore)
+
 	httpMux := http.NewServeMux()
-	httpMux.Handle("/api/v1/agent/", agentRouter)
+	// Chain: Client ← RecorderUser ← FlowFilter ← RecorderAdmin ← ADK
+	adminRecorded := middleware.ConversationRecorder(
+		middleware.ConversationRecorderSSE(agentRouter, executor, dataStore, "admin"),
+		executor, dataStore, "admin",
+	)
+	filtered := middleware.FlowResponseFilter(adminRecorded, dataStore)
+	userRecorded := middleware.ConversationRecorder(
+		middleware.ConversationRecorderSSE(filtered, executor, dataStore, "user"),
+		executor, dataStore, "user",
+	)
+	httpMux.Handle("/api/v1/agent/", userRecorded)
 	if *cfg.Voice.UI.Enabled {
 		httpMux.Handle("/api/v1/voice/", newVoiceHandler(dataStore, agentRouter))
 	}
@@ -183,8 +207,6 @@ func main() {
 	}()
 
 	// Webhook handler for trigger endpoints
-	agentURL := fmt.Sprintf("http://127.0.0.1:%d/api/v1/agent", cfg.Server.Port)
-	executor := clients.NewExecutor(dataStore, agentURL, slog.Default())
 	webhookHandler := webhook.NewHandler(executor, dataStore, slog.Default())
 	httpMux.Handle("/api/v1/webhooks/", http.StripPrefix("/api/v1/webhooks", webhookHandler))
 
@@ -493,6 +515,7 @@ func serveTranscriptionProxy(w http.ResponseWriter, r *http.Request, agentDef st
 type agentRouterHandler struct {
 	mu           sync.RWMutex
 	agentHandler http.Handler
+	adminHandler *admin.Handler
 }
 
 // ServeHTTP delegates to the current agent handler, or returns 503 if no
@@ -516,11 +539,14 @@ func (h *agentRouterHandler) rebuild(ctx context.Context, dataStore *store.Store
 
 	var agentHandler http.Handler
 	if len(storeData.Agents) > 0 {
-		svc, err := agent.New(ctx, storeData.Agents, storeData.Backends, storeData.MemoryProviders, storeData.MCPServers, storeData.Flows)
+		svc, err := agent.New(ctx, storeData.Agents, storeData.Backends, storeData.MemoryProviders, storeData.MCPServers, storeData.Flows, storeData.Settings)
 		if err != nil {
 			slog.Warn("Failed to initialize agents", "error", err)
 		} else {
 			agentHandler = http.StripPrefix("/api/v1/agent", svc.Handler())
+			if h.adminHandler != nil {
+				h.adminHandler.SetSessionService(svc.SessionService())
+			}
 		}
 	} else {
 		slog.Warn("No agents defined in store")

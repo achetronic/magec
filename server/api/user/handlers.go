@@ -89,11 +89,23 @@ func (h *Handler) ClientInfo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	agents := h.store.ListAgents()
+	flows := h.store.ListFlows()
 	allowedDetails := make([]AgentSummary, 0, len(cl.AllowedAgents))
-	for _, agentID := range cl.AllowedAgents {
+	for _, id := range cl.AllowedAgents {
+		found := false
 		for _, a := range agents {
-			if a.ID == agentID {
+			if a.ID == id {
 				allowedDetails = append(allowedDetails, AgentSummary{ID: a.ID, Name: a.Name})
+				found = true
+				break
+			}
+		}
+		if found {
+			continue
+		}
+		for _, f := range flows {
+			if f.ID == id {
+				allowedDetails = append(allowedDetails, AgentSummary{ID: f.ID, Name: f.Name})
 				break
 			}
 		}

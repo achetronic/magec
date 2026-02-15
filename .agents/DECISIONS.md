@@ -167,3 +167,55 @@ para documentación detallada.
 
 **No hacer**: Meter frameworks de build (Next, Astro, etc.). Es una web estática
 que debe funcionar abriendo `index.html` o sirviéndola con cualquier servidor.
+
+---
+
+## Admin UI nunca accede a la User API
+
+**Fecha**: 2026-02-14
+**Estado**: Implementado
+
+La Admin UI (puerto 8081) **nunca** debe acceder a la User API (puerto 8080) para
+realizar operaciones. Toda la lógica debe ser directa a través de acceso interno
+(Go structs, services, stores).
+
+Ejemplo: para borrar una sesión de ADK, el admin handler llama directamente a
+`sessionService.Delete()` — no hace HTTP al puerto 8080. Para listar conversaciones,
+lee del `ConversationStore` — no llama a endpoints REST.
+
+**Motivo**: El admin es un componente interno con acceso privilegiado. No debe
+depender de la autenticación de clientes (`clientAuthMiddleware`) ni de la
+disponibilidad de la User API. Si la User API está caída o mal configurada,
+el admin debe seguir funcionando.
+
+**No hacer**: `http.Get("http://127.0.0.1:8080/api/v1/...")` desde el admin handler.
+Pasar siempre referencias directas a los services internos (session, memory, store).
+
+---
+
+## Memoria centralizada en el launcher
+
+**Fecha**: 2026-02-14
+**Estado**: Implementado
+
+La configuración de session y long-term memory es **global**, no por agente.
+El launcher de ADK acepta un único `session.Service` y un único `memory.Service`,
+así que configurar memoria individualmente por agente es una ilusión — en la
+práctica todos usan la misma.
+
+La config global vive en `StoreData.Settings`:
+
+```go
+type Settings struct {
+    SessionProvider  string `json:"sessionProvider,omitempty"`
+    LongTermProvider string `json:"longTermProvider,omitempty"`
+}
+```
+
+Los campos `AgentDefinition.Memory.Session` y `AgentDefinition.Memory.LongTerm`
+se mantienen en el struct por backwards compatibility pero se ignoran. La UI ya no
+los muestra en el formulario de agente.
+
+**No hacer**: Configurar session/longterm memory a nivel de agente individual.
+Si ADK mejora el launcher para soportar múltiples session services en el futuro,
+se puede descentralizar.

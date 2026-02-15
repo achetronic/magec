@@ -3,22 +3,20 @@ package agent
 import (
 	"google.golang.org/adk/agent"
 	"google.golang.org/adk/tool"
-	"google.golang.org/adk/tool/exitlooptool"
 )
 
 // baseToolset provides tools that are available to every agent regardless of
-// configuration. Currently includes exit_loop so that any agent participating
-// in a loop with escalate enabled can signal it wants to stop iterating.
+// configuration.
+//
+// TODO: Explore injecting exit_loop only to agents inside a loopagent (option 3).
+// This would require cloning agents when building flow steps so the same agent
+// definition can participate in a loop (with exit_loop) and outside one (without).
 type baseToolset struct {
 	tools []tool.Tool
 }
 
 func newBaseToolset() (*baseToolset, error) {
-	exitTool, err := exitlooptool.New()
-	if err != nil {
-		return nil, err
-	}
-	return &baseToolset{tools: []tool.Tool{exitTool}}, nil
+	return &baseToolset{tools: []tool.Tool{}}, nil
 }
 
 func (b *baseToolset) Name() string {

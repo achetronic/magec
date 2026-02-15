@@ -2,10 +2,8 @@ module github.com/achetronic/magec/server
 
 go 1.25.5
 
-//replace github.com/achetronic/adk-utils-go => ../../adk-utils-go
-
 require (
-	github.com/achetronic/adk-utils-go v0.2.0
+	github.com/achetronic/adk-utils-go v0.2.1
 	github.com/felixge/httpsnoop v1.0.4
 	github.com/google/jsonschema-go v0.3.0
 	github.com/google/uuid v1.6.0

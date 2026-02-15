@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
+	"google.golang.org/adk/session"
 
 	"github.com/achetronic/magec/server/store"
 )
@@ -16,8 +17,10 @@ type ErrorResponse struct {
 
 // Handler provides the admin API router.
 type Handler struct {
-	store  *store.Store
-	router *mux.Router
+	store          *store.Store
+	conversations  *store.ConversationStore
+	sessionService session.Service
+	router         *mux.Router
 }
 
 // New creates a new admin API handler.
@@ -25,6 +28,22 @@ func New(s *store.Store) *Handler {
 	h := &Handler{store: s}
 	h.router = h.buildRouter()
 	return h
+}
+
+// SetConversationStore injects the conversation store for the audit endpoints.
+func (h *Handler) SetConversationStore(cs *store.ConversationStore) {
+	h.conversations = cs
+}
+
+// ConversationStore returns the conversation store (used by external components
+// that need to log conversations).
+func (h *Handler) ConversationStore() *store.ConversationStore {
+	return h.conversations
+}
+
+// SetSessionService injects the ADK session service for direct session operations.
+func (h *Handler) SetSessionService(svc session.Service) {
+	h.sessionService = svc
 }
 
 // ServeHTTP implements http.Handler.
@@ -92,6 +111,20 @@ func (h *Handler) buildRouter() *mux.Router {
 	r.HandleFunc("/flows/{id}", h.getFlow).Methods("GET")
 	r.HandleFunc("/flows/{id}", h.updateFlow).Methods("PUT")
 	r.HandleFunc("/flows/{id}", h.deleteFlow).Methods("DELETE")
+
+	// Settings
+	r.HandleFunc("/settings", h.getSettings).Methods("GET")
+	r.HandleFunc("/settings", h.updateSettings).Methods("PUT")
+
+	// Conversations (audit)
+	r.HandleFunc("/conversations", h.listConversations).Methods("GET")
+	r.HandleFunc("/conversations/stats", h.conversationStats).Methods("GET")
+	r.HandleFunc("/conversations/clear", h.clearConversations).Methods("DELETE")
+	r.HandleFunc("/conversations/{id}", h.getConversation).Methods("GET")
+	r.HandleFunc("/conversations/{id}", h.deleteConversation).Methods("DELETE")
+	r.HandleFunc("/conversations/{id}/pair", h.findPerspectivePair).Methods("GET")
+	r.HandleFunc("/conversations/{id}/summary", h.updateConversationSummary).Methods("PUT")
+	r.HandleFunc("/conversations/{id}/reset-session", h.resetConversationSession).Methods("POST")
 
 	return r
 }

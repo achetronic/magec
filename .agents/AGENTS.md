@@ -61,13 +61,15 @@ magec/
 │   │   │   ├── commands.go     # Command CRUD handlers
 │   │   │   ├── memory.go       # Memory provider CRUD + health check + /types
 │   │   │   ├── flows.go        # Flow CRUD handlers + recursive validation
+│   │   │   ├── conversations.go # Conversation audit handlers (list/get/delete/clear/stats/summary)
 │   │   │   └── docs/           # Generated swagger (swagger.json/yaml)
 │   │   └── user/               # User-facing REST API
 │   │       ├── handlers.go     # Health, DeviceInfo, Voice stubs, Webhook swagger types
 │   │       ├── doc.go          # Swagger metadata (title, version, host, security)
 │   │       └── docs/           # Generated swagger (userapi_swagger.json/yaml)
 │   ├── middleware/              # HTTP middleware (AccessLog, CORS, ClientAuth)
-│   │   └── middleware.go        # Uses httpsnoop — see DECISIONS.md
+│   │   ├── middleware.go        # Uses httpsnoop — see DECISIONS.md
+│   │   └── recorder.go          # ConversationRecorder middleware (captures /run + /run_sse)
 │   ├── clients/                 # Client types: registry + specs + runtime
 │   │   ├── provider.go          # Provider interface: Type(), DisplayName(), ConfigSchema()
 │   │   ├── registry.go          # Global registry: Register(), ValidateConfig() with oneOf support
@@ -87,6 +89,7 @@ magec/
 │   ├── schema/                 # Shared JSON Schema validation (google/jsonschema-go)
 │   │   └── validate.go         # Validate(schema, data) — marshal→unmarshal→resolve→validate
 │   ├── store/                  # In-memory data store with JSON persistence
+│   │   ├── conversations.go    # ConversationStore — separate JSON persistence (data/conversations.json)
 │   ├── memory/                 # Extensible memory provider registry
 │   │   ├── provider.go         # Provider interface, Category type, HealthResult
 │   │   ├── registry.go         # Global registry: Register(), Get(), All(), ValidTypeForCategory()
@@ -121,7 +124,7 @@ magec/
 │   │   ├── App.vue             # Layout, sidebar navigation, global ConfirmDialog/Toast/SearchPalette
 │   │   ├── style.css           # Tailwind v4 @theme (piedra/atlantico/lava/sol/arena)
 │   │   ├── lib/
-│   │   │   ├── api/            # Fetch wrapper + CRUD per resource (agents, backends, clients, commands, flows, etc.)
+│   │   │   ├── api/            # Fetch wrapper + CRUD per resource (agents, backends, clients, commands, flows, conversations, etc.)
 │   │   │   └── stores/data.js  # Pinia central store (all resources + helpers)
 │   │   ├── components/         # Shared: AppDialog, Card, Badge, FormInput, Icon, Toast, Tooltip, SkeletonCard, SearchPalette, Sidebar, TopBar, EmptyState, etc.
 │   │   └── views/              # Entity views (one folder each):
@@ -132,7 +135,8 @@ magec/
 │   │       ├── clients/        # ClientsList + ClientDialog (JSON Schema renderer)
 │   │       ├── commands/       # CommandsList + CommandDialog
 │   │       ├── crons/          # CronsList + CronDialog (legacy, auto-migrated)
-│   │       └── flows/          # FlowsList + FlowDialog + FlowCanvas + FlowBlock
+│   │       ├── flows/          # FlowsList + FlowDialog + FlowCanvas + FlowBlock
+│   │       └── conversations/  # ConversationsView + ConversationsList + ConversationDetail (audit log)
 │   ├── index.html
 │   ├── vite.config.js          # Vue plugin + Tailwind plugin + dev proxy to :8081
 │   └── package.json            # vue, pinia, vuedraggable, tailwindcss v4
@@ -165,6 +169,8 @@ magec/
 | `server/clients/` | Unified client package: provider registry (specs + schemas) + runtime execution (executor, webhook handler, cron scheduler, telegram bot) |
 | `server/memory/` | Extensible provider registry — interface + init() auto-registration pattern |
 | `server/store/` | In-memory data store with JSON persistence (`data/store.json`). Immutable UUID v4 IDs |
+| `server/store/conversations.go` | Conversation audit store — separate file (`data/conversations.json`). Types: Conversation, ConversationMessage, ToolCallInfo |
+| `server/middleware/recorder.go` | HTTP middleware that captures all `/run` and `/run_sse` requests for conversation auditing |
 | `server/api/user/` | User-facing API handlers + Swagger docs (health, device info, voice, webhooks) |
 | `server/voice/` | Server-side voice detection (wake word + VAD) via ONNX |
 | `server/clients/telegram/` | Telegram bot with voice message support |
@@ -334,13 +340,13 @@ On first run with no `data/store.json`, the store starts empty. Configure everyt
 - **Delete confirmation**: Global via `provide('requestDelete')` / `inject('requestDelete')`
 - **Toast notifications**: Global via `provide('toast')` / `inject('toast')` — `toast.success()`, `toast.error()`, `toast.info()`
 - **Keyboard shortcuts**: Global handler in `App.vue` — `n` (new), `r` (refresh), `Cmd+K` (search). Skips inputs/textareas/dialogs
-- **Search palette**: `SearchPalette.vue` — `Cmd+K` triggers, searches all 7 entity types by name/description
+- **Search palette**: `SearchPalette.vue` — `Cmd+K` triggers, searches all 8 entity types by name/description
 - **JSON Schema form renderer**: `ClientDialog.vue` renders forms dynamically from `ConfigSchema()`. Supports `oneOf` branch matching, `x-entity` (entity select), `enum` (select), `boolean` (toggle), `x-format:password`
 - **Entity views**: `*List.vue` + `*Dialog.vue` per entity under `src/views/<entity>/`
 - **Flow editor**: `FlowCanvas.vue` (pan/zoom/toolbar) + `FlowBlock.vue` (recursive, vuedraggable)
 - **Tailwind v4**: `@tailwindcss/vite` plugin, `@theme` directive for custom colors
 - **Build**: `npx vite build` → `admin-ui/dist/`, Go serves from there
-- **7 active tabs**: backends, memory, mcps, agents, flows, commands, clients
+- **8 active tabs**: backends, memory, mcps, agents, flows, commands, clients, conversations
 
 ### JavaScript Conventions (voice-ui)
 

@@ -194,8 +194,16 @@ type FlowDefinition struct {
 	Root        FlowStep `json:"root" yaml:"root"`
 }
 
+// Settings holds global configuration that applies to the launcher/runtime
+// rather than to individual entities.
+type Settings struct {
+	SessionProvider  string `json:"sessionProvider,omitempty" yaml:"sessionProvider,omitempty"`
+	LongTermProvider string `json:"longTermProvider,omitempty" yaml:"longTermProvider,omitempty"`
+}
+
 // StoreData is the top-level structure persisted to disk.
 type StoreData struct {
+	Settings        Settings            `json:"settings"`
 	Backends        []BackendDefinition `json:"backends"`
 	MemoryProviders []MemoryProvider    `json:"memoryProviders"`
 	MCPServers      []MCPServer         `json:"mcpServers"`

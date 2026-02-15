@@ -185,6 +185,27 @@ cd server && go run github.com/swaggo/swag/cmd/swag init --dir ./api/admin --gen
 - Node 22+ con Vite 7.3, Vue 3.5, Tailwind 4.1
 - ADK v0.4.0, adk-utils-go v0.2.0
 - Server: :8080 (main/user API + webhooks) + :8081 (admin UI + admin API)
-- Store: `data/store.json`
+- Store: `data/store.json` (entities), `data/conversations.json` (conversation audit)
 - Errores de Telegram son por tokens fake en datos de prueba
 - Cron warning `"@daily"` — el parser solo soporta expresiones de 5 campos, no shorthand
+
+### 8. Conversation Audit — Completado
+
+**Feature**: Menú "Conversations" en la admin UI bajo el grupo "Auditoría" que permite ver todas las conversaciones de los agentes con soporte de markdown/código.
+
+**Arquitectura**:
+- **Captura via middleware** (`server/middleware/recorder.go`): `ConversationRecorder` y `ConversationRecorderSSE` envuelven el handler ADK y capturan todas las llamadas a `/run` y `/run_sse`. La fuente (voice-ui, telegram, cron, webhook) se identifica por el Bearer token del client.
+- **Store independiente** (`server/store/conversations.go`): Persistencia en `data/conversations.json`, separado del store principal para no bloatear `data/store.json` ni disparar hot-reloads.
+- **Admin API** (`server/api/admin/conversations.go`): CRUD completo + stats + summary update.
+- **No en Pinia**: Las conversaciones se fetchean on-demand via API, no se cargan al init.
+
+**Componentes UI**:
+- `ConversationsList.vue` — Lista filtrable por agente/source, badges de color por source, timestamps relativos, "Clear All".
+- `ConversationDetail.vue` — Vista chat con markdown rendering (`marked`), tool calls colapsables, toggle raw ADK events con copy-to-clipboard, sección de summary.
+- `ConversationsView.vue` — Wrapper padre que alterna entre lista y detalle.
+
+**Modelo de datos preparado para summarización**: Los campos `Summary` y `ParentID` en `Conversation` están listos para la futura feature de auto-summarización cuando se agota la context window del agente.
+
+**Dependencia nueva**: `marked` (npm) para renderizar markdown a HTML.
+
+**Color de entidad**: Teal, bajo el grupo "Auditoría" en el sidebar.

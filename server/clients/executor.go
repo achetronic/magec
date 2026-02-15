@@ -16,9 +16,10 @@ import (
 
 // Executor runs commands against agents through the internal ADK API.
 type Executor struct {
-	store    *store.Store
-	agentURL string
-	logger   *slog.Logger
+	store         *store.Store
+	agentURL      string
+	logger        *slog.Logger
+	conversations *store.ConversationStore
 }
 
 // NewExecutor creates a trigger executor. agentURL is the base URL for the
@@ -29,6 +30,11 @@ func NewExecutor(s *store.Store, agentURL string, logger *slog.Logger) *Executor
 		agentURL: agentURL,
 		logger:   logger,
 	}
+}
+
+// SetConversationStore enables conversation logging for all agent calls.
+func (e *Executor) SetConversationStore(cs *store.ConversationStore) {
+	e.conversations = cs
 }
 
 // RunClient resolves the client's command and agents, then calls the agent API
@@ -155,6 +161,7 @@ func (e *Executor) callAgent(ctx context.Context, agentID, prompt, token string,
 
 	responseText := extractResponseText(events, responseFilter)
 	e.logger.Info("Response extracted", "responseLen", len(responseText))
+
 	return responseText, nil
 }
 
@@ -254,4 +261,124 @@ func extractResponseText(events []map[string]interface{}, responseFilter []strin
 		result += "\n---\n" + p
 	}
 	return result
+}
+
+// LogExternalConversation records a conversation from an external source (e.g. telegram, voice-ui).
+func (e *Executor) LogExternalConversation(agentID, userID, sessionID, source, clientID, prompt, perspective string, events []map[string]interface{}) {
+	if e.conversations == nil {
+		return
+	}
+
+	now := time.Now()
+
+	agentName := agentID
+	var flowID, flowName, clientName string
+
+	if a, ok := e.store.GetAgent(agentID); ok {
+		agentName = a.Name
+	} else if f, ok := e.store.GetFlow(agentID); ok {
+		flowID = f.ID
+		flowName = f.Name
+		agentName = f.Name
+	}
+
+	if clientID != "" {
+		if cl, ok := e.store.GetClient(clientID); ok {
+			clientName = cl.Name
+		}
+	}
+
+	messages := []store.ConversationMessage{
+		{
+			Role:      "user",
+			Content:   prompt,
+			Timestamp: now,
+		},
+	}
+
+	for _, event := range events {
+		author, _ := event["author"].(string)
+		content, ok := event["content"].(map[string]interface{})
+		if !ok {
+			continue
+		}
+		contentParts, ok := content["parts"].([]interface{})
+		if !ok {
+			continue
+		}
+
+		var textContent string
+		var toolCalls []store.ToolCallInfo
+
+		for _, part := range contentParts {
+			partMap, ok := part.(map[string]interface{})
+			if !ok {
+				continue
+			}
+			if text, ok := partMap["text"].(string); ok {
+				textContent += text
+			}
+			if fc, ok := partMap["functionCall"].(map[string]interface{}); ok {
+				tc := store.ToolCallInfo{
+					Name: fmt.Sprintf("%v", fc["name"]),
+					Args: fc["args"],
+				}
+				toolCalls = append(toolCalls, tc)
+			}
+			if fr, ok := partMap["functionResponse"].(map[string]interface{}); ok {
+				tc := store.ToolCallInfo{
+					Name:   fmt.Sprintf("%v", fr["name"]),
+					Result: fr["response"],
+				}
+				toolCalls = append(toolCalls, tc)
+			}
+		}
+
+		if textContent != "" || len(toolCalls) > 0 {
+			role := "assistant"
+			if author == "" {
+				author = agentID
+			}
+			messages = append(messages, store.ConversationMessage{
+				Role:      role,
+				Agent:     author,
+				Content:   textContent,
+				Timestamp: now,
+				ToolCalls: toolCalls,
+			})
+		}
+	}
+
+	rawEvents := make([]interface{}, len(events))
+	for i, ev := range events {
+		rawEvents[i] = ev
+	}
+
+	if existing, ok := e.conversations.FindBySession(sessionID, agentID, perspective); ok {
+		if err := e.conversations.AppendMessages(existing.ID, messages, rawEvents); err != nil {
+			e.logger.Error("Failed to append to conversation", "error", err)
+		}
+		return
+	}
+
+	convo := store.Conversation{
+		SessionID:   sessionID,
+		AgentID:     agentID,
+		AgentName:   agentName,
+		FlowID:      flowID,
+		FlowName:    flowName,
+		ClientID:    clientID,
+		ClientName:  clientName,
+		Source:       source,
+		Perspective: perspective,
+		UserID:      userID,
+		Messages:    messages,
+		StartedAt:   now,
+		EndedAt:     &now,
+		RawEvents:   rawEvents,
+	}
+
+	if _, err := e.conversations.Append(convo); err != nil {
+		e.logger.Error("Failed to log conversation", "error", err)
+	}
 }

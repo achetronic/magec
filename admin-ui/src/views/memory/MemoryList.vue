@@ -1,43 +1,25 @@
 <template>
-  <div class="space-y-6">
-    <!-- Session Memory -->
-    <div class="space-y-3">
-      <div class="flex items-center justify-between">
-        <div class="flex items-center gap-2">
-          <h2 class="text-sm font-semibold text-arena-200">Session Memory</h2>
-          <Badge variant="green" v-for="t in sessionTypes" :key="t.type">{{ t.displayName }}</Badge>
-        </div>
-        <button @click="openDialog(null, 'session')" class="px-3 py-1.5 bg-sol-500 hover:bg-sol-600 text-piedra-950 text-xs font-medium rounded-lg transition-colors">
-          + New Provider
-        </button>
+  <div class="space-y-4">
+    <div class="flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <h2 class="text-sm font-semibold text-arena-200">Memory Providers</h2>
       </div>
-      <p class="text-[11px] text-arena-500 -mt-1">Short-lived conversation state with TTL-based expiration.</p>
-
-      <SkeletonCard v-if="store.loading && !sessionProviders.length" />
-      <EmptyState v-else-if="!sessionProviders.length" title="No session providers configured" subtitle="Short-lived conversation state with TTL-based expiration" icon="database" color="green" actionLabel="+ New Provider" @action="openDialog(null, 'session')" />
-      <div v-else class="grid gap-3 grid-cols-1 sm:grid-cols-2">
-        <MemoryCard v-for="m in sessionProviders" :key="m.id" :provider="m" @edit="openDialog(m)" @delete="handleDelete(m)" />
-      </div>
+      <button @click="openDialog()" class="px-3 py-1.5 bg-sol-500 hover:bg-sol-600 text-piedra-950 text-xs font-medium rounded-lg transition-colors cursor-pointer">
+        + New Provider
+      </button>
     </div>
 
-    <!-- Long-Term Memory -->
-    <div class="space-y-3">
-      <div class="flex items-center justify-between">
-        <div class="flex items-center gap-2">
-          <h2 class="text-sm font-semibold text-arena-200">Long-Term Memory</h2>
-          <Badge variant="green" v-for="t in longTermTypes" :key="t.type">{{ t.displayName }}</Badge>
-        </div>
-        <button @click="openDialog(null, 'longterm')" class="px-3 py-1.5 bg-sol-500 hover:bg-sol-600 text-piedra-950 text-xs font-medium rounded-lg transition-colors">
-          + New Provider
-        </button>
-      </div>
-      <p class="text-[11px] text-arena-500 -mt-1">Persistent facts and preferences with vector embeddings for semantic recall.</p>
-
-      <SkeletonCard v-if="store.loading && !longTermProviders.length" />
-      <EmptyState v-else-if="!longTermProviders.length" title="No long-term providers configured" subtitle="Persistent facts and preferences with vector embeddings" icon="database" color="green" actionLabel="+ New Provider" @action="openDialog(null, 'longterm')" />
-      <div v-else class="grid gap-3 grid-cols-1 sm:grid-cols-2">
-        <MemoryCard v-for="m in longTermProviders" :key="m.id" :provider="m" @edit="openDialog(m)" @delete="handleDelete(m)" />
-      </div>
+    <SkeletonCard v-if="store.loading && !store.memory.length" />
+    <EmptyState v-else-if="!store.memory.length" title="No memory providers configured" subtitle="Add a Redis for sessions or Postgres for long-term memory" icon="database" color="green" actionLabel="+ New Provider" @action="openDialog()" />
+    <div v-else class="grid gap-3 grid-cols-1 sm:grid-cols-2">
+      <MemoryCard
+        v-for="m in store.memory" :key="m.id"
+        :provider="m"
+        :active="isActive(m)"
+        @edit="openDialog(m)"
+        @delete="handleDelete(m)"
+        @activate="toggleActive(m)"
+      />
     </div>
 
     <MemoryDialog ref="dialog" @saved="store.refresh()" />
@@ -45,10 +27,9 @@
 </template>
 
 <script setup>
-import { computed, inject, ref, onMounted, onUnmounted } from 'vue'
+import { inject, ref, onMounted, onUnmounted } from 'vue'
 import { useDataStore } from '../../lib/stores/data.js'
 import { memoryApi } from '../../lib/api/index.js'
-import Badge from '../../components/Badge.vue'
 import EmptyState from '../../components/EmptyState.vue'
 import SkeletonCard from '../../components/SkeletonCard.vue'
 import MemoryCard from './MemoryCard.vue'
@@ -62,13 +43,26 @@ const registerNew = inject('registerNew')
 onMounted(() => registerNew(() => openDialog()))
 onUnmounted(() => registerNew(null))
 
-const sessionTypes = computed(() => store.memoryTypes.filter(t => t.categories?.includes('session')))
-const longTermTypes = computed(() => store.memoryTypes.filter(t => t.categories?.includes('longterm')))
-const sessionProviders = computed(() => store.memory.filter(m => m.category === 'session'))
-const longTermProviders = computed(() => store.memory.filter(m => m.category === 'longterm'))
+function settingsKey(m) {
+  return m.category === 'session' ? 'sessionProvider' : 'longTermProvider'
+}
 
-function openDialog(mem = null, category = null) {
-  dialog.value?.open(mem, category)
+function isActive(m) {
+  return store.settings[settingsKey(m)] === m.id
+}
+
+async function toggleActive(m) {
+  const key = settingsKey(m)
+  const newId = isActive(m) ? '' : m.id
+  try {
+    await store.saveSettings({ ...store.settings, [key]: newId })
+  } catch (e) {
+    toast.error(e.message)
+  }
+}
+
+function openDialog(mem = null) {
+  dialog.value?.open(mem)
 }
 
 function handleDelete(m) {

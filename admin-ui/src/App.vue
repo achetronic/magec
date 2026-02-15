@@ -30,6 +30,7 @@
             <FlowsList v-else-if="activeTab === 'flows'" />
             <CommandsList v-else-if="activeTab === 'commands'" />
             <ClientsList v-else-if="activeTab === 'clients'" />
+            <ConversationsView v-else-if="activeTab === 'conversations'" />
           </div>
         </Transition>
       </main>
@@ -60,10 +61,11 @@ import AgentsList from './views/agents/AgentsList.vue'
 import FlowsList from './views/flows/FlowsList.vue'
 import CommandsList from './views/commands/CommandsList.vue'
 import ClientsList from './views/clients/ClientsList.vue'
+import ConversationsView from './views/conversations/ConversationsView.vue'
 
 const store = useDataStore()
 
-const validTabs = ['backends', 'memory', 'mcps', 'agents', 'flows', 'commands', 'clients']
+const validTabs = ['backends', 'memory', 'mcps', 'agents', 'flows', 'commands', 'clients', 'conversations']
 const saved = location.hash.slice(1)
 const activeTab = ref(validTabs.includes(saved) ? saved : 'backends')
 const sidebarCollapsed = ref(localStorage.getItem('sidebar-collapsed') === 'true')
