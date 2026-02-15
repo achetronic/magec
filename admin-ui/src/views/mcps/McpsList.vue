@@ -12,7 +12,7 @@
     <EmptyState v-else-if="!store.mcps.length" title="No MCP servers configured" subtitle="Connect external tools via Model Context Protocol" icon="bolt" color="atlantico" actionLabel="+ New MCP" @action="openDialog()" />
 
     <div v-else class="grid gap-3 grid-cols-1 sm:grid-cols-2">
-      <Card v-for="m in store.mcps" :key="m.id">
+      <Card v-for="m in store.mcps" :key="m.id" color="atlantico">
         <div class="flex items-start justify-between gap-3 mb-2">
           <div class="flex items-center gap-3 min-w-0">
             <div class="w-8 h-8 rounded-lg bg-atlantico-500/15 flex items-center justify-center flex-shrink-0">

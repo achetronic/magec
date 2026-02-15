@@ -130,26 +130,36 @@ Segmented controls and icon buttons are visually distinct groups separated by `g
 
 ## Detail Header Anatomy
 
-Three distinct lines inside `space-y-2`. Title on its own line; categorical badges on a second line; text metadata on a third.
+Two lines inside `space-y-1.5`. Title + info popover on line 1; categorical badges on line 2. Text metadata (time, IDs, counts) lives in a hover popover to keep the header compact.
 
 ```
-[back ◁]  Software Factory            [summarized]        [controls...]
+[back ◁]  Software Factory  [summarized] [👁]      [Off|5s|30s] [↻] | [User|Admin] [Messages|Raw] [⬇PDF] [✕ Session] [🗑]
           [Direct] [Flow] [VoiceUI]
-          Feb 15, 2025 · user: abc · session: 5b95… · 12 msg
 ```
+
+On `< lg` screens, controls drop below the title row (`flex-col lg:flex-row`).
 
 | Line | Content | Style |
 |------|---------|-------|
-| 1. Title | Entity name + optional status badge | `text-sm font-semibold text-arena-200` |
+| 1. Title | Entity name + status badge + info popover icon | `text-sm font-semibold text-arena-200` |
 | 2. Tags | Categorical badges | `Badge variant="muted"` with `!py-0`, `gap-1.5` |
-| 3. Meta | Temporal/contextual text (time, IDs, counts) | `text-[10px] text-arena-500`, dot-separated |
+
+### Info popover
+
+An `eye` icon on the title line. On hover, shows a floating panel (`bg-piedra-900 border border-piedra-700/50 rounded-lg shadow-xl`) with key-value rows:
+- Started (timestamp)
+- User (userId)
+- Session (full sessionId, monospace)
+- Messages (count)
+
+Icon style: `text-arena-600`, hover `text-arena-400`. Panel: `min-w-52`, `z-50`, positioned `top-full mt-1.5`.
 
 ### Detail header rules
 
-- **Never place badges on the title line** (except status badges like `summarized`) — colored/muted badges next to a title create visual competition.
-- **Never mix badges and text metadata** on the same line — badges are categories (fixed taxonomy), text meta is contextual/temporal.
-- **Three tiers of information**: title (what), badges (what kind), meta (when/where/how much). Each tier gets its own line.
-- **Consistency with cards**: detail headers follow the same information hierarchy as list cards, just with more meta fields visible.
+- **Never place colored badges on the title line** (except status badges like `summarized`) — they fight for attention with the title.
+- **Text metadata belongs in a popover**, not inline — it clutters the header and competes with controls for horizontal space.
+- **Responsive breakpoint at `lg`** (1024px): controls drop below the title row. Above `lg`, everything fits in a single row.
+- **Consistency with cards**: detail headers follow the same badge pattern as list cards (muted variant, `!py-0`).
 
 ---
 
@@ -228,7 +238,7 @@ For any repeating row in a scrollable area (messages, logs, events, audit entrie
 | 2026-02-15 | Auto-refresh tick pulses the refresh icon (spin 180° + highlight 400ms) | Visual feedback that something happened, without being intrusive |
 | 2026-02-15 | "Clear all" as icon+label (`🗑 All`), not red button or bare trash icon | Red steals attention in a muted UI; bare trash icon is ambiguous ("delete one? all?"); icon+label is clear and quiet |
 | 2026-02-15 | Conversation messages: linear thread layout, no chat bubbles | Bubbles with colored borders are visually heavy; thread layout (left-aligned, no bg) is more readable for audit logs |
-| 2026-02-15 | Perspective toggle uses colored segments (teal/sol) | Color encodes meaning: teal=user, sol=admin — matches entity color system |
+| 2026-02-15 | ~~Perspective toggle uses colored segments (teal/sol)~~ → neutral gray | Colored active states created visual noise; all segmented controls should look uniform |
 | 2026-02-15 | `dual` badge removed from conversation list | Cryptic, no user value — perspective switching lives in detail view |
 | 2026-02-15 | Never mix badges and text metadata on the same line | Badges are categories, text is temporal — mixing them creates visual noise with no hierarchy |
 | 2026-02-15 | Preview text in italic with quotes | Conveys "someone said this" without a label; `text-arena-500` keeps it subordinate to the title |
@@ -236,7 +246,7 @@ For any repeating row in a scrollable area (messages, logs, events, audit entrie
 | 2026-02-15 | Source badge always present, capitalized | Even with a client name badge, source type (Direct/Cron/Webhook) communicates *how* the conversation was triggered |
 | 2026-02-15 | userId removed from conversation cards | Too much density for a list; available in detail view where there's room |
 | 2026-02-15 | Card lines spaced with `space-y-2` | Prevents information from feeling crammed together |
-| 2026-02-15 | Detail headers: 3-line layout (title / badges / meta) with `space-y-2` | Each info tier (what, what kind, when/where) needs its own line with breathing room — cramming them together creates visual noise |
+| 2026-02-15 | Detail headers: 2-line layout (title+info / badges) with `space-y-1.5` | Meta moved to popover; two lines keep the header compact and leave room for controls |
 | 2026-02-15 | Badges never on the title line (except status like `summarized`) | Colored/muted badges next to a title fight for attention; title must stand alone as the primary anchor |
 | 2026-02-15 | Row labels (author, event type) subordinate to body content | When an avatar/icon already identifies the entity, the text label must be quiet: small, muted, no font-weight — body text is what the user came to read |
 | 2026-02-15 | List rows use `py-3 px-3` padding | Hover highlight needs generous vertical padding; cramped rows feel unclickable and make the UI look dense |
@@ -244,3 +254,6 @@ For any repeating row in a scrollable area (messages, logs, events, audit entrie
 | 2026-02-15 | Detail views get the same auto-refresh pattern as list views | Users need live-updating data in detail views too; reusing the exact same control (segmented Off/5s/30s + pulse icon) keeps the UI learnable |
 | 2026-02-15 | All segmented controls use neutral gray active state (`bg-piedra-700 text-arena-100`) | Colored active states (teal/sol) created visual noise; segmented controls are about *what* you're viewing, not *what kind* — keep them uniform |
 | 2026-02-15 | PDF export uses icon+label (`download` + "PDF") pattern | Clear intent without ambiguity; same pattern as "Clear All" and "✕ Session" — icon alone could mean multiple things |
+| 2026-02-15 | Detail header meta (time, user, session, msg count) moved to hover popover | Inline meta text consumed too much horizontal space, forcing controls to overlap or wrap too early; popover keeps data accessible without cluttering the header |
+| 2026-02-15 | Detail header responsive: `flex-col lg:flex-row` | Controls bar is wide; below `lg` it drops to its own line cleanly instead of overlapping the title |
+| 2026-02-15 | Messages displayed newest-first, "load older" button at the bottom | Most recent activity is what the user cares about first; older messages loaded on demand downward |

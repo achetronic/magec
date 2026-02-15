@@ -12,7 +12,7 @@
     <EmptyState v-else-if="!store.clients.length" title="No clients configured" subtitle="Create a client to connect devices, bots, cron jobs, or webhooks" icon="phone" color="lava" actionLabel="+ New Client" @action="openDialog()" />
 
     <div v-else class="grid gap-3 grid-cols-1 sm:grid-cols-2">
-      <Card v-for="c in store.clients" :key="c.id">
+      <Card v-for="c in store.clients" :key="c.id" color="lava">
         <div class="flex items-start justify-between gap-3 mb-2" :class="{ 'opacity-60': !c.enabled }">
           <div class="flex items-center gap-3 min-w-0">
             <div class="relative w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"

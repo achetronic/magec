@@ -2,7 +2,7 @@
   <div
     class="bg-piedra-900 border rounded-xl p-4 transition-all duration-200"
     :class="active
-      ? 'border-green-500/30 shadow-[0_0_15px_-3px_rgba(74,222,128,0.08)]'
+      ? 'border-piedra-700/50 hover:border-green-500/30 hover:shadow-[0_0_15px_-3px_rgba(74,222,128,0.08)]'
       : 'border-piedra-700/50 hover:border-piedra-600/50'"
   >
     <div class="flex items-start gap-3">

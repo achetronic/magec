@@ -12,7 +12,7 @@
     <EmptyState v-else-if="!store.flows.length" title="No flows configured" subtitle="Create multi-agent workflows with sequential, parallel, and loop steps" icon="flow" color="rose" actionLabel="+ New Flow" @action="openDialog()" />
 
     <div v-else class="grid gap-3 grid-cols-1 sm:grid-cols-2">
-      <Card v-for="f in store.flows" :key="f.id">
+      <Card v-for="f in store.flows" :key="f.id" color="rose">
         <div class="flex items-start justify-between gap-3 mb-2">
           <div class="flex items-center gap-3 min-w-0">
             <div class="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 bg-rose-500/15">

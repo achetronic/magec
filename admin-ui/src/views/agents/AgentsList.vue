@@ -67,7 +67,7 @@
 
       <!-- Cards -->
       <div class="space-y-3">
-        <Card v-for="a in paginatedAgents" :key="a.id" :active="expandedId === a.id">
+        <Card v-for="a in paginatedAgents" :key="a.id" color="sol">
           <div class="flex items-center gap-3 cursor-pointer" @click="toggle(a.id)">
             <div class="w-9 h-9 rounded-lg bg-sol-500/15 flex items-center justify-center flex-shrink-0">
               <span class="text-sm font-semibold text-sol-400">{{ (a.name || a.id).charAt(0).toUpperCase() }}</span>

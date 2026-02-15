@@ -12,7 +12,7 @@
     <EmptyState v-else-if="!store.commands.length" title="No commands configured" subtitle="Create reusable prompts that cron and webhook clients can execute" icon="command" color="indigo" actionLabel="+ New Command" @action="openDialog()" />
 
     <div v-else class="grid gap-3 grid-cols-1 sm:grid-cols-2">
-      <Card v-for="c in store.commands" :key="c.id">
+      <Card v-for="c in store.commands" :key="c.id" color="indigo">
         <div class="flex items-start justify-between gap-3 mb-2">
           <div class="flex items-center gap-3 min-w-0">
             <div class="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 bg-indigo-500/15">

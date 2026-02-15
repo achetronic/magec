@@ -105,7 +105,7 @@
         @click="$emit('select', c.id)"
         class="w-full text-left"
       >
-        <Card class="hover:border-teal-500/30 cursor-pointer transition-all group">
+        <Card color="teal" class="cursor-pointer group">
           <div class="flex items-start gap-3">
             <!-- Source icon -->
             <div class="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" :class="sourceBg(c.source)">

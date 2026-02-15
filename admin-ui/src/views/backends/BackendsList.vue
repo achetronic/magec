@@ -12,7 +12,7 @@
     <EmptyState v-else-if="!store.backends.length" title="No backends configured" subtitle="Create a backend to connect AI providers" icon="server" color="purple" actionLabel="+ New Backend" @action="openDialog()" />
 
     <div v-else class="grid gap-3 grid-cols-1 sm:grid-cols-2">
-      <Card v-for="b in store.backends" :key="b.id">
+      <Card v-for="b in store.backends" :key="b.id" color="purple">
         <div class="flex items-start justify-between gap-3 mb-2">
           <div class="flex items-center gap-3 min-w-0">
             <div class="w-8 h-8 rounded-lg bg-purple-500/15 flex items-center justify-center flex-shrink-0">
