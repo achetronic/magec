@@ -2,6 +2,55 @@
 
 ## High Priority
 
+### Infinite Conversation (ContextGuard Middleware)
+
+**Problem**: LLM context windows are finite. Long conversations silently degrade or fail when the context fills up. There's no mechanism to detect this and continue seamlessly.
+
+**Solution**: A new `ContextGuard` middleware in the HTTP chain that monitors context usage and automatically rotates sessions when nearing the limit.
+
+**Architecture**:
+
+```
+Cliente → RecorderUser → FlowFilter → RecorderAdmin → ContextGuard → ADK
+```
+
+**How it works**:
+
+1. Before each `/run`, ContextGuard reads the current ADK session (GET), estimates token count of the history (~4 chars ≈ 1 token), and compares against the model's `context_window`.
+2. **Below 80%** → transparent pass-through.
+3. **At 80%+** → intercepts:
+   - Sends a summarization prompt to ADK on the current session
+   - Creates a new ADK session with the summary as initial context
+   - Re-sends the original user message to the new session
+   - Returns the response with hidden HTML metadata:
+     ```html
+     <!--MAGEC_SESSION_CONTINUED:{"oldSessionId":"abc","newSessionId":"xyz","summary":"..."}:MAGEC_SESSION_CONTINUED-->
+     Normal AI response here...
+     ```
+4. ConversationStore links conversations via `ParentID` (field already exists, unused).
+
+**Context window lookup**:
+- New package `server/contextwindow/` with `models.json` embedded via `//go:embed`
+- Source: [Charm Crush provider.json](https://github.com/charmbracelet/crush/blob/main/internal/agent/hyper/provider.json)
+- Lookup by `modelName` → `context_window`. Fallback: 128k if model not found.
+
+**What does NOT change**:
+- ADK API — untouched
+- `/run` and `/run_sse` response format — clients that don't understand the HTML tag ignore it (it's an HTML comment)
+- Existing clients (Telegram, cron, webhook) — keep working, session rotation is server-side and transparent
+- Voice-UI and admin-UI can optionally parse the tag in the future to show "continued from previous session"
+
+**New files**:
+- `server/contextwindow/models.json` — embedded model context window data
+- `server/contextwindow/contextwindow.go` — lookup + token estimation
+- `server/middleware/contextguard.go` — the middleware
+
+**Files to modify**:
+- `server/main.go` — insert ContextGuard in the middleware chain
+- `server/clients/executor.go` — pass model info for context window lookup
+
+---
+
 ### TTS Real-Time Streaming Playback
 
 **Problem**: Current TTS implementation waits for all audio chunks before starting playback, causing noticeable delay even with SSE streaming enabled.
