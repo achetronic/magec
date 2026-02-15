@@ -79,53 +79,20 @@ Cliente → RecorderUser → FlowFilter → RecorderAdmin → ContextGuard → A
 
 ---
 
-### Flow Voice Resolution: TTS/STT for Multi-Agent Flows
+### ~~Flow Voice Resolution: TTS/STT for Multi-Agent Flows~~ ✅
 
-**Problem**: When a client's active "agent" is a flow, voice endpoints (`/voice/{id}/speech`, `/voice/{id}/transcription`) need an `AgentDefinition` to resolve TTS/STT backend config. Flows don't have voice config — only agents do. Each agent in a flow can have different TTS voices and different STT backends.
+**Completado**: Implementada Propuesta C (portavoz en voice-ui) con puerta abierta a Propuesta B (multi-voz por author) en el futuro.
 
-**Context**:
-- `/run` response is a JSON array where each event has `"author": "agent-id"` identifying which agent generated it
-- `FlowResponseFilter` preserves the `author` field — it only filters which events pass through
-- Voice-ui currently ignores `author` — `_extractResponses()` extracts only text, discarding agent info
-- STT happens **before** sending to the agent (no `author` available yet)
-- TTS happens **after** the response (has `author`)
+**Decisión final**: Voice config es capacidad del agente. El admin configura qué agentes tienen TTS/STT y cuáles son `responseAgent` en un flow. El voice-ui permite al usuario elegir un portavoz entre los `responseAgent` del flow activo. Ver `DECISIONS.md` para la justificación completa.
 
-**Proposals under evaluation**:
+**Implementado**:
+- `/client/info` expone `type` (agent/flow), `agents` nested con `responseAgent` en flows
+- `FlowDefinition.AgentIDs()` recoge todos los agent IDs únicos del árbol
+- Voice-ui: selector de portavoz inline en `AgentSwitcher.vue` con persistencia por flow en `SettingsManager`
+- TTS y STT usan el agent ID del portavoz (no el flow ID)
+- Notificaciones amigables cuando el portavoz no tiene TTS/STT configurado
 
-#### Proposal A: `voiceAgent` field on FlowStep
-- Add `VoiceAgent bool` to `FlowStep` (like `ResponseAgent`)
-- Radio button in admin flow editor — one agent per flow is the "voice agent"
-- Server resolves TTS/STT from that agent
-- **Pro**: Explicit, server-side, voice-ui doesn't need to know about flows
-- **Con**: Couples flows to voice config, ignores multi-voice potential, one voice for everything
-
-#### Proposal B: Resolve TTS by `author` from response
-- Voice-ui extracts `author` from each `/run` response event
-- Calls `/voice/{authorAgentId}/speech` for TTS
-- **Pro**: Multi-voice — each agent speaks with its own voice, zero config
-- **Con**: Only works for TTS. STT happens before response exists — no `author` available. Would need a different mechanism for STT, resulting in inconsistent resolution.
-
-#### Proposal C: Enrich `/client/info` + portavoz UI
-- `/client/info` returns flow agents inline (type, nested agents with IDs)
-- Voice-ui shows a "portavoz" selector when active agent is a flow
-- User picks one agent for both TTS and STT
-- **Pro**: User control, consistent for both TTS and STT, no flow model changes
-- **Con**: Manual selection, single voice (no multi-voice)
-
-#### Proposal D: Server resolves always
-- `/voice/{id}/speech` and `/voice/{id}/transcription` handle flow IDs server-side
-- Resolves to a configured agent (explicit field or fallback to first agent)
-- Voice-ui never knows about flows
-- **Pro**: Simplest for frontend, centralized logic
-- **Con**: Implicit behavior, no multi-voice, hard to make configurable without new fields
-
-#### Proposal E: Hybrid (C now + B future)
-- Implement C: `/client/info` enriched, voice-ui picks one agent as default for both TTS and STT
-- Future: add B as opt-in "multi-voice mode" where TTS resolves per-author from response
-- **Pro**: Clean immediate solution with future extensibility
-- **Con**: Two mechanisms to maintain long-term
-
-**Decision**: Pending. `/client/info` enrichment approved independently of voice resolution choice.
+**Propuesta B (futuro)**: Multi-voz donde cada `author` del response habla con su propia voz TTS. El `/run` response ya incluye `author` por evento pero `_extractResponses()` lo descarta. Requeriría cambiar el response a `[{ text, agentId }]` y usar `agentId` para TTS. Solo aplica a TTS (STT siempre usa portavoz).
 
 ---
 
@@ -384,3 +351,9 @@ Currently voice selection is server-side only. Could add UI for users to preview
 - [x] Flow editor: broadcast icon toggle for responseAgent on agent nodes
 - [x] Pre-seed session state with all agent outputKeys (prevents ADK template failures)
 - [x] extractResponseText rewritten: filter by author, concat with `\n---\n`, backwards-compat
+- [x] Voice-ui migration to Vue 3 + Vite 7.3 + Tailwind 4.1 + Pinia 3 (14 components, single store, audio pipeline as plain JS)
+- [x] `/client/info` enriched: `type` (agent/flow), nested `agents` with `responseAgent` for flows
+- [x] `FlowDefinition.AgentIDs()` method: collects all unique agent IDs from flow tree
+- [x] Voice-ui spokesperson selector: inline in AgentSwitcher, persisted per flow, wired to TTS/STT
+- [x] Voice error notifications: friendly messages when spokesperson lacks TTS/STT config
+- [x] Status chip fix: `xs:inline` → `sm:inline` (Tailwind v4 has no `xs` breakpoint)

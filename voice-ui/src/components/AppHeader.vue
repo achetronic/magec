@@ -11,10 +11,7 @@
           <img src="/assets/logo.svg" alt="Magec" class="w-7 h-7 flex-shrink-0">
           <div class="hidden sm:block">
             <h1 class="text-lg sm:text-xl font-semibold tracking-tight text-arena-50 truncate">Magec</h1>
-            <p v-if="store.spokespersonName" class="text-[10px] text-arena-500 cursor-pointer hover:text-arena-400 transition-colors" @click="openSpokesperson">
-              {{ t('assistant.spokesperson') }}: {{ store.spokespersonName }}
-            </p>
-            <p v-else class="text-xs text-arena-500">{{ t('app.subtitle') }}</p>
+            <p class="text-xs text-arena-500">{{ t('app.subtitle') }}</p>
           </div>
         </div>
       </div>
@@ -84,9 +81,5 @@ const store = useAppStore()
 
 function toggleSidebar() {
   store.sidebarOpen = !store.sidebarOpen
-}
-
-function openSpokesperson() {
-  store.spokespersonPanelOpen = true
 }
 </script>

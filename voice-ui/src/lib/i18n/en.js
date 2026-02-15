@@ -65,6 +65,12 @@ export default {
     clear: 'Clear view',
     send: 'Send',
   },
+  agentSwitcher: {
+    agent: 'Agent',
+    agents: 'agents',
+    spokespersons: 'spokespersons',
+    spokesperson: 'Spokesperson',
+  },
   time: {
     justNow: 'Just now',
     minutesAgo: '{n}m ago',

@@ -65,6 +65,12 @@ export default {
     clear: 'Limpiar vista',
     send: 'Enviar',
   },
+  agentSwitcher: {
+    agent: 'Agente',
+    agents: 'agentes',
+    spokespersons: 'portavoces',
+    spokesperson: 'Portavoz',
+  },
   time: {
     justNow: 'Ahora mismo',
     minutesAgo: 'hace {n}m',
