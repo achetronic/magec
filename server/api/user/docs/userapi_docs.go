@@ -1061,6 +1061,9 @@ const docTemplateuserapi = `{
                     "type": "string",
                     "example": "Magec"
                 },
+                "responseAgent": {
+                    "type": "boolean"
+                },
                 "type": {
                     "type": "string",
                     "example": "agent"

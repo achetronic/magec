@@ -22,10 +22,11 @@ type ClientInfoUnpairedResponse struct {
 
 // AgentSummary is a minimal agent descriptor.
 type AgentSummary struct {
-	ID     string         `json:"id" example:"magec"`
-	Name   string         `json:"name" example:"Magec"`
-	Type   string         `json:"type" example:"agent"`
-	Agents []AgentSummary `json:"agents,omitempty"`
+	ID            string         `json:"id" example:"magec"`
+	Name          string         `json:"name" example:"Magec"`
+	Type          string         `json:"type" example:"agent"`
+	ResponseAgent bool           `json:"responseAgent,omitempty"`
+	Agents        []AgentSummary `json:"agents,omitempty"`
 }
 
 // HealthResponse is the response from the health endpoint.
@@ -104,10 +105,14 @@ func (h *Handler) ClientInfo(w http.ResponseWriter, r *http.Request) {
 		}
 		for _, f := range flows {
 			if f.ID == id {
+				responseSet := make(map[string]bool)
+				for _, rid := range f.ResponseAgentIDs() {
+					responseSet[rid] = true
+				}
 				var nested []AgentSummary
 				for _, aid := range f.AgentIDs() {
 					if na, ok := agentMap[aid]; ok {
-						nested = append(nested, AgentSummary{ID: na.ID, Name: na.Name, Type: "agent"})
+						nested = append(nested, AgentSummary{ID: na.ID, Name: na.Name, Type: "agent", ResponseAgent: responseSet[aid]})
 					}
 				}
 				allowedDetails = append(allowedDetails, AgentSummary{ID: f.ID, Name: f.Name, Type: "flow", Agents: nested})

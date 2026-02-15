@@ -19,6 +19,7 @@ export const useAppStore = defineStore('app', () => {
 
   const selectedAgent = ref(null)
   const allowedAgents = ref([])
+  const spokesperson = ref(null)
 
   const messages = ref([])
   const sessions = ref([])
@@ -38,6 +39,7 @@ export const useAppStore = defineStore('app', () => {
   const ttsAvailable = ref(true)
 
   const sidebarOpen = ref(false)
+  const spokespersonPanelOpen = ref(false)
 
   let agentClient = null
   let sessionManager = null
@@ -107,10 +109,13 @@ export const useAppStore = defineStore('app', () => {
     allowedAgents.value = clientAuth.allowedAgents || []
     settings = new SettingsManager(selectedAgent.value)
 
+    _resolveSpokesperson()
+
     if (selectedAgent.value) {
+      const voiceAgentId = spokesperson.value || selectedAgent.value
       agentClient.setAgent(selectedAgent.value)
       sessionService.setAgent(selectedAgent.value)
-      tts.setAgent(selectedAgent.value)
+      tts.setAgent(voiceAgentId)
     }
 
     ttsEnabled.value = settings.ttsEnabled
@@ -332,7 +337,9 @@ export const useAppStore = defineStore('app', () => {
         messages.value.push({ role: 'user', text })
         await _sendToAgent(text)
       }
-    } catch {}
+    } catch {
+      addNotification('warning', t('errors.transcriptionUnavailable'))
+    }
 
     centellaEnabled.value = true
     _setReady()
@@ -341,8 +348,9 @@ export const useAppStore = defineStore('app', () => {
   async function _transcribe(blob) {
     if (!transcriber) {
       transcriber = new RemoteTranscriber(CONFIG.transcription)
-      if (selectedAgent.value) transcriber.setAgent(selectedAgent.value)
     }
+    const voiceAgentId = spokesperson.value || selectedAgent.value
+    if (voiceAgentId) transcriber.setAgent(voiceAgentId)
     return transcriber.transcribe(blob)
   }
 
@@ -371,7 +379,12 @@ export const useAppStore = defineStore('app', () => {
     for (const response of responses) {
       messages.value.push({ role: 'ai', text: response })
       if (ttsEnabled.value) {
-        try { await tts.speak(response) } catch { tts?.stop() }
+        try {
+          await tts.speak(response)
+        } catch {
+          tts?.stop()
+          addNotification('warning', t('errors.ttsUnavailable'))
+        }
       }
     }
   }
@@ -380,15 +393,66 @@ export const useAppStore = defineStore('app', () => {
     selectedAgent.value = agentId
     agentClient.setAgent(agentId)
     sessionService.setAgent(agentId)
-    tts.setAgent(agentId)
-    if (transcriber) transcriber.setAgent(agentId)
     settings.switchAgent(agentId)
+
+    _resolveSpokesperson()
+    const voiceAgentId = spokesperson.value || agentId
+    tts.setAgent(voiceAgentId)
+    if (transcriber) transcriber.setAgent(voiceAgentId)
 
     ttsEnabled.value = settings.ttsEnabled
     wakeWordEnabled.value = settings.wakeWordEnabled
 
     sessionManager.newSession()
   }
+
+  function switchSpokesperson(agentId) {
+    spokesperson.value = agentId
+    settings.spokesperson = agentId
+    const voiceAgentId = agentId || selectedAgent.value
+    tts.setAgent(voiceAgentId)
+    if (transcriber) transcriber.setAgent(voiceAgentId)
+  }
+
+  function _resolveSpokesperson() {
+    const current = _getActiveAgentInfo()
+    if (!current || current.type !== 'flow') {
+      spokesperson.value = null
+      return
+    }
+    const candidates = (current.agents || []).filter(a => a.responseAgent)
+    const saved = settings.spokesperson
+    if (saved && candidates.some(a => a.id === saved)) {
+      spokesperson.value = saved
+    } else if (candidates.length > 0) {
+      spokesperson.value = candidates[0].id
+      settings.spokesperson = candidates[0].id
+    } else if (current.agents?.length > 0) {
+      spokesperson.value = current.agents[0].id
+      settings.spokesperson = current.agents[0].id
+    } else {
+      spokesperson.value = null
+    }
+  }
+
+  function _getActiveAgentInfo() {
+    return allowedAgents.value.find(a => a.id === selectedAgent.value) || null
+  }
+
+  const activeAgentInfo = computed(() => _getActiveAgentInfo())
+  const spokespersonCandidates = computed(() => {
+    const info = _getActiveAgentInfo()
+    if (!info || info.type !== 'flow') return []
+    const resp = (info.agents || []).filter(a => a.responseAgent)
+    return resp.length > 0 ? resp : (info.agents || [])
+  })
+  const spokespersonName = computed(() => {
+    if (!spokesperson.value) return null
+    const info = _getActiveAgentInfo()
+    if (!info?.agents) return null
+    const agent = info.agents.find(a => a.id === spokesperson.value)
+    return agent?.name || null
+  })
 
   function setWakeWordModel(modelId) {
     if (!voiceEvents) return
@@ -491,6 +555,10 @@ export const useAppStore = defineStore('app', () => {
     showPairing,
     selectedAgent,
     allowedAgents,
+    spokesperson,
+    activeAgentInfo,
+    spokespersonCandidates,
+    spokespersonName,
     messages,
     sessions,
     currentSessionId,
@@ -505,10 +573,12 @@ export const useAppStore = defineStore('app', () => {
     ttsEnabled,
     ttsAvailable,
     sidebarOpen,
+    spokespersonPanelOpen,
 
     init,
     pair,
     switchAgent,
+    switchSpokesperson,
     switchPanel,
     toggleRecording,
     startRecording,

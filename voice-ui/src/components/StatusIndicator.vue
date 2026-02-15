@@ -10,7 +10,7 @@
         :class="colors.dot"
       />
     </div>
-    <span class="text-[10px] sm:text-xs text-arena-300 hidden xs:inline">{{ store.status.text }}</span>
+    <span class="text-[10px] sm:text-xs text-arena-300 hidden sm:inline">{{ store.status.text }}</span>
   </div>
 </template>
 

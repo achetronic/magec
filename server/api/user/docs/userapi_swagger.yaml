@@ -12,6 +12,8 @@ definitions:
       name:
         example: Magec
         type: string
+      responseAgent:
+        type: boolean
       type:
         example: agent
         type: string

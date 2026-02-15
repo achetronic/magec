@@ -20,6 +20,7 @@ export default {
     placeholder: 'Tu conversación aparecerá aquí...',
     textInputPlaceholder: 'Escribe un mensaje...',
     currentConversation: 'Conversación actual',
+    spokesperson: 'voz',
   },
   sessions: {
     title: 'Conversaciones',
@@ -81,6 +82,8 @@ export default {
     microphoneAccess: 'No se pudo acceder al micrófono. Revisa los permisos.',
     connectionFailed: 'Error de conexión',
     transcriptionFailed: 'Error al transcribir',
+    transcriptionUnavailable: 'Parece que el agente no te entiende. Comprueba que tiene transcripción configurada.',
+    ttsUnavailable: 'Parece que el agente no puede hablar. Comprueba que tiene síntesis de voz configurada.',
     generic: 'Ha ocurrido un error',
   },
 }

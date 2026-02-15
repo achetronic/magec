@@ -20,6 +20,7 @@ export default {
     placeholder: 'Your conversation will appear here...',
     textInputPlaceholder: 'Type a message...',
     currentConversation: 'Current conversation',
+    spokesperson: 'voice',
   },
   sessions: {
     title: 'Conversations',
@@ -81,6 +82,8 @@ export default {
     microphoneAccess: 'Could not access microphone. Check permissions.',
     connectionFailed: 'Connection error',
     transcriptionFailed: 'Transcription failed',
+    transcriptionUnavailable: 'The agent can\'t seem to understand you. Check that it has transcription configured.',
+    ttsUnavailable: 'The agent can\'t seem to speak. Check that it has text-to-speech configured.',
     generic: 'An error occurred',
   },
 }

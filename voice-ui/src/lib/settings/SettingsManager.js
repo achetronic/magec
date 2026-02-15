@@ -2,7 +2,8 @@ const STORAGE_PREFIX = 'magec_settings'
 
 const DEFAULT_SETTINGS = {
   tts: { enabled: true },
-  wakeWord: { enabled: true, model: 'oye-magec' }
+  wakeWord: { enabled: true, model: 'oye-magec' },
+  spokesperson: { agentId: null }
 }
 
 export class SettingsManager {
@@ -83,4 +84,7 @@ export class SettingsManager {
 
   get wakeWordModel() { return this._settings.wakeWord.model }
   set wakeWordModel(value) { this._settings.wakeWord.model = value; this._save() }
+
+  get spokesperson() { return this._settings.spokesperson.agentId }
+  set spokesperson(value) { this._settings.spokesperson.agentId = value; this._save() }
 }
