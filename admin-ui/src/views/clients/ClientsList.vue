@@ -48,7 +48,7 @@
           </Tooltip>
           <template v-for="(ref, i) in agentRefs(c)" :key="ref.name">
             <Tooltip v-if="i < 2 || expandedChips[c.id]" :text="ref.tooltip">
-              <Badge :variant="ref.isFlow ? 'rose' : 'sol'">{{ ref.isFlow ? '⤳ ' : '' }}{{ ref.name }}</Badge>
+              <Badge variant="muted">{{ ref.isFlow ? '⤳ ' : '' }}{{ ref.name }}</Badge>
             </Tooltip>
           </template>
           <button

@@ -75,10 +75,10 @@
             <div class="min-w-0 flex-1">
               <h3 class="font-medium text-arena-100 text-sm">{{ a.name || a.id }}</h3>
               <div class="flex items-center gap-1.5 mt-2 flex-wrap">
-                <Badge>{{ store.backendLabel(a.llm?.backend) }} / {{ a.llm?.model || '?' }}</Badge>
+                <Badge variant="muted">{{ store.backendLabel(a.llm?.backend) }} / {{ a.llm?.model || '?' }}</Badge>
                 <Badge v-if="a.transcription?.backend" variant="muted">STT</Badge>
                 <Badge v-if="a.tts?.backend" variant="muted">TTS</Badge>
-                <Badge v-if="(a.mcpServers||[]).length" variant="atlantico">{{ (a.mcpServers||[]).length }} MCP{{ (a.mcpServers||[]).length > 1 ? 's' : '' }}</Badge>
+                <Badge v-if="(a.mcpServers||[]).length" variant="muted">{{ (a.mcpServers||[]).length }} MCP{{ (a.mcpServers||[]).length > 1 ? 's' : '' }}</Badge>
               </div>
             </div>
             <div class="flex items-center gap-1 flex-shrink-0">

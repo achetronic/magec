@@ -41,6 +41,17 @@
 
 ## Medium Priority
 
+### Refactor MemoryCard to use Card component
+
+**Problem**: `MemoryCard.vue` has its own `<div class="bg-piedra-900 border rounded-xl p-4 ...">` with duplicated hover color styles (`hover:border-green-500/15 hover:shadow-[...]`). These values must be kept in sync manually with `Card.vue`'s `colorMap`.
+
+**Solution**: Make `MemoryCard` wrap `<Card color="green">` as its outer container and put all its custom content (radio button, health indicator, action buttons) inside the slot. This way hover styles are controlled in one place.
+
+**Files to modify**:
+- `admin-ui/src/views/memory/MemoryCard.vue` — replace outer `<div>` with `<Card color="green">`
+
+---
+
 ### Add Voice Activity Detection During TTS
 
 **Problem**: On mobile, microphone can pick up speaker output and trigger wake word detection while TTS is playing.
@@ -273,6 +284,8 @@ Currently voice selection is server-side only. Could add UI for users to preview
 - [x] Webhook Swagger docs (userapi)
 - [x] OutputKey on AgentDefinition (ADK output key for flows)
 - [x] Entity color system (7 entities, documented in ENTITY_COLORS.md)
+- [x] Card.vue `color` prop: hover border tint + glow shadow per entity color (DRY, all 7 list views use it)
+- [x] Card hover intensity reduction: border `/15` opacity, shadow `0.04` — subtle, not distracting
 - [x] Sidebar navigation (3 groups: Infraestructura, Agentes, Conexiones)
 - [x] TopBar with section context + stats badges + refresh
 - [x] Flow editor: canvas with nested blocks, drag-and-drop, pan/zoom

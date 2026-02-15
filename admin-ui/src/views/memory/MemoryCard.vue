@@ -2,7 +2,7 @@
   <div
     class="bg-piedra-900 border rounded-xl p-4 transition-all duration-200"
     :class="active
-      ? 'border-piedra-700/50 hover:border-green-500/30 hover:shadow-[0_0_15px_-3px_rgba(74,222,128,0.08)]'
+      ? 'border-piedra-700/50 hover:border-green-500/15 hover:shadow-[0_0_15px_-3px_rgba(74,222,128,0.04)]'
       : 'border-piedra-700/50 hover:border-piedra-600/50'"
   >
     <div class="flex items-start gap-3">
@@ -64,7 +64,7 @@
         </p>
         <p v-if="provider.config?.ttl" class="text-[10px] text-arena-400 mb-2">TTL: {{ provider.config.ttl }}</p>
         <div class="flex flex-wrap gap-1">
-          <Badge :variant="provider.category === 'session' ? 'atlantico' : 'purple'">{{ categoryLabel }}</Badge>
+          <Badge variant="muted">{{ categoryLabel }}</Badge>
         </div>
       </div>
     </div>

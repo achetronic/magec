@@ -28,6 +28,26 @@ Tinted backgrounds always `{color}-500/10` or `{color}-500/15`, text `{color}-30
 
 ---
 
+## Card Component (`Card.vue`)
+
+**Props**: `active` (Boolean), `color` (String — entity color key)
+
+Base classes: `bg-piedra-900 border border-piedra-700/50 rounded-xl p-4 transition-all duration-200`
+
+**Hover behavior**: When `color` is set, hover tints the border to the entity color and adds a subtle glow shadow. Without `color`, hover lightens to `piedra-600/50`.
+
+| Property | Value | Rationale |
+|----------|-------|----------|
+| Border opacity | `{color}-500/15` | Barely visible tint — quiet by default, color on interaction |
+| Shadow | `0_0_15px_-3px_rgba({r},{g},{b},0.04)` | Imperceptible glow, just enough to lift the card |
+| Fallback (no color) | `hover:border-piedra-600/50` | Neutral lightening for generic cards |
+
+**DRY rule**: All entity list views use `<Card :color="entityColor">`. No view should duplicate hover border/shadow classes. Specialized cards (like `MemoryCard`) should wrap `Card` as their outer container rather than reimplementing the same `<div>` with duplicated styles.
+
+**Color map** (8 keys): `purple`, `green`, `atlantico`, `sol`, `rose`, `indigo`, `lava`, `teal` — matches the Entity Colors table above.
+
+---
+
 ## Control Taxonomy
 
 ### 1. Segmented Control (view mode switches)
@@ -216,6 +236,25 @@ For any repeating row in a scrollable area (messages, logs, events, audit entrie
 
 ---
 
+## Badge Variants
+
+The `Badge` component has a `variant` prop. Use **`muted`** for all informational/categorical chips on cards. Reserve colored variants only for **status indicators**.
+
+| Variant | Style | When to use |
+|---------|-------|-------------|
+| `muted` | `bg-piedra-800 text-arena-500` | Tags, categories, entity references, type labels — anything descriptive/informational |
+| `green` | `bg-green-500/15 text-green-300` | Status only: `summarized`, `healthy`, `active` |
+| `default` | `bg-piedra-800 text-arena-300` | Avoid — slightly brighter than `muted`, creates visual competition with titles |
+| Colored (`sol`, `atlantico`, `rose`, etc.) | `bg-{color}-500/15 text-{color}-300` | **Never on cards** — colored badges compete with card titles and create noise. Only acceptable in isolated contexts (e.g., filter pills) |
+
+### Rule: badges on cards are always `muted`
+
+Colored badges draw the eye away from the card title and create visual hierarchy conflicts. On list cards, all badges (backend/model, STT, TTS, MCP count, agent references, type labels) use `variant="muted"`. The card's hover border already provides the entity color — badges don't need to repeat it.
+
+**Exception**: status badges like `summarized` use `variant="green"` because they convey a state change, not a category.
+
+---
+
 ## Typography Scale
 
 | Role | Classes |
@@ -257,3 +296,7 @@ For any repeating row in a scrollable area (messages, logs, events, audit entrie
 | 2026-02-15 | Detail header meta (time, user, session, msg count) moved to hover popover | Inline meta text consumed too much horizontal space, forcing controls to overlap or wrap too early; popover keeps data accessible without cluttering the header |
 | 2026-02-15 | Detail header responsive: `flex-col lg:flex-row` | Controls bar is wide; below `lg` it drops to its own line cleanly instead of overlapping the title |
 | 2026-02-15 | Messages displayed newest-first, "load older" button at the bottom | Most recent activity is what the user cares about first; older messages loaded on demand downward |
+| 2026-02-15 | Card.vue `color` prop with `colorMap` for entity-colored hover borders | DRY: all 7 list views pass their entity color to Card instead of duplicating `hover:border-{color}` classes |
+| 2026-02-15 | Card hover intensity: border `/15`, shadow `0.04` | First version (`/30`, `0.08`) was too intense — halved both values for a subtle, barely-perceptible effect |
+| 2026-02-15 | MemoryCard should wrap Card, not duplicate its styles | Pending refactor — MemoryCard currently has its own outer `<div>` with duplicated hover classes; should use `<Card color="green">` as container |
+| 2026-02-15 | All card badges use `variant="muted"` — no colored badges on cards | Colored badges (`sol`, `atlantico`, `rose`) competed visually with card titles; `muted` keeps badges subordinate. Only exception: status badges like `summarized` (green) |

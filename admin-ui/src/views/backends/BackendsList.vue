@@ -34,7 +34,7 @@
         </div>
         <div v-if="usedBy(b.id).length" class="flex flex-wrap gap-1">
           <Tooltip v-for="ref in usedBy(b.id)" :key="ref.name" :text="ref.tooltip">
-            <Badge variant="sol">{{ ref.name }}</Badge>
+            <Badge variant="muted">{{ ref.name }}</Badge>
           </Tooltip>
         </div>
         <p v-else class="text-[10px] text-arena-600">Not used by any agent</p>

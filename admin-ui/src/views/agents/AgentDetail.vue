@@ -39,7 +39,7 @@
         <div class="space-y-1.5">
           <h4 class="text-[10px] font-medium text-arena-500 uppercase tracking-wider">MCP Servers</h4>
           <div v-if="mcpIds.length" class="flex flex-wrap gap-1.5">
-            <Badge variant="atlantico" v-for="id in mcpIds" :key="id">{{ mcpName(id) }}</Badge>
+            <Badge variant="muted" v-for="id in mcpIds" :key="id">{{ mcpName(id) }}</Badge>
           </div>
           <p v-else class="text-[11px] text-arena-600">None linked</p>
         </div>
