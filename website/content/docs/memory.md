@@ -4,12 +4,16 @@ title: "Memory"
 
 Memory is what turns a stateless chatbot into an assistant that actually knows you. Without memory, every conversation starts from zero — the agent has no idea who you are, what you've discussed before, or what you prefer. With memory, agents remember.
 
+<div class="screenshots" style="margin-bottom: 2rem;">
+{{< screenshot src="img/screenshots/admin-memory.png" alt="Admin UI — Memory Providers" >}}
+</div>
+
 Magec provides two types of memory that work at different scales:
 
 - **Session memory** — Remembers the current conversation (short-term, like working memory)
 - **Long-term memory** — Remembers facts and preferences across all conversations (persistent, like a personal database)
 
-Both are configured as **memory providers** in the Admin UI, then assigned to individual agents. Each agent can use one, both, or neither — you decide based on what the agent needs.
+Both are configured as **memory providers** in the Admin UI under **Memory**. Once configured, they apply globally — every agent automatically gets its own isolated memory space within these shared providers. There's no per-agent memory selection; the infrastructure is shared, but each agent's data is kept completely separate through unique identifiers.
 
 ## Session memory (Redis)
 
@@ -28,6 +32,10 @@ This is implemented with Redis, which provides fast read/write access and automa
 ### Configuration
 
 Create a session memory provider in the Admin UI under **Memory**:
+
+<div class="screenshots" style="margin-bottom: 2rem;">
+{{< screenshot src="img/screenshots/admin-memory-session-dialog.png" alt="Admin UI — New Session Memory Provider" >}}
+</div>
 
 | Field | Description |
 |-------|-------------|
@@ -94,18 +102,16 @@ Long-term memory is most valuable for agents that interact with the same users r
 
 It's less useful for agents in flows that process data rather than interact with humans, or for one-shot task agents.
 
-## Assigning memory to agents
+## How agents use memory
 
-Once you've created memory providers, assign them to agents in the agent configuration:
+Memory is global, not per-agent. Once you create memory providers, all agents automatically use them — no additional configuration needed on the agent side.
 
-1. Open the agent in the Admin UI
-2. Expand the **Memory** section
-3. Select a session memory provider (Redis) and/or a long-term memory provider (PostgreSQL)
-4. Save
+Each agent gets its own isolated space within the shared providers:
 
-The agent starts using memory immediately — no restart needed.
+- In **Redis**, session history is stored under keys that include the agent ID and session ID — conversations with one agent never mix with another.
+- In **PostgreSQL**, long-term memories are tagged with the agent's identifier — one agent's memories are invisible to others.
 
-Multiple agents can share the same memory providers. This means their sessions are stored in the same Redis instance and their long-term memories in the same PostgreSQL database. Each agent's data is kept separate through unique identifiers.
+This means you set up memory once and every agent benefits. A new agent you create tomorrow will automatically have session memory and long-term memory without any extra steps.
 
 ## Health checks
 

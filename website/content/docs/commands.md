@@ -4,6 +4,10 @@ title: "Commands"
 
 Commands are reusable prompts — predefined messages that you write once and trigger repeatedly through [cron jobs](/magec/docs/cron/) and [webhooks](/magec/docs/webhooks/). Instead of duplicating the same prompt across multiple triggers, you define it as a command and reference it wherever you need it.
 
+<div class="screenshots" style="margin-bottom: 2rem;">
+{{< screenshot src="img/screenshots/admin-commands.png" alt="Admin UI — Commands" >}}
+</div>
+
 ## Why commands exist
 
 Imagine you have a daily report that needs to be generated every morning. The prompt is always the same: *"Generate a summary of yesterday's sales data, including total revenue, top products, and notable trends."* Without commands, you'd have to write this prompt into every cron job or webhook that triggers it. If you want to change the wording, you'd need to update it in multiple places.
@@ -13,6 +17,10 @@ With commands, you write the prompt once. Every cron job or webhook that uses it
 ## Creating a command
 
 In the Admin UI, go to **Commands** and click **New**:
+
+<div class="screenshots" style="margin-bottom: 2rem;">
+{{< screenshot src="img/screenshots/admin-command-dialog.png" alt="Admin UI — Edit Command dialog" >}}
+</div>
 
 | Field | Description |
 |-------|-------------|

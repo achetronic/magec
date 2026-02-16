@@ -79,14 +79,14 @@ async function onRefresh() {
 }
 
 const sections = {
-  backends:  { label: 'Backends',     icon: 'server',   color: 'purple',    group: 'Infraestructura' },
-  memory:    { label: 'Memory',       icon: 'database',  color: 'green',     group: 'Infraestructura' },
-  mcps:      { label: 'MCP Servers',  icon: 'bolt',      color: 'atlantico', group: 'Infraestructura' },
-  agents:    { label: 'Agents',       icon: 'users',     color: 'sol',       group: 'Agentes' },
-  flows:     { label: 'Flows',        icon: 'flow',      color: 'rose',      group: 'Agentes' },
-  commands:  { label: 'Commands',     icon: 'command',   color: 'indigo',    group: 'Agentes' },
-  clients:   { label: 'Clients',      icon: 'phone',     color: 'lava',      group: 'Conexiones' },
-  conversations: { label: 'Conversations', icon: 'chat', color: 'teal',      group: 'Auditoría' },
+  backends:  { label: 'Backends',     icon: 'server',   color: 'purple',    group: 'Infrastructure' },
+  memory:    { label: 'Memory',       icon: 'database',  color: 'green',     group: 'Infrastructure' },
+  mcps:      { label: 'MCP Servers',  icon: 'bolt',      color: 'atlantico', group: 'Infrastructure' },
+  agents:    { label: 'Agents',       icon: 'users',     color: 'sol',       group: 'Agents' },
+  flows:     { label: 'Flows',        icon: 'flow',      color: 'rose',      group: 'Agents' },
+  commands:  { label: 'Commands',     icon: 'command',   color: 'indigo',    group: 'Agents' },
+  clients:   { label: 'Clients',      icon: 'phone',     color: 'lava',      group: 'Connections' },
+  conversations: { label: 'Conversations', icon: 'chat', color: 'teal',      group: 'Audit' },
 }
 
 const section = computed(() => sections[props.activeTab] || sections.backends)

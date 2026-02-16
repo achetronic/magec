@@ -125,13 +125,6 @@
 <p>Each webhook gets a unique URL and its own authentication token. There are two modes depending on where the prompt comes from.</p>
 <h2 id="command-mode">Command mode</h2>
 <p>The webhook runs a preconfigured <a href="/magec/docs/commands/">command</a> — a reusable prompt that you define once and trigger as many times as you want. The request body is ignored; the prompt is always the same command.</p>
-<div class="screenshots" style="margin-bottom: 2rem;">
-
-
-
-<img src="/img/screenshots/admin-clients-webhook-command.png" alt="Admin UI — Webhook client (command mode)" class="screenshot screenshot--desktop">
-
-</div>
 <p>This is useful for recurring tasks that always do the same thing:</p>
 <ul>
 <li><strong>Daily reports</strong> — A monitoring system hits the webhook every morning, the agent queries data and generates a summary</li>
@@ -168,13 +161,6 @@
 </table>
 <h2 id="passthrough-mode">Passthrough mode</h2>
 <p>The prompt comes from the outside. Whatever is sent in the request body gets forwarded to the agent as the user message. The webhook acts as a bridge between external systems and your agents.</p>
-<div class="screenshots" style="margin-bottom: 2rem;">
-
-
-
-<img src="/img/screenshots/admin-clients-webhook-passthrough.png" alt="Admin UI — Webhook client (passthrough mode)" class="screenshot screenshot--desktop">
-
-</div>
 <p>This is the mode you want when the input is dynamic:</p>
 <ul>
 <li><strong>Form submissions</strong> — A contact form sends the message to the agent for processing or classification</li>

@@ -122,11 +122,25 @@
       </button>
       <h1>Commands</h1>
       <p>Commands are reusable prompts — predefined messages that you write once and trigger repeatedly through <a href="/magec/docs/cron/">cron jobs</a> and <a href="/magec/docs/webhooks/">webhooks</a>. Instead of duplicating the same prompt across multiple triggers, you define it as a command and reference it wherever you need it.</p>
+<div class="screenshots" style="margin-bottom: 2rem;">
+
+
+
+<img src="/img/screenshots/admin-commands.png" alt="Admin UI — Commands" class="screenshot screenshot--desktop">
+
+</div>
 <h2 id="why-commands-exist">Why commands exist</h2>
 <p>Imagine you have a daily report that needs to be generated every morning. The prompt is always the same: <em>&ldquo;Generate a summary of yesterday&rsquo;s sales data, including total revenue, top products, and notable trends.&rdquo;</em> Without commands, you&rsquo;d have to write this prompt into every cron job or webhook that triggers it. If you want to change the wording, you&rsquo;d need to update it in multiple places.</p>
 <p>With commands, you write the prompt once. Every cron job or webhook that uses it just references the command by ID. Change the prompt in one place, and all triggers use the updated version.</p>
 <h2 id="creating-a-command">Creating a command</h2>
 <p>In the Admin UI, go to <strong>Commands</strong> and click <strong>New</strong>:</p>
+<div class="screenshots" style="margin-bottom: 2rem;">
+
+
+
+<img src="/img/screenshots/admin-command-dialog.png" alt="Admin UI — Edit Command dialog" class="screenshot screenshot--desktop">
+
+</div>
 <table>
   <thead>
       <tr>

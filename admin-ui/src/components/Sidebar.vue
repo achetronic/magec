@@ -93,7 +93,7 @@ const store = useDataStore()
 
 const groups = [
   {
-    label: 'Infraestructura',
+    label: 'Infrastructure',
     items: [
       { id: 'backends', label: 'Backends', icon: 'server', color: 'purple' },
       { id: 'memory', label: 'Memory', icon: 'database', color: 'green' },
@@ -101,7 +101,7 @@ const groups = [
     ],
   },
   {
-    label: 'Agentes',
+    label: 'Agents',
     items: [
       { id: 'agents', label: 'Agents', icon: 'users', color: 'sol' },
       { id: 'flows', label: 'Flows', icon: 'flow', color: 'rose' },
@@ -109,13 +109,13 @@ const groups = [
     ],
   },
   {
-    label: 'Conexiones',
+    label: 'Connections',
     items: [
       { id: 'clients', label: 'Clients', icon: 'phone', color: 'lava' },
     ],
   },
   {
-    label: 'Auditoría',
+    label: 'Audit',
     items: [
       { id: 'conversations', label: 'Conversations', icon: 'chat', color: 'teal' },
     ],

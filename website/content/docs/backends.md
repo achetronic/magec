@@ -12,6 +12,12 @@ Every agent references a backend for its LLM. Optionally, an agent can also refe
 
 ## Backend types
 
+Click **+ New Backend** to create one. All types share the same dialog:
+
+<div class="screenshots" style="margin-bottom: 2rem;">
+{{< screenshot src="img/screenshots/admin-backend-dialog.png" alt="Admin UI — New Backend dialog" >}}
+</div>
+
 ### OpenAI (`openai`)
 
 Works with OpenAI's API and any service that implements the same protocol. This includes **Ollama**, **LM Studio**, **vLLM**, **LocalAI**, and many others. If a service exposes `/v1/chat/completions`, this is the type to use.

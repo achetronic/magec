@@ -122,12 +122,19 @@
       </button>
       <h1>Memory</h1>
       <p>Memory is what turns a stateless chatbot into an assistant that actually knows you. Without memory, every conversation starts from zero — the agent has no idea who you are, what you&rsquo;ve discussed before, or what you prefer. With memory, agents remember.</p>
+<div class="screenshots" style="margin-bottom: 2rem;">
+
+
+
+<img src="/img/screenshots/admin-memory.png" alt="Admin UI — Memory Providers" class="screenshot screenshot--desktop">
+
+</div>
 <p>Magec provides two types of memory that work at different scales:</p>
 <ul>
 <li><strong>Session memory</strong> — Remembers the current conversation (short-term, like working memory)</li>
 <li><strong>Long-term memory</strong> — Remembers facts and preferences across all conversations (persistent, like a personal database)</li>
 </ul>
-<p>Both are configured as <strong>memory providers</strong> in the Admin UI, then assigned to individual agents. Each agent can use one, both, or neither — you decide based on what the agent needs.</p>
+<p>Both are configured as <strong>memory providers</strong> in the Admin UI under <strong>Memory</strong>. Once configured, they apply globally — every agent automatically gets its own isolated memory space within these shared providers. There&rsquo;s no per-agent memory selection; the infrastructure is shared, but each agent&rsquo;s data is kept completely separate through unique identifiers.</p>
 <h2 id="session-memory-redis">Session memory (Redis)</h2>
 <p>Session memory stores the recent conversation history for each user-agent pair. When enabled, the agent can reference what was said earlier in the conversation without the user repeating it.</p>
 <p>This is implemented with Redis, which provides fast read/write access and automatic expiration. Each conversation session gets its own entry in Redis, identified by the user ID and session ID.</p>
@@ -141,6 +148,13 @@
 </ol>
 <h3 id="configuration">Configuration</h3>
 <p>Create a session memory provider in the Admin UI under <strong>Memory</strong>:</p>
+<div class="screenshots" style="margin-bottom: 2rem;">
+
+
+
+<img src="/img/screenshots/admin-memory-session-dialog.png" alt="Admin UI — New Session Memory Provider" class="screenshot screenshot--desktop">
+
+</div>
 <table>
   <thead>
       <tr>
@@ -238,16 +252,14 @@
 <li><strong>Home automation</strong> — Remember routines, preferences (&ldquo;I like the lights dimmed in the evening&rdquo;)</li>
 </ul>
 <p>It&rsquo;s less useful for agents in flows that process data rather than interact with humans, or for one-shot task agents.</p>
-<h2 id="assigning-memory-to-agents">Assigning memory to agents</h2>
-<p>Once you&rsquo;ve created memory providers, assign them to agents in the agent configuration:</p>
-<ol>
-<li>Open the agent in the Admin UI</li>
-<li>Expand the <strong>Memory</strong> section</li>
-<li>Select a session memory provider (Redis) and/or a long-term memory provider (PostgreSQL)</li>
-<li>Save</li>
-</ol>
-<p>The agent starts using memory immediately — no restart needed.</p>
-<p>Multiple agents can share the same memory providers. This means their sessions are stored in the same Redis instance and their long-term memories in the same PostgreSQL database. Each agent&rsquo;s data is kept separate through unique identifiers.</p>
+<h2 id="how-agents-use-memory">How agents use memory</h2>
+<p>Memory is global, not per-agent. Once you create memory providers, all agents automatically use them — no additional configuration needed on the agent side.</p>
+<p>Each agent gets its own isolated space within the shared providers:</p>
+<ul>
+<li>In <strong>Redis</strong>, session history is stored under keys that include the agent ID and session ID — conversations with one agent never mix with another.</li>
+<li>In <strong>PostgreSQL</strong>, long-term memories are tagged with the agent&rsquo;s identifier — one agent&rsquo;s memories are invisible to others.</li>
+</ul>
+<p>This means you set up memory once and every agent benefits. A new agent you create tomorrow will automatically have session memory and long-term memory without any extra steps.</p>
 <h2 id="health-checks">Health checks</h2>
 <p>The Admin UI includes a health check button for each memory provider. Use it to verify that the connection to Redis or PostgreSQL is working correctly. This is especially useful after initial setup or when troubleshooting connectivity issues.</p>
 

@@ -91,8 +91,5 @@
   <text x="770" y="282" text-anchor="middle" fill="#f87171" font-family="system-ui, sans-serif" font-size="11" font-weight="500" opacity="0.6">Discard</text>
   <text x="770" y="300" text-anchor="middle" fill="#52525b" font-family="system-ui, sans-serif" font-size="9">Next frame</text>
 
-  <!-- Loop arrow from discard back to step 1 -->
-  <path d="M720 286 Q700 286 700 306 Q700 326 100 326 Q30 326 30 200 Q30 155 30 150" stroke="#52525b" stroke-width="1" opacity="0.3" fill="none" stroke-dasharray="4,3"/>
-  <polygon points="26,154 30,146 34,154" fill="#52525b" opacity="0.3"/>
-  <text x="365" y="322" text-anchor="middle" fill="#52525b" font-family="system-ui, sans-serif" font-size="8" font-style="italic">continuous loop — every ~32ms</text>
+
 </svg>

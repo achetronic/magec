@@ -67,14 +67,6 @@ Any service that implements the OpenAI-compatible API (`/v1/audio/transcriptions
 In the fully local deployment, both STT and TTS run on your server by default. No audio or text is sent anywhere. If you switch to a cloud provider, only the captured speech (STT) or response text (TTS) is sent to that provider — the continuous microphone stream and detection still happen entirely on your server.
 {{< /callout >}}
 
-## The complete flow
-
-Here's the full journey from "Oye Magec" to hearing a response:
-
-{{< diagram src="img/diagrams/voice-flow.svg" alt="Diagram — Complete voice flow" >}}
-
-Steps 1–3 always happen on your server. Steps 4–6 use whichever backends you configured — local or cloud. The browser only captures audio and plays the response.
-
 ## Disabling voice
 
 If you don't need the Voice UI or voice features, set `voice.ui.enabled: false` in your `config.yaml`:

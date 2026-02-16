@@ -6,10 +6,6 @@ Cron clients run [commands](/magec/docs/commands/) on a schedule. Define when an
 
 This is how you automate tasks that need to happen regularly without anyone pressing a button.
 
-<div class="screenshots" style="margin-bottom: 2rem;">
-{{< screenshot src="img/screenshots/admin-clients-cron.png" alt="Admin UI — Cron client" >}}
-</div>
-
 ## How it works
 
 1. You create a [command](/magec/docs/commands/) — a reusable prompt paired with an agent

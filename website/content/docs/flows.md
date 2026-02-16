@@ -6,6 +6,10 @@ A flow chains multiple agents into a multi-step workflow. Instead of one agent h
 
 Flows are built visually in the Admin UI with a drag-and-drop editor. You can also define them as JSON through the API. The visual editor is the same regardless of complexity — a 2-agent pipeline and a 20-agent workflow use the same building blocks.
 
+<div class="screenshots" style="margin-bottom: 2rem;">
+{{< screenshot src="img/screenshots/admin-flows.png" alt="Admin UI — Flows" >}}
+</div>
+
 ## Why use flows
 
 A single agent can be powerful, but it has limits. It might be great at writing but mediocre at fact-checking. It might handle research well but produce unstructured output. Flows solve this by letting you compose specialized agents:
@@ -58,7 +62,7 @@ The Research Pipeline above shows a simple flow: parallel research and critique,
 The same editor handles much larger workflows. The Software Factory below chains 13 agents through a full software development lifecycle:
 
 <div class="screenshots" style="margin-bottom: 2rem;">
-{{< screenshot src="img/screenshots/admin-flows.png" alt="Admin UI — Software Factory flow (13 agents)" >}}
+{{< screenshot src="img/screenshots/admin-flow-complex.png" alt="Admin UI — Software Factory flow (13 agents)" >}}
 </div>
 
 ### How data flows between agents

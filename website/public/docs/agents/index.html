@@ -131,15 +131,15 @@
 
 </div>
 <p>Click any agent to open its configuration. The settings are organized in collapsible sections so you can focus on what matters.</p>
-<h2 id="general">General</h2>
-<p>The basics: name, description, and tags.</p>
 <div class="screenshots" style="margin-bottom: 2rem;">
 
 
 
-<img src="/img/screenshots/admin-agent-general.png" alt="Agent dialog — General" class="screenshot screenshot--desktop">
+<img src="/img/screenshots/admin-agent-dialog.png" alt="Admin UI — New Agent dialog" class="screenshot screenshot--desktop">
 
 </div>
+<h2 id="general">General</h2>
+<p>The basics: name, description, and tags.</p>
 <p>The <strong>name</strong> is how this agent appears everywhere in the platform — in the Voice UI agent switcher, in flow step labels, in conversation logs, in the Telegram <code>/agent</code> command. Pick something meaningful.</p>
 <p>The <strong>description</strong> is a note for yourself. It appears in the admin panel to help you remember what this agent is for when you have many of them.</p>
 <p><strong>Tags</strong> are optional labels for organizing agents. They become useful when you have dozens of agents and want to filter or group them by purpose (e.g., <code>customer-service</code>, <code>internal</code>, <code>research</code>).</p>
@@ -167,13 +167,6 @@
 </table>
 <h2 id="system-prompt">System Prompt</h2>
 <p>This is the most important field. The system prompt defines who the agent is, how it behaves, what it should and shouldn&rsquo;t do, and in what style it should respond. Every single response the agent produces is shaped by this prompt.</p>
-<div class="screenshots" style="margin-bottom: 2rem;">
-
-
-
-<img src="/img/screenshots/admin-agent-prompt.png" alt="Agent dialog — System Prompt" class="screenshot screenshot--desktop">
-
-</div>
 <p>Write the prompt as instructions to the agent. You can be as detailed as you want — multi-paragraph instructions, examples of desired output, rules, personality traits, language preferences. The more specific you are, the more predictable the agent&rsquo;s behavior.</p>
 <p><strong>Example prompts:</strong></p>
 <ul>
@@ -205,13 +198,6 @@
 </table>
 <h2 id="llm">LLM</h2>
 <p>Which AI brain powers this agent. You select a <a href="/magec/docs/backends/">backend</a> (the provider connection) and a model (which specific model to use from that provider).</p>
-<div class="screenshots" style="margin-bottom: 2rem;">
-
-
-
-<img src="/img/screenshots/admin-agent-llm.png" alt="Agent dialog — LLM" class="screenshot screenshot--desktop">
-
-</div>
 <p>The backend dropdown shows all backends you&rsquo;ve configured. The model is a free-text field — you type the model identifier exactly as the provider expects it.</p>
 <table>
   <thead>
@@ -240,65 +226,29 @@
 
 <h2 id="memory">Memory</h2>
 <p>Memory lets agents remember things between conversations. Without memory, every conversation starts from scratch. With memory, agents can recall what you talked about yesterday, remember your preferences, and build context over time.</p>
-<div class="screenshots" style="margin-bottom: 2rem;">
-
-
-
-<img src="/img/screenshots/admin-agent-memory.png" alt="Agent dialog — Memory" class="screenshot screenshot--desktop">
-
-</div>
-<p>Magec offers two types of memory, configured independently:</p>
-<h3 id="session-memory-redis">Session memory (Redis)</h3>
-<p>Short-term conversation history. When enabled, the agent sees the recent messages from the current conversation session. This means it can reference what you said five messages ago without you repeating it.</p>
-<p>Session memory has a TTL (time-to-live) — after the configured period, old sessions expire. This is useful for keeping memory relevant and not overwhelming the agent with ancient context.</p>
-<h3 id="long-term-memory-postgresql--pgvector">Long-term memory (PostgreSQL + pgvector)</h3>
-<p>Semantic memory that persists across sessions and conversations. When enabled, the agent automatically:</p>
+<p>Memory in Magec is configured <strong>globally</strong> — you set up memory providers once (under <strong>Memory</strong> in the Admin UI), and all agents automatically benefit from them. There&rsquo;s no per-agent memory selection.</p>
+<h3 id="how-it-works">How it works</h3>
+<p>When memory providers are configured, every agent gets its own isolated memory space within those shared providers. Think of it like an apartment building: the building (Redis, PostgreSQL) is shared infrastructure, but each agent has its own unit with its own keys — no agent can access another&rsquo;s memories.</p>
 <ul>
-<li><strong>Searches</strong> for relevant past interactions when a new conversation starts</li>
-<li><strong>Saves</strong> important facts, preferences, and information as the conversation progresses</li>
+<li><strong>Session memory (Redis)</strong> — Each agent&rsquo;s conversation history is stored under unique identifiers, so conversations with one agent never bleed into another.</li>
+<li><strong>Long-term memory (PostgreSQL + pgvector)</strong> — Each agent builds its own semantic memory over time. Memories saved by your home assistant stay separate from memories saved by your coding assistant.</li>
 </ul>
-<p>This uses vector embeddings for semantic search, meaning the agent doesn&rsquo;t just do keyword matching — it finds conceptually related memories. If you told the agent your name three weeks ago, it can find that memory even if you ask in a completely different way.</p>
-<p>Long-term memory requires a <a href="/magec/docs/memory/">memory provider</a> configured with PostgreSQL + pgvector and an embedding backend.</p>
-<table>
-  <thead>
-      <tr>
-          <th>Field</th>
-          <th>Description</th>
-      </tr>
-  </thead>
-  <tbody>
-      <tr>
-          <td><code>memorySession</code></td>
-          <td>Select a Redis-backed session memory provider</td>
-      </tr>
-      <tr>
-          <td><code>memoryLongTerm</code></td>
-          <td>Select a PostgreSQL + pgvector long-term memory provider</td>
-      </tr>
-  </tbody>
-</table>
-<p>Both are optional. You can enable one, both, or neither depending on what the agent needs. A simple FAQ bot probably doesn&rsquo;t need memory. A personal assistant absolutely does.</p>
+<p>You don&rsquo;t need to configure anything on the agent itself. If a session memory provider exists, agents use it. If a long-term memory provider exists, agents get the <code>search_memory</code> and <code>save_to_memory</code> tools automatically.</p>
+
+
+
+<div class="docs-callout docs-callout--info">
+  A simple FAQ bot and a personal assistant share the same memory infrastructure, but the personal assistant will naturally accumulate more memories because of how it interacts with users. The memory system is self-managing — agents decide what to remember based on their system prompt and the conversation context.
+</div>
+
+<p>For details on setting up memory providers (Redis for sessions, PostgreSQL + pgvector for long-term), see <a href="/magec/docs/memory/">Memory</a>.</p>
 <h2 id="mcp-servers">MCP Servers</h2>
 <p>This is where agents become truly powerful. <a href="/magec/docs/mcp/">MCP (Model Context Protocol)</a> lets you connect external tools to the agent — file access, web search, database queries, smart home control, GitHub operations, and hundreds more.</p>
-<div class="screenshots" style="margin-bottom: 2rem;">
-
-
-
-<img src="/img/screenshots/admin-agent-mcp.png" alt="Agent dialog — MCP Servers" class="screenshot screenshot--desktop">
-
-</div>
 <p>Each toggle enables a configured MCP server, giving the agent access to its tools. When the agent decides it needs to perform an action (like turning on a light, reading a file, or querying a database), it calls the appropriate tool through MCP.</p>
 <p>An agent with no MCP servers can still chat — it just can&rsquo;t interact with the outside world. Adding MCP tools is what transforms an agent from a chatbot into something genuinely useful. An agent with Home Assistant MCP can control your house. An agent with GitHub MCP can manage your repositories. An agent with a database MCP can query and report on your data.</p>
 <p>The more tools you connect, the more capable your agents become. This is the mechanism that turns Magec from &ldquo;another chat interface&rdquo; into a real AI platform.</p>
 <h2 id="voice-stt--tts">Voice (STT / TTS)</h2>
 <p>Voice settings are optional. You only need them if the agent will be used through the Voice UI or if you want voice responses in Telegram.</p>
-<div class="screenshots" style="margin-bottom: 2rem;">
-
-
-
-<img src="/img/screenshots/admin-agent-voice.png" alt="Agent dialog — Voice" class="screenshot screenshot--desktop">
-
-</div>
 <p>Each agent can have its own voice configuration, which means different agents can sound different. A customer service agent could use a warm, friendly voice while a technical assistant uses a more neutral one.</p>
 <h3 id="transcription-stt--speech-to-text">Transcription (STT — Speech-to-Text)</h3>
 <p>Converts spoken audio into text. The agent needs this to understand what you&rsquo;re saying through the Voice UI or Telegram voice messages.</p>

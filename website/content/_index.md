@@ -167,6 +167,10 @@ title: "Magec — Self-hosted Multi-Agent AI Platform"
       <img src="img/screenshots/admin-backends.png" alt="Admin UI — Backends" class="screenshot screenshot--desktop">
       <img src="img/screenshots/admin-clients.png" alt="Admin UI — Clients" class="screenshot screenshot--desktop">
     </div>
+    <div class="screenshots reveal" style="margin-top: 1rem;">
+      <img src="img/screenshots/admin-conversations.png" alt="Admin UI — Conversations" class="screenshot screenshot--desktop">
+      <img src="img/screenshots/admin-conversation-detail.png" alt="Admin UI — Conversation detail" class="screenshot screenshot--desktop">
+    </div>
     <div class="section-header reveal" style="margin-top: 4rem;">
       <span class="section-label">Voice Interface</span>
       <h2 class="section-title">Talk to your agents</h2>

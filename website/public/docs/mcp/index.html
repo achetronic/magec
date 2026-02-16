@@ -136,6 +136,13 @@
 <li><strong>And hundreds more</strong> — Check the <a href="https://github.com/modelcontextprotocol/servers">MCP servers directory</a> for the full list</li>
 </ul>
 <p>When you connect an MCP server to an agent, the agent gains the ability to use all the tools that server provides. The agent decides when and how to use them based on the conversation context and its system prompt.</p>
+<div class="screenshots" style="margin-bottom: 2rem;">
+
+
+
+<img src="/img/screenshots/admin-mcp.png" alt="Admin UI — MCP Servers" class="screenshot screenshot--desktop">
+
+</div>
 <h2 id="adding-an-mcp-server">Adding an MCP server</h2>
 <p>In the Admin UI, go to <strong>MCP Servers</strong> and click <strong>New</strong>. You&rsquo;ll configure the connection depending on how the MCP server runs.</p>
 <h3 id="http-transport">HTTP transport</h3>
@@ -192,13 +199,6 @@ Prompt:   &#34;Use these tools to control smart home devices.
            Always confirm destructive actions before executing them.&#34;
 </code></pre><h3 id="stdio-transport">Stdio transport</h3>
 <p>For MCP servers that are command-line tools. Magec launches them as subprocesses and communicates over stdin/stdout. This is perfect for tools distributed as <code>npx</code>, <code>uvx</code>, or local binaries.</p>
-<div class="screenshots" style="margin-bottom: 2rem;">
-
-
-
-<img src="/img/screenshots/admin-mcp-stdio.png" alt="Admin UI — New MCP Server (Stdio)" class="screenshot screenshot--desktop">
-
-</div>
 <table>
   <thead>
       <tr>

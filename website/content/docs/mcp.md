@@ -22,6 +22,10 @@ The ecosystem is large and growing. There are MCP servers for:
 
 When you connect an MCP server to an agent, the agent gains the ability to use all the tools that server provides. The agent decides when and how to use them based on the conversation context and its system prompt.
 
+<div class="screenshots" style="margin-bottom: 2rem;">
+{{< screenshot src="img/screenshots/admin-mcp.png" alt="Admin UI — MCP Servers" >}}
+</div>
+
 ## Adding an MCP server
 
 In the Admin UI, go to **MCP Servers** and click **New**. You'll configure the connection depending on how the MCP server runs.
@@ -56,10 +60,6 @@ Prompt:   "Use these tools to control smart home devices.
 ### Stdio transport
 
 For MCP servers that are command-line tools. Magec launches them as subprocesses and communicates over stdin/stdout. This is perfect for tools distributed as `npx`, `uvx`, or local binaries.
-
-<div class="screenshots" style="margin-bottom: 2rem;">
-{{< screenshot src="img/screenshots/admin-mcp-stdio.png" alt="Admin UI — New MCP Server (Stdio)" >}}
-</div>
 
 | Field | Required | Description |
 |-------|----------|-------------|
