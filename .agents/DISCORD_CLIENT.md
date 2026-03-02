@@ -53,6 +53,8 @@ discordgo.IntentGuildMessageReactions |
 discordgo.IntentDirectMessageReactions
 ```
 
+`IntentGuilds` is intentionally omitted. Thread/channel metadata is resolved on demand via `s.Channel()` (HTTP fallback) rather than relying on the state cache being fully populated.
+
 **Message Content Intent** is privileged. Must be toggled ON in Developer Portal → Bot → Privileged Gateway Intents. Without it, `m.Content` is always empty.
 
 ## Data Model
@@ -186,12 +188,14 @@ Uses `msgutil.SplitMessage(text, msgutil.DiscordMaxMessageLength)` with Discord'
 ## Access control
 
 ```go
-func (c *Client) isAllowed(userID, channelID string) bool
+func (c *Client) isAllowed(userID string, channelIDs ...string) bool
 ```
 
 - Both lists empty → open access
-- Either list populated → OR allowlist: user allowed if in `AllowedUsers` OR channel in `AllowedChannels`
+- Either list populated → OR allowlist: user allowed if in `AllowedUsers` OR any of the `channelIDs` in `AllowedChannels`
 - Neither matches → denied (silently dropped, logged at debug level)
+
+**Thread IDs are different from their parent channel ID.** When a message arrives inside a thread, `m.ChannelID` is the thread's own ID — not the parent channel. `onMessageCreate` resolves the parent ID via `s.Channel()` (state cache + HTTP fallback) and passes both to `isAllowed`, so that a thread created from an allowed channel is itself allowed.
 
 ## Wiring (main.go)
 

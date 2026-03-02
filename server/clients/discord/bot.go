@@ -119,7 +119,11 @@ func (c *Client) onMessageCreate(s *discordgo.Session, m *discordgo.MessageCreat
 		return
 	}
 
-	if !c.isAllowed(m.Author.ID, m.ChannelID) {
+	parentID := ""
+	if ch, err := s.Channel(m.ChannelID); err == nil && isDiscordThread(ch.Type) {
+		parentID = ch.ParentID
+	}
+	if !c.isAllowed(m.Author.ID, m.ChannelID, parentID) {
 		c.logger.Debug("Unauthorized Discord message", "user", m.Author.ID, "channel", m.ChannelID)
 		return
 	}
@@ -861,7 +865,10 @@ func (c *Client) setAuthHeader(req *http.Request) {
 	}
 }
 
-func (c *Client) isAllowed(userID, channelID string) bool {
+// isAllowed checks whether a user/channel combination is permitted.
+// channelIDs accepts the direct channel and optionally the parent channel ID
+// (for threads, whose IDs differ from the parent channel they belong to).
+func (c *Client) isAllowed(userID string, channelIDs ...string) bool {
 	cfg := c.clientDef.Config.Discord
 	if len(cfg.AllowedUsers) == 0 && len(cfg.AllowedChannels) == 0 {
 		return true
@@ -869,8 +876,10 @@ func (c *Client) isAllowed(userID, channelID string) bool {
 	if len(cfg.AllowedUsers) > 0 && slices.Contains(cfg.AllowedUsers, userID) {
 		return true
 	}
-	if len(cfg.AllowedChannels) > 0 && slices.Contains(cfg.AllowedChannels, channelID) {
-		return true
+	for _, id := range channelIDs {
+		if id != "" && slices.Contains(cfg.AllowedChannels, id) {
+			return true
+		}
 	}
 	return false
 }

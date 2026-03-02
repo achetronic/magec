@@ -211,6 +211,8 @@ log:
 
 ## Code Patterns
 
+## Code Patterns
+
 ### Go Conventions
 
 - **Store-based resources**: All entities managed via admin API, persisted to `data/store.json`
@@ -234,6 +236,14 @@ log:
 - **Store dual-copy pattern**: Store maintains `rawData` (unexpanded, with `${VAR}` refs) and `data` (env-expanded). API responses use raw data, runtime uses expanded. Secret values injected as env vars before expansion
 - **Session middleware**: `SessionEnsure` prevents overwriting existing sessions (protects ContextGuard summaries). `SessionStateSeed` injects empty outputKey values so flow agents don't fail on template vars
 - **Flow wrapAgent pattern**: Same agent can appear in multiple flow steps — `wrapAgent()` creates uniquely-named delegate agents to satisfy ADK's single-parent constraint
+
+### Design Philosophy
+
+**DRY, KISS, elegant, and decoupled does not mean over-engineered.** When two options exist — one simple and one cleverly abstracted — prefer the simple one. Specifically:
+
+- Don't avoid a straightforward API call (with built-in cache + HTTP fallback) just to use a lower-level cache-only lookup that may silently miss. `s.Channel()` is the right call in discordgo; `s.State.Channel()` is an unnecessary micro-optimisation that trades reliability for nothing.
+- Don't redesign function signatures (variadic, extra parameters, new types) when the problem is already solved at the call site with one extra line.
+- Complexity is only justified when it removes real duplication or real coupling — not hypothetical ones.
 
 ### Frontend Conventions (admin-ui)
 

@@ -464,6 +464,11 @@ async function save() {
         if (Array.isArray(val) && val.length) {
           typeCfg[key] = val
         }
+      } else if (propSchema.type === 'integer' || propSchema.type === 'number') {
+        const n = Number(val)
+        if (!isNaN(n) && val !== '' && val !== null && val !== undefined) {
+          typeCfg[key] = propSchema.type === 'integer' ? Math.trunc(n) : n
+        }
       } else if (val?.toString().trim()) {
         typeCfg[key] = val.toString().trim()
       }
