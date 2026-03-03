@@ -37,3 +37,17 @@ test('buildAllowedChatThreadsPayload rejects non-positive threadId when provided
     new Error(CHAT_THREAD_RULES_ERROR),
   )
 })
+
+test('buildAllowedChatThreadsPayload deduplicates repeated chat-thread rules', () => {
+  const payload = buildAllowedChatThreadsPayload([
+    { chatId: '-1001234567890', threadId: '12' },
+    { chatId: '-1001234567890', threadId: '12' },
+    { chatId: '-1001234567890', threadId: '' },
+    { chatId: '-1001234567890', threadId: '' },
+  ])
+
+  assert.deepEqual(payload, [
+    { chatId: -1001234567890, threadId: 12 },
+    { chatId: -1001234567890 },
+  ])
+})

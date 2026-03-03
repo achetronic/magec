@@ -3,6 +3,7 @@ export const CHAT_THREAD_RULES_ERROR = 'Invalid chat/thread rules. chatId must b
 export function buildAllowedChatThreadsPayload(val) {
   const rows = normalizeAllowedChatThreadRows(val)
   const payload = []
+  const seen = new Set()
   let hasInvalidRows = false
 
   for (const row of rows) {
@@ -28,7 +29,12 @@ export function buildAllowedChatThreadsPayload(val) {
       }
       item.threadId = Math.trunc(threadID)
     }
-    payload.push(item)
+
+    const key = `${item.chatId}:${item.threadId ?? 0}`
+    if (!seen.has(key)) {
+      seen.add(key)
+      payload.push(item)
+    }
   }
 
   if (hasInvalidRows) {

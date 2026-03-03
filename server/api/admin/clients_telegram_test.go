@@ -247,3 +247,45 @@ func TestValidateClientConfig_TelegramAcceptsValidChatThreadRules(t *testing.T) 
 		t.Fatalf("unexpected validation error: %v", err)
 	}
 }
+
+func TestDedupeTelegramChatThreadRules_RemovesExactDuplicates(t *testing.T) {
+	thread := 12
+	cfg := &store.TelegramClientConfig{
+		AllowedChatThreads: store.TelegramChatThreadRules{
+			{ChatID: -1001234567890, ThreadID: &thread},
+			{ChatID: -1001234567890, ThreadID: &thread},
+			{ChatID: -1001234567890},
+			{ChatID: -1001234567890},
+		},
+	}
+
+	dedupeTelegramChatThreadRules(cfg)
+
+	if len(cfg.AllowedChatThreads) != 2 {
+		t.Fatalf("expected 2 deduplicated rules, got %d", len(cfg.AllowedChatThreads))
+	}
+	if cfg.AllowedChatThreads[0].ThreadID == nil || *cfg.AllowedChatThreads[0].ThreadID != 12 {
+		t.Fatalf("expected thread rule preserved at index 0")
+	}
+	if cfg.AllowedChatThreads[1].ThreadID != nil {
+		t.Fatalf("expected chat-only rule preserved at index 1")
+	}
+}
+
+func TestDedupeTelegramChatThreadRules_KeepsDistinctThreadVariants(t *testing.T) {
+	threadA := 12
+	threadB := 13
+	cfg := &store.TelegramClientConfig{
+		AllowedChatThreads: store.TelegramChatThreadRules{
+			{ChatID: -1001234567890, ThreadID: &threadA},
+			{ChatID: -1001234567890, ThreadID: &threadB},
+			{ChatID: -1001234567890},
+		},
+	}
+
+	dedupeTelegramChatThreadRules(cfg)
+
+	if len(cfg.AllowedChatThreads) != 3 {
+		t.Fatalf("expected 3 distinct rules, got %d", len(cfg.AllowedChatThreads))
+	}
+}

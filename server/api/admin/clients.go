@@ -118,6 +118,30 @@ func resolveTelegramTestConfig(stored, override *store.TelegramClientConfig) *st
 	return &resolved
 }
 
+func dedupeTelegramChatThreadRules(cfg *store.TelegramClientConfig) {
+	if cfg == nil || len(cfg.AllowedChatThreads) < 2 {
+		return
+	}
+
+	seen := make(map[string]struct{}, len(cfg.AllowedChatThreads))
+	deduped := make(store.TelegramChatThreadRules, 0, len(cfg.AllowedChatThreads))
+
+	for _, rule := range cfg.AllowedChatThreads {
+		threadID := 0
+		if rule.ThreadID != nil {
+			threadID = *rule.ThreadID
+		}
+		key := targetKey(rule.ChatID, threadID)
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		deduped = append(deduped, rule)
+	}
+
+	cfg.AllowedChatThreads = deduped
+}
+
 // listClients returns all clients.
 // @Summary      List clients
 // @Description  Returns all configured clients (devices, Telegram bots, etc.)
@@ -181,6 +205,7 @@ func (h *Handler) createClient(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "unsupported client type: "+c.Type)
 		return
 	}
+	dedupeTelegramChatThreadRules(c.Config.Telegram)
 	if err := validateClientConfig(c); err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
@@ -213,6 +238,7 @@ func (h *Handler) updateClient(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid JSON: "+err.Error())
 		return
 	}
+	dedupeTelegramChatThreadRules(c.Config.Telegram)
 	if c.Type != "" {
 		if err := validateClientConfig(c); err != nil {
 			writeError(w, http.StatusBadRequest, err.Error())
