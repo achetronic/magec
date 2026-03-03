@@ -175,7 +175,43 @@
         </summary>
         <div class="px-4 pb-4 space-y-4">
           <template v-for="(propSchema, key) in permissionProperties" :key="key">
-            <div>
+            <div v-if="key === 'allowedChatThreads'">
+              <FormLabel :label="propSchema.title || key" :required="isFieldRequired(key)" />
+              <div class="space-y-2">
+                <div
+                  v-for="(rule, idx) in getAllowedChatThreadRows()"
+                  :key="idx"
+                  class="grid grid-cols-[1fr_1fr_auto] gap-2"
+                >
+                  <FormInput
+                    :modelValue="rule.chatId"
+                    @update:modelValue="updateAllowedChatThread(idx, 'chatId', $event)"
+                    placeholder="Chat ID (e.g. -1001234567890)"
+                  />
+                  <FormInput
+                    :modelValue="rule.threadId"
+                    @update:modelValue="updateAllowedChatThread(idx, 'threadId', $event)"
+                    placeholder="Thread ID (optional)"
+                  />
+                  <button
+                    type="button"
+                    @click="removeAllowedChatThread(idx)"
+                    class="px-2.5 py-2 bg-piedra-800 hover:bg-lava-500/20 border border-piedra-700 rounded-lg text-xs text-arena-300 transition-colors"
+                  >
+                    Remove
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  @click="addAllowedChatThread()"
+                  class="px-3 py-2 bg-piedra-800 hover:bg-piedra-700 border border-piedra-700 rounded-lg text-xs text-arena-300 transition-colors"
+                >
+                  + Add chat rule
+                </button>
+              </div>
+              <p v-if="propSchema.description" class="text-[10px] text-arena-500 mt-1">{{ propSchema.description }}</p>
+            </div>
+            <div v-else>
               <FormLabel :label="propSchema.title || key" :required="isFieldRequired(key)" />
               <FormInput
                 :modelValue="arrayToCSV(form.config[key])"
@@ -201,6 +237,15 @@
           </button>
           <button type="button" @click="regenerateToken" class="px-3 py-2 bg-piedra-800 hover:bg-lava-500/20 border border-piedra-700 rounded-lg text-xs text-arena-300 transition-colors flex-shrink-0">
             <Icon name="refresh" size="md" />
+          </button>
+          <button
+            v-if="form.type === 'telegram'"
+            type="button"
+            @click="sendTelegramTest"
+            :disabled="isTestingTelegram"
+            class="px-3 py-2 bg-piedra-800 hover:bg-teal-500/20 disabled:opacity-50 disabled:cursor-not-allowed border border-piedra-700 rounded-lg text-xs text-arena-300 transition-colors flex-shrink-0"
+          >
+            {{ isTestingTelegram ? 'Testing...' : 'Test' }}
           </button>
         </div>
         <p class="text-[10px] text-arena-500 mt-1">Use as <code class="text-arena-400">Authorization: Bearer &lt;token&gt;</code></p>
@@ -231,6 +276,7 @@ const dialogRef = ref(null)
 const editId = ref(null)
 const isEdit = ref(false)
 const tokenVisible = ref(false)
+const isTestingTelegram = ref(false)
 const showAllEntities = ref(false)
 const maxVisibleEntities = 6
 
@@ -298,7 +344,7 @@ const visibleProperties = computed(() => {
   return result
 })
 
-const PERMISSION_KEYS = new Set(['allowedUsers', 'allowedChannels', 'allowedChats'])
+const PERMISSION_KEYS = new Set(['allowedUsers', 'allowedChannels', 'allowedChatThreads'])
 const OPTION_KEYS = new Set(['responseMode', 'threadHistoryLimit'])
 
 const mainProperties = computed(() =>
@@ -389,6 +435,76 @@ function csvToArray(propSchema, val) {
   return parts
 }
 
+function parseLegacyChatThreadRule(value) {
+  const match = value?.toString().match(/^\s*(-?\d+)(?:\s*-\s*(\d+))?\s*$/)
+  if (!match) return null
+  return { chatId: match[1], threadId: match[2] || '' }
+}
+
+function normalizeAllowedChatThreadRows(val) {
+  if (!Array.isArray(val)) return []
+  return val.map(rule => {
+    if (typeof rule === 'string') {
+      const parsed = parseLegacyChatThreadRule(rule)
+      if (!parsed) return null
+      return parsed
+    }
+    if (rule && typeof rule === 'object') {
+      return {
+        chatId: rule.chatId !== undefined && rule.chatId !== null ? String(rule.chatId) : '',
+        threadId: rule.threadId !== undefined && rule.threadId !== null ? String(rule.threadId) : '',
+      }
+    }
+    return null
+  }).filter(Boolean)
+}
+
+function getAllowedChatThreadRows() {
+  return normalizeAllowedChatThreadRows(form.config.allowedChatThreads)
+}
+
+function setAllowedChatThreadRows(rows) {
+  form.config.allowedChatThreads = rows
+}
+
+function addAllowedChatThread() {
+  const rows = getAllowedChatThreadRows()
+  rows.push({ chatId: '', threadId: '' })
+  setAllowedChatThreadRows(rows)
+}
+
+function removeAllowedChatThread(index) {
+  const rows = getAllowedChatThreadRows()
+  rows.splice(index, 1)
+  setAllowedChatThreadRows(rows)
+}
+
+function updateAllowedChatThread(index, field, value) {
+  const rows = getAllowedChatThreadRows()
+  if (!rows[index]) return
+  rows[index][field] = value?.toString().trim() ?? ''
+  setAllowedChatThreadRows(rows)
+}
+
+function buildAllowedChatThreadsPayload(val) {
+  const rows = normalizeAllowedChatThreadRows(val)
+  const payload = []
+  for (const row of rows) {
+    const chatId = Number(row.chatId)
+    if (Number.isNaN(chatId)) continue
+    const item = { chatId: Math.trunc(chatId) }
+    const threadRaw = row.threadId?.toString().trim() ?? ''
+    if (threadRaw !== '') {
+      const threadID = Number(threadRaw)
+      if (!Number.isNaN(threadID)) {
+        item.threadId = Math.trunc(threadID)
+      }
+    }
+    payload.push(item)
+  }
+  return payload
+}
+
 function onTypeChange() {
   form.config = {}
   const props = allProperties.value
@@ -407,6 +523,9 @@ function open(client = null) {
   form.enabled = client?.enabled ?? true
   form.allowedAgents = [...(client?.allowedAgents || [])]
   form.config = { ...(client?.config?.[client?.type] || {}) }
+  if (form.type === 'telegram') {
+    form.config.allowedChatThreads = normalizeAllowedChatThreadRows(form.config.allowedChatThreads)
+  }
   form.token = client?.token || ''
   tokenVisible.value = false
   showAllEntities.value = false
@@ -449,7 +568,25 @@ async function regenerateToken() {
   }
 }
 
-async function save() {
+async function sendTelegramTest() {
+  if (!editId.value || form.type !== 'telegram' || isTestingTelegram.value) return
+  isTestingTelegram.value = true
+  try {
+    const telegramConfig = buildTypeConfig().telegram || {}
+    const result = await clientsApi.telegramTest(editId.value, { config: telegramConfig })
+    if (result.failed > 0) {
+      toast.error(`Test completed with errors. Sent ${result.sent}/${result.attempted}.`)
+      return
+    }
+    toast.success(`Test message sent to ${result.sent} destination(s).`)
+  } catch (e) {
+    toast.error(e.message)
+  } finally {
+    isTestingTelegram.value = false
+  }
+}
+
+function buildTypeConfig() {
   const config = {}
   const schema = currentSchema.value
   const props = schema.properties || {}
@@ -461,7 +598,12 @@ async function save() {
       if (propSchema.type === 'boolean') {
         typeCfg[key] = !!val
       } else if (propSchema.type === 'array') {
-        if (Array.isArray(val) && val.length) {
+        if (key === 'allowedChatThreads') {
+          const rules = buildAllowedChatThreadsPayload(val)
+          if (rules.length) {
+            typeCfg[key] = rules
+          }
+        } else if (Array.isArray(val) && val.length) {
           typeCfg[key] = val
         }
       } else if (propSchema.type === 'integer' || propSchema.type === 'number') {
@@ -475,6 +617,12 @@ async function save() {
     }
     config[form.type] = typeCfg
   }
+
+  return config
+}
+
+async function save() {
+  const config = buildTypeConfig()
 
   const data = {
     name: form.name.trim(),
