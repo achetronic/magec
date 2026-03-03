@@ -188,3 +188,62 @@ func TestResolveTelegramTestConfig_UsesEmptyTokenWhenEnvMissing(t *testing.T) {
 		t.Fatalf("expected empty token for missing env var, got %q", resolved.BotToken)
 	}
 }
+
+func TestValidateClientConfig_TelegramRejectsZeroChatID(t *testing.T) {
+	c := store.ClientDefinition{
+		Type: "telegram",
+		Config: store.ClientConfig{
+			Telegram: &store.TelegramClientConfig{
+				BotToken: "token",
+				AllowedChatThreads: store.TelegramChatThreadRules{
+					{ChatID: 0},
+				},
+			},
+		},
+	}
+
+	err := validateClientConfig(c)
+	if err == nil {
+		t.Fatalf("expected validation error for chatId=0")
+	}
+}
+
+func TestValidateClientConfig_TelegramRejectsNonPositiveThreadID(t *testing.T) {
+	threadID := 0
+	c := store.ClientDefinition{
+		Type: "telegram",
+		Config: store.ClientConfig{
+			Telegram: &store.TelegramClientConfig{
+				BotToken: "token",
+				AllowedChatThreads: store.TelegramChatThreadRules{
+					{ChatID: -1001234567890, ThreadID: &threadID},
+				},
+			},
+		},
+	}
+
+	err := validateClientConfig(c)
+	if err == nil {
+		t.Fatalf("expected validation error for threadId<=0")
+	}
+}
+
+func TestValidateClientConfig_TelegramAcceptsValidChatThreadRules(t *testing.T) {
+	threadID := 12
+	c := store.ClientDefinition{
+		Type: "telegram",
+		Config: store.ClientConfig{
+			Telegram: &store.TelegramClientConfig{
+				BotToken: "token",
+				AllowedChatThreads: store.TelegramChatThreadRules{
+					{ChatID: -1001234567890, ThreadID: &threadID},
+					{ChatID: -1001234567891},
+				},
+			},
+		},
+	}
+
+	if err := validateClientConfig(c); err != nil {
+		t.Fatalf("unexpected validation error: %v", err)
+	}
+}

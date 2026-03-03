@@ -196,9 +196,11 @@
                   <button
                     type="button"
                     @click="removeAllowedChatThread(idx)"
-                    class="px-2.5 py-2 bg-piedra-800 hover:bg-lava-500/20 border border-piedra-700 rounded-lg text-xs text-arena-300 transition-colors"
+                    title="Remove rule"
+                    aria-label="Remove rule"
+                    class="px-2.5 py-2 bg-piedra-800 hover:bg-lava-500/20 border border-lava-500/40 rounded-lg text-lava-300 hover:text-lava-200 transition-colors"
                   >
-                    Remove
+                    <Icon name="trash" size="md" />
                   </button>
                 </div>
                 <button
@@ -268,6 +270,7 @@ import FormInput from '../../components/FormInput.vue'
 import FormSelect from '../../components/FormSelect.vue'
 import FormLabel from '../../components/FormLabel.vue'
 import Icon from '../../components/Icon.vue'
+import { buildAllowedChatThreadsPayload } from './chatThreadRules.js'
 
 const emit = defineEmits(['saved'])
 const toast = inject('toast')
@@ -486,25 +489,6 @@ function updateAllowedChatThread(index, field, value) {
   setAllowedChatThreadRows(rows)
 }
 
-function buildAllowedChatThreadsPayload(val) {
-  const rows = normalizeAllowedChatThreadRows(val)
-  const payload = []
-  for (const row of rows) {
-    const chatId = Number(row.chatId)
-    if (Number.isNaN(chatId)) continue
-    const item = { chatId: Math.trunc(chatId) }
-    const threadRaw = row.threadId?.toString().trim() ?? ''
-    if (threadRaw !== '') {
-      const threadID = Number(threadRaw)
-      if (!Number.isNaN(threadID)) {
-        item.threadId = Math.trunc(threadID)
-      }
-    }
-    payload.push(item)
-  }
-  return payload
-}
-
 function onTypeChange() {
   form.config = {}
   const props = allProperties.value
@@ -622,16 +606,16 @@ function buildTypeConfig() {
 }
 
 async function save() {
-  const config = buildTypeConfig()
-
-  const data = {
-    name: form.name.trim(),
-    type: form.type,
-    allowedAgents: form.allowedAgents,
-    enabled: form.enabled,
-    config,
-  }
   try {
+    const config = buildTypeConfig()
+    const data = {
+      name: form.name.trim(),
+      type: form.type,
+      allowedAgents: form.allowedAgents,
+      enabled: form.enabled,
+      config,
+    }
+
     if (isEdit.value) {
       await clientsApi.update(editId.value, data)
     } else {

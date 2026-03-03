@@ -367,5 +367,20 @@ func validateClientConfig(c store.ClientDefinition) error {
 	if err := json.Unmarshal(raw, &full); err != nil {
 		return nil
 	}
-	return clients.ValidateConfig(c.Type, full[c.Type])
+	if err := clients.ValidateConfig(c.Type, full[c.Type]); err != nil {
+		return err
+	}
+
+	if c.Type == "telegram" && c.Config.Telegram != nil {
+		for i, rule := range c.Config.Telegram.AllowedChatThreads {
+			if rule.ChatID == 0 {
+				return fmt.Errorf("allowedChatThreads[%d].chatId must be a non-zero integer", i)
+			}
+			if rule.ThreadID != nil && *rule.ThreadID <= 0 {
+				return fmt.Errorf("allowedChatThreads[%d].threadId must be a positive integer", i)
+			}
+		}
+	}
+
+	return nil
 }
