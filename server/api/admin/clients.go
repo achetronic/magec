@@ -48,7 +48,7 @@ func buildTelegramTestTargets(cfg *store.TelegramClientConfig) []telegramTestTar
 		return nil
 	}
 
-	targets := make([]telegramTestTarget, 0, len(cfg.AllowedUsers)+len(cfg.AllowedChatThreads))
+	targets := make([]telegramTestTarget, 0, len(cfg.AllowedUsers)+len(cfg.AllowedChats))
 	seen := map[string]struct{}{}
 
 	for _, userID := range cfg.AllowedUsers {
@@ -60,7 +60,7 @@ func buildTelegramTestTargets(cfg *store.TelegramClientConfig) []telegramTestTar
 		targets = append(targets, telegramTestTarget{ChatID: userID})
 	}
 
-	for _, rule := range cfg.AllowedChatThreads {
+	for _, rule := range cfg.AllowedChats {
 		threadID := 0
 		if rule.ThreadID != nil {
 			threadID = *rule.ThreadID
@@ -118,15 +118,15 @@ func resolveTelegramTestConfig(stored, override *store.TelegramClientConfig) *st
 	return &resolved
 }
 
-func dedupeTelegramChatThreadRules(cfg *store.TelegramClientConfig) {
-	if cfg == nil || len(cfg.AllowedChatThreads) < 2 {
+func dedupeTelegramAllowedChats(cfg *store.TelegramClientConfig) {
+	if cfg == nil || len(cfg.AllowedChats) < 2 {
 		return
 	}
 
-	seen := make(map[string]struct{}, len(cfg.AllowedChatThreads))
-	deduped := make(store.TelegramChatThreadRules, 0, len(cfg.AllowedChatThreads))
+	seen := make(map[string]struct{}, len(cfg.AllowedChats))
+	deduped := make(store.TelegramAllowedChatRules, 0, len(cfg.AllowedChats))
 
-	for _, rule := range cfg.AllowedChatThreads {
+	for _, rule := range cfg.AllowedChats {
 		threadID := 0
 		if rule.ThreadID != nil {
 			threadID = *rule.ThreadID
@@ -139,7 +139,7 @@ func dedupeTelegramChatThreadRules(cfg *store.TelegramClientConfig) {
 		deduped = append(deduped, rule)
 	}
 
-	cfg.AllowedChatThreads = deduped
+	cfg.AllowedChats = deduped
 }
 
 // listClients returns all clients.
@@ -205,7 +205,7 @@ func (h *Handler) createClient(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "unsupported client type: "+c.Type)
 		return
 	}
-	dedupeTelegramChatThreadRules(c.Config.Telegram)
+	dedupeTelegramAllowedChats(c.Config.Telegram)
 	if err := validateClientConfig(c); err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
@@ -238,7 +238,7 @@ func (h *Handler) updateClient(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid JSON: "+err.Error())
 		return
 	}
-	dedupeTelegramChatThreadRules(c.Config.Telegram)
+	dedupeTelegramAllowedChats(c.Config.Telegram)
 	if c.Type != "" {
 		if err := validateClientConfig(c); err != nil {
 			writeError(w, http.StatusBadRequest, err.Error())
@@ -343,7 +343,7 @@ func (h *Handler) testTelegramClient(w http.ResponseWriter, r *http.Request) {
 
 	targets := buildTelegramTestTargets(testCfg)
 	if len(targets) == 0 {
-		writeError(w, http.StatusBadRequest, "no Telegram targets configured (allowedUsers or allowedChatThreads)")
+		writeError(w, http.StatusBadRequest, "no Telegram targets configured (allowedUsers or allowedChats)")
 		return
 	}
 
@@ -398,12 +398,12 @@ func validateClientConfig(c store.ClientDefinition) error {
 	}
 
 	if c.Type == "telegram" && c.Config.Telegram != nil {
-		for i, rule := range c.Config.Telegram.AllowedChatThreads {
+		for i, rule := range c.Config.Telegram.AllowedChats {
 			if rule.ChatID == 0 {
-				return fmt.Errorf("allowedChatThreads[%d].chatId must be a non-zero integer", i)
+				return fmt.Errorf("allowedChats[%d].chatId must be a non-zero integer", i)
 			}
 			if rule.ThreadID != nil && *rule.ThreadID <= 0 {
-				return fmt.Errorf("allowedChatThreads[%d].threadId must be a positive integer", i)
+				return fmt.Errorf("allowedChats[%d].threadId must be a positive integer", i)
 			}
 		}
 	}

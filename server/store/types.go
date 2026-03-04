@@ -2,15 +2,9 @@ package store
 
 import (
 	"encoding/json"
-	"fmt"
-	"regexp"
-	"strconv"
-	"strings"
 
 	"github.com/google/uuid"
 )
-
-var telegramChatThreadPairPattern = regexp.MustCompile(`^\s*(-?\d+)(?:\s*-\s*(\d+))?\s*$`)
 
 // generateID returns a new random UUID v4 string (e.g. "550e8400-e29b-41d4-a716-446655440000").
 func generateID() string {
@@ -123,93 +117,41 @@ type ClientConfig struct {
 	Webhook  *WebhookClientConfig  `json:"webhook,omitempty" yaml:"webhook,omitempty"`
 }
 
-type TelegramChatThreadRule struct {
+type TelegramAllowedChatRule struct {
 	ChatID   int64 `json:"chatId" yaml:"chatId"`
 	ThreadID *int  `json:"threadId,omitempty" yaml:"threadId,omitempty"`
 }
 
-type TelegramChatThreadRules []TelegramChatThreadRule
+type TelegramAllowedChatRules []TelegramAllowedChatRule
 
-func (r *TelegramChatThreadRules) UnmarshalJSON(data []byte) error {
-	var typed []TelegramChatThreadRule
+func (r *TelegramAllowedChatRules) UnmarshalJSON(data []byte) error {
+	var typed []TelegramAllowedChatRule
 	if err := json.Unmarshal(data, &typed); err == nil {
 		*r = typed
 		return nil
 	}
 
-	var legacy []string
+	var legacy []int64
 	if err := json.Unmarshal(data, &legacy); err != nil {
 		return err
 	}
 
-	parsed := make([]TelegramChatThreadRule, 0, len(legacy))
-	for _, value := range legacy {
-		rule, err := parseLegacyTelegramChatThread(value)
-		if err != nil {
-			return err
-		}
-		parsed = append(parsed, rule)
+	parsed := make([]TelegramAllowedChatRule, 0, len(legacy))
+	for _, chatID := range legacy {
+		parsed = append(parsed, TelegramAllowedChatRule{ChatID: chatID})
 	}
 
 	*r = parsed
 	return nil
 }
 
-func parseLegacyTelegramChatThread(value string) (TelegramChatThreadRule, error) {
-	matches := telegramChatThreadPairPattern.FindStringSubmatch(value)
-	if matches == nil {
-		return TelegramChatThreadRule{}, fmt.Errorf("invalid allowedChatThreads value: %q", value)
-	}
-
-	chatID, err := strconv.ParseInt(matches[1], 10, 64)
-	if err != nil {
-		return TelegramChatThreadRule{}, fmt.Errorf("invalid chatId in allowedChatThreads value %q", value)
-	}
-
-	rule := TelegramChatThreadRule{ChatID: chatID}
-	if strings.TrimSpace(matches[2]) != "" {
-		threadID64, err := strconv.ParseInt(matches[2], 10, 64)
-		if err != nil || threadID64 < 0 {
-			return TelegramChatThreadRule{}, fmt.Errorf("invalid threadId in allowedChatThreads value %q", value)
-		}
-		threadID := int(threadID64)
-		rule.ThreadID = &threadID
-	}
-
-	return rule, nil
-}
-
 // TelegramClientConfig holds Telegram bot settings for a client.
 type TelegramClientConfig struct {
-	BotToken           string                  `json:"botToken,omitempty" yaml:"botToken,omitempty"`
-	AllowedUsers       []int64                 `json:"allowedUsers,omitempty" yaml:"allowedUsers,omitempty"`
-	AllowedChatThreads TelegramChatThreadRules `json:"allowedChatThreads,omitempty" yaml:"allowedChatThreads,omitempty"`
-	ResponseMode       string                  `json:"responseMode,omitempty" yaml:"responseMode,omitempty"`
-	DefaultAgent       string                  `json:"defaultAgent,omitempty" yaml:"defaultAgent,omitempty"`
-}
-
-func (c *TelegramClientConfig) UnmarshalJSON(data []byte) error {
-	type telegramClientConfigAlias TelegramClientConfig
-	var payload struct {
-		telegramClientConfigAlias
-		AllowedChats []int64 `json:"allowedChats"`
-	}
-
-	if err := json.Unmarshal(data, &payload); err != nil {
-		return err
-	}
-
-	*c = TelegramClientConfig(payload.telegramClientConfigAlias)
-
-	if len(c.AllowedChatThreads) == 0 && len(payload.AllowedChats) > 0 {
-		rules := make(TelegramChatThreadRules, 0, len(payload.AllowedChats))
-		for _, chatID := range payload.AllowedChats {
-			rules = append(rules, TelegramChatThreadRule{ChatID: chatID})
-		}
-		c.AllowedChatThreads = rules
-	}
-
-	return nil
+	BotToken     string                   `json:"botToken,omitempty" yaml:"botToken,omitempty"`
+	AllowedUsers []int64                  `json:"allowedUsers,omitempty" yaml:"allowedUsers,omitempty"`
+	AllowedChats TelegramAllowedChatRules `json:"allowedChats,omitempty" yaml:"allowedChats,omitempty"`
+	ResponseMode string                   `json:"responseMode,omitempty" yaml:"responseMode,omitempty"`
+	DefaultAgent string                   `json:"defaultAgent,omitempty" yaml:"defaultAgent,omitempty"`
 }
 
 // DiscordClientConfig holds Discord bot settings for a client.

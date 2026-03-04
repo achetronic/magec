@@ -843,13 +843,13 @@ func (c *Client) handleShowToolsCommand(ctx *th.Context, msg telego.Message) err
 // isAllowed checks whether a Telegram user or chat is permitted to interact
 // with this bot. If no allowlists are configured, all users are allowed.
 func (c *Client) isAllowed(userID, chatID int64, threadID int) bool {
-	if len(c.clientDef.Config.Telegram.AllowedUsers) == 0 && len(c.clientDef.Config.Telegram.AllowedChatThreads) == 0 {
+	if len(c.clientDef.Config.Telegram.AllowedUsers) == 0 && len(c.clientDef.Config.Telegram.AllowedChats) == 0 {
 		return true
 	}
 	if len(c.clientDef.Config.Telegram.AllowedUsers) > 0 && slices.Contains(c.clientDef.Config.Telegram.AllowedUsers, userID) {
 		return true
 	}
-	for _, pair := range c.clientDef.Config.Telegram.AllowedChatThreads {
+	for _, pair := range c.clientDef.Config.Telegram.AllowedChats {
 		if pair.ChatID != chatID {
 			continue
 		}

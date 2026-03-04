@@ -1,7 +1,7 @@
-export const CHAT_THREAD_RULES_ERROR = 'Invalid chat/thread rules. chatId must be a non-zero integer and threadId must be a positive integer when provided.'
+export const ALLOWED_CHATS_RULES_ERROR = 'Invalid allowed chat rules. chatId must be a non-zero integer and threadId must be a positive integer when provided.'
 
-export function buildAllowedChatThreadsPayload(val) {
-  const rows = normalizeAllowedChatThreadRows(val)
+export function buildAllowedChatsPayload(val) {
+  const rows = normalizeAllowedChatRows(val)
   const payload = []
   const seen = new Set()
   let hasInvalidRows = false
@@ -14,13 +14,13 @@ export function buildAllowedChatThreadsPayload(val) {
       continue
     }
 
-    const chatId = Number(chatRaw)
-    if (chatRaw === '' || Number.isNaN(chatId) || !Number.isInteger(chatId) || Math.trunc(chatId) === 0) {
+    const chatID = Number(chatRaw)
+    if (chatRaw === '' || Number.isNaN(chatID) || !Number.isInteger(chatID) || Math.trunc(chatID) === 0) {
       hasInvalidRows = true
       continue
     }
 
-    const item = { chatId: Math.trunc(chatId) }
+    const item = { chatId: Math.trunc(chatID) }
     if (threadRaw !== '') {
       const threadID = Number(threadRaw)
       if (Number.isNaN(threadID) || !Number.isInteger(threadID) || Math.trunc(threadID) <= 0) {
@@ -38,23 +38,23 @@ export function buildAllowedChatThreadsPayload(val) {
   }
 
   if (hasInvalidRows) {
-    throw new Error(CHAT_THREAD_RULES_ERROR)
+    throw new Error(ALLOWED_CHATS_RULES_ERROR)
   }
 
   return payload
 }
 
-function parseLegacyChatThreadRule(value) {
+function parseLegacyAllowedChatRule(value) {
   const match = value?.toString().match(/^\s*(-?\d+)(?:\s*-\s*(\d+))?\s*$/)
   if (!match) return null
   return { chatId: match[1], threadId: match[2] || '' }
 }
 
-function normalizeAllowedChatThreadRows(val) {
+function normalizeAllowedChatRows(val) {
   if (!Array.isArray(val)) return []
   return val.map(rule => {
     if (typeof rule === 'string') {
-      const parsed = parseLegacyChatThreadRule(rule)
+      const parsed = parseLegacyAllowedChatRule(rule)
       if (!parsed) return null
       return parsed
     }

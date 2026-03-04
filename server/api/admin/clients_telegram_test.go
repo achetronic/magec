@@ -28,7 +28,7 @@ func TestBuildTelegramTestTargets_MixedAndDeduplicated(t *testing.T) {
 	thread := 12
 	cfg := &store.TelegramClientConfig{
 		AllowedUsers: []int64{1001, 1001, 1002},
-		AllowedChatThreads: store.TelegramChatThreadRules{
+		AllowedChats: store.TelegramAllowedChatRules{
 			{ChatID: -1001234567890},
 			{ChatID: -1001234567890, ThreadID: &thread},
 			{ChatID: -1001234567890, ThreadID: &thread},
@@ -67,7 +67,7 @@ func TestSendTelegramConfigTest_AllSuccess(t *testing.T) {
 	thread := 44
 	cfg := &store.TelegramClientConfig{
 		AllowedUsers: []int64{7},
-		AllowedChatThreads: store.TelegramChatThreadRules{
+		AllowedChats: store.TelegramAllowedChatRules{
 			{ChatID: -1001001001, ThreadID: &thread},
 		},
 	}
@@ -195,7 +195,7 @@ func TestValidateClientConfig_TelegramRejectsZeroChatID(t *testing.T) {
 		Config: store.ClientConfig{
 			Telegram: &store.TelegramClientConfig{
 				BotToken: "token",
-				AllowedChatThreads: store.TelegramChatThreadRules{
+				AllowedChats: store.TelegramAllowedChatRules{
 					{ChatID: 0},
 				},
 			},
@@ -215,7 +215,7 @@ func TestValidateClientConfig_TelegramRejectsNonPositiveThreadID(t *testing.T) {
 		Config: store.ClientConfig{
 			Telegram: &store.TelegramClientConfig{
 				BotToken: "token",
-				AllowedChatThreads: store.TelegramChatThreadRules{
+				AllowedChats: store.TelegramAllowedChatRules{
 					{ChatID: -1001234567890, ThreadID: &threadID},
 				},
 			},
@@ -228,14 +228,14 @@ func TestValidateClientConfig_TelegramRejectsNonPositiveThreadID(t *testing.T) {
 	}
 }
 
-func TestValidateClientConfig_TelegramAcceptsValidChatThreadRules(t *testing.T) {
+func TestValidateClientConfig_TelegramAcceptsValidAllowedChats(t *testing.T) {
 	threadID := 12
 	c := store.ClientDefinition{
 		Type: "telegram",
 		Config: store.ClientConfig{
 			Telegram: &store.TelegramClientConfig{
 				BotToken: "token",
-				AllowedChatThreads: store.TelegramChatThreadRules{
+				AllowedChats: store.TelegramAllowedChatRules{
 					{ChatID: -1001234567890, ThreadID: &threadID},
 					{ChatID: -1001234567891},
 				},
@@ -248,10 +248,10 @@ func TestValidateClientConfig_TelegramAcceptsValidChatThreadRules(t *testing.T) 
 	}
 }
 
-func TestDedupeTelegramChatThreadRules_RemovesExactDuplicates(t *testing.T) {
+func TestDedupeTelegramAllowedChats_RemovesExactDuplicates(t *testing.T) {
 	thread := 12
 	cfg := &store.TelegramClientConfig{
-		AllowedChatThreads: store.TelegramChatThreadRules{
+		AllowedChats: store.TelegramAllowedChatRules{
 			{ChatID: -1001234567890, ThreadID: &thread},
 			{ChatID: -1001234567890, ThreadID: &thread},
 			{ChatID: -1001234567890},
@@ -259,33 +259,33 @@ func TestDedupeTelegramChatThreadRules_RemovesExactDuplicates(t *testing.T) {
 		},
 	}
 
-	dedupeTelegramChatThreadRules(cfg)
+	dedupeTelegramAllowedChats(cfg)
 
-	if len(cfg.AllowedChatThreads) != 2 {
-		t.Fatalf("expected 2 deduplicated rules, got %d", len(cfg.AllowedChatThreads))
+	if len(cfg.AllowedChats) != 2 {
+		t.Fatalf("expected 2 deduplicated rules, got %d", len(cfg.AllowedChats))
 	}
-	if cfg.AllowedChatThreads[0].ThreadID == nil || *cfg.AllowedChatThreads[0].ThreadID != 12 {
+	if cfg.AllowedChats[0].ThreadID == nil || *cfg.AllowedChats[0].ThreadID != 12 {
 		t.Fatalf("expected thread rule preserved at index 0")
 	}
-	if cfg.AllowedChatThreads[1].ThreadID != nil {
+	if cfg.AllowedChats[1].ThreadID != nil {
 		t.Fatalf("expected chat-only rule preserved at index 1")
 	}
 }
 
-func TestDedupeTelegramChatThreadRules_KeepsDistinctThreadVariants(t *testing.T) {
+func TestDedupeTelegramAllowedChats_KeepsDistinctThreadVariants(t *testing.T) {
 	threadA := 12
 	threadB := 13
 	cfg := &store.TelegramClientConfig{
-		AllowedChatThreads: store.TelegramChatThreadRules{
+		AllowedChats: store.TelegramAllowedChatRules{
 			{ChatID: -1001234567890, ThreadID: &threadA},
 			{ChatID: -1001234567890, ThreadID: &threadB},
 			{ChatID: -1001234567890},
 		},
 	}
 
-	dedupeTelegramChatThreadRules(cfg)
+	dedupeTelegramAllowedChats(cfg)
 
-	if len(cfg.AllowedChatThreads) != 3 {
-		t.Fatalf("expected 3 distinct rules, got %d", len(cfg.AllowedChatThreads))
+	if len(cfg.AllowedChats) != 3 {
+		t.Fatalf("expected 3 distinct rules, got %d", len(cfg.AllowedChats))
 	}
 }

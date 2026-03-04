@@ -175,27 +175,27 @@
         </summary>
         <div class="px-4 pb-4 space-y-4">
           <template v-for="(propSchema, key) in permissionProperties" :key="key">
-            <div v-if="key === 'allowedChatThreads'">
+            <div v-if="key === 'allowedChats'">
               <FormLabel :label="propSchema.title || key" :required="isFieldRequired(key)" />
               <div class="space-y-2">
                 <div
-                  v-for="(rule, idx) in getAllowedChatThreadRows()"
+                  v-for="(rule, idx) in getAllowedChatRows()"
                   :key="idx"
                   class="grid grid-cols-[1fr_1fr_auto] gap-2"
                 >
                   <FormInput
                     :modelValue="rule.chatId"
-                    @update:modelValue="updateAllowedChatThread(idx, 'chatId', $event)"
+                    @update:modelValue="updateAllowedChatRule(idx, 'chatId', $event)"
                     placeholder="Chat ID (e.g. -1001234567890)"
                   />
                   <FormInput
                     :modelValue="rule.threadId"
-                    @update:modelValue="updateAllowedChatThread(idx, 'threadId', $event)"
+                    @update:modelValue="updateAllowedChatRule(idx, 'threadId', $event)"
                     placeholder="Thread ID (optional)"
                   />
                   <button
                     type="button"
-                    @click="removeAllowedChatThread(idx)"
+                    @click="removeAllowedChatRule(idx)"
                     title="Remove rule"
                     aria-label="Remove rule"
                     class="px-2.5 py-2 bg-piedra-800 hover:bg-lava-500/20 border border-lava-500/40 rounded-lg text-lava-300 hover:text-lava-200 transition-colors"
@@ -205,7 +205,7 @@
                 </div>
                 <button
                   type="button"
-                  @click="addAllowedChatThread()"
+                  @click="addAllowedChatRule()"
                   class="px-3 py-2 bg-piedra-800 hover:bg-piedra-700 border border-piedra-700 rounded-lg text-xs text-arena-300 transition-colors"
                 >
                   + Add chat rule
@@ -270,7 +270,7 @@ import FormInput from '../../components/FormInput.vue'
 import FormSelect from '../../components/FormSelect.vue'
 import FormLabel from '../../components/FormLabel.vue'
 import Icon from '../../components/Icon.vue'
-import { buildAllowedChatThreadsPayload } from './chatThreadRules.js'
+import { buildAllowedChatsPayload } from './allowedChatsRules.js'
 
 const emit = defineEmits(['saved'])
 const toast = inject('toast')
@@ -347,7 +347,7 @@ const visibleProperties = computed(() => {
   return result
 })
 
-const PERMISSION_KEYS = new Set(['allowedUsers', 'allowedChannels', 'allowedChatThreads'])
+const PERMISSION_KEYS = new Set(['allowedUsers', 'allowedChannels', 'allowedChats'])
 const OPTION_KEYS = new Set(['responseMode', 'threadHistoryLimit'])
 
 const mainProperties = computed(() =>
@@ -438,17 +438,17 @@ function csvToArray(propSchema, val) {
   return parts
 }
 
-function parseLegacyChatThreadRule(value) {
+function parseLegacyAllowedChatRule(value) {
   const match = value?.toString().match(/^\s*(-?\d+)(?:\s*-\s*(\d+))?\s*$/)
   if (!match) return null
   return { chatId: match[1], threadId: match[2] || '' }
 }
 
-function normalizeAllowedChatThreadRows(val) {
+function normalizeAllowedChatRows(val) {
   if (!Array.isArray(val)) return []
   return val.map(rule => {
     if (typeof rule === 'string') {
-      const parsed = parseLegacyChatThreadRule(rule)
+      const parsed = parseLegacyAllowedChatRule(rule)
       if (!parsed) return null
       return parsed
     }
@@ -462,31 +462,31 @@ function normalizeAllowedChatThreadRows(val) {
   }).filter(Boolean)
 }
 
-function getAllowedChatThreadRows() {
-  return normalizeAllowedChatThreadRows(form.config.allowedChatThreads)
+function getAllowedChatRows() {
+  return normalizeAllowedChatRows(form.config.allowedChats)
 }
 
-function setAllowedChatThreadRows(rows) {
-  form.config.allowedChatThreads = rows
+function setAllowedChatRows(rows) {
+  form.config.allowedChats = rows
 }
 
-function addAllowedChatThread() {
-  const rows = getAllowedChatThreadRows()
+function addAllowedChatRule() {
+  const rows = getAllowedChatRows()
   rows.push({ chatId: '', threadId: '' })
-  setAllowedChatThreadRows(rows)
+  setAllowedChatRows(rows)
 }
 
-function removeAllowedChatThread(index) {
-  const rows = getAllowedChatThreadRows()
+function removeAllowedChatRule(index) {
+  const rows = getAllowedChatRows()
   rows.splice(index, 1)
-  setAllowedChatThreadRows(rows)
+  setAllowedChatRows(rows)
 }
 
-function updateAllowedChatThread(index, field, value) {
-  const rows = getAllowedChatThreadRows()
+function updateAllowedChatRule(index, field, value) {
+  const rows = getAllowedChatRows()
   if (!rows[index]) return
   rows[index][field] = value?.toString().trim() ?? ''
-  setAllowedChatThreadRows(rows)
+  setAllowedChatRows(rows)
 }
 
 function onTypeChange() {
@@ -508,7 +508,7 @@ function open(client = null) {
   form.allowedAgents = [...(client?.allowedAgents || [])]
   form.config = { ...(client?.config?.[client?.type] || {}) }
   if (form.type === 'telegram') {
-    form.config.allowedChatThreads = normalizeAllowedChatThreadRows(form.config.allowedChatThreads)
+    form.config.allowedChats = normalizeAllowedChatRows(form.config.allowedChats)
   }
   form.token = client?.token || ''
   tokenVisible.value = false
@@ -582,8 +582,8 @@ function buildTypeConfig() {
       if (propSchema.type === 'boolean') {
         typeCfg[key] = !!val
       } else if (propSchema.type === 'array') {
-        if (key === 'allowedChatThreads') {
-          const rules = buildAllowedChatThreadsPayload(val)
+        if (key === 'allowedChats') {
+          const rules = buildAllowedChatsPayload(val)
           if (rules.length) {
             typeCfg[key] = rules
           }

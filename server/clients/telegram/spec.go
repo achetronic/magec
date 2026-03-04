@@ -30,7 +30,7 @@ func (p *Provider) ConfigSchema() clients.Schema {
 				"title":         "Allowed Users",
 				"x-placeholder": "Comma-separated Telegram user IDs",
 			},
-			"allowedChatThreads": clients.Schema{
+			"allowedChats": clients.Schema{
 				"type": "array",
 				"items": clients.Schema{
 					"type": "object",
@@ -46,7 +46,7 @@ func (p *Provider) ConfigSchema() clients.Schema {
 					},
 					"required": []string{"chatId"},
 				},
-				"title":       "Allowed Chat-Thread Pairs",
+				"title":       "Allowed Chats",
 				"description": "Allowed chat IDs with optional thread IDs (topics).",
 			},
 			"responseMode": clients.Schema{

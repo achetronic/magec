@@ -28,7 +28,7 @@ func TestIsAllowed_UsersConfigured_DeniesUnknownUserWithoutChatRules(t *testing.
 }
 
 func TestIsAllowed_ChatOnlyRule_AllowsAnyThread(t *testing.T) {
-	c := &Client{clientDef: store.ClientDefinition{Config: store.ClientConfig{Telegram: &store.TelegramClientConfig{AllowedChatThreads: store.TelegramChatThreadRules{{ChatID: -1001234567890}}}}}}
+	c := &Client{clientDef: store.ClientDefinition{Config: store.ClientConfig{Telegram: &store.TelegramClientConfig{AllowedChats: store.TelegramAllowedChatRules{{ChatID: -1001234567890}}}}}}
 	if !c.isAllowed(5, -1001234567890, 0) {
 		t.Fatalf("expected access allowed for matching chat without thread")
 	}
@@ -39,7 +39,7 @@ func TestIsAllowed_ChatOnlyRule_AllowsAnyThread(t *testing.T) {
 
 func TestIsAllowed_ChatAndThreadRule_RestrictsByThread(t *testing.T) {
 	thread := 12
-	c := &Client{clientDef: store.ClientDefinition{Config: store.ClientConfig{Telegram: &store.TelegramClientConfig{AllowedChatThreads: store.TelegramChatThreadRules{{ChatID: -1001234567890, ThreadID: &thread}}}}}}
+	c := &Client{clientDef: store.ClientDefinition{Config: store.ClientConfig{Telegram: &store.TelegramClientConfig{AllowedChats: store.TelegramAllowedChatRules{{ChatID: -1001234567890, ThreadID: &thread}}}}}}
 	if !c.isAllowed(5, -1001234567890, 12) {
 		t.Fatalf("expected access allowed for matching chat and thread")
 	}
@@ -52,7 +52,7 @@ func TestIsAllowed_ChatAndThreadRule_RestrictsByThread(t *testing.T) {
 }
 
 func TestIsAllowed_NonMatchingRules_Denies(t *testing.T) {
-	c := &Client{clientDef: store.ClientDefinition{Config: store.ClientConfig{Telegram: &store.TelegramClientConfig{AllowedChatThreads: store.TelegramChatThreadRules{{ChatID: -1001234567890}}}}}}
+	c := &Client{clientDef: store.ClientDefinition{Config: store.ClientConfig{Telegram: &store.TelegramClientConfig{AllowedChats: store.TelegramAllowedChatRules{{ChatID: -1001234567890}}}}}}
 	if c.isAllowed(5, -1000000000000, 0) {
 		t.Fatalf("expected access denied when chat does not match")
 	}
