@@ -438,20 +438,9 @@ function csvToArray(propSchema, val) {
   return parts
 }
 
-function parseLegacyAllowedChatRule(value) {
-  const match = value?.toString().match(/^\s*(-?\d+)(?:\s*-\s*(\d+))?\s*$/)
-  if (!match) return null
-  return { chatId: match[1], threadId: match[2] || '' }
-}
-
 function normalizeAllowedChatRows(val) {
   if (!Array.isArray(val)) return []
   return val.map(rule => {
-    if (typeof rule === 'string') {
-      const parsed = parseLegacyAllowedChatRule(rule)
-      if (!parsed) return null
-      return parsed
-    }
     if (rule && typeof rule === 'object') {
       return {
         chatId: rule.chatId !== undefined && rule.chatId !== null ? String(rule.chatId) : '',
@@ -559,7 +548,11 @@ async function sendTelegramTest() {
     const telegramConfig = buildTypeConfig().telegram || {}
     const result = await clientsApi.telegramTest(editId.value, { config: telegramConfig })
     if (result.failed > 0) {
-      toast.error(`Test completed with errors. Sent ${result.sent}/${result.attempted}.`)
+      const details = Array.isArray(result.errors) ? result.errors.filter(Boolean) : []
+      const preview = details.slice(0, 2).join(' | ')
+      const more = details.length > 2 ? ` (+${details.length - 2} more)` : ''
+      const detailText = preview ? ` Details: ${preview}${more}` : ''
+      toast.error(`Test completed with errors. Sent ${result.sent}/${result.attempted}.${detailText}`)
       return
     }
     toast.success(`Test message sent to ${result.sent} destination(s).`)

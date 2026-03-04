@@ -27,14 +27,21 @@ test('buildAllowedChatsPayload ignores fully empty rows', () => {
 test('buildAllowedChatsPayload rejects chatId 0', () => {
   assert.throws(
     () => buildAllowedChatsPayload([{ chatId: '0', threadId: '' }]),
-    new Error(ALLOWED_CHATS_RULES_ERROR),
+    (error) => error.message.includes(ALLOWED_CHATS_RULES_ERROR) && error.message.includes('Row 1: chatId must be non-zero.'),
   )
 })
 
 test('buildAllowedChatsPayload rejects non-positive threadId when provided', () => {
   assert.throws(
     () => buildAllowedChatsPayload([{ chatId: '-1001234567890', threadId: '0' }]),
-    new Error(ALLOWED_CHATS_RULES_ERROR),
+    (error) => error.message.includes(ALLOWED_CHATS_RULES_ERROR) && error.message.includes('Row 1: threadId must be greater than zero when provided.'),
+  )
+})
+
+test('buildAllowedChatsPayload reports explicit error for missing chatId', () => {
+  assert.throws(
+    () => buildAllowedChatsPayload([{ chatId: ' ', threadId: '12' }]),
+    (error) => error.message.includes('Row 1: chatId is required.'),
   )
 })
 
