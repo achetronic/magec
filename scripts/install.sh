@@ -1373,7 +1373,7 @@ install_binary() {
     box_empty
     box_line "  ${CYAN}docker run -d -p 8317:8317 -p 54545:54545 \\${NC}"
     box_line "  ${CYAN}  -v \$(pwd)/cliproxyapi/config.yaml:\\${NC}"
-    box_line "  ${CYAN}  /CLIProxyAPI/config/config.yaml \\${NC}"
+    box_line "  ${CYAN}  /CLIProxyAPI/config.yaml \\${NC}"
     box_line "  ${CYAN}  -v cliproxyapi_auth:/CLIProxyAPI/auth \\${NC}"
     box_line "  ${CYAN}  --name magec-cliproxyapi \\${NC}"
     box_line "  ${CYAN}  eceasy/cli-proxy-api:latest${NC}"
@@ -1389,8 +1389,14 @@ install_binary() {
     box_line "  ${BOLD}After starting, log in with your Claude account:${NC}"
     box_empty
     box_line "  ${CYAN}cliproxyapi --claude-login${NC}"
-    box_line "  ${DIM}(or: docker exec magec-cliproxyapi \\${NC}"
-    box_line "  ${DIM}  /CLIProxyAPI/CLIProxyAPI --no-browser --claude-login)${NC}"
+    box_line "  ${DIM}(or via Docker:${NC}"
+    box_line "  ${DIM}  docker stop magec-cliproxyapi${NC}"
+    box_line "  ${DIM}  docker run --rm -p 54545:54545 \\${NC}"
+    box_line "  ${DIM}    -v ./cliproxyapi/config.yaml:/CLIProxyAPI/config.yaml \\${NC}"
+    box_line "  ${DIM}    -v magec_cliproxyapi_auth:/CLIProxyAPI/auth \\${NC}"
+    box_line "  ${DIM}    eceasy/cli-proxy-api:latest \\${NC}"
+    box_line "  ${DIM}    /CLIProxyAPI/CLIProxyAPI --no-browser --claude-login${NC}"
+    box_line "  ${DIM}  docker start magec-cliproxyapi)${NC}"
     box_empty
     box_bottom
     echo
@@ -1889,7 +1895,7 @@ generate_docker_compose() {
     services+="    ports:\n"
     services+="      - \"54545:54545\"\n"
     services+="    volumes:\n"
-    services+="      - ./cliproxyapi/config.yaml:/CLIProxyAPI/config/config.yaml\n"
+    services+="      - ./cliproxyapi/config.yaml:/CLIProxyAPI/config.yaml\n"
     services+="      - cliproxyapi_auth:/CLIProxyAPI/auth\n"
     services+="    restart: unless-stopped\n"
     volumes+="  cliproxyapi_auth:\n"
@@ -2037,12 +2043,12 @@ EOF
     box_empty
     box_line "  ${YELLOW}Action needed:${NC} Log in to your Claude account."
     if [[ "$INSTALL_METHOD" == "2" ]]; then
-      box_line "  ${CYAN}${COMPOSE} exec cliproxyapi \\${NC}"
-      box_line "  ${CYAN}  /CLIProxyAPI/CLIProxyAPI --no-browser --claude-login${NC}"
+      box_line "  ${CYAN}${COMPOSE} stop cliproxyapi${NC}"
+      box_line "  ${CYAN}${COMPOSE} run --rm --service-ports cliproxyapi /CLIProxyAPI/CLIProxyAPI --no-browser --claude-login${NC}"
+      box_line "  ${CYAN}${COMPOSE} up -d cliproxyapi${NC}"
     else
       box_line "  ${CYAN}cliproxyapi --claude-login${NC}"
-      box_line "  ${DIM}(or via Docker: docker exec magec-cliproxyapi \\${NC}"
-      box_line "  ${DIM}  /CLIProxyAPI/CLIProxyAPI --no-browser --claude-login)${NC}"
+      box_line "  ${DIM}(or via Docker: stop, run login, restart)${NC}"
     fi
     box_empty
     box_line "  A \"${BOLD}Claude (Subscription)${NC}\" backend has been"

@@ -94,8 +94,7 @@ The login command starts a temporary OAuth callback server, so you must **stop t
 ```bash
 # Docker — stop, login, restart
 docker compose stop cliproxyapi
-docker compose run --rm --service-ports cliproxyapi \
-  /CLIProxyAPI/CLIProxyAPI --no-browser --claude-login
+docker compose run --rm --service-ports cliproxyapi /CLIProxyAPI/CLIProxyAPI --no-browser --claude-login
 docker compose up -d cliproxyapi
 
 # Binary

@@ -311,8 +311,7 @@ Key:  (leave empty)
 <p>The login command starts a temporary OAuth callback server, so you must <strong>stop the running CLIProxyAPI service first</strong> to free its ports:</p>
 <div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># Docker — stop, login, restart</span>
 </span></span><span class="line"><span class="cl">docker compose stop cliproxyapi
-</span></span><span class="line"><span class="cl">docker compose run --rm --service-ports cliproxyapi <span class="se">\
-</span></span></span><span class="line"><span class="cl"><span class="se"></span>  /CLIProxyAPI/CLIProxyAPI --no-browser --claude-login
+</span></span><span class="line"><span class="cl">docker compose run --rm --service-ports cliproxyapi /CLIProxyAPI/CLIProxyAPI --no-browser --claude-login
 </span></span><span class="line"><span class="cl">docker compose up -d cliproxyapi
 </span></span><span class="line"><span class="cl">
 </span></span><span class="line"><span class="cl"><span class="c1"># Binary</span>

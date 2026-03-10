@@ -563,8 +563,7 @@
 <p>If you have a Claude Max or Pro subscription, the included CLIProxyAPI service lets you use Claude models without a separate API key.</p>
 <p><strong>Step 1 — Log in with your Claude account.</strong> The login command needs exclusive access to the OAuth callback port, so stop the service first:</p>
 <div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">docker compose stop cliproxyapi
-</span></span><span class="line"><span class="cl">docker compose run --rm --service-ports cliproxyapi <span class="se">\
-</span></span></span><span class="line"><span class="cl"><span class="se"></span>  /CLIProxyAPI/CLIProxyAPI --no-browser --claude-login
+</span></span><span class="line"><span class="cl">docker compose run --rm --service-ports cliproxyapi /CLIProxyAPI/CLIProxyAPI --no-browser --claude-login
 </span></span><span class="line"><span class="cl">docker compose up -d cliproxyapi
 </span></span></code></pre></div><p>Open the URL printed in the terminal, authorize in your browser, and wait for the callback. Your credentials are stored in the <code>cliproxyapi_auth</code> volume and persist across restarts.</p>
 <p><strong>Step 2 — Create a backend</strong> in the Admin UI:</p>

@@ -198,8 +198,7 @@ If you have a Claude Max or Pro subscription, the included CLIProxyAPI service l
 
 ```bash
 docker compose stop cliproxyapi
-docker compose run --rm --service-ports cliproxyapi \
-  /CLIProxyAPI/CLIProxyAPI --no-browser --claude-login
+docker compose run --rm --service-ports cliproxyapi /CLIProxyAPI/CLIProxyAPI --no-browser --claude-login
 docker compose up -d cliproxyapi
 ```
 
