@@ -241,13 +241,13 @@
 </code></pre><p>Authentication uses the client&rsquo;s token as a Bearer token:</p>
 <div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># Command mode — body is ignored</span>
 </span></span><span class="line"><span class="cl">curl -X POST http://localhost:8080/api/v1/webhooks/YOUR_WEBHOOK_ID <span class="se">\
-</span></span></span><span class="line"><span class="cl">  -H <span class="s2">&#34;Authorization: Bearer mgc_your_token&#34;</span>
+</span></span></span><span class="line"><span class="cl"><span class="se"></span>  -H <span class="s2">&#34;Authorization: Bearer mgc_your_token&#34;</span>
 </span></span><span class="line"><span class="cl">
 </span></span><span class="line"><span class="cl"><span class="c1"># Passthrough mode — body contains the prompt</span>
 </span></span><span class="line"><span class="cl">curl -X POST http://localhost:8080/api/v1/webhooks/YOUR_WEBHOOK_ID <span class="se">\
-</span></span></span><span class="line"><span class="cl">  -H <span class="s2">&#34;Authorization: Bearer mgc_your_token&#34;</span> <span class="se">\
-</span></span></span><span class="line"><span class="cl">  -H <span class="s2">&#34;Content-Type: application/json&#34;</span> <span class="se">\
-</span></span></span><span class="line"><span class="cl">  -d <span class="s1">&#39;{&#34;prompt&#34;: &#34;Analyze this error: connection timeout on service X&#34;}&#39;</span>
+</span></span></span><span class="line"><span class="cl"><span class="se"></span>  -H <span class="s2">&#34;Authorization: Bearer mgc_your_token&#34;</span> <span class="se">\
+</span></span></span><span class="line"><span class="cl"><span class="se"></span>  -H <span class="s2">&#34;Content-Type: application/json&#34;</span> <span class="se">\
+</span></span></span><span class="line"><span class="cl"><span class="se"></span>  -d <span class="s1">&#39;{&#34;prompt&#34;: &#34;Analyze this error: connection timeout on service X&#34;}&#39;</span>
 </span></span></code></pre></div><p>The agent processes the request synchronously and the response is returned in the HTTP response body. This makes webhooks easy to integrate with any system that can make HTTP requests and read responses.</p>
 <h2 id="example-integrations">
   Example integrations
@@ -270,9 +270,9 @@
 </h3>
 <p>Forward alerts from Prometheus, Grafana, or any monitoring tool:</p>
 <div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">curl -X POST http://magec:8080/api/v1/webhooks/alert-handler <span class="se">\
-</span></span></span><span class="line"><span class="cl">  -H <span class="s2">&#34;Authorization: Bearer mgc_...&#34;</span> <span class="se">\
-</span></span></span><span class="line"><span class="cl">  -H <span class="s2">&#34;Content-Type: application/json&#34;</span> <span class="se">\
-</span></span></span><span class="line"><span class="cl">  -d <span class="s1">&#39;{&#34;prompt&#34;: &#34;Critical alert: CPU usage above 90% on prod-web-01 for 10 minutes. Analyze possible causes and suggest remediation.&#34;}&#39;</span>
+</span></span></span><span class="line"><span class="cl"><span class="se"></span>  -H <span class="s2">&#34;Authorization: Bearer mgc_...&#34;</span> <span class="se">\
+</span></span></span><span class="line"><span class="cl"><span class="se"></span>  -H <span class="s2">&#34;Content-Type: application/json&#34;</span> <span class="se">\
+</span></span></span><span class="line"><span class="cl"><span class="se"></span>  -d <span class="s1">&#39;{&#34;prompt&#34;: &#34;Critical alert: CPU usage above 90% on prod-web-01 for 10 minutes. Analyze possible causes and suggest remediation.&#34;}&#39;</span>
 </span></span></code></pre></div><h3 id="form-processing">
   Form processing
   <a class="heading-anchor" href="#form-processing" aria-label="Link to this section">#</a>

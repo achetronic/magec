@@ -182,10 +182,10 @@
 <div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">mkdir magec <span class="o">&amp;&amp;</span> <span class="nb">cd</span> magec
 </span></span><span class="line"><span class="cl">
 </span></span><span class="line"><span class="cl">curl -fsSL https://raw.githubusercontent.com/achetronic/magec/master/docker/compose/docker-compose.yaml <span class="se">\
-</span></span></span><span class="line"><span class="cl">  -o docker-compose.yaml
+</span></span></span><span class="line"><span class="cl"><span class="se"></span>  -o docker-compose.yaml
 </span></span><span class="line"><span class="cl">
 </span></span><span class="line"><span class="cl">curl -fsSL https://raw.githubusercontent.com/achetronic/magec/master/docker/compose/config.yaml <span class="se">\
-</span></span></span><span class="line"><span class="cl">  -o config.yaml
+</span></span></span><span class="line"><span class="cl"><span class="se"></span>  -o config.yaml
 </span></span></code></pre></div><h3 id="2-optional-enable-gpu">
   2. (Optional) Enable GPU
   <a class="heading-anchor" href="#2-optional-enable-gpu" aria-label="Link to this section">#</a>
@@ -252,6 +252,11 @@
           <td><strong>tts</strong></td>
           <td>Text-to-speech (OpenAI Edge TTS)</td>
           <td>5050</td>
+      </tr>
+      <tr>
+          <td><strong>cliproxyapi</strong></td>
+          <td>Claude subscription proxy (<a href="https://github.com/router-for-me/CLIProxyAPI">CLIProxyAPI</a>)</td>
+          <td>8317</td>
       </tr>
   </tbody>
 </table>
@@ -551,6 +556,56 @@
       </tr>
   </tbody>
 </table>
+<h3 id="claude-subscription-no-api-key">
+  Claude subscription (no API key)
+  <a class="heading-anchor" href="#claude-subscription-no-api-key" aria-label="Link to this section">#</a>
+</h3>
+<p>If you have a Claude Max or Pro subscription, the included CLIProxyAPI service lets you use Claude models without a separate API key.</p>
+<p><strong>Step 1 — Log in with your Claude account.</strong> The login command needs exclusive access to the OAuth callback port, so stop the service first:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">docker compose stop cliproxyapi
+</span></span><span class="line"><span class="cl">docker compose run --rm --service-ports cliproxyapi <span class="se">\
+</span></span></span><span class="line"><span class="cl"><span class="se"></span>  /CLIProxyAPI/CLIProxyAPI --no-browser --claude-login
+</span></span><span class="line"><span class="cl">docker compose up -d cliproxyapi
+</span></span></code></pre></div><p>Open the URL printed in the terminal, authorize in your browser, and wait for the callback. Your credentials are stored in the <code>cliproxyapi_auth</code> volume and persist across restarts.</p>
+<p><strong>Step 2 — Create a backend</strong> in the Admin UI:</p>
+<table>
+  <thead>
+      <tr>
+          <th>Field</th>
+          <th>Value</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>Name</td>
+          <td><code>Claude (Subscription)</code></td>
+      </tr>
+      <tr>
+          <td>Type</td>
+          <td><code>anthropic</code></td>
+      </tr>
+      <tr>
+          <td>URL</td>
+          <td><code>http://cliproxyapi:8317</code></td>
+      </tr>
+      <tr>
+          <td>API Key</td>
+          <td><code>sk-magec-local</code></td>
+      </tr>
+  </tbody>
+</table>
+<p><strong>Step 3 — Verify.</strong> Assign the backend to an agent and send a test message, or check directly:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">curl http://localhost:8317/v1/models <span class="se">\
+</span></span></span><span class="line"><span class="cl"><span class="se"></span>  -H <span class="s2">&#34;X-Api-Key: sk-magec-local&#34;</span> <span class="se">\
+</span></span></span><span class="line"><span class="cl"><span class="se"></span>  -H <span class="s2">&#34;anthropic-version: 2023-06-01&#34;</span>
+</span></span></code></pre></div><p>The interactive installer can set this up automatically — just answer &ldquo;yes&rdquo; when asked about the Claude subscription proxy.</p>
+
+
+
+<div class="docs-callout docs-callout--info">
+  CLIProxyAPI is a third-party project. See <a href="/docs/backends/#using-your-claude-subscription-cliproxyapi">AI Backends — CLIProxyAPI</a> for details.
+</div>
+
 <h2 id="managing-the-deployment">
   Managing the deployment
   <a class="heading-anchor" href="#managing-the-deployment" aria-label="Link to this section">#</a>
@@ -594,6 +649,10 @@
       <tr>
           <td><code>ollama_data</code></td>
           <td>Downloaded AI models</td>
+      </tr>
+      <tr>
+          <td><code>cliproxyapi_auth</code></td>
+          <td>CLIProxyAPI OAuth credentials (Claude subscription login)</td>
       </tr>
   </tbody>
 </table>

@@ -210,11 +210,11 @@
 </span></span></span><span class="line"><span class="cl"><span class="w">  </span><span class="nt">port</span><span class="p">:</span><span class="w"> </span><span class="m">8080</span><span class="w">
 </span></span></span><span class="line"><span class="cl"><span class="w">  </span><span class="nt">adminPort</span><span class="p">:</span><span class="w"> </span><span class="m">8081</span><span class="w">
 </span></span></span><span class="line"><span class="cl"><span class="w">
-</span></span></span><span class="line"><span class="cl"><span class="nt">voice</span><span class="p">:</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w"></span><span class="nt">voice</span><span class="p">:</span><span class="w">
 </span></span></span><span class="line"><span class="cl"><span class="w">  </span><span class="nt">ui</span><span class="p">:</span><span class="w">
 </span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="w">
 </span></span></span><span class="line"><span class="cl"><span class="w">
-</span></span></span><span class="line"><span class="cl"><span class="nt">log</span><span class="p">:</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w"></span><span class="nt">log</span><span class="p">:</span><span class="w">
 </span></span></span><span class="line"><span class="cl"><span class="w">  </span><span class="nt">level</span><span class="p">:</span><span class="w"> </span><span class="l">info</span><span class="w">
 </span></span></span><span class="line"><span class="cl"><span class="w">  </span><span class="nt">format</span><span class="p">:</span><span class="w"> </span><span class="l">console</span><span class="w">
 </span></span></span></code></pre></div><h2 id="run-magec">
@@ -327,10 +327,10 @@
 </span></span><span class="line"><span class="cl">
 </span></span><span class="line"><span class="cl"><span class="c1"># Long-term memory (requires pgvector)</span>
 </span></span><span class="line"><span class="cl">docker run -d -p 5432:5432 <span class="se">\
-</span></span></span><span class="line"><span class="cl">  -e <span class="nv">POSTGRES_USER</span><span class="o">=</span>magec <span class="se">\
-</span></span></span><span class="line"><span class="cl">  -e <span class="nv">POSTGRES_PASSWORD</span><span class="o">=</span>magec <span class="se">\
-</span></span></span><span class="line"><span class="cl">  -e <span class="nv">POSTGRES_DB</span><span class="o">=</span>magec <span class="se">\
-</span></span></span><span class="line"><span class="cl">  pgvector/pgvector:pg17
+</span></span></span><span class="line"><span class="cl"><span class="se"></span>  -e <span class="nv">POSTGRES_USER</span><span class="o">=</span>magec <span class="se">\
+</span></span></span><span class="line"><span class="cl"><span class="se"></span>  -e <span class="nv">POSTGRES_PASSWORD</span><span class="o">=</span>magec <span class="se">\
+</span></span></span><span class="line"><span class="cl"><span class="se"></span>  -e <span class="nv">POSTGRES_DB</span><span class="o">=</span>magec <span class="se">\
+</span></span></span><span class="line"><span class="cl"><span class="se"></span>  pgvector/pgvector:pg17
 </span></span></code></pre></div><p>Then configure in the Admin UI under <strong>Memory</strong>:</p>
 <ul>
 <li>Session: <code>redis://localhost:6379</code></li>
