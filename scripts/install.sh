@@ -333,6 +333,41 @@ choose \
 
 LLM_CHOICE="$REPLY"
 
+# ── CLIProxyAPI (use Claude subscription as API) ─────────────────────────
+
+WANT_CLIPROXYAPI=false
+
+if [[ "$LLM_CHOICE" == "2" || "$LLM_CHOICE" == "3" ]]; then
+  echo
+  box_top
+  box_empty
+  box_line "  Use Claude Without an API Key?" "$BOLD" "center"
+  box_empty
+  box_sep
+  box_empty
+  box_line "  If you have a Claude Max or Pro subscription,"
+  box_line "  you can use your existing account instead of"
+  box_line "  paying separately for API access."
+  box_empty
+  box_line "  This uses CLIProxyAPI — a local proxy that"
+  box_line "  connects your Claude subscription to Magec."
+  box_line "  You'll log in with your Anthropic account once,"
+  box_line "  and Magec can use Claude models from there."
+  box_empty
+  box_line "  ${DIM}You can still add a regular Anthropic API key${NC}"
+  box_line "  ${DIM}later if you prefer.${NC}"
+  box_empty
+  box_bottom
+  echo
+
+  if ask_yn "Enable Claude subscription proxy (CLIProxyAPI)?" "n"; then
+    WANT_CLIPROXYAPI=true
+    ok "CLIProxyAPI will be configured"
+  else
+    info "Skipped — you can set it up later"
+  fi
+fi
+
 # ═══════════════════════════════════════════════════════════════════════════
 #  STEP 3 — MEMORY
 # ═══════════════════════════════════════════════════════════════════════════
@@ -727,6 +762,9 @@ box_empty
 box_line "  ${BOLD}Install method:${NC}    $method_label"
 box_line "  ${BOLD}System:${NC}            ${os_label} (${arch_label})"
 box_line "  ${BOLD}AI models:${NC}         $llm_label"
+if $WANT_CLIPROXYAPI; then
+  box_line "  ${BOLD}Claude proxy:${NC}      Enabled (CLIProxyAPI)"
+fi
 box_line "  ${BOLD}Conversation memory:${NC} $($WANT_REDIS && echo "Yes" || echo "No")"
 box_line "  ${BOLD}Long-term memory:${NC}  $($WANT_POSTGRES && echo "Yes" || echo "No")"
 box_line "  ${BOLD}Voice:${NC}             $voice_label"
@@ -1314,6 +1352,55 @@ install_binary() {
     install_onnx_runtime
   fi
 
+  # ── CLIProxyAPI setup (binary) ───────────────────────────────────────
+
+  if $WANT_CLIPROXYAPI; then
+    cls
+    echo
+    printf "  $(badge " SETUP " "$BG_YELLOW" "$FG_BLACK")  ${BOLD}Claude subscription proxy (CLIProxyAPI)${NC}\n"
+    printf "  ${DIM}$(hline '─' "$BOX_W")${NC}\n"
+    echo
+
+    box_top
+    box_empty
+    box_line "  CLIProxyAPI runs as a separate service."
+    box_line "  You can run it via Docker or download the"
+    box_line "  binary from GitHub."
+    box_empty
+    box_sep
+    box_empty
+    box_line "  ${BOLD}Option A — Docker (recommended):${NC}"
+    box_empty
+    box_line "  ${CYAN}docker run -d -p 8317:8317 -p 54545:54545 \\${NC}"
+    box_line "  ${CYAN}  -v \$(pwd)/cliproxyapi/config.yaml:\\${NC}"
+    box_line "  ${CYAN}  /CLIProxyAPI/config/config.yaml \\${NC}"
+    box_line "  ${CYAN}  -v cliproxyapi_auth:/CLIProxyAPI/auth \\${NC}"
+    box_line "  ${CYAN}  --name magec-cliproxyapi \\${NC}"
+    box_line "  ${CYAN}  eceasy/cli-proxy-api:latest${NC}"
+    box_empty
+    box_sep
+    box_empty
+    box_line "  ${BOLD}Option B — Binary:${NC}"
+    box_empty
+    box_line "  ${CYAN}https://github.com/router-for-me/CLIProxyAPI/releases${NC}"
+    box_empty
+    box_sep
+    box_empty
+    box_line "  ${BOLD}After starting, log in with your Claude account:${NC}"
+    box_empty
+    box_line "  ${CYAN}cliproxyapi --claude-login${NC}"
+    box_line "  ${DIM}(or: docker exec magec-cliproxyapi \\${NC}"
+    box_line "  ${DIM}  /CLIProxyAPI/CLIProxyAPI --no-browser --claude-login)${NC}"
+    box_empty
+    box_bottom
+    echo
+
+    printf "  ${DIM}Press Enter to continue...${NC}"
+    read -r < /dev/tty
+
+    generate_cliproxyapi_config
+  fi
+
   # ── Generate config ─────────────────────────────────────────────────
 
   echo
@@ -1458,6 +1545,9 @@ install_containers() {
 
   info "Creating configuration files..."
   generate_docker_compose
+  if $WANT_CLIPROXYAPI; then
+    generate_cliproxyapi_config
+  fi
   if ! $SKIP_CONFIG; then
     generate_config_yaml
   else
@@ -1484,6 +1574,18 @@ install_containers() {
 # ═══════════════════════════════════════════════════════════════════════════
 #  CONFIGURATION GENERATORS
 # ═══════════════════════════════════════════════════════════════════════════
+
+generate_cliproxyapi_config() {
+  mkdir -p cliproxyapi
+  cat > cliproxyapi/config.yaml <<'CLIPROXY'
+host: "0.0.0.0"
+port: 8317
+auth-dir: "/CLIProxyAPI/auth"
+api-keys:
+  - "sk-magec-local"
+CLIPROXY
+  ok "cliproxyapi/config.yaml"
+}
 
 generate_config_yaml() {
   local voice_enabled="true"
@@ -1533,6 +1635,7 @@ generate_store_json() {
   local openai_backend_id="$(gen_uuid)"
   local anthropic_backend_id="$(gen_uuid)"
   local gemini_backend_id="$(gen_uuid)"
+  local cliproxyapi_backend_id="$(gen_uuid)"
   local parakeet_backend_id="$(gen_uuid)"
   local tts_backend_id="$(gen_uuid)"
 
@@ -1546,6 +1649,12 @@ generate_store_json() {
     backend_entries+=("{\"id\":\"${openai_backend_id}\",\"name\":\"OpenAI\",\"type\":\"openai\",\"url\":\"https://api.openai.com/v1\",\"apiKey\":\"\"}")
     backend_entries+=("{\"id\":\"${anthropic_backend_id}\",\"name\":\"Anthropic\",\"type\":\"anthropic\",\"url\":\"\",\"apiKey\":\"\"}")
     backend_entries+=("{\"id\":\"${gemini_backend_id}\",\"name\":\"Gemini\",\"type\":\"gemini\",\"url\":\"\",\"apiKey\":\"\"}")
+  fi
+
+  if $WANT_CLIPROXYAPI; then
+    local cliproxyapi_url="http://localhost:8317"
+    [[ "$INSTALL_METHOD" == "2" ]] && cliproxyapi_url="http://cliproxyapi:8317"
+    backend_entries+=("{\"id\":\"${cliproxyapi_backend_id}\",\"name\":\"Claude (Subscription)\",\"type\":\"anthropic\",\"url\":\"${cliproxyapi_url}\",\"apiKey\":\"sk-magec-local\"}")
   fi
 
   if [[ "$WANT_VOICE" == true ]]; then
@@ -1601,6 +1710,9 @@ generate_store_json() {
   if [[ "$LLM_CHOICE" == "1" || "$LLM_CHOICE" == "3" ]]; then
     llm_backend_id="$ollama_backend_id"
     llm_model="qwen3:8b"
+  elif [[ "$LLM_CHOICE" == "2" ]] && $WANT_CLIPROXYAPI; then
+    llm_backend_id="$cliproxyapi_backend_id"
+    llm_model="claude-sonnet-4-20250514"
   elif [[ "$LLM_CHOICE" == "2" ]]; then
     llm_backend_id="$anthropic_backend_id"
     llm_model="claude-sonnet-4-20250514"
@@ -1771,6 +1883,18 @@ generate_docker_compose() {
     services+="    restart: unless-stopped\n"
   fi
 
+  if $WANT_CLIPROXYAPI; then
+    services+="\n  cliproxyapi:\n"
+    services+="    image: eceasy/cli-proxy-api:latest\n"
+    services+="    ports:\n"
+    services+="      - \"54545:54545\"\n"
+    services+="    volumes:\n"
+    services+="      - ./cliproxyapi/config.yaml:/CLIProxyAPI/config/config.yaml\n"
+    services+="      - cliproxyapi_auth:/CLIProxyAPI/auth\n"
+    services+="    restart: unless-stopped\n"
+    volumes+="  cliproxyapi_auth:\n"
+  fi
+
   printf "services:\n" > docker-compose.yaml
   printf '%b' "$services" >> docker-compose.yaml
   printf "\nvolumes:\n" >> docker-compose.yaml
@@ -1908,11 +2032,35 @@ EOF
   fi
   box_empty
 
-  if [[ "$LLM_CHOICE" == "2" || "$LLM_CHOICE" == "3" ]]; then
+  if $WANT_CLIPROXYAPI; then
+    box_sep
+    box_empty
+    box_line "  ${YELLOW}Action needed:${NC} Log in to your Claude account."
+    if [[ "$INSTALL_METHOD" == "2" ]]; then
+      box_line "  ${CYAN}${COMPOSE} exec cliproxyapi \\${NC}"
+      box_line "  ${CYAN}  /CLIProxyAPI/CLIProxyAPI --no-browser --claude-login${NC}"
+    else
+      box_line "  ${CYAN}cliproxyapi --claude-login${NC}"
+      box_line "  ${DIM}(or via Docker: docker exec magec-cliproxyapi \\${NC}"
+      box_line "  ${DIM}  /CLIProxyAPI/CLIProxyAPI --no-browser --claude-login)${NC}"
+    fi
+    box_empty
+    box_line "  A \"${BOLD}Claude (Subscription)${NC}\" backend has been"
+    box_line "  pre-configured. After login, it's ready to use."
+    box_empty
+  fi
+
+  if [[ "$LLM_CHOICE" == "2" || "$LLM_CHOICE" == "3" ]] && ! $WANT_CLIPROXYAPI; then
     box_sep
     box_empty
     box_line "  ${YELLOW}Remember:${NC} Cloud AI providers need API keys."
     box_line "  Add them in Admin Panel → Backends."
+    box_empty
+  elif [[ "$LLM_CHOICE" == "2" || "$LLM_CHOICE" == "3" ]] && $WANT_CLIPROXYAPI; then
+    box_sep
+    box_empty
+    box_line "  ${DIM}Other cloud providers (OpenAI, Gemini) still${NC}"
+    box_line "  ${DIM}need API keys — add them in Admin Panel → Backends.${NC}"
     box_empty
   fi
 

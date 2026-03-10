@@ -92,8 +92,18 @@ services:
       - REQUIRE_API_KEY=False
     restart: unless-stopped
 
+  cliproxyapi:
+    image: eceasy/cli-proxy-api:latest
+    ports:
+      - "54545:54545"   # OAuth callback (required for login only)
+    volumes:
+      - ./cliproxyapi/config.yaml:/CLIProxyAPI/config.yaml
+      - cliproxyapi_auth:/CLIProxyAPI/auth
+    restart: unless-stopped
+
 volumes:
   magec_data:
   redis_data:
   postgres_data:
   ollama_data:
+  cliproxyapi_auth:

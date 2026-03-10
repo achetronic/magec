@@ -70,6 +70,7 @@ docker compose up -d
 | **ollama-setup** | Downloads Ollama models on first start, then exits | — |
 | **parakeet** | Speech-to-text (NVIDIA Parakeet) | 5092 |
 | **tts** | Text-to-speech (OpenAI Edge TTS) | 5050 |
+| **cliproxyapi** | Claude subscription proxy ([CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI)) | 8317 |
 
 ## Set up your first agent
 
@@ -189,6 +190,44 @@ These providers only offer LLM — STT, TTS, and embeddings stay local. Create t
 | Anthropic | `anthropic` | `claude-sonnet-4-20250514` |
 | Gemini | `gemini` | `gemini-2.0-flash` |
 
+### Claude subscription (no API key)
+
+If you have a Claude Max or Pro subscription, the included CLIProxyAPI service lets you use Claude models without a separate API key.
+
+**Step 1 — Log in with your Claude account.** The login command needs exclusive access to the OAuth callback port, so stop the service first:
+
+```bash
+docker compose stop cliproxyapi
+docker compose run --rm --service-ports cliproxyapi \
+  /CLIProxyAPI/CLIProxyAPI --no-browser --claude-login
+docker compose up -d cliproxyapi
+```
+
+Open the URL printed in the terminal, authorize in your browser, and wait for the callback. Your credentials are stored in the `cliproxyapi_auth` volume and persist across restarts.
+
+**Step 2 — Create a backend** in the Admin UI:
+
+| Field | Value |
+|-------|-------|
+| Name | `Claude (Subscription)` |
+| Type | `anthropic` |
+| URL | `http://cliproxyapi:8317` |
+| API Key | `sk-magec-local` |
+
+**Step 3 — Verify.** Assign the backend to an agent and send a test message, or check directly:
+
+```bash
+curl http://localhost:8317/v1/models \
+  -H "X-Api-Key: sk-magec-local" \
+  -H "anthropic-version: 2023-06-01"
+```
+
+The interactive installer can set this up automatically — just answer "yes" when asked about the Claude subscription proxy.
+
+{{< callout type="info" >}}
+CLIProxyAPI is a third-party project. See [AI Backends — CLIProxyAPI](/docs/backends/#using-your-claude-subscription-cliproxyapi) for details.
+{{< /callout >}}
+
 ## Managing the deployment
 
 ```bash
@@ -215,6 +254,7 @@ All data is stored in Docker volumes:
 | `redis_data` | Session memory |
 | `postgres_data` | Long-term memory (pgvector) |
 | `ollama_data` | Downloaded AI models |
+| `cliproxyapi_auth` | CLIProxyAPI OAuth credentials (Claude subscription login) |
 
 Your data survives `docker compose down/up`, image updates, and container recreation. To back up your Magec configuration, copy `data/store.json` from the `magec_data` volume.
 

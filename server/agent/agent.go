@@ -413,6 +413,7 @@ func createLLM(ctx context.Context, backend store.BackendDefinition, llmRef stor
 	case config.BackendTypeAnthropic:
 		return genaianthro.New(genaianthro.Config{
 			APIKey:    backend.APIKey,
+			BaseURL:   backend.URL,
 			ModelName: llmRef.Model,
 			HTTPOptions: genaianthro.HTTPOptions{
 				Headers: headers,

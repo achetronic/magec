@@ -63,9 +63,64 @@ For Anthropic's Claude models. Uses the official Anthropic API protocol, which i
 | Field | Required | Description |
 |-------|----------|-------------|
 | `name` | Yes | Display name |
-| `apiKey` | Yes | Anthropic API key (starts with `sk-ant-`) |
+| `url` | No | API base URL. Defaults to `https://api.anthropic.com`. Set this when using a proxy like CLIProxyAPI. |
+| `apiKey` | Yes | Anthropic API key (starts with `sk-ant-`) or proxy API key |
 
 Anthropic doesn't offer STT, TTS, or embedding APIs, so this backend type is used only for LLM inference. For voice and embeddings, add a separate `openai`-type backend pointing at a local service.
+
+### Using your Claude subscription (CLIProxyAPI)
+
+If you have a Claude Max or Pro subscription, you can use your existing account instead of paying separately for API access. This works through [CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI), a local proxy that translates your subscription's OAuth credentials into a standard Anthropic API.
+
+#### 1. Create the backend
+
+In the Admin UI, create an `anthropic` backend pointing at CLIProxyAPI:
+
+| Field | Value |
+|-------|-------|
+| Name | `Claude (Subscription)` |
+| Type | `anthropic` |
+| URL | `http://cliproxyapi:8317` (Docker) or `http://localhost:8317` (local) |
+| API Key | `sk-magec-local` |
+
+{{< callout type="warning" >}}
+The **URL** field is required. Without it, Magec sends requests to the default Anthropic API (`https://api.anthropic.com`) and authentication will fail.
+{{< /callout >}}
+
+#### 2. Log in with your Claude account
+
+The login command starts a temporary OAuth callback server, so you must **stop the running CLIProxyAPI service first** to free its ports:
+
+```bash
+# Docker — stop, login, restart
+docker compose stop cliproxyapi
+docker compose run --rm --service-ports cliproxyapi \
+  /CLIProxyAPI/CLIProxyAPI --no-browser --claude-login
+docker compose up -d cliproxyapi
+
+# Binary
+cliproxyapi --claude-login
+```
+
+The command prints a URL like `https://claude.ai/oauth/authorize?...` — open it in your browser and authorize. After the OAuth callback completes, you'll see a success message. Your credentials are stored in the `cliproxyapi_auth` volume and persist across restarts.
+
+#### 3. Verify
+
+```bash
+curl http://localhost:8317/v1/models \
+  -H "X-Api-Key: sk-magec-local" \
+  -H "anthropic-version: 2023-06-01"
+```
+
+If you see a list of Claude models, CLIProxyAPI is working. You can now assign the backend to any agent.
+
+{{< callout type="info" >}}
+The interactive installer can set up CLIProxyAPI automatically. See [CLIProxyAPI on GitHub](https://github.com/router-for-me/CLIProxyAPI) for full configuration options.
+{{< /callout >}}
+
+{{< callout type="info" >}}
+CLIProxyAPI is a third-party project not affiliated with Anthropic. It uses your existing Claude subscription — you're responsible for ensuring your usage complies with Anthropic's terms of service.
+{{< /callout >}}
 
 ### Google Gemini (`gemini`)
 

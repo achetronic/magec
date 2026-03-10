@@ -49,3 +49,4 @@ test/
 data/*
 !data/seeds/
 server/data/
+onnxruntime-*/

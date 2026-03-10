@@ -1,4 +1,4 @@
-.PHONY: help build build-admin build-voice dev dev-admin dev-voice clean download-model swagger docker-build docker-buildx docker-push postgres redis ollama infra infra-stop infra-clean
+.PHONY: help build build-admin build-voice dev dev-admin dev-voice clean download-model swagger docker-build docker-buildx docker-push postgres redis ollama infra infra-stop infra-clean docs docs-stop
 
 CONFIG ?= config.yaml
 
@@ -15,6 +15,8 @@ help:
 	@echo "  dev-admin            Start admin UI dev server (Vite, port 5173)"
 	@echo "  dev-voice            Start voice UI dev server (Vite, port 5174)"
 	@echo "  swagger              Regenerate Swagger docs from annotations"
+	@echo "  docs                 Start documentation site (Hugo, port 1313)"
+	@echo "  docs-stop            Stop documentation site"
 	@echo "  clean                Remove generated files"
 	@echo ""
 	@echo "Models:"
@@ -101,6 +103,26 @@ docker-buildx:
 docker-push:
 	@docker buildx build -f docker/build/Dockerfile --platform $(DOCKER_PLATFORMS) -t $(IMAGE_NAME):$(IMAGE_TAG) --push .
 	@echo "Image pushed: $(IMAGE_NAME):$(IMAGE_TAG) [$(DOCKER_PLATFORMS)]"
+
+# Documentation (Docker)
+
+HUGO_VERSION ?= 0.147.1
+DOCS_PORT ?= 1313
+
+docs:
+	@echo "Starting documentation site on http://localhost:$(DOCS_PORT) ..."
+	@docker run -d --name magec-docs \
+		-p $(DOCS_PORT):1313 \
+		-v $(CURDIR)/website:/src \
+		hugomods/hugo:$(HUGO_VERSION) \
+		hugo server --bind 0.0.0.0 --baseURL http://localhost:$(DOCS_PORT) --disableFastRender
+	@echo "Documentation site running at http://localhost:$(DOCS_PORT)"
+	@echo "Stop with: make docs-stop"
+
+docs-stop:
+	@docker stop magec-docs 2>/dev/null || true
+	@docker rm magec-docs 2>/dev/null || true
+	@echo "Documentation site stopped"
 
 # Infrastructure (Docker)
 
