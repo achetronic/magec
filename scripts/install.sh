@@ -333,7 +333,7 @@ choose \
 
 LLM_CHOICE="$REPLY"
 
-# ── CLIProxyAPI (use Claude subscription as API) ─────────────────────────
+# ── CLIProxyAPI (use provider subscription as API) ───────────────────────
 
 WANT_CLIPROXYAPI=false
 
@@ -341,26 +341,27 @@ if [[ "$LLM_CHOICE" == "2" || "$LLM_CHOICE" == "3" ]]; then
   echo
   box_top
   box_empty
-  box_line "  Use Claude Without an API Key?" "$BOLD" "center"
+  box_line "  Use Your Subscription Instead of an API Key?" "$BOLD" "center"
   box_empty
   box_sep
   box_empty
-  box_line "  If you have a Claude Max or Pro subscription,"
-  box_line "  you can use your existing account instead of"
-  box_line "  paying separately for API access."
+  box_line "  Some AI providers offer paid subscriptions"
+  box_line "  (e.g., Claude Max/Pro, ChatGPT Plus) that are"
+  box_line "  separate from their API billing."
   box_empty
-  box_line "  This uses CLIProxyAPI — a local proxy that"
-  box_line "  connects your Claude subscription to Magec."
-  box_line "  You'll log in with your Anthropic account once,"
-  box_line "  and Magec can use Claude models from there."
+  box_line "  CLIProxyAPI is a local proxy that lets you"
+  box_line "  use your existing subscription with Magec"
+  box_line "  instead of paying separately for API access."
+  box_line "  You log in once and Magec can use the models"
+  box_line "  from your subscription."
   box_empty
-  box_line "  ${DIM}You can still add a regular Anthropic API key${NC}"
-  box_line "  ${DIM}later if you prefer.${NC}"
+  box_line "  ${DIM}You can still add a regular API key later${NC}"
+  box_line "  ${DIM}if you prefer.${NC}"
   box_empty
   box_bottom
   echo
 
-  if ask_yn "Enable Claude subscription proxy (CLIProxyAPI)?" "n"; then
+  if ask_yn "Enable subscription proxy (CLIProxyAPI)?" "n"; then
     WANT_CLIPROXYAPI=true
     ok "CLIProxyAPI will be configured"
   else
@@ -763,7 +764,7 @@ box_line "  ${BOLD}Install method:${NC}    $method_label"
 box_line "  ${BOLD}System:${NC}            ${os_label} (${arch_label})"
 box_line "  ${BOLD}AI models:${NC}         $llm_label"
 if $WANT_CLIPROXYAPI; then
-  box_line "  ${BOLD}Claude proxy:${NC}      Enabled (CLIProxyAPI)"
+  box_line "  ${BOLD}Subscription proxy:${NC} Enabled (CLIProxyAPI)"
 fi
 box_line "  ${BOLD}Conversation memory:${NC} $($WANT_REDIS && echo "Yes" || echo "No")"
 box_line "  ${BOLD}Long-term memory:${NC}  $($WANT_POSTGRES && echo "Yes" || echo "No")"
@@ -1357,7 +1358,7 @@ install_binary() {
   if $WANT_CLIPROXYAPI; then
     cls
     echo
-    printf "  $(badge " SETUP " "$BG_YELLOW" "$FG_BLACK")  ${BOLD}Claude subscription proxy (CLIProxyAPI)${NC}\n"
+    printf "  $(badge " SETUP " "$BG_YELLOW" "$FG_BLACK")  ${BOLD}Subscription proxy (CLIProxyAPI)${NC}\n"
     printf "  ${DIM}$(hline '─' "$BOX_W")${NC}\n"
     echo
 
@@ -1386,17 +1387,10 @@ install_binary() {
     box_empty
     box_sep
     box_empty
-    box_line "  ${BOLD}After starting, log in with your Claude account:${NC}"
+    box_line "  ${BOLD}After starting, log in to your provider.${NC}"
+    box_line "  ${BOLD}See the guide for supported providers:${NC}"
     box_empty
-    box_line "  ${CYAN}cliproxyapi --claude-login${NC}"
-    box_line "  ${DIM}(or via Docker:${NC}"
-    box_line "  ${DIM}  docker stop magec-cliproxyapi${NC}"
-    box_line "  ${DIM}  docker run --rm -p 54545:54545 \\${NC}"
-    box_line "  ${DIM}    -v ./cliproxyapi/config.yaml:/CLIProxyAPI/config.yaml \\${NC}"
-    box_line "  ${DIM}    -v magec_cliproxyapi_auth:/CLIProxyAPI/auth \\${NC}"
-    box_line "  ${DIM}    eceasy/cli-proxy-api:latest \\${NC}"
-    box_line "  ${DIM}    /CLIProxyAPI/CLIProxyAPI --no-browser --claude-login${NC}"
-    box_line "  ${DIM}  docker start magec-cliproxyapi)${NC}"
+    box_line "  ${CYAN}https://magec.dev/docs/subscription-proxy/${NC}"
     box_empty
     box_bottom
     echo
@@ -1660,7 +1654,7 @@ generate_store_json() {
   if $WANT_CLIPROXYAPI; then
     local cliproxyapi_url="http://localhost:8317"
     [[ "$INSTALL_METHOD" == "2" ]] && cliproxyapi_url="http://cliproxyapi:8317"
-    backend_entries+=("{\"id\":\"${cliproxyapi_backend_id}\",\"name\":\"Claude (Subscription)\",\"type\":\"anthropic\",\"url\":\"${cliproxyapi_url}\",\"apiKey\":\"sk-magec-local\"}")
+    backend_entries+=("{\"id\":\"${cliproxyapi_backend_id}\",\"name\":\"Subscription Proxy\",\"type\":\"anthropic\",\"url\":\"${cliproxyapi_url}\",\"apiKey\":\"sk-magec-local\"}")
   fi
 
   if [[ "$WANT_VOICE" == true ]]; then
@@ -2041,17 +2035,13 @@ EOF
   if $WANT_CLIPROXYAPI; then
     box_sep
     box_empty
-    box_line "  ${YELLOW}Action needed:${NC} Log in to your Claude account."
-    if [[ "$INSTALL_METHOD" == "2" ]]; then
-      box_line "  ${CYAN}${COMPOSE} stop cliproxyapi${NC}"
-      box_line "  ${CYAN}${COMPOSE} run --rm --service-ports cliproxyapi /CLIProxyAPI/CLIProxyAPI --no-browser --claude-login${NC}"
-      box_line "  ${CYAN}${COMPOSE} up -d cliproxyapi${NC}"
-    else
-      box_line "  ${CYAN}cliproxyapi --claude-login${NC}"
-      box_line "  ${DIM}(or via Docker: stop, run login, restart)${NC}"
-    fi
+    box_line "  ${YELLOW}Action needed:${NC} Log in to your provider."
+    box_line "  See the subscription proxy guide for login"
+    box_line "  commands for each supported provider:"
     box_empty
-    box_line "  A \"${BOLD}Claude (Subscription)${NC}\" backend has been"
+    box_line "  ${CYAN}https://magec.dev/docs/subscription-proxy/${NC}"
+    box_empty
+    box_line "  A subscription proxy backend has been"
     box_line "  pre-configured. After login, it's ready to use."
     box_empty
   fi

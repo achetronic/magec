@@ -107,6 +107,15 @@
       
       
       <div class="docs-sidebar__group">
+        <div class="docs-sidebar__label">Guides</div>
+        
+        <a href="/docs/subscription-proxy/" class="docs-sidebar__link">Using a subscription proxy</a>
+        
+      </div>
+      
+      
+      
+      <div class="docs-sidebar__group">
         <div class="docs-sidebar__label">Clients</div>
         
         <a href="/docs/clients/" class="docs-sidebar__link">Overview</a>
@@ -159,6 +168,13 @@
 <img src="/img/screenshots/admin-backends.png" alt="Admin UI — Backends" class="screenshot screenshot--desktop">
 
 </div>
+
+
+
+<div class="docs-callout docs-callout--info">
+  Have a paid subscription with a provider (e.g., Claude Max/Pro, ChatGPT Plus)? You can use it instead of an API key. See the <strong><a href="/docs/subscription-proxy/">Using a subscription proxy</a></strong> guide.
+</div>
+
 <h2 id="backend-types">
   Backend types
   <a class="heading-anchor" href="#backend-types" aria-label="Link to this section">#</a>
@@ -251,7 +267,7 @@ Key:  (leave empty)
       <tr>
           <td><code>url</code></td>
           <td>No</td>
-          <td>API base URL. Defaults to <code>https://api.anthropic.com</code>. Set this when using a proxy like CLIProxyAPI.</td>
+          <td>API base URL. Defaults to <code>https://api.anthropic.com</code>. Set this when using <a href="https://github.com/router-for-me/CLIProxyAPI">a proxy</a>.</td>
       </tr>
       <tr>
           <td><code>apiKey</code></td>
@@ -261,84 +277,6 @@ Key:  (leave empty)
   </tbody>
 </table>
 <p>Anthropic doesn&rsquo;t offer STT, TTS, or embedding APIs, so this backend type is used only for LLM inference. For voice and embeddings, add a separate <code>openai</code>-type backend pointing at a local service.</p>
-<h3 id="using-your-claude-subscription-cliproxyapi">
-  Using your Claude subscription (CLIProxyAPI)
-  <a class="heading-anchor" href="#using-your-claude-subscription-cliproxyapi" aria-label="Link to this section">#</a>
-</h3>
-<p>If you have a Claude Max or Pro subscription, you can use your existing account instead of paying separately for API access. This works through <a href="https://github.com/router-for-me/CLIProxyAPI">CLIProxyAPI</a>, a local proxy that translates your subscription&rsquo;s OAuth credentials into a standard Anthropic API.</p>
-<h4 id="1-create-the-backend">
-  1. Create the backend
-  <a class="heading-anchor" href="#1-create-the-backend" aria-label="Link to this section">#</a>
-</h4>
-<p>In the Admin UI, create an <code>anthropic</code> backend pointing at CLIProxyAPI:</p>
-<table>
-  <thead>
-      <tr>
-          <th>Field</th>
-          <th>Value</th>
-      </tr>
-  </thead>
-  <tbody>
-      <tr>
-          <td>Name</td>
-          <td><code>Claude (Subscription)</code></td>
-      </tr>
-      <tr>
-          <td>Type</td>
-          <td><code>anthropic</code></td>
-      </tr>
-      <tr>
-          <td>URL</td>
-          <td><code>http://cliproxyapi:8317</code> (Docker) or <code>http://localhost:8317</code> (local)</td>
-      </tr>
-      <tr>
-          <td>API Key</td>
-          <td><code>sk-magec-local</code></td>
-      </tr>
-  </tbody>
-</table>
-
-
-
-<div class="docs-callout">
-  The <strong>URL</strong> field is required. Without it, Magec sends requests to the default Anthropic API (<code>https://api.anthropic.com</code>) and authentication will fail.
-</div>
-
-<h4 id="2-log-in-with-your-claude-account">
-  2. Log in with your Claude account
-  <a class="heading-anchor" href="#2-log-in-with-your-claude-account" aria-label="Link to this section">#</a>
-</h4>
-<p>The login command starts a temporary OAuth callback server, so you must <strong>stop the running CLIProxyAPI service first</strong> to free its ports:</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># Docker — stop, login, restart</span>
-</span></span><span class="line"><span class="cl">docker compose stop cliproxyapi
-</span></span><span class="line"><span class="cl">docker compose run --rm --service-ports cliproxyapi /CLIProxyAPI/CLIProxyAPI --no-browser --claude-login
-</span></span><span class="line"><span class="cl">docker compose up -d cliproxyapi
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c1"># Binary</span>
-</span></span><span class="line"><span class="cl">cliproxyapi --claude-login
-</span></span></code></pre></div><p>The command prints a URL like <code>https://claude.ai/oauth/authorize?...</code> — open it in your browser and authorize. After the OAuth callback completes, you&rsquo;ll see a success message. Your credentials are stored in the <code>cliproxyapi_auth</code> volume and persist across restarts.</p>
-<h4 id="3-verify">
-  3. Verify
-  <a class="heading-anchor" href="#3-verify" aria-label="Link to this section">#</a>
-</h4>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">curl http://localhost:8317/v1/models <span class="se">\
-</span></span></span><span class="line"><span class="cl"><span class="se"></span>  -H <span class="s2">&#34;X-Api-Key: sk-magec-local&#34;</span> <span class="se">\
-</span></span></span><span class="line"><span class="cl"><span class="se"></span>  -H <span class="s2">&#34;anthropic-version: 2023-06-01&#34;</span>
-</span></span></code></pre></div><p>If you see a list of Claude models, CLIProxyAPI is working. You can now assign the backend to any agent.</p>
-
-
-
-<div class="docs-callout docs-callout--info">
-  The interactive installer can set up CLIProxyAPI automatically. See <a href="https://github.com/router-for-me/CLIProxyAPI">CLIProxyAPI on GitHub</a> for full configuration options.
-</div>
-
-
-
-
-<div class="docs-callout docs-callout--info">
-  CLIProxyAPI is a third-party project not affiliated with Anthropic. It uses your existing Claude subscription — you&rsquo;re responsible for ensuring your usage complies with Anthropic&rsquo;s terms of service.
-</div>
-
 <h3 id="google-gemini-gemini">
   Google Gemini (<code>gemini</code>)
   <a class="heading-anchor" href="#google-gemini-gemini" aria-label="Link to this section">#</a>

@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Using a subscription proxy — Magec — Self-hosted Multi-Agent AI Platform</title>
+  <meta name="description" content="Define multiple AI agents, chain them into workflows, connect tools. Voice, Telegram, webhooks, cron. Your server, your rules.">
+  <meta name="theme-color" content="#1c1917">
+  <link rel="icon" type="image/svg+xml" href="/img/logo.svg">
+  <link rel="stylesheet" href="/css/style.css">
+  <meta property="og:title" content="Using a subscription proxy">
+  <meta property="og:description" content="Define multiple AI agents, chain them into workflows, connect tools. Voice, Telegram, webhooks, cron. Your server, your rules.">
+  <meta property="og:type" content="website">
+</head>
+<body>
+  <nav class="nav scrolled">
+  <div class="nav__inner">
+    <a href="/" class="nav__logo">
+      <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <defs><linearGradient id="ng" x1="0%" y1="100%" x2="100%" y2="0%"><stop offset="0%" stop-color="#f59e0b"/><stop offset="100%" stop-color="#f87171"/></linearGradient></defs>
+        <circle cx="32" cy="32" r="26" fill="url(#ng)"/>
+        <circle cx="20" cy="24" r="2" fill="white" opacity=".9"/><circle cx="26" cy="18" r="1.5" fill="white" opacity=".7"/>
+        <circle cx="40" cy="22" r="1.8" fill="white" opacity=".8"/><circle cx="46" cy="30" r="1.2" fill="white" opacity=".6"/>
+        <circle cx="38" cy="38" r="2" fill="white" opacity=".75"/><circle cx="24" cy="40" r="1.4" fill="white" opacity=".65"/>
+      </svg>
+      Magec
+    </a>
+    <button class="nav__toggle" aria-label="Toggle menu">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+    </button>
+    <ul class="nav__links">
+      
+      <li><a href="/#how-it-works" class="nav__link">How it works</a></li>
+      
+      <li><a href="/#what" class="nav__link">Platform</a></li>
+      
+      <li><a href="/#use-cases" class="nav__link">Use cases</a></li>
+      
+      <li><a href="/#screenshots" class="nav__link">Screenshots</a></li>
+      
+      <li><a href="/docs/" class="nav__link">Docs</a></li>
+      
+      <li>
+        <a href="https://github.com/achetronic/magec" class="nav__cta" target="_blank" rel="noopener">
+          <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+          GitHub
+        </a>
+      </li>
+    </ul>
+  </div>
+</nav>
+
+  <main>
+    
+<div class="container">
+  <div class="docs-layout">
+    <aside class="docs-sidebar">
+      
+      
+      <div class="docs-sidebar__group">
+        <div class="docs-sidebar__label">Getting Started</div>
+        
+        <a href="/docs/install-docker/" class="docs-sidebar__link">Docker Quick Start</a>
+        
+        <a href="/docs/install-compose-local/" class="docs-sidebar__link">Docker Compose</a>
+        
+        <a href="/docs/install-binary/" class="docs-sidebar__link">Binary Install</a>
+        
+        <a href="/docs/configuration/" class="docs-sidebar__link">Configuration</a>
+        
+      </div>
+      
+      
+      
+      <div class="docs-sidebar__group">
+        <div class="docs-sidebar__label">Security</div>
+        
+        <a href="/docs/admin-password/" class="docs-sidebar__link">Admin Password</a>
+        
+      </div>
+      
+      
+      
+      <div class="docs-sidebar__group">
+        <div class="docs-sidebar__label">Core Concepts</div>
+        
+        <a href="/docs/agents/" class="docs-sidebar__link">Agents</a>
+        
+        <a href="/docs/flows/" class="docs-sidebar__link">Agentic Flows</a>
+        
+        <a href="/docs/backends/" class="docs-sidebar__link">AI Backends</a>
+        
+        <a href="/docs/memory/" class="docs-sidebar__link">Memory</a>
+        
+        <a href="/docs/mcp/" class="docs-sidebar__link">MCP Tools</a>
+        
+        <a href="/docs/skills/" class="docs-sidebar__link">Skills</a>
+        
+        <a href="/docs/a2a/" class="docs-sidebar__link">A2A Protocol</a>
+        
+        <a href="/docs/secrets/" class="docs-sidebar__link">Secrets</a>
+        
+        <a href="/docs/commands/" class="docs-sidebar__link">Commands</a>
+        
+      </div>
+      
+      
+      
+      <div class="docs-sidebar__group">
+        <div class="docs-sidebar__label">Guides</div>
+        
+        <a href="/docs/subscription-proxy/" class="docs-sidebar__link docs-sidebar__link--active">Using a subscription proxy</a>
+        
+      </div>
+      
+      
+      
+      <div class="docs-sidebar__group">
+        <div class="docs-sidebar__label">Clients</div>
+        
+        <a href="/docs/clients/" class="docs-sidebar__link">Overview</a>
+        
+        <a href="/docs/voice-ui/" class="docs-sidebar__link">Voice UI</a>
+        
+        <a href="/docs/telegram/" class="docs-sidebar__link">Telegram</a>
+        
+        <a href="/docs/slack/" class="docs-sidebar__link">Slack</a>
+        
+        <a href="/docs/discord/" class="docs-sidebar__link">Discord</a>
+        
+        <a href="/docs/webhooks/" class="docs-sidebar__link">Webhooks</a>
+        
+        <a href="/docs/cron/" class="docs-sidebar__link">Cron</a>
+        
+      </div>
+      
+      
+      
+      <div class="docs-sidebar__group">
+        <div class="docs-sidebar__label">Reference</div>
+        
+        <a href="/docs/api/" class="docs-sidebar__link">API Reference</a>
+        
+        <a href="/docs/voice-system/" class="docs-sidebar__link">Voice System</a>
+        
+        <a href="/docs/secrets-advanced/" class="docs-sidebar__link">Advanced Secrets</a>
+        
+        <a href="/docs/skills-vs-agents/" class="docs-sidebar__link">Skills vs. Agents</a>
+        
+        <a href="/docs/screenshots/" class="docs-sidebar__link">Screenshots</a>
+        
+      </div>
+      
+      
+    </aside>
+    <div class="docs-content">
+      <button class="docs-sidebar-toggle btn btn--ghost">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+        Navigation
+      </button>
+      <h1>Using a subscription proxy</h1>
+      <p>Some AI providers offer paid subscriptions (e.g., Claude Max/Pro, ChatGPT Plus) that are separate from their API billing. A <strong>subscription proxy</strong> lets you route Magec&rsquo;s API requests through your existing subscription instead of paying for API access separately.</p>
+<p><a href="https://github.com/router-for-me/CLIProxyAPI">CLIProxyAPI</a> is an open-source proxy that translates subscription OAuth credentials into a standard API. It supports multiple providers and can be used with any Magec backend type that has a configurable <code>url</code> field.</p>
+<h2 id="how-it-works">
+  How it works
+  <a class="heading-anchor" href="#how-it-works" aria-label="Link to this section">#</a>
+</h2>
+<pre tabindex="0"><code>Magec  ──▶  CLIProxyAPI (localhost:8317)  ──▶  Provider API
+              ▲
+              │ OAuth credentials
+              │ from your subscription
+</code></pre><p>Magec talks to CLIProxyAPI as if it were the provider&rsquo;s official API. CLIProxyAPI authenticates using the OAuth tokens from your subscription login and forwards the request upstream.</p>
+<h2 id="setting-up-cliproxyapi">
+  Setting up CLIProxyAPI
+  <a class="heading-anchor" href="#setting-up-cliproxyapi" aria-label="Link to this section">#</a>
+</h2>
+<h3 id="docker-recommended">
+  Docker (recommended)
+  <a class="heading-anchor" href="#docker-recommended" aria-label="Link to this section">#</a>
+</h3>
+<p>If you used the interactive installer and enabled the subscription proxy, CLIProxyAPI is already running. Otherwise, add it to your <code>docker-compose.yaml</code>:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-yaml" data-lang="yaml"><span class="line"><span class="cl"><span class="nt">services</span><span class="p">:</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">  </span><span class="nt">cliproxyapi</span><span class="p">:</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="nt">image</span><span class="p">:</span><span class="w"> </span><span class="l">eceasy/cli-proxy-api:latest</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="nt">ports</span><span class="p">:</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">      </span>- <span class="s2">&#34;54545:54545&#34;</span><span class="w">   </span><span class="c"># OAuth callback (required for login only)</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="nt">volumes</span><span class="p">:</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">      </span>- <span class="l">./cliproxyapi/config.yaml:/CLIProxyAPI/config.yaml</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">      </span>- <span class="l">cliproxyapi_auth:/CLIProxyAPI/auth</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="nt">restart</span><span class="p">:</span><span class="w"> </span><span class="l">unless-stopped</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w"></span><span class="nt">volumes</span><span class="p">:</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">  </span><span class="nt">cliproxyapi_auth</span><span class="p">:</span><span class="w">
+</span></span></span></code></pre></div><p>Create the config file at <code>cliproxyapi/config.yaml</code>:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-yaml" data-lang="yaml"><span class="line"><span class="cl"><span class="nt">host</span><span class="p">:</span><span class="w"> </span><span class="s2">&#34;0.0.0.0&#34;</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w"></span><span class="nt">port</span><span class="p">:</span><span class="w"> </span><span class="m">8317</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w"></span><span class="nt">auth-dir</span><span class="p">:</span><span class="w"> </span><span class="s2">&#34;/CLIProxyAPI/auth&#34;</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w"></span><span class="nt">api-keys</span><span class="p">:</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">  </span>- <span class="s2">&#34;sk-magec-local&#34;</span><span class="w">
+</span></span></span></code></pre></div><h3 id="binary">
+  Binary
+  <a class="heading-anchor" href="#binary" aria-label="Link to this section">#</a>
+</h3>
+<p>Download the latest release from <a href="https://github.com/router-for-me/CLIProxyAPI/releases">CLIProxyAPI releases</a> and run it directly.</p>
+<h2 id="logging-in-to-a-provider">
+  Logging in to a provider
+  <a class="heading-anchor" href="#logging-in-to-a-provider" aria-label="Link to this section">#</a>
+</h2>
+<p>CLIProxyAPI requires you to authenticate with your provider&rsquo;s subscription account. The login command starts a temporary OAuth callback server, so you must <strong>stop the running CLIProxyAPI service first</strong> to free its ports:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">docker compose stop cliproxyapi
+</span></span><span class="line"><span class="cl">docker compose run --rm --service-ports cliproxyapi /CLIProxyAPI/CLIProxyAPI --no-browser --&lt;provider-login&gt;
+</span></span><span class="line"><span class="cl">docker compose up -d cliproxyapi
+</span></span></code></pre></div><p>Replace <code>--&lt;provider-login&gt;</code> with the login flag for your provider (see examples below).</p>
+<p>The command prints an authorization URL — open it in your browser, authorize, and wait for the callback. Your credentials are stored in the <code>cliproxyapi_auth</code> volume and persist across restarts.</p>
+<h2 id="provider-examples">
+  Provider examples
+  <a class="heading-anchor" href="#provider-examples" aria-label="Link to this section">#</a>
+</h2>
+<h3 id="claude-anthropic">
+  Claude (Anthropic)
+  <a class="heading-anchor" href="#claude-anthropic" aria-label="Link to this section">#</a>
+</h3>
+<p>Login flag: <code>--claude-login</code> (<a href="https://help.router-for.me/configuration/provider/claude-code.html">docs</a>)</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">docker compose run --rm --service-ports cliproxyapi /CLIProxyAPI/CLIProxyAPI --no-browser --claude-login
+</span></span></code></pre></div><p>Then create an <code>anthropic</code> backend in the Admin UI:</p>
+<table>
+  <thead>
+      <tr>
+          <th>Field</th>
+          <th>Value</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>Name</td>
+          <td><code>Claude (Subscription)</code></td>
+      </tr>
+      <tr>
+          <td>Type</td>
+          <td><code>anthropic</code></td>
+      </tr>
+      <tr>
+          <td>URL</td>
+          <td><code>http://cliproxyapi:8317</code> (Docker) or <code>http://localhost:8317</code> (local)</td>
+      </tr>
+      <tr>
+          <td>API Key</td>
+          <td><code>sk-magec-local</code></td>
+      </tr>
+  </tbody>
+</table>
+
+
+
+<div class="docs-callout">
+  The <strong>URL</strong> field is required. Without it, Magec sends requests to the default Anthropic API and authentication will fail.
+</div>
+
+<h3 id="gemini-google">
+  Gemini (Google)
+  <a class="heading-anchor" href="#gemini-google" aria-label="Link to this section">#</a>
+</h3>
+<p>Login flag: <code>--login</code> (<a href="https://help.router-for.me/configuration/provider/gemini-cli.html">docs</a>)</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">docker compose run --rm --service-ports cliproxyapi /CLIProxyAPI/CLIProxyAPI --no-browser --login
+</span></span></code></pre></div><p>Then create an <code>openai</code> backend in the Admin UI (CLIProxyAPI exposes Gemini models through an OpenAI-compatible API):</p>
+<table>
+  <thead>
+      <tr>
+          <th>Field</th>
+          <th>Value</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>Name</td>
+          <td><code>Gemini (Subscription)</code></td>
+      </tr>
+      <tr>
+          <td>Type</td>
+          <td><code>openai</code></td>
+      </tr>
+      <tr>
+          <td>URL</td>
+          <td><code>http://cliproxyapi:8317/v1</code> (Docker) or <code>http://localhost:8317/v1</code> (local)</td>
+      </tr>
+      <tr>
+          <td>API Key</td>
+          <td><code>sk-magec-local</code></td>
+      </tr>
+  </tbody>
+</table>
+
+
+
+<div class="docs-callout docs-callout--info">
+  CLIProxyAPI supports additional providers like <a href="https://help.router-for.me/configuration/provider/codex.html">Codex</a> and <a href="https://help.router-for.me/configuration/provider/antigravity.html">Antigravity</a>. See the <a href="https://help.router-for.me/">full provider list</a> for all available login commands and configuration options.
+</div>
+
+<h2 id="verifying-the-setup">
+  Verifying the setup
+  <a class="heading-anchor" href="#verifying-the-setup" aria-label="Link to this section">#</a>
+</h2>
+<p>After logging in, check that the proxy is working:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">curl http://localhost:8317/v1/models -H <span class="s2">&#34;X-Api-Key: sk-magec-local&#34;</span>
+</span></span></code></pre></div><p>If you see a list of models, the proxy is ready. Assign the backend to any agent and start chatting.</p>
+
+
+
+<div class="docs-callout docs-callout--info">
+  The interactive installer can set up CLIProxyAPI automatically — just answer &ldquo;yes&rdquo; when asked about the subscription proxy. See <a href="https://github.com/router-for-me/CLIProxyAPI">CLIProxyAPI on GitHub</a> for full configuration options.
+</div>
+
+
+
+
+<div class="docs-callout docs-callout--info">
+  CLIProxyAPI is a third-party project not affiliated with any AI provider. You are responsible for ensuring your usage complies with each provider&rsquo;s terms of service.
+</div>
+
+
+    </div>
+  </div>
+</div>
+
+  </main>
+  <div id="lightbox" class="lightbox">
+  <button class="lightbox__close" aria-label="Close">✕</button>
+  <img id="lightbox-img" src="" alt="">
+</div>
+
+  <footer class="footer">
+  <div class="container">
+    <div class="footer__inner">
+      <div class="footer__brand">
+        <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" width="20" height="20">
+          <defs><linearGradient id="fg" x1="0%" y1="100%" x2="100%" y2="0%"><stop offset="0%" stop-color="#f59e0b"/><stop offset="100%" stop-color="#f87171"/></linearGradient></defs>
+          <circle cx="32" cy="32" r="26" fill="url(#fg)"/>
+          <circle cx="20" cy="24" r="2" fill="white" opacity=".9"/><circle cx="40" cy="22" r="1.8" fill="white" opacity=".8"/>
+          <circle cx="38" cy="38" r="2" fill="white" opacity=".75"/>
+        </svg>
+        Magec · Apache 2.0
+      </div>
+      <ul class="footer__links">
+        <li><a href="https://github.com/achetronic/magec" target="_blank" rel="noopener">GitHub</a></li>
+        <li><a href="/docs/">Docs</a></li>
+        <li><a href="https://github.com/achetronic/magec/issues" target="_blank" rel="noopener">Issues</a></li>
+      </ul>
+    </div>
+  </div>
+</footer>
+
+  <script type="module" src="/js/main.js"></script>
+</body>
+</html>

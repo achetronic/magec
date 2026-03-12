@@ -190,42 +190,9 @@ These providers only offer LLM — STT, TTS, and embeddings stay local. Create t
 | Anthropic | `anthropic` | `claude-sonnet-4-20250514` |
 | Gemini | `gemini` | `gemini-2.0-flash` |
 
-### Claude subscription (no API key)
+### Provider subscription (no API key)
 
-If you have a Claude Max or Pro subscription, the included CLIProxyAPI service lets you use Claude models without a separate API key.
-
-**Step 1 — Log in with your Claude account.** The login command needs exclusive access to the OAuth callback port, so stop the service first:
-
-```bash
-docker compose stop cliproxyapi
-docker compose run --rm --service-ports cliproxyapi /CLIProxyAPI/CLIProxyAPI --no-browser --claude-login
-docker compose up -d cliproxyapi
-```
-
-Open the URL printed in the terminal, authorize in your browser, and wait for the callback. Your credentials are stored in the `cliproxyapi_auth` volume and persist across restarts.
-
-**Step 2 — Create a backend** in the Admin UI:
-
-| Field | Value |
-|-------|-------|
-| Name | `Claude (Subscription)` |
-| Type | `anthropic` |
-| URL | `http://cliproxyapi:8317` |
-| API Key | `sk-magec-local` |
-
-**Step 3 — Verify.** Assign the backend to an agent and send a test message, or check directly:
-
-```bash
-curl http://localhost:8317/v1/models \
-  -H "X-Api-Key: sk-magec-local" \
-  -H "anthropic-version: 2023-06-01"
-```
-
-The interactive installer can set this up automatically — just answer "yes" when asked about the Claude subscription proxy.
-
-{{< callout type="info" >}}
-CLIProxyAPI is a third-party project. See [AI Backends — CLIProxyAPI](/docs/backends/#using-your-claude-subscription-cliproxyapi) for details.
-{{< /callout >}}
+If you have a paid subscription with a provider (e.g., Claude Max/Pro, ChatGPT Plus), the included CLIProxyAPI service lets you use their models without a separate API key. See the full **[Using a subscription proxy](/docs/subscription-proxy/)** guide for setup instructions.
 
 ## Managing the deployment
 

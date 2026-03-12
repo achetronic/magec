@@ -60,6 +60,8 @@
   </url><url>
     <loc>http://localhost:1313/docs/telegram/</loc>
   </url><url>
+    <loc>http://localhost:1313/docs/subscription-proxy/</loc>
+  </url><url>
     <loc>http://localhost:1313/docs/voice-system/</loc>
   </url><url>
     <loc>http://localhost:1313/docs/voice-ui/</loc>
