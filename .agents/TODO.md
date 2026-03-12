@@ -340,31 +340,43 @@ The visual flow editor's drag-and-drop experience needs polish. Improve feedback
 
 **Problem**: MCP tools can perform sensitive actions (delete data, send emails, execute code). There's no way to require human approval before execution.
 
-**Solution**: Use ADK v0.4.0 `toolconfirmation` protocol. Wrap selected tools with `ctx.RequestConfirmation()` so they pause and ask the user before executing.
+**Solution**: Use ADK v0.5.0's native `RequireConfirmationProvider` on `MCPToolset.Config`. This is a dynamic per-tool callback — no need to wrap tools manually or build a custom confirmation layer.
 
 **Design decisions**:
 - **Confirmation list lives on the agent, not on the MCP server**. A tool may be dangerous for a public-facing agent but fine for an internal one. The MCP is a shared resource — marking tools there would force the same policy on all agents.
 - **Agent config**: new field `toolConfirmation: ["delete_record", "send_email", "execute_*"]` — list of tool names/globs that require confirmation for this agent.
-- **Wrapper in `buildToolsets()`**: after loading MCP tools, wrap those matching `toolConfirmation` patterns with a confirmation layer that calls `ctx.RequestConfirmation(hint, payload)` before delegating to the real tool.
-- **Admin UI**: agent form gains a "Tools requiring confirmation" section — multi-select or free-text with glob support.
+- **Provider in `buildToolsets()`**: when creating each `MCPToolset`, pass a `RequireConfirmationProvider` that checks the agent's `toolConfirmation` list. Signature: `func(toolName string, args any) bool`.
+- **Admin UI — per-MCP tool selection**: the agent form shows tools from each connected MCP server (fetched via `client.ListTools()`). The user toggles which ones require confirmation. Stored as a list of tool names/globs per agent.
+
+**"Always Allow" (client-side, not in ADK)**:
+- ADK has no built-in "confirm forever" — each invocation is independent.
+- Implement a shared `alwaysAllow map[string]bool` behind the `RequireConfirmationProvider`. When a user clicks "Always Allow", the client sends `confirmed: true` AND updates the map — the provider returns `false` for that tool from then on.
+- Scope: session-scoped by default (resets on reconnect). Consider persisting per user/workspace later.
+
+**Chat UI confirmation dialog** (all clients):
+- Render the `adk_request_confirmation` event as a dialog with three buttons:
+  - **Approve** — confirm this invocation only
+  - **Reject** — deny this invocation
+  - **Always Allow** — confirm + add to `alwaysAllow` map
+- Show tool name, hint text, and input args so the user knows what they're approving.
 
 **Client changes (all must migrate from `/run` to `/run_sse`)**:
 - The server already serves `/run_sse` via `adkrest.NewHandler`, and middleware (recorder, flow filter) already supports SSE.
-- **Telegram**: listen for `adk_request_confirmation` SSE events, show inline keyboard (Approve/Reject), send `FunctionResponse` back.
+- **Telegram**: listen for `adk_request_confirmation` SSE events, show inline keyboard (Approve/Reject/Always Allow), send `FunctionResponse` back.
 - **Slack**: show interactive block with buttons, handle callback.
-- **Voice UI**: show collapsible confirmation card in chat timeline with Approve/Reject buttons.
+- **Voice UI**: show collapsible confirmation card in chat timeline with Approve/Reject/Always Allow buttons.
 - **Executor** (`server/clients/executor.go`): auto-approve or skip (cron/webhook triggers can't wait for a human).
 
 **Protocol flow**:
-1. Tool's `Run()` calls `ctx.RequestConfirmation(hint, payload)` → returns nil, pausing execution
+1. `RequireConfirmationProvider` returns `true` → ADK's `mcpTool.Run()` calls `ctx.RequestConfirmation(hint, payload)` automatically
 2. ADK emits `FunctionCall` event with name `adk_request_confirmation` via SSE
 3. Client shows confirmation prompt to user (tool name, hint, args)
 4. User approves/rejects → client sends `FunctionResponse` with `{confirmed: true/false}`
-5. Tool reads `ctx.ToolConfirmation().Confirmed` and proceeds or aborts
+5. Tool is re-invoked, reads `ctx.ToolConfirmation().Confirmed` and proceeds or aborts
 
 See `.agents/ADK_TOOLS.md` for protocol details.
 
-**Modify**: `server/agent/agent.go` (wrapper in `buildToolsets`), `server/store/types.go` (agent config field), `server/clients/telegram/bot.go`, `server/clients/slack/bot.go`, `server/clients/executor.go`, `frontend/voice-ui/`, `frontend/admin-ui/`
+**Modify**: `server/agent/agent.go` (`RequireConfirmationProvider` in `MCPToolset.Config`), `server/store/types.go` (agent config field), `server/clients/telegram/bot.go`, `server/clients/slack/bot.go`, `server/clients/executor.go`, `frontend/voice-ui/`, `frontend/admin-ui/`
 
 ---
 
@@ -593,6 +605,71 @@ If a single person uses Discord AND Telegram, they'd have two `userID`s and two 
 ---
 
 ## Low Priority
+
+### Skill Card View Formatter
+
+**Problem**: Skills follow the [Agent Skills Specification](https://agentskills.io/specification) with YAML frontmatter (`name`, `description`, `license`, `compatibility`, `metadata`) followed by a markdown body. Some skills are non-canonical (no frontmatter, arbitrary markdown) and still valid. Rendering the raw SKILL.md in a card looks ugly — `---` delimiters, long markdown bodies, and code blocks don't belong in a card preview.
+
+**Solution**: Parse SKILL.md frontmatter and render structured card data instead of raw markdown.
+
+**Card layout**:
+```
+┌─────────────────────────────────────┐
+│ 🔧 skill-name                      │
+│                                     │
+│ Description from frontmatter,       │
+│ truncated to 2-3 lines...          │
+│                                     │
+│ 📁 N files · 🐍 scripts · License  │
+└─────────────────────────────────────┘
+```
+
+- **Title**: `name` from frontmatter
+- **Description**: `description` from frontmatter (truncated, max ~200 chars displayed)
+- **Footer badges**: file count, content indicators (has `scripts/`, `references/`, `assets/`), license if present
+- **Never render** the markdown body in the card
+
+**Fallback for non-canonical skills** (no valid YAML frontmatter):
+- **Title**: directory name of the skill
+- **Description**: first non-empty line of the markdown body (stripped of `#` heading markers), or "No description"
+- **Footer**: file count only
+
+**Notes**:
+- Parse frontmatter with a YAML parser — content between the first two `---` lines
+- Spec defines `name` max 64 chars, `description` max 1024 chars — truncate to ~200 in card
+- `compatibility` field could render as small tags if present
+
+**Modify**: `frontend/admin-ui/` (skill card component)
+
+---
+
+### Skill Package Upload (ZIP/tar.gz)
+
+**Problem**: Current uploader only allows uploading files one at a time with no folder support. Many skills consist of multiple files (`scripts/`, `references/`, `assets/`, templates) that need directory structure. Uploading a complex skill is painful and error-prone.
+
+**Solution**: Support uploading a skill as a compressed package that preserves the full directory tree.
+
+**Upload flow**:
+1. User uploads a `.zip` or `.tar.gz` in the Admin GUI
+2. Backend extracts and validates: must contain a `SKILL.md` at the root (or one level deep if the archive wraps the skill in a single top-level directory)
+3. Store the full tree — scripts, references, assets, everything
+4. Parse `SKILL.md` frontmatter for the Skill Card View (see Skill Card View Formatter)
+5. Expose a file browser in the skill detail view so the user can see what's inside
+
+**Requirements**:
+- Preserve directory structure as-is on extraction
+- The backend must resolve relative paths referenced in SKILL.md (e.g. `./reference/mcp_best_practices.md`, `./templates/viewer.html`) so the agent can read them at runtime
+- Scripts are stored but **not executed** — available for the agent to read/reference, not to run
+- Support both single-file skills (simple upload, same as today) and multi-file package upload
+- Also support drag-and-drop of folders as an alternative (`webkitdirectory` or File System Access API)
+
+**Notes**:
+- Many skills reference files with relative paths (`./reference/`, `./scripts/`) — the storage layer must preserve these paths so they resolve correctly when the agent loads them into context
+- Backend needs a batch upload endpoint that handles paths relative to the skill root
+
+**Modify**: `frontend/admin-ui/` (upload component), `server/api/admin/` (upload endpoint), `server/store/` (skill storage)
+
+---
 
 ### More TTS Voices Configuration UI
 
