@@ -71,8 +71,10 @@ Each step receives the accumulated output of all previous steps as context. The 
 
 1. Give an agent an `outputKey` in its [configuration](/docs/agents/) (e.g., `research_results`)
 2. The agent's output is saved under that key in the flow's shared state
-3. Later agents can reference it with `{research_results}` in their system prompt
+3. Later agents can reference it with `{{agent.output:research_results}}` in their system prompt
 4. Magec replaces the placeholder with the actual output at runtime
+
+> **Note:** Magec uses `{{agent.output:variable}}` instead of `{variable}` for state references. This avoids conflicts with curly braces in your prompts, JSON examples, or any other content that uses `{` and `}`.
 
 This lets you build precise data pipelines. A "researcher" outputs structured findings, a "writer" references those findings in its prompt, a "reviewer" references both. Each agent sees exactly the context it needs.
 

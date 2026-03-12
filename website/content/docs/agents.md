@@ -48,14 +48,14 @@ If you leave the system prompt empty, Magec uses a default prompt that makes the
 
 ### Output Key
 
-The **output key** is used when the agent participates in a [flow](/docs/flows/). It saves the agent's output under a named key in the flow's shared state. Other agents in the same flow can then reference that output using `{key_name}` in their own prompts.
+The **output key** is used when the agent participates in a [flow](/docs/flows/). It saves the agent's output under a named key in the flow's shared state. Other agents in the same flow can then reference that output using `{{agent.output:key_name}}` in their own prompts.
 
-For example, if a "researcher" agent has `outputKey: research_results`, a later "writer" agent can include `{research_results}` in its prompt to access what the researcher found.
+For example, if a "researcher" agent has `outputKey: research_results`, a later "writer" agent can include `{{agent.output:research_results}}` in its prompt to access what the researcher found.
 
 | Field | Description |
 |-------|-------------|
 | `systemPrompt` | The full instruction text. Supports multi-line, markdown, examples, and any formatting you want. |
-| `outputKey` | Named key for flow data passing. Other agents in the same flow can reference it with `{key_name}`. |
+| `outputKey` | Named key for flow data passing. Other agents in the same flow can reference it with `{{agent.output:key_name}}`. |
 
 ## LLM
 

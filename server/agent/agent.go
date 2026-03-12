@@ -24,6 +24,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -170,12 +171,12 @@ func New(ctx context.Context, agents []store.AgentDefinition, backends []store.B
 		instruction := buildInstruction(agentDef, mcpServerMap, skillMap, filepath.Join("data", "skills"), memorySvc)
 
 		agentCfg := llmagent.Config{
-			Name:        agentDef.ID,
-			Model:       llmModel,
-			Description: agentDef.Name,
-			Instruction: instruction,
-			Toolsets:    toolsets,
-			OutputKey:   agentDef.OutputKey,
+			Name:                agentDef.ID,
+			Model:               llmModel,
+			Description:         agentDef.Name,
+			InstructionProvider: makeInstructionProvider(instruction),
+			Toolsets:            toolsets,
+			OutputKey:           agentDef.OutputKey,
 		}
 
 		adkAgent, err := llmagent.New(agentCfg)
@@ -581,4 +582,27 @@ func buildInstruction(agentDef store.AgentDefinition, mcpServerMap map[string]st
 	}
 
 	return instruction
+}
+
+var stateVarRegex = regexp.MustCompile(`\{\{agent\.output:([a-zA-Z_][a-zA-Z0-9_]*)\}\}`)
+
+func makeInstructionProvider(template string) llmagent.InstructionProvider {
+	if !stateVarRegex.MatchString(template) {
+		return func(_ agent.ReadonlyContext) (string, error) {
+			return template, nil
+		}
+	}
+	return func(ctx agent.ReadonlyContext) (string, error) {
+		return stateVarRegex.ReplaceAllStringFunc(template, func(match string) string {
+			sub := stateVarRegex.FindStringSubmatch(match)
+			if len(sub) < 2 {
+				return match
+			}
+			val, err := ctx.ReadonlyState().Get(sub[1])
+			if err != nil || val == nil {
+				return ""
+			}
+			return fmt.Sprintf("%v", val)
+		}), nil
+	}
 }

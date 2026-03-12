@@ -238,9 +238,11 @@
 <ol>
 <li>Give an agent an <code>outputKey</code> in its <a href="/docs/agents/">configuration</a> (e.g., <code>research_results</code>)</li>
 <li>The agent&rsquo;s output is saved under that key in the flow&rsquo;s shared state</li>
-<li>Later agents can reference it with <code>{research_results}</code> in their system prompt</li>
+<li>Later agents can reference it with <code>{{agent.output:research_results}}</code> in their system prompt</li>
 <li>Magec replaces the placeholder with the actual output at runtime</li>
 </ol>
+<blockquote>
+<p><strong>Note:</strong> Magec uses <code>{{agent.output:variable}}</code> instead of <code>{variable}</code> for state references. This avoids conflicts with curly braces in your prompts, JSON examples, or any other content that uses <code>{</code> and <code>}</code>.</p></blockquote>
 <p>This lets you build precise data pipelines. A &ldquo;researcher&rdquo; outputs structured findings, a &ldquo;writer&rdquo; references those findings in its prompt, a &ldquo;reviewer&rdquo; references both. Each agent sees exactly the context it needs.</p>
 <p>In parallel steps, all branches receive the same input. Their outputs are concatenated and passed to whatever comes next.</p>
 <h2 id="response-agents">

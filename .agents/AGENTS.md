@@ -66,7 +66,7 @@ magec/
 │   │   ├── recorder.go         # ConversationRecorder + ConversationRecorderSSE (dual-perspective)
 │   │   ├── flowfilter.go       # Flow response filtering by responseAgent
 │   │   ├── sessionensure.go    # Idempotent session creation (prevents overwriting ContextGuard state)
-│   │   └── sessionstate.go     # Seeds outputKey values into session state on creation
+│   │   └── sessionstate.go     # Seeds outputKey values into session state for {{agent.output:key}} resolution
 │   ├── clients/                # Client type registry + runtime
 │   │   ├── provider.go         # Provider interface: Type(), DisplayName(), ConfigSchema()
 │   │   ├── registry.go         # Register(), ValidateConfig() with oneOf support
@@ -234,7 +234,8 @@ log:
 - **A2A protocol**: Agents/flows with `A2A.Enabled` get JSON-RPC endpoints via `a2a-go` + ADK `adka2a`. Agent cards auto-generated with capabilities and skills. SSE streaming for responses
 - **Dual-perspective conversation recording**: Middleware chains recorder twice: "admin" perspective (all events, before FlowResponseFilter) and "user" perspective (filtered, after). Each conversation has a `ParentID` linking the pair
 - **Store dual-copy pattern**: Store maintains `rawData` (unexpanded, with `${VAR}` refs) and `data` (env-expanded). API responses use raw data, runtime uses expanded. Secret values injected as env vars before expansion
-- **Session middleware**: `SessionEnsure` prevents overwriting existing sessions (protects ContextGuard summaries). `SessionStateSeed` injects empty outputKey values so flow agents don't fail on template vars
+- **Session middleware**: `SessionEnsure` prevents overwriting existing sessions (protects ContextGuard summaries). `SessionStateSeed` injects empty outputKey values so `{{agent.output:key}}` references in flow agent prompts resolve correctly
+- **InstructionProvider pattern**: Agents use `InstructionProvider` instead of static `Instruction` strings to bypass ADK's built-in `{variable}` substitution (which conflicts with curly braces in prompts, JSON examples, scripts, etc). Magec resolves its own `{{agent.output:key}}` pattern from session state inside the provider. Plain `{text}` in prompts is never touched
 - **Flow wrapAgent pattern**: Same agent can appear in multiple flow steps — `wrapAgent()` creates uniquely-named delegate agents to satisfy ADK's single-parent constraint
 
 ### Design Philosophy

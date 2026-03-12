@@ -13,7 +13,7 @@ import (
 // SessionStateSeed intercepts session creation requests (POST to
 // /apps/{app}/users/{user}/sessions/{session}) and injects empty outputKey
 // values into the session state. This ensures that flow agents referencing
-// {outputKey} template variables in their system prompts don't fail when
+// {{agent.output:outputKey}} template variables in their system prompts don't fail when
 // sessions are created by the Voice UI or other API clients that don't
 // pre-seed the state themselves.
 func SessionStateSeed(next http.Handler, dataStore *store.Store) http.Handler {
