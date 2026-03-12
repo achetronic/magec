@@ -74,6 +74,104 @@ Implemented. See `server/clients/msgutil/` package.
 
 ## High Priority
 
+### Conversation Not Split After Session Reset (`!reset`)
+
+**Problem**: When a user runs `!reset` (Discord, Slack) or `/reset` (Telegram), the ADK session is deleted, but the next message's conversation is appended to the **same conversation record** in the admin UI instead of creating a new one. The user sees a single unbroken conversation even though the agent has lost all context.
+
+**Affects**: All chat clients — Discord, Slack, and Telegram. All three use deterministic session IDs (`{platform}_{channelID}_{agentID}`) that don't change after a reset, and the same `FindBySession` recorder logic.
+
+**Root cause**: `FindBySession(sessionID, agentID, perspective)` in `ConversationStore` matches on the session ID, which is stable across resets. Since the session ID is recomputed identically after the reset, the recorder finds the old conversation and calls `AppendMessages` instead of creating a new `Conversation`.
+
+**Flow**:
+```
+!reset → DELETE /apps/{agent}/users/default_user/sessions/{sessionID} → OK
+New message → ensureSession (same ID recreated) → /run → recorder calls FindBySession
+  → Finds old conversation (same sessionID) → AppendMessages → new messages land in old record
+```
+
+**Possible solutions** (pick one):
+1. **`closed` flag on Conversation**: `!reset` (and admin's `reset-session`) marks the conversation as `closed: true`. `FindBySession` skips closed conversations. Cleanest option — no session ID format changes, no client changes.
+2. **Variable session ID component**: Add a generation counter or timestamp to the session ID (e.g. `discord_{channelID}_{agentID}_{gen}`). Changes session ID format, requires persisting the counter somewhere.
+3. **Recorder-side detection**: On `ensureSession`, if the session was just created (empty history), treat it as a new conversation regardless of `FindBySession` match. Fragile — depends on being able to detect "fresh" sessions reliably.
+
+**Files involved**:
+- `server/store/conversations.go` — `FindBySession`, `Conversation` struct
+- `server/clients/executor.go` — `LogExternalConversation` (create-vs-append decision)
+- `server/clients/discord/bot.go` — `handleCommand` reset case
+- `server/clients/slack/bot.go` — `handleCommand` reset case
+- `server/clients/telegram/bot.go` — `handleResetCommand`
+- `server/api/admin/conversations.go` — `reset-session` endpoint (same issue from admin side)
+
+---
+
+### Telegram Client: Group Channels and Thread/Topic Support
+
+**Problem**: The Telegram client only handles DMs correctly. In groups and supergroups it has two issues:
+
+1. **No @mention filtering in groups** — The bot processes **every** text and voice message it receives in a group (subject to Telegram's bot privacy mode), with no check for `@botname` mention. Discord and Slack both require explicit @mention in channels. Telegram should follow the same pattern for consistency and to avoid noisy behavior in active groups.
+
+2. **Replies don't go to the originating thread/topic** — `msg.MessageThreadID` is correctly used for session scoping (`buildSessionID`) but **never set on outbound `SendMessageParams`**. In supergroups with topics enabled, the bot reads from the correct topic but replies land in the General topic instead of the thread the user wrote in. This affects all outbound calls: `handleMessage` responses, `handleVoice` responses, reactions, typing indicators, tool messages, and artifact delivery.
+
+3. **No channel post handling** — Only `update.Message` is processed. `update.ChannelPost` (messages in Telegram channels, not groups) is never handled. If the bot is added to a Telegram channel, it silently ignores all posts.
+
+**Current state**:
+- `isAllowed(userID, chatID)` already supports group/supergroup IDs via `AllowedChats []int64` (negative numbers like `-1001234567890`)
+- `buildSessionID` already scopes by `threadID` when non-zero — session isolation works
+- `handleMessage` and `handleVoice` have no `msg.Chat.Type` check and no `@mention` detection
+- All `SendMessage`/`SendChatAction`/`SetMessageReaction` calls use only `tu.ID(msg.Chat.ID)` without `MessageThreadID`
+
+**Solution**:
+
+**@mention filtering**:
+- In groups/supergroups (`msg.Chat.Type` is `"group"` or `"supergroup"`), require the bot to be @mentioned in the message text
+- Strip the `@botname` mention from the text before passing to the agent (same as Discord's `stripBotMention`)
+- In private chats (`msg.Chat.Type == "private"`), process all messages as today
+- The bot's username is available via `bot.GetMe()` at startup — cache it
+
+**Thread/topic replies**:
+- Set `MessageThreadID: msg.MessageThreadID` on all outbound `SendMessageParams` when `msg.MessageThreadID != 0`
+- Set `MessageThreadID` on `SendChatActionParams` (typing indicator)
+- Set `MessageThreadID` on `SetMessageReactionParams` if applicable
+- For artifact delivery (`sendNewArtifacts`), pass `threadID` through so `SendDocument` also targets the correct topic
+
+**Channel posts** (lower priority):
+- Register a handler for `update.ChannelPost` events
+- Same flow as `handleMessage` but using `ChannelPost` fields
+- Decide if channel posts should require a specific trigger (e.g. always process, or only with a keyword/command)
+
+**Files to modify**:
+- `server/clients/telegram/bot.go` — mention filtering, thread-aware replies, optional channel post handler
+
+---
+
+### Secret Deletion Does Not Invalidate Agents Using It
+
+**Problem**: When a secret is deleted via the admin API, agents that reference the secret's env var placeholder (`${SECRET_KEY}`) continue running with the old credential value. The deletion does not take effect until the server is fully restarted.
+
+**Root cause (two bugs)**:
+
+1. **`os.Unsetenv` is never called** — `DeleteSecret` removes the secret from the store and persists, but the env var set by `os.Setenv` on create/load is never removed from the process. The env var lingers indefinitely.
+
+2. **In-memory expanded data is stale** — The store maintains `s.data` (env-expanded) and `s.rawData` (unexpanded). After deleting the secret and unsetting the env var, `s.data` still holds the previously expanded values. Backends, MCP servers, or client configs referencing `${SECRET_KEY}` in their URLs or tokens keep the old resolved value until `s.data` is re-expanded.
+
+**Current state**:
+- `CreateSecret` and `UpdateSecret` both call `os.Setenv(key, value)` — correct
+- `DeleteSecret` does **not** call `os.Unsetenv(key)` — bug
+- `UpdateSecret` does **not** unset the old key when the key name changes — secondary bug
+- `persist()` calls `notifyChange()` → triggers agent rebuild, but the rebuild reads `s.Data()` which returns the stale expanded data
+- `os.Unsetenv` appears **zero times** in the entire codebase
+
+**Solution**:
+1. In `DeleteSecret`: call `os.Unsetenv(existing.Key)` before removing from the slice
+2. In `UpdateSecret`: if the key name changed, call `os.Unsetenv(oldKey)` before `os.Setenv(newKey, value)`
+3. After unset, re-expand `s.data` from `s.rawData` via `os.ExpandEnv` so that in-memory values referencing the deleted secret resolve to empty string
+4. The existing `notifyChange()` → agent rebuild pipeline then picks up the cleared values automatically
+
+**Files to modify**:
+- `server/store/store.go` — `DeleteSecret` (add `os.Unsetenv` + re-expand), `UpdateSecret` (unset old key on rename + re-expand)
+
+---
+
 ### Multimodal File/Image Support in Clients
 
 **Problem**: Telegram, Slack, and Discord clients only handle text and voice messages. Users sending images, documents, PDFs, or other files get silently ignored.
