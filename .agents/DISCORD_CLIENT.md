@@ -105,7 +105,7 @@ server/clients/discord/
 6. Check for bot commands: `!help`, `!agent`, `!reset`, `!responsemode`
 7. Add reactions: 👀 (received)
 8. Build MAGEC_META with Discord context
-9. Call agent via internal HTTP API (`/api/v1/agent/run`)
+9. Call agent via internal HTTP API (`/api/v1/agent/run_sse`)
 10. Add 🧠 reaction (processing), remove 👀
 11. Respond based on response mode (text, voice, or both)
 12. Remove 🧠, add ✅ (success) or ❌ (failure)

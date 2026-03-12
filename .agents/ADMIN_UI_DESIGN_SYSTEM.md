@@ -53,15 +53,28 @@ Base classes: `bg-piedra-900 border border-piedra-700/50 rounded-xl p-4 transiti
 
 ## Control Taxonomy
 
-### 1. Segmented Control (view mode switches)
+### 1. Segmented Control (`SegmentedControl.vue`)
 
-For toggling between **views of the same data** (Messages/Raw, User/Admin perspective, Session/Long-term).
+Reusable component for toggling between **views of the same data** (Messages/Raw, User/Admin perspective, Manual/Package, auto-refresh intervals).
 
-**Container**: `flex items-center gap-1 p-0.5 rounded-lg bg-piedra-800 [border border-piedra-700/50 if standalone]`
-**Segments**: `px-3 py-1.5 text-xs font-medium rounded-md transition-colors cursor-pointer`
-- Active: `bg-piedra-700 text-arena-100` (neutral) or `bg-{color}-500/20 text-{color}-300` (color-coded)
+**Props**: `v-model` (any), `options` (Array of `{label, value, icon?, disabled?}`)
+
+**Container**: `inline-flex items-center p-0.5 rounded-lg bg-piedra-800 border border-piedra-700/50`
+**Segments**: `px-2.5 py-1 text-[10px] font-medium rounded-md transition-colors`
+- Active: `bg-piedra-700 text-arena-100`
 - Inactive: `text-arena-500 hover:text-arena-300`
 - Disabled: `text-arena-600 cursor-not-allowed`
+- Optional `icon` renders an `Icon` (size `xs`) to the left of the label
+
+**Usage**:
+```vue
+<SegmentedControl v-model="mode" :options="[
+  { label: 'Manual', value: 'manual', icon: 'edit' },
+  { label: 'Package', value: 'package', icon: 'upload' },
+]" />
+```
+
+**DRY rule**: Never inline segmented control markup. Always use `<SegmentedControl>`. All instances across the UI (ConversationsList, ConversationDetail, SkillDialog) use this component.
 
 ### 2. Icon Button (actions)
 

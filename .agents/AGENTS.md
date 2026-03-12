@@ -110,12 +110,13 @@ magec/
 │   │   │   ├── App.vue         # Layout, sidebar, global ConfirmDialog/Toast/SearchPalette
 │   │   │   ├── style.css       # Tailwind v4 @theme (piedra/atlantico/lava/sol/arena)
 │   │   │   ├── lib/api/        # Fetch wrapper + CRUD per resource
+│   │   │   ├── lib/frontmatter.js # YAML frontmatter parser for skill cards (uses js-yaml)
 │   │   │   ├── lib/stores/data.js # Pinia central store
-│   │   │   ├── components/     # Shared: AppDialog, Card, Badge, FormInput, Icon, Toast, etc.
+│   │   │   ├── components/     # Shared: AppDialog, Card, Badge, FormInput, Icon, Toast, SegmentedControl, etc.
 │   │   │   └── views/          # Entity views (backends/, memory/, mcps/, agents/, skills/,
 │   │   │                       #   clients/, commands/, flows/, conversations/)
 │   │   ├── vite.config.js      # Vue + Tailwind plugin + dev proxy to :8081
-│   │   └── package.json        # vue, pinia, vuedraggable, marked, tailwindcss v4
+│   │   └── package.json        # vue, pinia, vuedraggable, marked, js-yaml, tailwindcss v4
 │   └── voice-ui/               # Voice UI (Vue 3 + Vite + Tailwind v4 + Pinia)
 │       ├── src/
 │       │   ├── main.js         # Vue app entry
@@ -151,8 +152,7 @@ magec/
 | Method | Path | Description |
 |--------|------|-------------|
 | GET/POST | `/api/v1/agent/*` | ADK REST API (sessions, run, events) |
-| POST | `/api/v1/agent/run` | Run agent (blocking) |
-| POST | `/api/v1/agent/run_sse` | Run agent (SSE streaming) |
+| POST | `/api/v1/agent/run_sse` | Run agent (SSE streaming) — all clients use this |
 | POST | `/api/v1/webhooks/{clientId}` | Webhook endpoint — Bearer token auth |
 | POST | `/api/v1/voice/{agentId}/speech` | TTS proxy (per-agent backend) |
 | POST | `/api/v1/voice/{agentId}/transcription` | STT proxy (per-agent backend) |

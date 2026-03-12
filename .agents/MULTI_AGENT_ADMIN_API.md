@@ -88,6 +88,7 @@ Types: `http` (StreamableClientTransport), `stdio` (CommandTransport)
 | GET/PUT/DELETE | `/skills/{id}` | Get / Update / Delete |
 | POST | `/skills/{id}/references` | Upload reference file (multipart, 10MB limit) |
 | GET/DELETE | `/skills/{id}/references/{filename}` | Download / Delete reference file |
+| POST | `/skills/{id}/package` | Upload skill package (ZIP/tar.gz, 50MB limit, must contain SKILL.md) |
 
 Skill instructions and reference file contents are injected into the agent system prompt at runtime. Files stored on disk at `data/skills/{skillId}/`, metadata only in store.
 

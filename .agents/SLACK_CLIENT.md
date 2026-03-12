@@ -88,7 +88,7 @@ server/clients/slack/
 3. Check for audio clips in `ev.Message.Files` (mimetype `audio/*`)
 4. Check for bot commands: `!help`, `!agent`, `!reset`, `!responsemode`
 5. Build MAGEC_META with Slack context
-6. Call agent via internal HTTP API (`/api/v1/agent/run`)
+6. Call agent via internal HTTP API (`/api/v1/agent/run_sse`)
 7. Respond based on response mode (text, voice, or both)
 
 ### Emoji reactions

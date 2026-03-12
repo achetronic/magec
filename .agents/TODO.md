@@ -25,7 +25,7 @@ Implemented. See `server/clients/msgutil/` package.
 **Flow**:
 ```
 !reset → DELETE /apps/{agent}/users/default_user/sessions/{sessionID} → OK
-New message → ensureSession (same ID recreated) → /run → recorder calls FindBySession
+New message → ensureSession (same ID recreated) → /run_sse → recorder calls FindBySession
   → Finds old conversation (same sessionID) → AppendMessages → new messages land in old record
 ```
 
@@ -300,8 +300,8 @@ The visual flow editor's drag-and-drop experience needs polish. Improve feedback
   - **Always Allow** — confirm + add to `alwaysAllow` map
 - Show tool name, hint text, and input args so the user knows what they're approving.
 
-**Client changes (all must migrate from `/run` to `/run_sse`)**:
-- The server already serves `/run_sse` via `adkrest.NewHandler`, and middleware (recorder, flow filter) already supports SSE.
+**Client changes (all already use `/run_sse`)**:
+- All clients (Telegram, Slack, Discord, executor) call `/run_sse` via `callAgentSSE()` and parse events with `msgutil.ParseSSEStream()`.
 - **Telegram**: listen for `adk_request_confirmation` SSE events, show inline keyboard (Approve/Reject/Always Allow), send `FunctionResponse` back.
 - **Slack**: show interactive block with buttons, handle callback.
 - **Voice UI**: show collapsible confirmation card in chat timeline with Approve/Reject/Always Allow buttons.
@@ -548,13 +548,13 @@ If a single person uses Discord AND Telegram, they'd have two `userID`s and two 
 
 ### ~~Skill Card View Formatter~~ ✅
 
-Implemented. Frontend parses YAML frontmatter from `instructions` field via `lib/frontmatter.js`. Canonical skills (valid frontmatter with `name`) render structured cards with description, license/compatibility badges, and file count. Non-canonical skills fall back to store name/description + truncated instructions.
+Implemented. Frontend parses YAML frontmatter from `instructions` field via `lib/frontmatter.js` (uses `js-yaml`). Canonical skills (valid frontmatter with `name`) render structured cards with description, license/compatibility badges, and file count. Non-canonical skills fall back to store name/description. Store-level name/description always takes priority over frontmatter — frontmatter values are fallback only.
 
 ---
 
 ### ~~Skill Package Upload (ZIP/tar.gz)~~ ✅
 
-Implemented. `POST /skills/{id}/package` extracts ZIP or tar.gz, requires `SKILL.md` at root (or one level deep — auto-stripped). Preserves directory structure in `data/skills/{id}/`. If SKILL.md has valid frontmatter, `name` and `description` are extracted for the store; otherwise name defaults to archive filename. `SkillDialog.vue` has Manual | Package segmented toggle — Package mode shows a drop zone for compressed files.
+Implemented. `POST /skills/{id}/package` extracts ZIP or tar.gz, requires `SKILL.md` at root (or one level deep — auto-stripped). Preserves directory structure in `data/skills/{id}/`. If SKILL.md has valid frontmatter, `name` and `description` are extracted for the store; otherwise name defaults to archive filename. `SkillDialog.vue` uses `SegmentedControl` for Manual | Package toggle — Package mode shows a drop zone for compressed files.
 
 ---
 

@@ -319,7 +319,7 @@ The orchestrator agent (e.g. MetaMagecAgent) is a regular `AgentDefinition` with
 **Date**: 2026-02-22
 **Status**: Decided (pending implementation)
 
-When clients (Telegram, Slack) receive files from users, the files are sent to the ADK `/run` endpoint as `inlineData` (base64-encoded bytes + mimetype) in `newMessage.parts[]`, not as `fileData` (URI reference).
+When clients (Telegram, Slack) receive files from users, the files are sent to the ADK `/run_sse` endpoint as `inlineData` (base64-encoded bytes + mimetype) in `newMessage.parts[]`, not as `fileData` (URI reference).
 
 **Reasoning**:
 - `fileData` with URI is a Gemini-specific concept (Google Files API). OpenAI and Anthropic do not support fetching from URIs — they expect content inline.
@@ -427,3 +427,24 @@ When an adapter receives `genai.Part{InlineData}` with a MIME type it can't tran
 **Do not**: Silently drop unsupported `InlineData` parts. Do not convert them to text descriptions. Return `fmt.Errorf("unsupported inline data MIME type for %s: %s")`.
 
 **Files**: `adk-utils-go/genai/openai/openai.go` (`convertInlineDataToPart`), `adk-utils-go/genai/anthropic/anthropic.go` (`convertInlineDataToBlock`).
+
+---
+
+## 19. InstructionProvider bypasses ADK's `{variable}` substitution
+
+**Date**: 2026-03-12
+**Status**: Implemented
+
+ADK's `InjectSessionState` automatically replaces `{anything}` in agent instructions with session state values. This breaks any prompt containing curly braces — JSON examples, scripts, code snippets, templates, etc. The regex (`{+[^{}]*}+`) is hardcoded with no escape mechanism and no configuration options.
+
+**Solution**: All agents use `InstructionProvider` (a callback) instead of the static `Instruction` string. When `InstructionProvider` is set, ADK skips `InjectSessionState` entirely — curly braces become plain text.
+
+**Custom substitution syntax**: `{{agent.output:variable_name}}`. This is the only pattern Magec resolves from session state. The regex `\{\{agent\.output:([a-zA-Z_][a-zA-Z0-9_]*)\}\}` is specific enough to never collide with real prompt content.
+
+**Fast path**: If the instruction contains no `{{agent.output:` patterns, the provider returns the string as-is with zero regex overhead.
+
+**Flow output keys**: Work exactly as before — an agent's `outputKey` saves to session state, and downstream agents reference it with `{{agent.output:key}}` in their system prompt. The `SessionStateSeed` middleware pre-seeds empty values so first-invocation doesn't fail.
+
+**Do not**: Use ADK's static `Instruction` field on `llmagent.Config`. Always use `InstructionProvider` via `makeInstructionProvider()`. Do not introduce new substitution patterns — `{{agent.output:key}}` is the only one.
+
+**Files**: `server/agent/agent.go` (`makeInstructionProvider`, `stateVarRegex`).

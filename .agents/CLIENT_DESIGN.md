@@ -407,7 +407,7 @@ On `loadFromDisk()`, these migrations run in order (all idempotent):
 
 ### Overview
 
-Clients send user-uploaded files (images, documents, PDFs) as `inlineData` parts in the ADK `/run` request. The ADK and LLM backends handle them natively — no new endpoints or backend changes needed.
+Clients send user-uploaded files (images, documents, PDFs) as `inlineData` parts in the ADK `/run_sse` request. The ADK and LLM backends handle them natively — no new endpoints or backend changes needed.
 
 ### How it works
 
