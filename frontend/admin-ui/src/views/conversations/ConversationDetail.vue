@@ -78,38 +78,10 @@
         <div class="w-px h-4 bg-piedra-700/50" />
 
         <!-- Perspective toggle -->
-        <div v-if="pairId || conversation?.perspective" class="flex items-center bg-piedra-800 rounded-lg border border-piedra-700/50 p-0.5">
-          <button
-            @click="switchPerspective('user')"
-            :disabled="!canSwitch('user')"
-            class="px-2.5 py-1 text-[10px] font-medium rounded-md transition-colors"
-            :class="activePerspective === 'user'
-              ? 'bg-piedra-700 text-arena-100'
-              : pairId ? 'text-arena-500 hover:text-arena-300 cursor-pointer' : 'text-arena-600 cursor-not-allowed'"
-          >User</button>
-          <button
-            @click="switchPerspective('admin')"
-            :disabled="!canSwitch('admin')"
-            class="px-2.5 py-1 text-[10px] font-medium rounded-md transition-colors"
-            :class="activePerspective === 'admin'
-              ? 'bg-piedra-700 text-arena-100'
-              : pairId ? 'text-arena-500 hover:text-arena-300 cursor-pointer' : 'text-arena-600 cursor-not-allowed'"
-          >Admin</button>
-        </div>
+        <SegmentedControl v-if="pairId || conversation?.perspective" :modelValue="activePerspective" @update:modelValue="switchPerspective" :options="perspectiveOptions" />
 
         <!-- View toggle -->
-        <div class="flex items-center bg-piedra-800 rounded-lg border border-piedra-700/50 p-0.5">
-          <button
-            @click="showRaw = false"
-            class="px-2.5 py-1 text-[10px] font-medium rounded-md transition-colors"
-            :class="!showRaw ? 'bg-piedra-700 text-arena-100' : 'text-arena-500 hover:text-arena-300'"
-          >Messages</button>
-          <button
-            @click="showRaw = true"
-            class="px-2.5 py-1 text-[10px] font-medium rounded-md transition-colors"
-            :class="showRaw ? 'bg-piedra-700 text-arena-100' : 'text-arena-500 hover:text-arena-300'"
-          >Raw</button>
-        </div>
+        <SegmentedControl v-model="showRaw" :options="viewOptions" />
 
         <!-- Actions -->
         <button
@@ -272,6 +244,7 @@ import { useDataStore } from '../../lib/stores/data.js'
 import Badge from '../../components/Badge.vue'
 import Icon from '../../components/Icon.vue'
 import EmptyState from '../../components/EmptyState.vue'
+import SegmentedControl from '../../components/SegmentedControl.vue'
 
 const MSG_PAGE_SIZE = 50
 
@@ -308,6 +281,16 @@ function canSwitch(target) {
   if (activePerspective.value === target) return false
   return !!pairId.value
 }
+
+const perspectiveOptions = computed(() => [
+  { label: 'User', value: 'user', disabled: !canSwitch('user') },
+  { label: 'Admin', value: 'admin', disabled: !canSwitch('admin') },
+])
+
+const viewOptions = [
+  { label: 'Messages', value: false },
+  { label: 'Raw', value: true },
+]
 
 function switchPerspective(target) {
   if (!canSwitch(target)) return

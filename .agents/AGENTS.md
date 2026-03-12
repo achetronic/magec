@@ -174,7 +174,7 @@ magec/
 | | **Backends** | CRUD: `/backends`, `/backends/{id}` |
 | | **Memory** | CRUD: `/memory`, `/memory/{id}`, `/memory/types`, `/memory/{id}/health` |
 | | **MCP Servers** | CRUD: `/mcps`, `/mcps/{id}` |
-| | **Skills** | CRUD: `/skills`, `/skills/{id}` + references: `/skills/{id}/references`, `/skills/{id}/references/{filename}` |
+| | **Skills** | CRUD: `/skills`, `/skills/{id}` + references: `/skills/{id}/references`, `/skills/{id}/references/{filename}` + package: `/skills/{id}/package` |
 | | **Agents** | CRUD: `/agents`, `/agents/{id}`, `/agents/{id}/mcps`, `/agents/{id}/mcps/{mcpId}` |
 | | **Clients** | CRUD: `/clients`, `/clients/{id}`, `/clients/types`, `/clients/{id}/regenerate-token` |
 | | **Commands** | CRUD: `/commands`, `/commands/{id}` |

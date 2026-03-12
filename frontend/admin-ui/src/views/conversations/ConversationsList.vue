@@ -5,16 +5,7 @@
       <h2 class="text-sm font-semibold text-arena-200">Conversations</h2>
       <div class="flex items-center gap-3">
         <!-- Auto-refresh segmented control -->
-        <div class="flex items-center bg-piedra-800 rounded-lg border border-piedra-700/50 p-0.5">
-          <button
-            v-for="opt in refreshOptions" :key="opt.value"
-            @click="setAutoRefresh(opt.value)"
-            class="px-2.5 py-1 text-[10px] font-medium rounded-md transition-colors"
-            :class="refreshInterval === opt.value
-              ? 'bg-piedra-700 text-arena-100'
-              : 'text-arena-500 hover:text-arena-300'"
-          >{{ opt.label }}</button>
-        </div>
+        <SegmentedControl :modelValue="refreshInterval" @update:modelValue="setAutoRefresh" :options="refreshOptions" />
         <!-- Actions -->
         <div class="flex items-center gap-1">
           <button
@@ -162,6 +153,7 @@ import Badge from '../../components/Badge.vue'
 import Icon from '../../components/Icon.vue'
 import EmptyState from '../../components/EmptyState.vue'
 import SkeletonCard from '../../components/SkeletonCard.vue'
+import SegmentedControl from '../../components/SegmentedControl.vue'
 
 const PAGE_SIZE = 60
 

@@ -19,8 +19,8 @@
               <Icon name="skill" size="md" class="text-cyan-400" />
             </div>
             <div class="min-w-0">
-              <h3 class="font-medium text-arena-100 text-sm">{{ sk.name }}</h3>
-              <p v-if="sk.description" class="text-[10px] text-arena-500 truncate">{{ sk.description }}</p>
+              <h3 class="font-medium text-arena-100 text-sm">{{ cardData(sk).name }}</h3>
+              <p v-if="cardData(sk).description" class="text-[10px] text-arena-500 line-clamp-2">{{ cardData(sk).description }}</p>
             </div>
           </div>
           <div class="flex gap-0.5 flex-shrink-0">
@@ -32,11 +32,12 @@
             </button>
           </div>
         </div>
-        <p class="text-[10px] text-arena-500 line-clamp-2 italic">"{{ sk.instructions }}"</p>
-        <div v-if="sk.references && sk.references.length" class="flex flex-wrap gap-1 mt-2">
-          <Badge variant="muted" v-for="ref in sk.references" :key="ref.filename">
-            <span class="text-arena-500 mr-0.5">📎</span> {{ ref.filename }}
+        <p v-if="!cardData(sk).canonical" class="text-[10px] text-arena-500 line-clamp-2 italic">"{{ sk.instructions }}"</p>
+        <div class="flex flex-wrap gap-1 mt-2">
+          <Badge v-if="sk.references && sk.references.length" variant="muted">
+            <span class="text-arena-500 mr-0.5">📁</span> {{ sk.references.length }} {{ sk.references.length === 1 ? 'file' : 'files' }}
           </Badge>
+          <Badge v-for="b in cardData(sk).badges" :key="b" variant="muted">{{ b }}</Badge>
         </div>
         <div v-if="usedBy(sk.id).length" class="flex flex-wrap gap-1 mt-2">
           <Tooltip v-for="ref in usedBy(sk.id)" :key="ref.name" :text="ref.tooltip">
@@ -55,6 +56,7 @@
 import { inject, ref, onMounted, onUnmounted } from 'vue'
 import { useDataStore } from '../../lib/stores/data.js'
 import { skillsApi } from '../../lib/api/index.js'
+import { skillCardData } from '../../lib/frontmatter.js'
 import Card from '../../components/Card.vue'
 import Badge from '../../components/Badge.vue'
 import Tooltip from '../../components/Tooltip.vue'
@@ -70,6 +72,15 @@ const toast = inject('toast')
 const registerNew = inject('registerNew')
 onMounted(() => registerNew(() => openDialog()))
 onUnmounted(() => registerNew(null))
+
+const cardCache = new WeakMap()
+
+function cardData(sk) {
+  if (cardCache.has(sk)) return cardCache.get(sk)
+  const data = skillCardData(sk)
+  cardCache.set(sk, data)
+  return data
+}
 
 function openDialog(skill = null) {
   dialog.value?.open(skill)

@@ -1,68 +1,8 @@
 # Magec - TODO
 
-## IN PROGRESS: Client Config — DefaultAgent + ThreadHistoryLimit
+## ~~Client Config — DefaultAgent + ThreadHistoryLimit~~ ✅
 
-### Goal
-Two new fields in Discord and Slack client config:
-1. **`defaultAgent`** — the agent that starts active on boot, persisted to store when user runs `!agent <id>`
-2. **`threadHistoryLimit`** — number of previous thread messages passed as context to the agent (1–100 for Discord, 1–1000 for Slack)
-
-Telegram is excluded from `threadHistoryLimit` because it accumulates all messages via ADK session directly (no mention filter). Telegram does get `defaultAgent`.
-
-### Current state of active agent (before this change)
-- Stored as `map[channelID]agentID` (Discord/Slack) or `map[chatID]agentID` (Telegram) in memory only
-- Lost on restart — fallback is always `clientDef.AllowedAgents[0]`
-- `!agent <id>` only updates the in-memory map, does NOT persist
-
-### Design decisions
-- `defaultAgent` is **global per client** (not per channel) — whoever configures the client knows which model/agent it will use
-- `!agent <id>` does two things: updates in-memory map AND persists `defaultAgent` to the store via the store's update mechanism
-- `getActiveAgentID` fallback order: in-memory map → `defaultAgent` from config → `allowedAgents[0]`
-- `threadHistoryLimit` replaces the hardcoded `50` in `fetchThreadContext`; defaults to `50` if not set
-
-### Files to modify
-
-**`server/store/types.go`**:
-- Add `DefaultAgent string` and `ThreadHistoryLimit int` to `DiscordClientConfig` and `SlackClientConfig`
-- Add `DefaultAgent string` to `TelegramClientConfig`
-
-**`server/clients/discord/spec.go`**:
-- Add `defaultAgent` (string, description: "Default agent ID to use on startup") to JSON Schema
-- Add `threadHistoryLimit` (integer, min: 1, max: 100, description: "Thread history messages passed to the agent as context") to JSON Schema
-
-**`server/clients/slack/spec.go`**:
-- Same as Discord but max: 1000
-
-**`server/clients/telegram/spec.go`** (if exists):
-- Add `defaultAgent` only
-
-**`server/clients/discord/bot.go`**:
-- `getActiveAgentID`: fallback chain → in-memory map → `c.clientDef.Config.Discord.DefaultAgent` → `allowedAgents[0]`
-- `setActiveAgentID`: keep updating in-memory map + call store update to persist `DefaultAgent`
-- `fetchThreadContext`: replace literal `50` with `c.clientDef.Config.Discord.ThreadHistoryLimit` (with fallback to 50 if 0)
-
-**`server/clients/slack/bot.go`**:
-- Same pattern as Discord
-
-**`server/clients/telegram/bot.go`**:
-- `getActiveAgentID`: fallback chain → in-memory map → `c.clientDef.Config.Telegram.DefaultAgent` → `allowedAgents[0]`
-- `setActiveAgentID`: persist `DefaultAgent` to store
-
-### How to persist DefaultAgent to store
-The store exposes `UpdateClient(def ClientDefinition) error` (or equivalent). After `!agent <id>`:
-1. Copy `c.clientDef`
-2. Set `clientDef.Config.Discord.DefaultAgent = agentID` (or Slack/Telegram)
-3. Call store update
-The store's `persist()` writes to disk automatically.
-
-Check exact store method signature in `server/store/store.go` before implementing.
-
-### Frontend (admin-ui)
-- Discord client form: add "Default agent" text field + "Thread history messages" number input (1–100)
-- Slack client form: same but max 1000
-- Telegram client form: add "Default agent" text field only
-- Labels: "Default agent" and "Thread history messages"
-- Tooltip for thread history: "Number of previous thread messages passed to the agent as context. Use lower values for smaller models."
+Implemented. `defaultAgent` persisted to store on `!agent <id>` with fallback chain (in-memory → defaultAgent → allowedAgents[0]). `threadHistoryLimit` replaces hardcoded 50 in Discord/Slack `fetchThreadContext`. Shared schema helpers in `server/clients/provider.go`.
 
 ---
 
@@ -606,68 +546,15 @@ If a single person uses Discord AND Telegram, they'd have two `userID`s and two 
 
 ## Low Priority
 
-### Skill Card View Formatter
+### ~~Skill Card View Formatter~~ ✅
 
-**Problem**: Skills follow the [Agent Skills Specification](https://agentskills.io/specification) with YAML frontmatter (`name`, `description`, `license`, `compatibility`, `metadata`) followed by a markdown body. Some skills are non-canonical (no frontmatter, arbitrary markdown) and still valid. Rendering the raw SKILL.md in a card looks ugly — `---` delimiters, long markdown bodies, and code blocks don't belong in a card preview.
-
-**Solution**: Parse SKILL.md frontmatter and render structured card data instead of raw markdown.
-
-**Card layout**:
-```
-┌─────────────────────────────────────┐
-│ 🔧 skill-name                      │
-│                                     │
-│ Description from frontmatter,       │
-│ truncated to 2-3 lines...          │
-│                                     │
-│ 📁 N files · 🐍 scripts · License  │
-└─────────────────────────────────────┘
-```
-
-- **Title**: `name` from frontmatter
-- **Description**: `description` from frontmatter (truncated, max ~200 chars displayed)
-- **Footer badges**: file count, content indicators (has `scripts/`, `references/`, `assets/`), license if present
-- **Never render** the markdown body in the card
-
-**Fallback for non-canonical skills** (no valid YAML frontmatter):
-- **Title**: directory name of the skill
-- **Description**: first non-empty line of the markdown body (stripped of `#` heading markers), or "No description"
-- **Footer**: file count only
-
-**Notes**:
-- Parse frontmatter with a YAML parser — content between the first two `---` lines
-- Spec defines `name` max 64 chars, `description` max 1024 chars — truncate to ~200 in card
-- `compatibility` field could render as small tags if present
-
-**Modify**: `frontend/admin-ui/` (skill card component)
+Implemented. Frontend parses YAML frontmatter from `instructions` field via `lib/frontmatter.js`. Canonical skills (valid frontmatter with `name`) render structured cards with description, license/compatibility badges, and file count. Non-canonical skills fall back to store name/description + truncated instructions.
 
 ---
 
-### Skill Package Upload (ZIP/tar.gz)
+### ~~Skill Package Upload (ZIP/tar.gz)~~ ✅
 
-**Problem**: Current uploader only allows uploading files one at a time with no folder support. Many skills consist of multiple files (`scripts/`, `references/`, `assets/`, templates) that need directory structure. Uploading a complex skill is painful and error-prone.
-
-**Solution**: Support uploading a skill as a compressed package that preserves the full directory tree.
-
-**Upload flow**:
-1. User uploads a `.zip` or `.tar.gz` in the Admin GUI
-2. Backend extracts and validates: must contain a `SKILL.md` at the root (or one level deep if the archive wraps the skill in a single top-level directory)
-3. Store the full tree — scripts, references, assets, everything
-4. Parse `SKILL.md` frontmatter for the Skill Card View (see Skill Card View Formatter)
-5. Expose a file browser in the skill detail view so the user can see what's inside
-
-**Requirements**:
-- Preserve directory structure as-is on extraction
-- The backend must resolve relative paths referenced in SKILL.md (e.g. `./reference/mcp_best_practices.md`, `./templates/viewer.html`) so the agent can read them at runtime
-- Scripts are stored but **not executed** — available for the agent to read/reference, not to run
-- Support both single-file skills (simple upload, same as today) and multi-file package upload
-- Also support drag-and-drop of folders as an alternative (`webkitdirectory` or File System Access API)
-
-**Notes**:
-- Many skills reference files with relative paths (`./reference/`, `./scripts/`) — the storage layer must preserve these paths so they resolve correctly when the agent loads them into context
-- Backend needs a batch upload endpoint that handles paths relative to the skill root
-
-**Modify**: `frontend/admin-ui/` (upload component), `server/api/admin/` (upload endpoint), `server/store/` (skill storage)
+Implemented. `POST /skills/{id}/package` extracts ZIP or tar.gz, requires `SKILL.md` at root (or one level deep — auto-stripped). Preserves directory structure in `data/skills/{id}/`. If SKILL.md has valid frontmatter, `name` and `description` are extracted for the store; otherwise name defaults to archive filename. `SkillDialog.vue` has Manual | Package segmented toggle — Package mode shows a drop zone for compressed files.
 
 ---
 

@@ -23,4 +23,16 @@ export const skillsApi = {
   },
   deleteReference: (id, filename) => request(`/skills/${id}/references/${encodeURIComponent(filename)}`, { method: 'DELETE' }),
   referenceUrl: (id, filename) => `${BASE}/skills/${id}/references/${encodeURIComponent(filename)}`,
+  uploadPackage: async (id, file) => {
+    const form = new FormData()
+    form.append('file', file)
+    const res = await fetch(`${BASE}/skills/${id}/package`, {
+      method: 'POST',
+      headers: { ...getAuthHeaders() },
+      body: form,
+    })
+    const data = await res.json()
+    if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`)
+    return data
+  },
 }
