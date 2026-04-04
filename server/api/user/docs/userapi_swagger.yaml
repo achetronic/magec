@@ -135,6 +135,43 @@ definitions:
         example: resource not found
         type: string
     type: object
+  user.RunAgentMessage:
+    properties:
+      parts:
+        items:
+          $ref: '#/definitions/user.RunAgentMessagePart'
+        type: array
+      role:
+        example: user
+        type: string
+    type: object
+  user.RunAgentMessagePart:
+    properties:
+      text:
+        example: Hello
+        type: string
+    type: object
+  user.RunAgentRequest:
+    properties:
+      appName:
+        example: my-agent-id
+        type: string
+      newMessage:
+        $ref: '#/definitions/user.RunAgentMessage'
+      sessionId:
+        example: conversation-001
+        type: string
+      stateDelta:
+        additionalProperties: true
+        description: StateDelta is optional session state patch (ADK).
+        type: object
+      streaming:
+        description: Streaming is optional; primarily used by ADK internals.
+        type: boolean
+      userId:
+        example: default_user
+        type: string
+    type: object
   user.SpeechRequest:
     properties:
       input:
@@ -680,15 +717,18 @@ paths:
     post:
       consumes:
       - application/json
-      description: Send a message to an agent and receive the full response. The app_name
-        is the agent ID.
+      description: 'Send a message to an agent and receive the full response. Preferred
+        JSON keys are camelCase (appName, userId, sessionId, newMessage) per Google
+        ADK. For compatibility (see GitHub #26), snake_case (app_name, user_id, session_id,
+        new_message) is also accepted and normalized server-side. appName must be
+        the agent id / UUID from GET /agent/list-apps.'
       parameters:
-      - description: Run request with app_name, user_id, session_id, and new_message
+      - description: ADK run request
         in: body
         name: body
         required: true
         schema:
-          type: object
+          $ref: '#/definitions/user.RunAgentRequest'
       produces:
       - application/json
       responses:
@@ -713,15 +753,15 @@ paths:
     post:
       consumes:
       - application/json
-      description: Send a message to an agent and receive the response streamed as
-        Server-Sent Events.
+      description: Same JSON body as POST /agent/run (camelCase preferred; snake_case
+        accepted and normalized). Response is text/event-stream (SSE).
       parameters:
-      - description: Run request with app_name, user_id, session_id, and new_message
+      - description: ADK run request
         in: body
         name: body
         required: true
         schema:
-          type: object
+          $ref: '#/definitions/user.RunAgentRequest'
       produces:
       - text/event-stream
       responses:

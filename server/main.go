@@ -170,7 +170,9 @@ func main() {
 		middleware.ConversationRecorderSSE(filtered, executor, dataStore, "user"),
 		executor, dataStore, "user",
 	)
-	httpMux.Handle("/api/v1/agent/", userRecorded)
+	// Accept snake_case JSON on /run and /run_sse (GitHub #26); ADK expects camelCase.
+	agentHandler := middleware.RunAgentJSONNormalize(userRecorded)
+	httpMux.Handle("/api/v1/agent/", agentHandler)
 	httpMux.Handle("/api/v1/voice/", newVoiceHandler(dataStore, agentRouter))
 
 	// A2A protocol endpoints (global discovery + per-agent card + JSON-RPC invoke)

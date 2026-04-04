@@ -787,7 +787,7 @@ const docTemplateuserapi = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Send a message to an agent and receive the full response. The app_name is the agent ID.",
+                "description": "Send a message to an agent and receive the full response. Preferred JSON keys are camelCase (appName, userId, sessionId, newMessage) per Google ADK. For compatibility (see GitHub #26), snake_case (app_name, user_id, session_id, new_message) is also accepted and normalized server-side. appName must be the agent id / UUID from GET /agent/list-apps.",
                 "consumes": [
                     "application/json"
                 ],
@@ -800,12 +800,12 @@ const docTemplateuserapi = `{
                 "summary": "Run agent",
                 "parameters": [
                     {
-                        "description": "Run request with app_name, user_id, session_id, and new_message",
+                        "description": "ADK run request",
                         "name": "body",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "type": "object"
+                            "$ref": "#/definitions/user.RunAgentRequest"
                         }
                     }
                 ],
@@ -838,7 +838,7 @@ const docTemplateuserapi = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Send a message to an agent and receive the response streamed as Server-Sent Events.",
+                "description": "Same JSON body as POST /agent/run (camelCase preferred; snake_case accepted and normalized). Response is text/event-stream (SSE).",
                 "consumes": [
                     "application/json"
                 ],
@@ -851,12 +851,12 @@ const docTemplateuserapi = `{
                 "summary": "Run agent (SSE streaming)",
                 "parameters": [
                     {
-                        "description": "Run request with app_name, user_id, session_id, and new_message",
+                        "description": "ADK run request",
                         "name": "body",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "type": "object"
+                            "$ref": "#/definitions/user.RunAgentRequest"
                         }
                     }
                 ],
@@ -1361,6 +1361,59 @@ const docTemplateuserapi = `{
                 "error": {
                     "type": "string",
                     "example": "resource not found"
+                }
+            }
+        },
+        "user.RunAgentMessage": {
+            "type": "object",
+            "properties": {
+                "parts": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/user.RunAgentMessagePart"
+                    }
+                },
+                "role": {
+                    "type": "string",
+                    "example": "user"
+                }
+            }
+        },
+        "user.RunAgentMessagePart": {
+            "type": "object",
+            "properties": {
+                "text": {
+                    "type": "string",
+                    "example": "Hello"
+                }
+            }
+        },
+        "user.RunAgentRequest": {
+            "type": "object",
+            "properties": {
+                "appName": {
+                    "type": "string",
+                    "example": "my-agent-id"
+                },
+                "newMessage": {
+                    "$ref": "#/definitions/user.RunAgentMessage"
+                },
+                "sessionId": {
+                    "type": "string",
+                    "example": "conversation-001"
+                },
+                "stateDelta": {
+                    "description": "StateDelta is optional session state patch (ADK).",
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "streaming": {
+                    "description": "Streaming is optional; primarily used by ADK internals.",
+                    "type": "boolean"
+                },
+                "userId": {
+                    "type": "string",
+                    "example": "default_user"
                 }
             }
         },

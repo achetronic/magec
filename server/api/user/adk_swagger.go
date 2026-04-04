@@ -6,11 +6,11 @@ package user
 
 // RunAgent executes an agent synchronously.
 // @Summary      Run agent
-// @Description  Send a message to an agent and receive the full response. The app_name is the agent ID.
+// @Description  Send a message to an agent and receive the full response. Preferred JSON keys are camelCase (appName, userId, sessionId, newMessage) per Google ADK. For compatibility (see GitHub #26), snake_case (app_name, user_id, session_id, new_message) is also accepted and normalized server-side. appName must be the agent id / UUID from GET /agent/list-apps.
 // @Tags         agent
 // @Accept       json
 // @Produce      json
-// @Param        body  body      object  true  "Run request with app_name, user_id, session_id, and new_message"
+// @Param        body  body      RunAgentRequest  true  "ADK run request"
 // @Success      200   {object}  object  "Agent response"
 // @Failure      400   {object}  ErrorResponse
 // @Failure      404   {object}  ErrorResponse
@@ -20,11 +20,11 @@ func (h *Handler) RunAgent() {}
 
 // RunAgentSSE executes an agent with streaming via Server-Sent Events.
 // @Summary      Run agent (SSE streaming)
-// @Description  Send a message to an agent and receive the response streamed as Server-Sent Events.
+// @Description  Same JSON body as POST /agent/run (camelCase preferred; snake_case accepted and normalized). Response is text/event-stream (SSE).
 // @Tags         agent
 // @Accept       json
 // @Produce      text/event-stream
-// @Param        body  body      object  true  "Run request with app_name, user_id, session_id, and new_message"
+// @Param        body  body      RunAgentRequest  true  "ADK run request"
 // @Success      200   {object}  object  "SSE event stream"
 // @Failure      400   {object}  ErrorResponse
 // @Failure      404   {object}  ErrorResponse
