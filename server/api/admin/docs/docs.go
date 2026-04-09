@@ -2597,6 +2597,62 @@ const docTemplate = `{
                 }
             }
         },
+        "/skills/{id}/package": {
+            "post": {
+                "security": [
+                    {
+                        "AdminAuth": []
+                    }
+                ],
+                "description": "Uploads a ZIP or tar.gz archive containing a SKILL.md and optional reference files",
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "skills"
+                ],
+                "summary": "Upload skill package",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Skill ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "file",
+                        "description": "Package archive (ZIP or tar.gz)",
+                        "name": "file",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/store.Skill"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/skills/{id}/references": {
             "post": {
                 "security": [
@@ -2943,6 +2999,12 @@ const docTemplate = `{
                 "apiKey": {
                     "type": "string"
                 },
+                "headers": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
                 "id": {
                     "type": "string"
                 },
@@ -2962,6 +3024,12 @@ const docTemplate = `{
             "properties": {
                 "backend": {
                     "type": "string"
+                },
+                "headers": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
                 },
                 "model": {
                     "type": "string"
@@ -3039,6 +3107,9 @@ const docTemplate = `{
             "properties": {
                 "enabled": {
                     "type": "boolean"
+                },
+                "maxTokens": {
+                    "type": "integer"
                 },
                 "maxTurns": {
                     "type": "integer"
@@ -3167,8 +3238,14 @@ const docTemplate = `{
                 "botToken": {
                     "type": "string"
                 },
-                "guildId": {
+                "defaultAgent": {
                     "type": "string"
+                },
+                "responseMode": {
+                    "type": "string"
+                },
+                "threadHistoryLimit": {
+                    "type": "integer"
                 }
             }
         },
@@ -3366,8 +3443,14 @@ const docTemplate = `{
                 "botToken": {
                     "type": "string"
                 },
+                "defaultAgent": {
+                    "type": "string"
+                },
                 "responseMode": {
                     "type": "string"
+                },
+                "threadHistoryLimit": {
+                    "type": "integer"
                 }
             }
         },
@@ -3404,6 +3487,9 @@ const docTemplate = `{
                     }
                 },
                 "botToken": {
+                    "type": "string"
+                },
+                "defaultAgent": {
                     "type": "string"
                 },
                 "responseMode": {

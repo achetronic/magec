@@ -136,6 +136,10 @@ definitions:
     properties:
       apiKey:
         type: string
+      headers:
+        additionalProperties:
+          type: string
+        type: object
       id:
         type: string
       name:
@@ -149,6 +153,10 @@ definitions:
     properties:
       backend:
         type: string
+      headers:
+        additionalProperties:
+          type: string
+        type: object
       model:
         type: string
     type: object
@@ -199,6 +207,8 @@ definitions:
     properties:
       enabled:
         type: boolean
+      maxTokens:
+        type: integer
       maxTurns:
         type: integer
       strategy:
@@ -283,8 +293,12 @@ definitions:
         type: array
       botToken:
         type: string
-      guildId:
+      defaultAgent:
         type: string
+      responseMode:
+        type: string
+      threadHistoryLimit:
+        type: integer
     type: object
   store.FlowDefinition:
     properties:
@@ -413,8 +427,12 @@ definitions:
         type: string
       botToken:
         type: string
+      defaultAgent:
+        type: string
       responseMode:
         type: string
+      threadHistoryLimit:
+        type: integer
     type: object
   store.TTSRef:
     properties:
@@ -438,6 +456,8 @@ definitions:
           type: integer
         type: array
       botToken:
+        type: string
+      defaultAgent:
         type: string
       responseMode:
         type: string
@@ -2105,6 +2125,43 @@ paths:
       security:
       - AdminAuth: []
       summary: Update skill
+      tags:
+      - skills
+  /skills/{id}/package:
+    post:
+      consumes:
+      - multipart/form-data
+      description: Uploads a ZIP or tar.gz archive containing a SKILL.md and optional
+        reference files
+      parameters:
+      - description: Skill ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Package archive (ZIP or tar.gz)
+        in: formData
+        name: file
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/store.Skill'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/admin.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/admin.ErrorResponse'
+      security:
+      - AdminAuth: []
+      summary: Upload skill package
       tags:
       - skills
   /skills/{id}/references:

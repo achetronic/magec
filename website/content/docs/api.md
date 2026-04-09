@@ -33,15 +33,19 @@ The request format for sending a message:
 
 ```json
 {
-  "app_name": "AGENT_OR_FLOW_ID",
-  "user_id": "user1",
-  "session_id": "session1",
-  "new_message": {
+  "appName": "AGENT_OR_FLOW_ID",
+  "userId": "user1",
+  "sessionId": "session1",
+  "newMessage": {
     "role": "user",
     "parts": [{ "text": "Hello!" }]
   }
 }
 ```
+
+{{< callout type="info" >}}
+Both **camelCase** (canonical) and **snake_case** field names are accepted. A normalization middleware converts snake_case keys to camelCase recursively before the request reaches the ADK handler. This applies to all fields at every nesting level — including nested structures like `inlineData`, `mimeType`, `functionCall`, etc.
+{{< /callout >}}
 
 ### Other endpoints
 
