@@ -45,14 +45,47 @@ type BackendRef struct {
 	Backend string            `json:"backend,omitempty" yaml:"backend,omitempty"`
 	Model   string            `json:"model,omitempty" yaml:"model,omitempty"`
 	Headers map[string]string `json:"headers,omitempty" yaml:"headers,omitempty"`
+	Config  STTConfig         `json:"config,omitempty" yaml:"config,omitempty"`
 }
+
+// TTSConfig holds provider-specific TTS configuration. Only the field matching
+// the backend type should be populated.
+type TTSConfig struct {
+	OpenAI *OpenAITTSConfig `json:"openai,omitempty" yaml:"openai,omitempty"`
+	Gemini *GeminiTTSConfig `json:"gemini,omitempty" yaml:"gemini,omitempty"`
+}
+
+// OpenAITTSConfig holds OpenAI-specific TTS settings.
+type OpenAITTSConfig struct {
+	Speed float64 `json:"speed,omitempty" yaml:"speed,omitempty"`
+}
+
+// GeminiTTSConfig holds Gemini-specific TTS settings.
+type GeminiTTSConfig struct {
+	LanguageCode string  `json:"languageCode,omitempty" yaml:"languageCode,omitempty"`
+	Temperature  float64 `json:"temperature,omitempty" yaml:"temperature,omitempty"`
+	StylePrompt  string  `json:"stylePrompt,omitempty" yaml:"stylePrompt,omitempty"`
+}
+
+// STTConfig holds provider-specific STT configuration. Only the field matching
+// the backend type should be populated.
+type STTConfig struct {
+	OpenAI *OpenAISTTConfig `json:"openai,omitempty" yaml:"openai,omitempty"`
+	Gemini *GeminiSTTConfig `json:"gemini,omitempty" yaml:"gemini,omitempty"`
+}
+
+// OpenAISTTConfig holds OpenAI-specific STT settings (currently empty, placeholder).
+type OpenAISTTConfig struct{}
+
+// GeminiSTTConfig holds Gemini-specific STT settings (currently empty, placeholder).
+type GeminiSTTConfig struct{}
 
 // TTSRef holds TTS-specific configuration referencing a backend by ID.
 type TTSRef struct {
-	Backend string  `json:"backend,omitempty" yaml:"backend,omitempty"`
-	Model   string  `json:"model,omitempty" yaml:"model,omitempty"`
-	Voice   string  `json:"voice,omitempty" yaml:"voice,omitempty"`
-	Speed   float64 `json:"speed,omitempty" yaml:"speed,omitempty"`
+	Backend string    `json:"backend,omitempty" yaml:"backend,omitempty"`
+	Model   string    `json:"model,omitempty" yaml:"model,omitempty"`
+	Voice   string    `json:"voice,omitempty" yaml:"voice,omitempty"`
+	Config  TTSConfig `json:"config,omitempty" yaml:"config,omitempty"`
 }
 
 // ContextGuardConfig holds per-agent context guard settings.

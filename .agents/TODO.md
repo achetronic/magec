@@ -23,6 +23,7 @@ Implemented. See `server/clients/msgutil/` package.
 **Root cause**: `FindBySession(sessionID, agentID, perspective)` in `ConversationStore` matches on the session ID, which is stable across resets. Since the session ID is recomputed identically after the reset, the recorder finds the old conversation and calls `AppendMessages` instead of creating a new `Conversation`.
 
 **Flow**:
+
 ```
 !reset → DELETE /apps/{agent}/users/default_user/sessions/{sessionID} → OK
 New message → ensureSession (same ID recreated) → /run_sse → recorder calls FindBySession
@@ -30,11 +31,13 @@ New message → ensureSession (same ID recreated) → /run_sse → recorder call
 ```
 
 **Possible solutions** (pick one):
+
 1. **`closed` flag on Conversation**: `!reset` (and admin's `reset-session`) marks the conversation as `closed: true`. `FindBySession` skips closed conversations. Cleanest option — no session ID format changes, no client changes.
 2. **Variable session ID component**: Add a generation counter or timestamp to the session ID (e.g. `discord_{channelID}_{agentID}_{gen}`). Changes session ID format, requires persisting the counter somewhere.
 3. **Recorder-side detection**: On `ensureSession`, if the session was just created (empty history), treat it as a new conversation regardless of `FindBySession` match. Fragile — depends on being able to detect "fresh" sessions reliably.
 
 **Files involved**:
+
 - `server/store/conversations.go` — `FindBySession`, `Conversation` struct
 - `server/clients/executor.go` — `LogExternalConversation` (create-vs-append decision)
 - `server/clients/discord/bot.go` — `handleCommand` reset case
@@ -55,6 +58,7 @@ New message → ensureSession (same ID recreated) → /run_sse → recorder call
 3. **No channel post handling** — Only `update.Message` is processed. `update.ChannelPost` (messages in Telegram channels, not groups) is never handled. If the bot is added to a Telegram channel, it silently ignores all posts.
 
 **Current state**:
+
 - `isAllowed(userID, chatID)` already supports group/supergroup IDs via `AllowedChats []int64` (negative numbers like `-1001234567890`)
 - `buildSessionID` already scopes by `threadID` when non-zero — session isolation works
 - `handleMessage` and `handleVoice` have no `msg.Chat.Type` check and no `@mention` detection
@@ -63,23 +67,27 @@ New message → ensureSession (same ID recreated) → /run_sse → recorder call
 **Solution**:
 
 **@mention filtering**:
+
 - In groups/supergroups (`msg.Chat.Type` is `"group"` or `"supergroup"`), require the bot to be @mentioned in the message text
 - Strip the `@botname` mention from the text before passing to the agent (same as Discord's `stripBotMention`)
 - In private chats (`msg.Chat.Type == "private"`), process all messages as today
 - The bot's username is available via `bot.GetMe()` at startup — cache it
 
 **Thread/topic replies**:
+
 - Set `MessageThreadID: msg.MessageThreadID` on all outbound `SendMessageParams` when `msg.MessageThreadID != 0`
 - Set `MessageThreadID` on `SendChatActionParams` (typing indicator)
 - Set `MessageThreadID` on `SetMessageReactionParams` if applicable
 - For artifact delivery (`sendNewArtifacts`), pass `threadID` through so `SendDocument` also targets the correct topic
 
 **Channel posts** (lower priority):
+
 - Register a handler for `update.ChannelPost` events
 - Same flow as `handleMessage` but using `ChannelPost` fields
 - Decide if channel posts should require a specific trigger (e.g. always process, or only with a keyword/command)
 
 **Files to modify**:
+
 - `server/clients/telegram/bot.go` — mention filtering, thread-aware replies, optional channel post handler
 
 ---
@@ -95,6 +103,7 @@ New message → ensureSession (same ID recreated) → /run_sse → recorder call
 2. **In-memory expanded data is stale** — The store maintains `s.data` (env-expanded) and `s.rawData` (unexpanded). After deleting the secret and unsetting the env var, `s.data` still holds the previously expanded values. Backends, MCP servers, or client configs referencing `${SECRET_KEY}` in their URLs or tokens keep the old resolved value until `s.data` is re-expanded.
 
 **Current state**:
+
 - `CreateSecret` and `UpdateSecret` both call `os.Setenv(key, value)` — correct
 - `DeleteSecret` does **not** call `os.Unsetenv(key)` — bug
 - `UpdateSecret` does **not** unset the old key when the key name changes — secondary bug
@@ -102,12 +111,14 @@ New message → ensureSession (same ID recreated) → /run_sse → recorder call
 - `os.Unsetenv` appears **zero times** in the entire codebase
 
 **Solution**:
+
 1. In `DeleteSecret`: call `os.Unsetenv(existing.Key)` before removing from the slice
 2. In `UpdateSecret`: if the key name changed, call `os.Unsetenv(oldKey)` before `os.Setenv(newKey, value)`
 3. After unset, re-expand `s.data` from `s.rawData` via `os.ExpandEnv` so that in-memory values referencing the deleted secret resolve to empty string
 4. The existing `notifyChange()` → agent rebuild pipeline then picks up the cleared values automatically
 
 **Files to modify**:
+
 - `server/store/store.go` — `DeleteSecret` (add `os.Unsetenv` + re-expand), `UpdateSecret` (unset old key on rename + re-expand)
 
 ---
@@ -119,16 +130,18 @@ New message → ensureSession (same ID recreated) → /run_sse → recorder call
 **Solution**: Download files from Telegram/Slack, encode as base64, and send as `inlineData` parts alongside text in the ADK `/run` request. The ADK already supports `genai.Part{InlineData: &Blob{Data, MIMEType}}` — zero backend changes needed.
 
 **Adapter support (adk-utils-go v0.3.1)**:
+
 - **Gemini**: passes all `InlineData` transparently to the API. Unsupported types are rejected by Google's API.
-- **OpenAI**: translates images (JPEG, PNG, GIF, WebP), audio (WAV, MP3, MPEG, WebM), and files (PDF, text/*). Unsupported types return an error.
-- **Anthropic**: translates images (JPEG, PNG, GIF, WebP), PDFs, and text documents (text/*). Unsupported types return an error.
+- **OpenAI**: translates images (JPEG, PNG, GIF, WebP), audio (WAV, MP3, MPEG, WebM), and files (PDF, text/\*). Unsupported types return an error.
+- **Anthropic**: translates images (JPEG, PNG, GIF, WebP), PDFs, and text documents (text/\*). Unsupported types return an error.
 - All three adapters behave the same: if a MIME type can't be translated, the request fails. No silent drops.
 
 **File size limits**: 5MB per file, 10MB total per message, max 10 files per message. Validated client-side before download.
 
-**Supported types (denominator común)**: JPEG, PNG, GIF, WebP. PDF and text/* work on Gemini + Anthropic. Audio works on Gemini + OpenAI.
+**Supported types (denominator común)**: JPEG, PNG, GIF, WebP. PDF and text/\* work on Gemini + Anthropic. Audio works on Gemini + OpenAI.
 
 **Telegram** (`server/clients/telegram/bot.go`):
+
 - Current state: only `Voice` (dedicated handler) and `Text` (predicate at ~line 171 requires `Text != ""` and `Voice == nil`). Everything else is silently dropped.
 - Add handler for `Document`, `Photo`, `Video`, `Audio`, `Animation`, `VideoNote`, `Sticker`. All have `FileID` → `bot.GetFile()` → download bytes.
 - `Photo` is `[]PhotoSize` — use last element (highest resolution) for its `FileID`.
@@ -136,6 +149,7 @@ New message → ensureSession (same ID recreated) → /run_sse → recorder call
 - `callAgent()` (~line 803): change `"parts": []map[string]string{{"text": ...}}` to `[]interface{}` to support both text and inlineData parts.
 
 **Slack** (`server/clients/slack/bot.go`):
+
 - Current state: `handleAudioClip()` (~line 213) processes `ev.Message.Files` but only `audio/*` mimetype. Other mimetypes silently skipped.
 - Add handling for `image/*`, `application/pdf`, and generic fallback for other types.
 - Files are on `ev.Message.Files` (type `[]slack.File`) with `Mimetype`, `Size`, `URLPrivateDownload`/`URLPrivate`.
@@ -144,11 +158,12 @@ New message → ensureSession (same ID recreated) → /run_sse → recorder call
 - For `handleAppMention`: verify if files arrive via `AppMentionEvent` or need separate handling.
 
 **ADK payload format**:
+
 ```json
 {
   "parts": [
-    {"text": "<!--MAGEC_META:...-->\nCaption or question about the file"},
-    {"inlineData": {"mimeType": "image/png", "data": "<base64>"}}
+    { "text": "<!--MAGEC_META:...-->\nCaption or question about the file" },
+    { "inlineData": { "mimeType": "image/png", "data": "<base64>" } }
   ]
 }
 ```
@@ -160,6 +175,7 @@ New message → ensureSession (same ID recreated) → /run_sse → recorder call
 **A2A (future, non-blocking)**: `server/a2a/handler.go` declares `DefaultInputModes: []string{"text/plain"}`. When A2A file support is needed, add `"image/*"`, `"application/pdf"`, etc. The A2A handler converts `FilePart` → `genai.Part{InlineData}` before passing to ADK.
 
 **Discord** (`server/clients/discord/bot.go`):
+
 - Same approach as Telegram/Slack: detect non-audio attachments via `m.Attachments`, download via `att.URL`, encode base64, send as `inlineData` parts.
 - Check `att.Size` < 5MB before downloading.
 - `m.Content` alongside attachments becomes the caption/text part.
@@ -195,15 +211,16 @@ The visual flow editor's drag-and-drop experience needs polish. Improve feedback
 
 **Platform collapsible support**:
 
-| Client | Collapsible nativo | Mecanismo |
-|--------|-------------------|-----------|
-| **Telegram** | **Yes** | `<blockquote expandable>...</blockquote>` (HTML parse mode) — collapsed by default, user taps to expand |
-| **Slack** | **No** | No collapsible blocks in mrkdwn or Block Kit. Show a short summary line like `🔧 Tool: search_memory (completed)` without full details |
-| **Voice UI** | **Yes** | Custom Vue component — `<details>/<summary>` or click/tap collapsible block |
+| Client       | Collapsible nativo | Mecanismo                                                                                                                              |
+| ------------ | ------------------ | -------------------------------------------------------------------------------------------------------------------------------------- |
+| **Telegram** | **Yes**            | `<blockquote expandable>...</blockquote>` (HTML parse mode) — collapsed by default, user taps to expand                                |
+| **Slack**    | **No**             | No collapsible blocks in mrkdwn or Block Kit. Show a short summary line like `🔧 Tool: search_memory (completed)` without full details |
+| **Voice UI** | **Yes**            | Custom Vue component — `<details>/<summary>` or click/tap collapsible block                                                            |
 
 **Implementation per client**:
 
 **Telegram** (`server/clients/telegram/bot.go`):
+
 - Switch from `Markdown` parse mode to `HTML` parse mode in `sendResponse()`
 - Extract tool call events from ADK response (already available as `functionCall`/`functionResponse` parts in the events array)
 - Before the main text response, send tool execution info wrapped in `<blockquote expandable>🔧 tool_name\n\nInput: ...\nOutput: ...</blockquote>`
@@ -211,25 +228,33 @@ The visual flow editor's drag-and-drop experience needs polish. Improve feedback
 - If multiple tools were called, group them in a single expandable blockquote or send one per tool
 
 **Slack** (`server/clients/slack/bot.go`):
+
 - No native collapsible support — use a compact summary format
 - Before or above the main response text, add a line per tool: `🔧 *tool_name* — completed` (mrkdwn bold)
 - Optionally use a Slack `context` block (smaller, muted text) for tool summaries if switching to Block Kit messaging
 - Full tool input/output not shown (Slack has no way to hide it behind a toggle)
 
 **Voice UI** (`frontend/voice-ui/src/components/ChatMessage.vue`):
+
 - Add a new message type or section for tool calls in the chat timeline
 - Render as a collapsible block: header shows `🔧 tool_name`, body (hidden by default) shows input args and output
 - Style: muted colors (`bg-piedra-800`, `text-arena-500`), click to expand/collapse
 - Tool events are already present in the ADK `/run` response as `functionCall` and `functionResponse` parts — extract them in `AgentClient.js` `_extractResponses()`
 
 **ADK response events structure** (tool calls are already in the response):
+
 ```json
 [
   {
     "author": "agent_name",
     "content": {
       "parts": [
-        {"functionCall": {"name": "search_memory", "args": {"query": "..."}}}
+        {
+          "functionCall": {
+            "name": "search_memory",
+            "args": { "query": "..." }
+          }
+        }
       ]
     }
   },
@@ -237,28 +262,33 @@ The visual flow editor's drag-and-drop experience needs polish. Improve feedback
     "author": "agent_name",
     "content": {
       "parts": [
-        {"functionResponse": {"name": "search_memory", "response": {"result": "..."}}}
+        {
+          "functionResponse": {
+            "name": "search_memory",
+            "response": { "result": "..." }
+          }
+        }
       ]
     }
   },
   {
     "author": "agent_name",
     "content": {
-      "parts": [
-        {"text": "Here is the final answer..."}
-      ]
+      "parts": [{ "text": "Here is the final answer..." }]
     }
   }
 ]
 ```
 
 **Key decisions**:
+
 - Tool visibility is **per-client** — each client renders what its platform allows
 - Telegram and Voice UI get full collapsible details; Slack gets a compact summary
 - Tool info is sent **alongside** the response, not as a separate message (except Telegram where it may be a preceding message with expandable blockquote)
 - No server changes needed — tool events are already in the ADK `/run` response; clients just need to extract and render them
 
 **Discord** (`server/clients/discord/bot.go`):
+
 - Same as Telegram: use `<blockquote expandable>` equivalent if Discord supports it, otherwise compact summary like Slack.
 - Discord supports markdown but no native collapsible blocks — use a compact summary line per tool: `🔧 **tool_name** — completed`.
 
@@ -283,17 +313,20 @@ The visual flow editor's drag-and-drop experience needs polish. Improve feedback
 **Solution**: Use ADK v0.5.0's native `RequireConfirmationProvider` on `MCPToolset.Config`. This is a dynamic per-tool callback — no need to wrap tools manually or build a custom confirmation layer.
 
 **Design decisions**:
+
 - **Confirmation list lives on the agent, not on the MCP server**. A tool may be dangerous for a public-facing agent but fine for an internal one. The MCP is a shared resource — marking tools there would force the same policy on all agents.
 - **Agent config**: new field `toolConfirmation: ["delete_record", "send_email", "execute_*"]` — list of tool names/globs that require confirmation for this agent.
 - **Provider in `buildToolsets()`**: when creating each `MCPToolset`, pass a `RequireConfirmationProvider` that checks the agent's `toolConfirmation` list. Signature: `func(toolName string, args any) bool`.
 - **Admin UI — per-MCP tool selection**: the agent form shows tools from each connected MCP server (fetched via `client.ListTools()`). The user toggles which ones require confirmation. Stored as a list of tool names/globs per agent.
 
 **"Always Allow" (client-side, not in ADK)**:
+
 - ADK has no built-in "confirm forever" — each invocation is independent.
 - Implement a shared `alwaysAllow map[string]bool` behind the `RequireConfirmationProvider`. When a user clicks "Always Allow", the client sends `confirmed: true` AND updates the map — the provider returns `false` for that tool from then on.
 - Scope: session-scoped by default (resets on reconnect). Consider persisting per user/workspace later.
 
 **Chat UI confirmation dialog** (all clients):
+
 - Render the `adk_request_confirmation` event as a dialog with three buttons:
   - **Approve** — confirm this invocation only
   - **Reject** — deny this invocation
@@ -301,6 +334,7 @@ The visual flow editor's drag-and-drop experience needs polish. Improve feedback
 - Show tool name, hint text, and input args so the user knows what they're approving.
 
 **Client changes (all already use `/run_sse`)**:
+
 - All clients (Telegram, Slack, Discord, executor) call `/run_sse` via `callAgentSSE()` and parse events with `msgutil.ParseSSEStream()`.
 - **Telegram**: listen for `adk_request_confirmation` SSE events, show inline keyboard (Approve/Reject/Always Allow), send `FunctionResponse` back.
 - **Slack**: show interactive block with buttons, handle callback.
@@ -308,6 +342,7 @@ The visual flow editor's drag-and-drop experience needs polish. Improve feedback
 - **Executor** (`server/clients/executor.go`): auto-approve or skip (cron/webhook triggers can't wait for a human).
 
 **Protocol flow**:
+
 1. `RequireConfirmationProvider` returns `true` → ADK's `mcpTool.Run()` calls `ctx.RequestConfirmation(hint, payload)` automatically
 2. ADK emits `FunctionCall` event with name `adk_request_confirmation` via SSE
 3. Client shows confirmation prompt to user (tool name, hint, args)
@@ -326,18 +361,20 @@ Implemented. See `server/agent/tools/artifacts/toolset.go` — provides `save_ar
 
 ---
 
-### Voice Provider Registry — Multi-Backend TTS/STT Support
+### ~~Voice Provider Registry — Multi-Backend TTS/STT Support~~ ✅
+
+Implemented. Voice provider interface (`server/voice/provider.go`) with registry, OpenAI provider (extracted from `main.go`), and Gemini provider (TTS via `generateContent` + `speechConfig`, STT via `generateContent` + `inlineData`). `TTSRef` and `BackendRef` gain `Config map[string]interface{}` for provider-specific extras. `GET /voice/types` returns JSON Schemas. Admin UI renders dynamic config fields based on backend type. Gemini extras: `languageCode`, `temperature`, `stylePrompt` (TTS) and `transcriptionPrompt` (STT).
 
 **Problem**: The TTS and STT proxies (`serveSpeechProxy`, `serveTranscriptionProxy` in `main.go`) are hardcoded to OpenAI-compatible endpoints (`/v1/audio/speech`, `/v1/audio/transcriptions`). `BackendDefinition.Type` (`openai`, `anthropic`, `gemini`) is completely ignored — a Gemini backend assigned to TTS gets requests sent to `/v1/audio/speech`, which Gemini doesn't serve. Users who want to use Gemini's native TTS/STT have no path today.
 
 **Provider landscape**:
 
-| Provider | TTS | STT | API shape |
-|----------|-----|-----|-----------|
-| OpenAI (+ compatible: edge-tts, parakeet, etc.) | `/v1/audio/speech` | `/v1/audio/transcriptions` | Already supported |
-| Gemini | `generateContent` with `speechConfig` + `responseModalities: ["AUDIO"]` | `generateContent` with audio `inlineData` | Needs translation |
-| Anthropic | No API | No API | N/A |
-| xAI | `/v1/tts` (own format) | No standalone endpoint | Future candidate |
+| Provider                                        | TTS                                                                     | STT                                       | API shape         |
+| ----------------------------------------------- | ----------------------------------------------------------------------- | ----------------------------------------- | ----------------- |
+| OpenAI (+ compatible: edge-tts, parakeet, etc.) | `/v1/audio/speech`                                                      | `/v1/audio/transcriptions`                | Already supported |
+| Gemini                                          | `generateContent` with `speechConfig` + `responseModalities: ["AUDIO"]` | `generateContent` with audio `inlineData` | Needs translation |
+| Anthropic                                       | No API                                                                  | No API                                    | N/A               |
+| xAI                                             | `/v1/tts` (own format)                                                  | No standalone endpoint                    | Future candidate  |
 
 **Solution**: Extract TTS/STT into a provider interface with per-backend-type implementations. Same pattern as the client and memory provider registries — `init()` + blank imports.
 
@@ -384,6 +421,7 @@ server/voice/
 ```
 
 **OpenAI provider** (`server/voice/openai/openai.go`):
+
 - TTS: POST `{url}/v1/audio/speech` with `{input, model, voice, speed, response_format}` → stream raw audio back
 - STT: POST `{url}/v1/audio/transcriptions` with multipart form + model → parse `{"text": "..."}` response
 - Direct extraction of current `serveSpeechProxy`/`serveTranscriptionProxy` logic
@@ -391,16 +429,17 @@ server/voice/
 **Gemini provider** (`server/voice/gemini/gemini.go`):
 
 TTS:
+
 - POST `{url}/v1beta/models/{model}:generateContent` with API key via `x-goog-api-key` header (or Bearer if using Vertex AI)
 - Request body:
   ```json
   {
-    "contents": [{"role": "user", "parts": [{"text": "..."}]}],
+    "contents": [{ "role": "user", "parts": [{ "text": "..." }] }],
     "generationConfig": {
       "responseModalities": ["AUDIO"],
       "speechConfig": {
         "voiceConfig": {
-          "prebuiltVoiceConfig": {"voiceName": "Kore"}
+          "prebuiltVoiceConfig": { "voiceName": "Kore" }
         }
       }
     }
@@ -411,14 +450,20 @@ TTS:
 - Voice mapping: Gemini has 30 voices (Kore, Charon, Leda, Puck, etc.) — user sets `voice` in TTSRef as usual
 
 STT:
+
 - POST same `generateContent` endpoint with the audio as `inlineData` base64
 - Request body:
   ```json
   {
-    "contents": [{"role": "user", "parts": [
-      {"text": "Transcribe this audio."},
-      {"inlineData": {"mimeType": "audio/wav", "data": "base64..."}}
-    ]}]
+    "contents": [
+      {
+        "role": "user",
+        "parts": [
+          { "text": "Transcribe this audio." },
+          { "inlineData": { "mimeType": "audio/wav", "data": "base64..." } }
+        ]
+      }
+    ]
   }
   ```
 - Response: extract text from `candidates[0].content.parts[0].text`
@@ -452,6 +497,7 @@ func serveSpeechProxy(w http.ResponseWriter, r *http.Request, agentDef store.Age
 **Future extensibility**: Adding xAI would be `server/voice/xai/xai.go` implementing the same interfaces. Register in `init()`, done.
 
 **Files to modify**:
+
 - `server/voice/provider.go` (new — interfaces)
 - `server/voice/registry.go` (new — registry)
 - `server/voice/openai/openai.go` (new — extracted from main.go)
@@ -553,6 +599,7 @@ TTS `response_format` (opus, mp3, wav) is hardcoded per client. Could be per-age
 **Solution**: Use ADK's `agent/remoteagent` + `tool/agenttool` to wrap each remote A2A agent as a tool callable by the orchestrator's LLM. The orchestrator maintains full control — it decides which remotes to call, can call multiple, and consolidates before responding.
 
 **How it works**:
+
 ```
 User → MetaMagecAgent (LLM + remote agent tools)
            ├── ask_architect("design this system") → A2A call → response
@@ -561,6 +608,7 @@ User → MetaMagecAgent (LLM + remote agent tools)
 ```
 
 **ADK native support** (already available in v0.4.0):
+
 ```go
 import (
     "google.golang.org/adk/agent/remoteagent"
@@ -575,6 +623,7 @@ architectTool := agenttool.New(remote, nil)
 ```
 
 **What to implement in magec**:
+
 1. New entity `RemoteAgent` in the store: `{id, name, agentCardURL, credentials}`
 2. In `buildToolsets()` (`server/agent/agent.go`): for each remote agent configured on the agent, create `remoteagent.NewA2A()` + `agenttool.New()` and add to toolsets
 3. Agent config: new field `remoteAgents []string` (list of RemoteAgent IDs), similar to how `mcpServers` works
@@ -582,6 +631,7 @@ architectTool := agenttool.New(remote, nil)
 5. System prompt guidance: the orchestrator agent's prompt should describe what each remote agent does so the LLM knows when to use them
 
 **Characteristics**:
+
 - Orchestrator always keeps control
 - Can call multiple remotes per turn
 - Can compare, filter, reformulate remote responses
@@ -599,6 +649,7 @@ architectTool := agenttool.New(remote, nil)
 **Solution**: Use ADK's `agent/remoteagent` to create the remote as a proper sub-agent. The orchestrator's LLM can "transfer" the conversation to the remote agent. The remote then talks directly with the user until it's done, then control returns to the orchestrator.
 
 **How it works**:
+
 ```
 User → MetaMagecAgent: "I need a system architecture"
   MetaMagecAgent → transfer to architect
@@ -609,6 +660,7 @@ MetaMagecAgent → continues with next step
 ```
 
 **ADK native support**:
+
 ```go
 remote, _ := remoteagent.NewA2A(remoteagent.A2AConfig{
     Name:            "architect",
@@ -622,6 +674,7 @@ orchestrator, _ := llmagent.New(llmagent.Config{
 ```
 
 **Characteristics**:
+
 - Remote gets full conversation context and direct user interaction
 - No orchestrator latency/tokens in the middle during the transfer
 - Remote can use all its own tools and personality
@@ -631,12 +684,12 @@ orchestrator, _ := llmagent.New(llmagent.Config{
 
 **When to use which**:
 
-| Scenario | Use |
-|---|---|
-| "Ask the researcher for X and the architect for Y, then combine" | Tool mode |
+| Scenario                                                             | Use           |
+| -------------------------------------------------------------------- | ------------- |
+| "Ask the researcher for X and the architect for Y, then combine"     | Tool mode     |
 | "Hand this off to the architect, let them work it out with the user" | Transfer mode |
-| Quick factual queries to remotes | Tool mode |
-| Complex tasks needing clarification/iteration | Transfer mode |
+| Quick factual queries to remotes                                     | Tool mode     |
+| Complex tasks needing clarification/iteration                        | Transfer mode |
 
 **Implementation**: Same `RemoteAgent` entity as tool mode. The agent config would specify per-remote whether it's a tool or sub-agent (or both — ADK allows it). Can be implemented after tool mode as an incremental addition.
 
@@ -665,11 +718,13 @@ ADK supports agents as tools — orchestrator decides at runtime which specialis
 **Blocked by**: All users are currently `default_user`. Moving summaries to `app:` tier would share them across **all** clients/channels for that agent — if a user asks about Kubernetes deployments on Discord and networking on Telegram, both contexts contaminate each other's summary.
 
 **Solution (requires real user identity)**:
+
 1. Implement per-client user identity: each client generates a meaningful `userID` (e.g. `discord_123456`, `slack_U0ABC`, `telegram_98765`) instead of `default_user`
 2. Move ContextGuard state keys to `user:` tier (`session.KeyPrefixUser` prefix) so summaries are scoped per-user across all that user's sessions with a given agent
 3. The `user:` tier in `adk-utils-go` v0.7.0 already supports differentiated TTL (defaults to no expiration), so summaries survive indefinitely
 
 **What's already in place**:
+
 - `adk-utils-go` v0.7.0 has full tier support (`app:`, `user:`, `temp:`) with independent TTLs for app/user state (default: no expiration, matching canonical ADK DatabaseService behaviour)
 - ContextGuard state keys are simple string constants in `adk-utils-go/plugin/contextguard/contextguard.go` — adding the prefix is a one-line change per key
 - The Redis session service stores `user:` state in a dedicated HASH (`userstate:{appName}:{userID}`) separate from session data
@@ -682,6 +737,12 @@ If a single person uses Discord AND Telegram, they'd have two `userID`s and two 
 ---
 
 ## Low Priority
+
+### Remove `migrateTTSConfig` Store Migration
+
+Introduced in v0.18.0. The migration moves legacy `tts.speed` → `tts.config.openai.speed` and flat Gemini config fields → `tts.config.gemini.*`. By v0.20.0 all installations will have loaded at least once and been migrated automatically. Remove `migrateTTSConfig()` from `server/store/store.go` and its call in `loadFromDisk()`.
+
+---
 
 ### ~~Skill Card View Formatter~~ ✅
 

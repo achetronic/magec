@@ -55,127 +55,127 @@ Base path: `/api/v1/admin`. All endpoints return JSON. Errors: `{"error": "messa
 
 ### Backends
 
-| Method | Path | Description |
-|--------|------|-------------|
-| GET/POST | `/backends` | List / Create |
+| Method         | Path             | Description           |
+| -------------- | ---------------- | --------------------- |
+| GET/POST       | `/backends`      | List / Create         |
 | GET/PUT/DELETE | `/backends/{id}` | Get / Update / Delete |
 
 Types: `openai`, `anthropic`, `gemini`
 
 ### Memory Providers
 
-| Method | Path | Description |
-|--------|------|-------------|
-| GET/POST | `/memory` | List / Create |
-| GET | `/memory/types` | Registered types with JSON Schema |
-| GET/PUT/DELETE | `/memory/{id}` | Get / Update / Delete |
-| GET | `/memory/{id}/health` | Real-time ping (5s timeout) |
+| Method         | Path                  | Description                       |
+| -------------- | --------------------- | --------------------------------- |
+| GET/POST       | `/memory`             | List / Create                     |
+| GET            | `/memory/types`       | Registered types with JSON Schema |
+| GET/PUT/DELETE | `/memory/{id}`        | Get / Update / Delete             |
+| GET            | `/memory/{id}/health` | Real-time ping (5s timeout)       |
 
 ### MCP Servers
 
-| Method | Path | Description |
-|--------|------|-------------|
-| GET/POST | `/mcps` | List / Create |
+| Method         | Path         | Description           |
+| -------------- | ------------ | --------------------- |
+| GET/POST       | `/mcps`      | List / Create         |
 | GET/PUT/DELETE | `/mcps/{id}` | Get / Update / Delete |
 
 Types: `http` (StreamableClientTransport), `stdio` (CommandTransport)
 
 ### Skills
 
-| Method | Path | Description |
-|--------|------|-------------|
-| GET/POST | `/skills` | List / Create |
-| GET/PUT/DELETE | `/skills/{id}` | Get / Update / Delete |
-| POST | `/skills/{id}/references` | Upload reference file (multipart, 10MB limit) |
-| GET/DELETE | `/skills/{id}/references/{filename}` | Download / Delete reference file |
-| POST | `/skills/{id}/package` | Upload skill package (ZIP/tar.gz, 50MB limit, must contain SKILL.md) |
+| Method         | Path                                 | Description                                                          |
+| -------------- | ------------------------------------ | -------------------------------------------------------------------- |
+| GET/POST       | `/skills`                            | List / Create                                                        |
+| GET/PUT/DELETE | `/skills/{id}`                       | Get / Update / Delete                                                |
+| POST           | `/skills/{id}/references`            | Upload reference file (multipart, 10MB limit)                        |
+| GET/DELETE     | `/skills/{id}/references/{filename}` | Download / Delete reference file                                     |
+| POST           | `/skills/{id}/package`               | Upload skill package (ZIP/tar.gz, 50MB limit, must contain SKILL.md) |
 
 Skill instructions and reference file contents are injected into the agent system prompt at runtime. Files stored on disk at `data/skills/{skillId}/`, metadata only in store.
 
 ### Agents
 
-| Method | Path | Description |
-|--------|------|-------------|
-| GET/POST | `/agents` | List / Create |
-| GET/PUT/DELETE | `/agents/{id}` | Get / Update / Delete |
-| GET | `/agents/{id}/mcps` | List resolved MCPs |
-| PUT/DELETE | `/agents/{id}/mcps/{mcpId}` | Link / Unlink MCP |
+| Method         | Path                        | Description           |
+| -------------- | --------------------------- | --------------------- |
+| GET/POST       | `/agents`                   | List / Create         |
+| GET/PUT/DELETE | `/agents/{id}`              | Get / Update / Delete |
+| GET            | `/agents/{id}/mcps`         | List resolved MCPs    |
+| PUT/DELETE     | `/agents/{id}/mcps/{mcpId}` | Link / Unlink MCP     |
 
 ### Clients
 
-| Method | Path | Description |
-|--------|------|-------------|
-| GET/POST | `/clients` | List / Create (token auto-generated as `mgc_...`) |
-| GET | `/clients/types` | Registered types with JSON Schema |
-| GET/PUT/DELETE | `/clients/{id}` | Get / Update / Delete |
-| POST | `/clients/{id}/regenerate-token` | Regenerate auth token |
+| Method         | Path                             | Description                                       |
+| -------------- | -------------------------------- | ------------------------------------------------- |
+| GET/POST       | `/clients`                       | List / Create (token auto-generated as `mgc_...`) |
+| GET            | `/clients/types`                 | Registered types with JSON Schema                 |
+| GET/PUT/DELETE | `/clients/{id}`                  | Get / Update / Delete                             |
+| POST           | `/clients/{id}/regenerate-token` | Regenerate auth token                             |
 
 Client types: `direct`, `telegram`, `slack`, `cron`, `webhook`. See [CLIENT_DESIGN.md](CLIENT_DESIGN.md).
 
 ### Commands
 
-| Method | Path | Description |
-|--------|------|-------------|
-| GET/POST | `/commands` | List / Create |
+| Method         | Path             | Description           |
+| -------------- | ---------------- | --------------------- |
+| GET/POST       | `/commands`      | List / Create         |
 | GET/PUT/DELETE | `/commands/{id}` | Get / Update / Delete |
 
 ### Flows
 
-| Method | Path | Description |
-|--------|------|-------------|
-| GET/POST | `/flows` | List / Create |
+| Method         | Path          | Description           |
+| -------------- | ------------- | --------------------- |
+| GET/POST       | `/flows`      | List / Create         |
 | GET/PUT/DELETE | `/flows/{id}` | Get / Update / Delete |
 
 ### Secrets
 
-| Method | Path | Description |
-|--------|------|-------------|
-| GET/POST | `/secrets` | List / Create (GET never returns `value`) |
+| Method         | Path            | Description                                                        |
+| -------------- | --------------- | ------------------------------------------------------------------ |
+| GET/POST       | `/secrets`      | List / Create (GET never returns `value`)                          |
 | GET/PUT/DELETE | `/secrets/{id}` | Get / Update / Delete (empty `value` on update preserves existing) |
 
 ### Settings
 
-| Method | Path | Description |
-|--------|------|-------------|
+| Method  | Path        | Description                                                      |
+| ------- | ----------- | ---------------------------------------------------------------- |
 | GET/PUT | `/settings` | Get / Update global settings (sessionProvider, longTermProvider) |
 
 ### Conversations
 
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/conversations` | List (with filters: agent, source, client, perspective) |
-| GET | `/conversations/{id}` | Get conversation with full messages |
-| DELETE | `/conversations/{id}` | Delete conversation |
-| DELETE | `/conversations/clear` | Clear all conversations |
-| GET | `/conversations/stats` | Aggregated stats (by agent, source, time) |
-| PUT | `/conversations/{id}/summary` | Generate AI summary of conversation |
-| GET | `/conversations/{id}/pair` | Find paired perspective (admin↔user) |
-| POST | `/conversations/{id}/reset-session` | Delete ADK session for this conversation |
+| Method | Path                                | Description                                             |
+| ------ | ----------------------------------- | ------------------------------------------------------- |
+| GET    | `/conversations`                    | List (with filters: agent, source, client, perspective) |
+| GET    | `/conversations/{id}`               | Get conversation with full messages                     |
+| DELETE | `/conversations/{id}`               | Delete conversation                                     |
+| DELETE | `/conversations/clear`              | Clear all conversations                                 |
+| GET    | `/conversations/stats`              | Aggregated stats (by agent, source, time)               |
+| PUT    | `/conversations/{id}/summary`       | Generate AI summary of conversation                     |
+| GET    | `/conversations/{id}/pair`          | Find paired perspective (admin↔user)                    |
+| POST   | `/conversations/{id}/reset-session` | Delete ADK session for this conversation                |
 
 ### Auth
 
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/auth/check` | Verify admin credentials (returns 200 if valid) |
+| Method | Path          | Description                                     |
+| ------ | ------------- | ----------------------------------------------- |
+| GET    | `/auth/check` | Verify admin credentials (returns 200 if valid) |
 
 ### Overview
 
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/overview` | Dashboard: agent counts + summaries |
+| Method | Path        | Description                         |
+| ------ | ----------- | ----------------------------------- |
+| GET    | `/overview` | Dashboard: agent counts + summaries |
 
 ### Webhook Endpoint (User API, port 8080)
 
-| Method | Path | Description |
-|--------|------|-------------|
-| POST | `/api/v1/webhooks/{clientId}` | Fire a webhook — Bearer token auth, passthrough or fixed command |
+| Method | Path                          | Description                                                      |
+| ------ | ----------------------------- | ---------------------------------------------------------------- |
+| POST   | `/api/v1/webhooks/{clientId}` | Fire a webhook — Bearer token auth, passthrough or fixed command |
 
 ### Backup & Restore
 
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/settings/backup` | Download a `.tar.gz` archive of the entire `data/` directory |
-| POST | `/settings/restore` | Upload a `.tar.gz` to atomically replace all data (500MB limit) |
+| Method | Path                | Description                                                     |
+| ------ | ------------------- | --------------------------------------------------------------- |
+| GET    | `/settings/backup`  | Download a `.tar.gz` archive of the entire `data/` directory    |
+| POST   | `/settings/restore` | Upload a `.tar.gz` to atomically replace all data (500MB limit) |
 
 The backup archive contains `store.json`, `conversations.json`, and `skills/{id}/` files. On restore, the archive must contain a valid `store.json` at the root level. The current data directory is atomically swapped (rename) and both stores are reloaded in memory.
 
@@ -188,6 +188,7 @@ The backup archive contains `store.json`, `conversations.json`, and `skills/{id}
 ## Migration Chain (on store load)
 
 All idempotent:
+
 1. `devices → clients` (legacy)
 2. `cronJobs → triggers` (legacy)
 3. `triggers → clients` (cron/webhook types)

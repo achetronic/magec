@@ -2797,6 +2797,34 @@ const docTemplate = `{
                     }
                 }
             }
+        },
+        "/voice/types": {
+            "get": {
+                "security": [
+                    {
+                        "AdminAuth": []
+                    }
+                ],
+                "description": "Returns registered voice providers with config schemas for dynamic form rendering. The backend type determines which voice provider handles TTS/STT requests.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "voice"
+                ],
+                "summary": "List voice provider types",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/admin.VoiceProviderInfo"
+                            }
+                        }
+                    }
+                }
+            }
         }
     },
     "definitions": {
@@ -2913,6 +2941,31 @@ const docTemplate = `{
                 }
             }
         },
+        "admin.VoiceProviderInfo": {
+            "type": "object",
+            "properties": {
+                "displayName": {
+                    "type": "string",
+                    "example": "OpenAI Compatible"
+                },
+                "sttConfigSchema": {
+                    "$ref": "#/definitions/voice.Schema"
+                },
+                "supportsStt": {
+                    "type": "boolean"
+                },
+                "supportsTts": {
+                    "type": "boolean"
+                },
+                "ttsConfigSchema": {
+                    "$ref": "#/definitions/voice.Schema"
+                },
+                "type": {
+                    "type": "string",
+                    "example": "openai"
+                }
+            }
+        },
         "clients.Schema": {
             "type": "object",
             "additionalProperties": true
@@ -3024,6 +3077,9 @@ const docTemplate = `{
             "properties": {
                 "backend": {
                     "type": "string"
+                },
+                "config": {
+                    "$ref": "#/definitions/store.STTConfig"
                 },
                 "headers": {
                     "type": "object",
@@ -3292,6 +3348,23 @@ const docTemplate = `{
                 }
             }
         },
+        "store.GeminiSTTConfig": {
+            "type": "object"
+        },
+        "store.GeminiTTSConfig": {
+            "type": "object",
+            "properties": {
+                "languageCode": {
+                    "type": "string"
+                },
+                "stylePrompt": {
+                    "type": "string"
+                },
+                "temperature": {
+                    "type": "number"
+                }
+            }
+        },
         "store.MCPServer": {
             "type": "object",
             "properties": {
@@ -3363,6 +3436,17 @@ const docTemplate = `{
                 }
             }
         },
+        "store.OpenAISTTConfig": {
+            "type": "object"
+        },
+        "store.OpenAITTSConfig": {
+            "type": "object",
+            "properties": {
+                "speed": {
+                    "type": "number"
+                }
+            }
+        },
         "store.PaginatedResult-store_Conversation": {
             "type": "object",
             "properties": {
@@ -3374,6 +3458,17 @@ const docTemplate = `{
                 },
                 "total": {
                     "type": "integer"
+                }
+            }
+        },
+        "store.STTConfig": {
+            "type": "object",
+            "properties": {
+                "gemini": {
+                    "$ref": "#/definitions/store.GeminiSTTConfig"
+                },
+                "openai": {
+                    "$ref": "#/definitions/store.OpenAISTTConfig"
                 }
             }
         },
@@ -3454,17 +3549,28 @@ const docTemplate = `{
                 }
             }
         },
+        "store.TTSConfig": {
+            "type": "object",
+            "properties": {
+                "gemini": {
+                    "$ref": "#/definitions/store.GeminiTTSConfig"
+                },
+                "openai": {
+                    "$ref": "#/definitions/store.OpenAITTSConfig"
+                }
+            }
+        },
         "store.TTSRef": {
             "type": "object",
             "properties": {
                 "backend": {
                     "type": "string"
                 },
+                "config": {
+                    "$ref": "#/definitions/store.TTSConfig"
+                },
                 "model": {
                     "type": "string"
-                },
-                "speed": {
-                    "type": "number"
                 },
                 "voice": {
                     "type": "string"
@@ -3517,6 +3623,10 @@ const docTemplate = `{
                     "type": "boolean"
                 }
             }
+        },
+        "voice.Schema": {
+            "type": "object",
+            "additionalProperties": true
         }
     },
     "securityDefinitions": {

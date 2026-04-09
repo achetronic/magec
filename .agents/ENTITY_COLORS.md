@@ -4,27 +4,27 @@ Each entity type in the admin UI has an assigned color for visual consistency ac
 
 ## Assignments
 
-| Entity | Color | Tailwind Token | Hex (reference 400) |
-|--------|-------|----------------|---------------------|
-| **Agents** | Sol (amber) | `sol` | `#fbbf24` |
-| **Backends** | Purple | `purple` | `#c084fc` |
-| **MCP Servers** | Atlantico (cyan) | `atlantico` | `#38bcd8` |
-| **Memory** | Green | `green` | `#4ade80` |
-| **Clients** | Lava (red) | `lava` | `#f87171` |
-| **Commands** | Indigo | `indigo` | `#818cf8` |
-| **Flows** | Rose | `rose` | `#fb7185` |
-| **Conversations** | Teal | `teal` | `#2dd4bf` |
-| **Skills** | Cyan | `cyan` | `#22d3ee` |
-| **Secrets** | Amber | `amber` | `#f59e0b` |
+| Entity            | Color            | Tailwind Token | Hex (reference 400) |
+| ----------------- | ---------------- | -------------- | ------------------- |
+| **Agents**        | Sol (amber)      | `sol`          | `#fbbf24`           |
+| **Backends**      | Purple           | `purple`       | `#c084fc`           |
+| **MCP Servers**   | Atlantico (cyan) | `atlantico`    | `#38bcd8`           |
+| **Memory**        | Green            | `green`        | `#4ade80`           |
+| **Clients**       | Lava (red)       | `lava`         | `#f87171`           |
+| **Commands**      | Indigo           | `indigo`       | `#818cf8`           |
+| **Flows**         | Rose             | `rose`         | `#fb7185`           |
+| **Conversations** | Teal             | `teal`         | `#2dd4bf`           |
+| **Skills**        | Cyan             | `cyan`         | `#22d3ee`           |
+| **Secrets**       | Amber            | `amber`        | `#f59e0b`           |
 
 ## Client Type Badges
 
 Within the Clients section, badges differentiate client types:
 
-| Client Type | Badge Color | Description |
-|-------------|-------------|-------------|
-| `direct`, `telegram`, `slack` | Lava (red) | Interactive clients |
-| `cron`, `webhook` | Teal | Automation clients |
+| Client Type                   | Badge Color | Description         |
+| ----------------------------- | ----------- | ------------------- |
+| `direct`, `telegram`, `slack` | Lava (red)  | Interactive clients |
+| `cron`, `webhook`             | Teal        | Automation clients  |
 
 ## Usage Pattern
 

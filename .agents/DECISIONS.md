@@ -89,11 +89,11 @@ not the HTTP infrastructure domain.
 ```yaml
 voice:
   ui:
-    enabled: true          # Enable/disable Voice UI, routes and static files
-  onnxLibraryPath: ""      # Path to libonnxruntime.so (default: /usr/lib/libonnxruntime.so)
+    enabled: true # Enable/disable Voice UI, routes and static files
+  onnxLibraryPath: "" # Path to libonnxruntime.so (default: /usr/lib/libonnxruntime.so)
 ```
 
-The Go struct uses sub-structs: `Config.Voice.UI.Enabled` (*bool, default true)
+The Go struct uses sub-structs: `Config.Voice.UI.Enabled` (\*bool, default true)
 and `Config.Voice.OnnxLibraryPath` (string).
 
 **Do not put**: voice fields inside `Server` — that block is for network/ports only.
@@ -206,11 +206,11 @@ configuration.
 
 Layers of responsibility:
 
-| Layer | Responsibility | Where |
-|-------|---------------|-------|
-| Voice capability | TTS/STT config per agent | Admin (AgentDefinition) |
-| Who responds publicly | `responseAgent` per flow step | Admin (FlowStep) |
-| Who is spokesperson | Selector among responseAgents | Voice-ui (user chooses) |
+| Layer                 | Responsibility                | Where                   |
+| --------------------- | ----------------------------- | ----------------------- |
+| Voice capability      | TTS/STT config per agent      | Admin (AgentDefinition) |
+| Who responds publicly | `responseAgent` per flow step | Admin (FlowStep)        |
+| Who is spokesperson   | Selector among responseAgents | Voice-ui (user chooses) |
 
 The spokesperson is persisted in localStorage by flow ID (`SettingsManager`). If there is no
 saved spokesperson, the first `responseAgent` of the flow is used as fallback. If there
@@ -235,10 +235,22 @@ from flows and know the internal composition:
   "allowedAgents": [
     { "id": "...", "name": "Magec", "type": "agent" },
     {
-      "id": "...", "name": "Software Factory", "type": "flow",
+      "id": "...",
+      "name": "Software Factory",
+      "type": "flow",
       "agents": [
-        { "id": "...", "name": "Architect", "type": "agent", "responseAgent": true },
-        { "id": "...", "name": "Developer", "type": "agent", "responseAgent": true },
+        {
+          "id": "...",
+          "name": "Architect",
+          "type": "agent",
+          "responseAgent": true
+        },
+        {
+          "id": "...",
+          "name": "Developer",
+          "type": "agent",
+          "responseAgent": true
+        },
         { "id": "...", "name": "Planner", "type": "agent" }
       ]
     }
@@ -247,6 +259,7 @@ from flows and know the internal composition:
 ```
 
 `AgentSummary` fields:
+
 - `type`: `"agent"` or `"flow"` — previously indistinguishable
 - `agents`: only in flows, list of unique agents from the tree (via `FlowDefinition.AgentIDs()`)
 - `responseAgent`: only in nested agents of a flow, indicates if they are marked as `responseAgent` in some step
@@ -322,6 +335,7 @@ The orchestrator agent (e.g. MetaMagecAgent) is a regular `AgentDefinition` with
 When clients (Telegram, Slack) receive files from users, the files are sent to the ADK `/run_sse` endpoint as `inlineData` (base64-encoded bytes + mimetype) in `newMessage.parts[]`, not as `fileData` (URI reference).
 
 **Reasoning**:
+
 - `fileData` with URI is a Gemini-specific concept (Google Files API). OpenAI and Anthropic do not support fetching from URIs — they expect content inline.
 - Magec supports all three backend types. `inlineData` is the common denominator that works everywhere.
 - Files from Telegram/Slack chats are typically small (photos, screenshots, short PDFs) — base64 overhead (~33%) is acceptable.
@@ -376,11 +390,13 @@ Large inbound messages and oversized outbound responses are handled by a shared 
 **Outbound splitting**: `SplitMessage(text, maxLen)` breaks responses into platform-safe chunks. Split priority: paragraph boundaries (`\n\n`) > line boundaries (`\n`) > word boundaries (space) > hard cut. Telegram uses 4096, Slack uses 39000.
 
 **Platform constants**:
+
 - `TelegramMaxMessageLength = 4096`
 - `SlackMaxMessageLength = 39000`
 - `DefaultMaxInputLength = 16000`
 
 **Where validation happens**:
+
 - Telegram: `handleMessage()` validates `msg.Text`, `handleVoice()` validates transcribed text — both before `callAgent()`
 - Slack: `processMessage()` validates `text` before building the request — covers both DMs and audio clips (which flow through `processMessage`)
 - Voice UI: no splitting needed (browser has no render limit)
@@ -416,13 +432,13 @@ When an adapter receives `genai.Part{InlineData}` with a MIME type it can't tran
 
 **Supported types per adapter (adk-utils-go v0.3.1)**:
 
-| Type | Gemini | OpenAI | Anthropic |
-|---|---|---|---|
-| Images (JPEG, PNG, GIF, WebP) | ✅ (native) | ✅ (data URI) | ✅ (Base64ImageSource) |
-| PDF | ✅ (native) | ✅ (FileParam) | ✅ (Base64PDFSource) |
-| Text (text/*) | ✅ (native) | ✅ (FileParam) | ✅ (PlainTextSource) |
-| Audio (WAV, MP3, WebM) | ✅ (native) | ✅ (InputAudio) | ❌ error |
-| Video, other | ✅ (native) | ❌ error | ❌ error |
+| Type                          | Gemini      | OpenAI          | Anthropic              |
+| ----------------------------- | ----------- | --------------- | ---------------------- |
+| Images (JPEG, PNG, GIF, WebP) | ✅ (native) | ✅ (data URI)   | ✅ (Base64ImageSource) |
+| PDF                           | ✅ (native) | ✅ (FileParam)  | ✅ (Base64PDFSource)   |
+| Text (text/\*)                | ✅ (native) | ✅ (FileParam)  | ✅ (PlainTextSource)   |
+| Audio (WAV, MP3, WebM)        | ✅ (native) | ✅ (InputAudio) | ❌ error               |
+| Video, other                  | ✅ (native) | ❌ error        | ❌ error               |
 
 **Do not**: Silently drop unsupported `InlineData` parts. Do not convert them to text descriptions. Return `fmt.Errorf("unsupported inline data MIME type for %s: %s")`.
 
@@ -461,6 +477,7 @@ ADK's REST decoder calls `json.Decoder.DisallowUnknownFields()`, which rejects a
 **Solution**: `SnakeCaseNormalize` middleware intercepts POST `/run` and `/run_sse`, parses the JSON body, and recursively converts all snake_case keys to camelCase at every nesting level. Generic `snakeToCamel` conversion (not a hardcoded key list) so it handles any current and future fields without maintenance.
 
 **Key behaviors**:
+
 - When both `app_name` and `appName` coexist in the same object, camelCase wins (explicit client intent)
 - Single-word keys (`text`, `role`, `parts`, `data`) are never modified
 - If the body is not valid JSON or already all camelCase, the original bytes pass through unchanged
@@ -473,3 +490,27 @@ ADK's REST decoder calls `json.Decoder.DisallowUnknownFields()`, which rejects a
 **Do not**: Use a fixed key list (fragile, misses nested genai fields). Do not normalize non-`/run` paths (unnecessary, could interfere with other handlers). Do not modify response bodies — only request normalization.
 
 **Files**: `server/middleware/normalize.go`, `server/main.go` (wiring).
+
+---
+
+## 21. Voice provider registry for multi-backend TTS/STT
+
+**Date**: 2026-04-09
+**Status**: Implemented
+
+TTS and STT proxies were hardcoded to OpenAI-compatible endpoints (`/v1/audio/speech`, `/v1/audio/transcriptions`). A Gemini backend assigned to TTS would fail because Gemini doesn't serve those endpoints.
+
+**Solution**: `voice.Provider` interface with per-backend-type implementations. Same registry pattern as clients and memory — `init()` + blank imports in `main.go`. The proxy resolves the provider via `voice.Get(backend.Type)` and delegates.
+
+**Providers**:
+
+- **OpenAI** (`voice/openai/`) — extracted from the previous inline code in `main.go`. Passthrough to `/v1/audio/speech` and `/v1/audio/transcriptions`.
+- **Gemini** (`voice/gemini/`) — translates to `generateContent` API with `speechConfig` for TTS, `inlineData` for STT. Handles PCM→WAV wrapping, base64 encoding/decoding, and API key auth via query parameter.
+
+**Provider-specific config**: `TTSRef.Config` and `BackendRef.Config` use typed Go structs (`TTSConfig`, `STTConfig`) with per-provider namespaces — same pattern as `ClientConfig` (e.g. `config.telegram`, `config.discord`). Each provider has its own struct: `OpenAITTSConfig` (`speed`), `GeminiTTSConfig` (`languageCode`, `temperature`, `stylePrompt`). The `speed` field was removed from `TTSRef` (it was OpenAI-specific) and moved into `config.openai.speed`. A store migration in `loadFromDisk` handles the transition from the old format.
+
+**Admin API**: `GET /voice/types` returns all registered providers with their schemas, same pattern as `/clients/types` and `/memory/types`.
+
+**Do not**: Hardcode endpoint paths in the proxy handlers. Do not add provider-specific logic to `main.go` — all translation lives in the provider package. Do not put provider-specific fields as top-level fields on `TTSRef` or `BackendRef` — use the typed config structs.
+
+**Files**: `server/voice/provider.go`, `server/voice/registry.go`, `server/voice/openai/openai.go`, `server/voice/gemini/gemini.go`, `server/api/admin/voice.go`, `server/main.go` (proxy refactor + blank imports), `server/store/types.go` (typed config structs), `server/store/store.go` (migration), `frontend/admin-ui/src/views/agents/AgentDialog.vue`.

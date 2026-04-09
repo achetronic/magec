@@ -15,7 +15,6 @@
 package main
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"flag"
@@ -23,7 +22,6 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
-	"net/url"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -61,6 +59,8 @@ import (
 	_ "github.com/achetronic/magec/server/clients/slack"
 	_ "github.com/achetronic/magec/server/memory/postgres"
 	_ "github.com/achetronic/magec/server/memory/redis"
+	_ "github.com/achetronic/magec/server/voice/gemini"
+	_ "github.com/achetronic/magec/server/voice/openai"
 )
 
 var configFile = flag.String("config", "config.yaml", "Path to config file")
@@ -364,8 +364,8 @@ func newVoiceHandler(dataStore *store.Store, agentRouter *agentRouterHandler) ht
 
 // serveSpeechProxy forwards a TTS request to the backend configured for the agent.
 // It reads only "input" and "response_format" from the client body, injects
-// model/voice/speed from the agent's store config, and proxies the request
-// to the backend's /v1/audio/speech endpoint.
+// model/voice/speed from the agent's store config, and dispatches to the voice
+// provider registered for the backend type.
 func serveSpeechProxy(w http.ResponseWriter, r *http.Request, agentDef store.AgentDefinition, dataStore *store.Store) {
 	if agentDef.TTS.Backend == "" {
 		http.Error(w, `{"error":"TTS not configured for this agent"}`, http.StatusServiceUnavailable)
@@ -373,14 +373,14 @@ func serveSpeechProxy(w http.ResponseWriter, r *http.Request, agentDef store.Age
 	}
 
 	backend, ok := dataStore.GetBackend(agentDef.TTS.Backend)
-	if !ok || backend.URL == "" {
+	if !ok {
 		http.Error(w, `{"error":"TTS backend not found"}`, http.StatusServiceUnavailable)
 		return
 	}
 
-	target, err := url.Parse(backend.URL)
-	if err != nil {
-		http.Error(w, `{"error":"invalid TTS backend URL"}`, http.StatusInternalServerError)
+	provider := voice.Get(backend.Type)
+	if provider == nil || !provider.SupportsTTS() {
+		http.Error(w, `{"error":"TTS not supported for this backend type"}`, http.StatusBadRequest)
 		return
 	}
 
@@ -403,55 +403,33 @@ func serveSpeechProxy(w http.ResponseWriter, r *http.Request, agentDef store.Age
 		clientBody = make(map[string]interface{})
 	}
 
-	proxyBody := map[string]interface{}{
-		"input": clientBody["input"],
-		"model": agentDef.TTS.Model,
-		"voice": agentDef.TTS.Voice,
-		"speed": agentDef.TTS.Speed,
-	}
-	if rf, ok := clientBody["response_format"]; ok {
-		proxyBody["response_format"] = rf
+	inputStr, _ := clientBody["input"].(string)
+	rfStr, _ := clientBody["response_format"].(string)
+
+	req := voice.TTSRequest{
+		Input:          inputStr,
+		Model:          agentDef.TTS.Model,
+		Voice:          agentDef.TTS.Voice,
+		ResponseFormat: rfStr,
+		Config:         agentDef.TTS.Config,
 	}
 
-	newBody, err := json.Marshal(proxyBody)
-	if err != nil {
-		http.Error(w, "Failed to build request", http.StatusInternalServerError)
-		return
-	}
-
-	proxyURL := *target
-	proxyURL.Path = "/v1/audio/speech"
-
-	proxyReq, err := http.NewRequestWithContext(r.Context(), "POST", proxyURL.String(), bytes.NewReader(newBody))
-	if err != nil {
-		http.Error(w, "Failed to create proxy request", http.StatusInternalServerError)
-		return
-	}
-	proxyReq.Header.Set("Content-Type", "application/json")
-	if backend.APIKey != "" {
-		proxyReq.Header.Set("Authorization", "Bearer "+backend.APIKey)
-	}
-
-	client := &http.Client{Timeout: 60 * time.Second}
-	resp, err := client.Do(proxyReq)
+	resp, err := provider.SynthesizeSpeech(r.Context(), req, backend)
 	if err != nil {
 		slog.Error("TTS proxy error", "error", err)
 		http.Error(w, "TTS service unavailable", http.StatusBadGateway)
 		return
 	}
-	defer resp.Body.Close()
+	defer resp.Audio.Close()
 
-	for k, v := range resp.Header {
-		w.Header()[k] = v
-	}
-	w.WriteHeader(resp.StatusCode)
-	io.Copy(w, resp.Body)
+	w.Header().Set("Content-Type", resp.ContentType)
+	w.WriteHeader(http.StatusOK)
+	io.Copy(w, resp.Audio)
 }
 
 // serveTranscriptionProxy forwards a speech-to-text request to the backend
-// configured for the agent. It injects the transcription model from the agent's
-// store config into the multipart form before proxying to the backend's
-// /v1/audio/transcriptions endpoint.
+// configured for the agent. It dispatches to the voice provider registered
+// for the backend type.
 func serveTranscriptionProxy(w http.ResponseWriter, r *http.Request, agentDef store.AgentDefinition, dataStore *store.Store) {
 	if agentDef.Transcription.Backend == "" {
 		http.Error(w, `{"error":"transcription not configured for this agent"}`, http.StatusServiceUnavailable)
@@ -459,82 +437,34 @@ func serveTranscriptionProxy(w http.ResponseWriter, r *http.Request, agentDef st
 	}
 
 	backend, ok := dataStore.GetBackend(agentDef.Transcription.Backend)
-	if !ok || backend.URL == "" {
+	if !ok {
 		http.Error(w, `{"error":"transcription backend not found"}`, http.StatusServiceUnavailable)
 		return
 	}
 
-	target, err := url.Parse(backend.URL)
-	if err != nil {
-		http.Error(w, `{"error":"invalid transcription backend URL"}`, http.StatusInternalServerError)
+	provider := voice.Get(backend.Type)
+	if provider == nil || !provider.SupportsSTT() {
+		http.Error(w, `{"error":"transcription not supported for this backend type"}`, http.StatusBadRequest)
 		return
 	}
 
-	body, err := io.ReadAll(r.Body)
-	r.Body.Close()
-	if err != nil {
-		http.Error(w, "Failed to read request body", http.StatusBadRequest)
-		return
+	req := voice.STTRequest{
+		Audio:       r.Body,
+		ContentType: r.Header.Get("Content-Type"),
+		Model:       agentDef.Transcription.Model,
+		Config:      agentDef.Transcription.Config,
 	}
 
-	contentType := r.Header.Get("Content-Type")
-
-	var proxyBody bytes.Buffer
-	if agentDef.Transcription.Model != "" && strings.Contains(contentType, "multipart/form-data") {
-		boundary := ""
-		for _, param := range strings.Split(contentType, ";") {
-			param = strings.TrimSpace(param)
-			if strings.HasPrefix(param, "boundary=") {
-				boundary = strings.TrimPrefix(param, "boundary=")
-				break
-			}
-		}
-		if boundary == "" {
-			http.Error(w, "Missing multipart boundary", http.StatusBadRequest)
-			return
-		}
-
-		closingBoundary := fmt.Sprintf("\r\n--%s--", boundary)
-		trimmed := bytes.TrimSuffix(body, []byte(closingBoundary))
-		trimmed = bytes.TrimSuffix(trimmed, []byte(fmt.Sprintf("--%s--\r\n", boundary)))
-		trimmed = bytes.TrimSuffix(trimmed, []byte(fmt.Sprintf("--%s--", boundary)))
-
-		proxyBody.Write(trimmed)
-		proxyBody.WriteString(fmt.Sprintf("\r\n--%s\r\n", boundary))
-		proxyBody.WriteString("Content-Disposition: form-data; name=\"model\"\r\n\r\n")
-		proxyBody.WriteString(agentDef.Transcription.Model)
-		proxyBody.WriteString(fmt.Sprintf("\r\n--%s--\r\n", boundary))
-	} else {
-		proxyBody.Write(body)
-	}
-
-	proxyURL := *target
-	proxyURL.Path = "/v1/audio/transcriptions"
-
-	proxyReq, err := http.NewRequestWithContext(r.Context(), "POST", proxyURL.String(), &proxyBody)
-	if err != nil {
-		http.Error(w, "Failed to create proxy request", http.StatusInternalServerError)
-		return
-	}
-	proxyReq.Header.Set("Content-Type", contentType)
-	if backend.APIKey != "" {
-		proxyReq.Header.Set("Authorization", "Bearer "+backend.APIKey)
-	}
-
-	client := &http.Client{Timeout: 60 * time.Second}
-	resp, err := client.Do(proxyReq)
+	text, err := provider.TranscribeAudio(r.Context(), req, backend)
 	if err != nil {
 		slog.Error("Transcription proxy error", "error", err)
 		http.Error(w, "Transcription service unavailable", http.StatusBadGateway)
 		return
 	}
-	defer resp.Body.Close()
 
-	for k, v := range resp.Header {
-		w.Header()[k] = v
-	}
-	w.WriteHeader(resp.StatusCode)
-	io.Copy(w, resp.Body)
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{"text": text})
 }
 
 // agentRouterHandler is an HTTP handler that can be atomically swapped at
