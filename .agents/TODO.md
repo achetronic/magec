@@ -326,6 +326,143 @@ Implemented. See `server/agent/tools/artifacts/toolset.go` — provides `save_ar
 
 ---
 
+### Voice Provider Registry — Multi-Backend TTS/STT Support
+
+**Problem**: The TTS and STT proxies (`serveSpeechProxy`, `serveTranscriptionProxy` in `main.go`) are hardcoded to OpenAI-compatible endpoints (`/v1/audio/speech`, `/v1/audio/transcriptions`). `BackendDefinition.Type` (`openai`, `anthropic`, `gemini`) is completely ignored — a Gemini backend assigned to TTS gets requests sent to `/v1/audio/speech`, which Gemini doesn't serve. Users who want to use Gemini's native TTS/STT have no path today.
+
+**Provider landscape**:
+
+| Provider | TTS | STT | API shape |
+|----------|-----|-----|-----------|
+| OpenAI (+ compatible: edge-tts, parakeet, etc.) | `/v1/audio/speech` | `/v1/audio/transcriptions` | Already supported |
+| Gemini | `generateContent` with `speechConfig` + `responseModalities: ["AUDIO"]` | `generateContent` with audio `inlineData` | Needs translation |
+| Anthropic | No API | No API | N/A |
+| xAI | `/v1/tts` (own format) | No standalone endpoint | Future candidate |
+
+**Solution**: Extract TTS/STT into a provider interface with per-backend-type implementations. Same pattern as the client and memory provider registries — `init()` + blank imports.
+
+**Interface design**:
+
+```go
+// server/voice/provider.go
+
+type TTSRequest struct {
+    Input          string
+    ResponseFormat string // "opus", "mp3", "wav", etc.
+    Model          string
+    Voice          string
+    Speed          float64
+}
+
+type TTSProvider interface {
+    SynthesizeSpeech(ctx context.Context, req TTSRequest, backend store.BackendDefinition) (io.ReadCloser, string, error)
+    // Returns: audio stream, content-type, error
+}
+
+type STTRequest struct {
+    Audio       io.Reader
+    ContentType string // original multipart content-type
+    Model       string
+}
+
+type STTProvider interface {
+    TranscribeAudio(ctx context.Context, req STTRequest, backend store.BackendDefinition) (string, error)
+    // Returns: transcribed text, error
+}
+```
+
+**Implementations**:
+
+```
+server/voice/
+├── provider.go         — TTSProvider + STTProvider interfaces, registry
+├── registry.go         — Register(), GetTTS(), GetSTT() by backend type
+├── openai/
+│   └── openai.go       — OpenAI-compatible TTS + STT (extract from current main.go)
+└── gemini/
+    └── gemini.go       — Gemini TTS + STT via generateContent
+```
+
+**OpenAI provider** (`server/voice/openai/openai.go`):
+- TTS: POST `{url}/v1/audio/speech` with `{input, model, voice, speed, response_format}` → stream raw audio back
+- STT: POST `{url}/v1/audio/transcriptions` with multipart form + model → parse `{"text": "..."}` response
+- Direct extraction of current `serveSpeechProxy`/`serveTranscriptionProxy` logic
+
+**Gemini provider** (`server/voice/gemini/gemini.go`):
+
+TTS:
+- POST `{url}/v1beta/models/{model}:generateContent` with API key via `x-goog-api-key` header (or Bearer if using Vertex AI)
+- Request body:
+  ```json
+  {
+    "contents": [{"role": "user", "parts": [{"text": "..."}]}],
+    "generationConfig": {
+      "responseModalities": ["AUDIO"],
+      "speechConfig": {
+        "voiceConfig": {
+          "prebuiltVoiceConfig": {"voiceName": "Kore"}
+        }
+      }
+    }
+  }
+  ```
+- Response: `candidates[0].content.parts[0].inlineData` with base64 PCM audio (24kHz 16-bit)
+- Provider decodes base64, wraps in WAV header (or converts to requested format via ffmpeg), returns stream
+- Voice mapping: Gemini has 30 voices (Kore, Charon, Leda, Puck, etc.) — user sets `voice` in TTSRef as usual
+
+STT:
+- POST same `generateContent` endpoint with the audio as `inlineData` base64
+- Request body:
+  ```json
+  {
+    "contents": [{"role": "user", "parts": [
+      {"text": "Transcribe this audio."},
+      {"inlineData": {"mimeType": "audio/wav", "data": "base64..."}}
+    ]}]
+  }
+  ```
+- Response: extract text from `candidates[0].content.parts[0].text`
+- Provider reads multipart audio from client, base64-encodes it, builds generateContent request, parses text response
+
+**Proxy refactor** (`main.go`):
+
+```go
+func serveSpeechProxy(w http.ResponseWriter, r *http.Request, agentDef store.AgentDefinition, dataStore *store.Store) {
+    backend, ok := dataStore.GetBackend(agentDef.TTS.Backend)
+    // ...
+    provider := voiceregistry.GetTTS(backend.Type) // falls back to openai
+    if provider == nil {
+        http.Error(w, `{"error":"TTS not supported for this backend type"}`, http.StatusBadRequest)
+        return
+    }
+    // parse client body → TTSRequest
+    stream, contentType, err := provider.SynthesizeSpeech(r.Context(), req, backend)
+    // write stream to response
+}
+```
+
+**Auth handling**: Gemini uses `x-goog-api-key: {apiKey}` instead of `Authorization: Bearer`. Each provider handles its own auth from `backend.APIKey`.
+
+**Gemini URL**: The `BackendDefinition.URL` for Gemini backends is already `https://generativelanguage.googleapis.com` (or a custom Vertex AI URL). The provider appends `/v1beta/models/{model}:generateContent`.
+
+**No store/type changes needed**: `BackendDefinition.Type` already exists with `gemini` as a value. `TTSRef` and `BackendRef` already have `backend`, `model`, `voice`, `speed` — all applicable to Gemini. The provider just reads them differently.
+
+**Admin UI**: No changes. User creates a Gemini backend (type `gemini`, URL + API key), assigns it as the agent's TTS/STT backend with a Gemini TTS model (`gemini-2.5-flash-preview-tts`) and a voice name (`Kore`). The proxy dispatches to the right provider automatically.
+
+**Future extensibility**: Adding xAI would be `server/voice/xai/xai.go` implementing the same interfaces. Register in `init()`, done.
+
+**Files to modify**:
+- `server/voice/provider.go` (new — interfaces)
+- `server/voice/registry.go` (new — registry)
+- `server/voice/openai/openai.go` (new — extracted from main.go)
+- `server/voice/gemini/gemini.go` (new — Gemini implementation)
+- `server/main.go` — refactor `serveSpeechProxy`/`serveTranscriptionProxy` to use registry
+- `server/main.go` — blank imports for `voice/openai` and `voice/gemini`
+
+**Files NOT modified**: `store/types.go`, `config/config.go`, `api/admin/`, `frontend/` — zero data model or UI changes.
+
+---
+
 ### TTS Real-Time Streaming Playback
 
 **Problem**: Current TTS waits for all audio chunks before playback. Noticeable delay.
@@ -405,7 +542,7 @@ On mobile, microphone picks up speaker output and triggers wake word during TTS 
 
 ### Move `response_format` Out of Clients
 
-TTS `response_format` (opus, mp3, wav) is hardcoded per client. Could be per-agent in `TTSRef`, per-client in config, or documented as client contract. **Decision**: TBD.
+TTS `response_format` (opus, mp3, wav) is hardcoded per client. Could be per-agent in `TTSRef`, per-client in config, or documented as client contract. **Decision**: TBD. Related to the voice provider registry — Gemini returns PCM and the provider handles format conversion, so `response_format` may need to become a provider-level concern rather than a client one.
 
 ---
 
