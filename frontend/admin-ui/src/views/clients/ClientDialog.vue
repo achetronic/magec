@@ -175,7 +175,45 @@
         </summary>
         <div class="px-4 pb-4 space-y-4">
           <template v-for="(propSchema, key) in permissionProperties" :key="key">
-            <div>
+            <div v-if="key === 'allowedChats'">
+              <FormLabel :label="propSchema.title || key" :required="isFieldRequired(key)" />
+              <div class="space-y-2">
+                <div
+                  v-for="(rule, idx) in getAllowedChatRows()"
+                  :key="idx"
+                  class="grid grid-cols-[1fr_1fr_auto] gap-2"
+                >
+                  <FormInput
+                    :modelValue="rule.chatId"
+                    @update:modelValue="updateAllowedChatRule(idx, 'chatId', $event)"
+                    placeholder="Chat ID (e.g. -1001234567890)"
+                  />
+                  <FormInput
+                    :modelValue="rule.threadId"
+                    @update:modelValue="updateAllowedChatRule(idx, 'threadId', $event)"
+                    placeholder="Thread ID (optional)"
+                  />
+                  <button
+                    type="button"
+                    @click="removeAllowedChatRule(idx)"
+                    title="Remove rule"
+                    aria-label="Remove rule"
+                    class="px-2.5 py-2 bg-piedra-800 hover:bg-lava-500/20 border border-lava-500/40 rounded-lg text-lava-300 hover:text-lava-200 transition-colors"
+                  >
+                    <Icon name="trash" size="md" />
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  @click="addAllowedChatRule()"
+                  class="px-3 py-2 bg-piedra-800 hover:bg-piedra-700 border border-piedra-700 rounded-lg text-xs text-arena-300 transition-colors"
+                >
+                  + Add chat rule
+                </button>
+              </div>
+              <p v-if="propSchema.description" class="text-[10px] text-arena-500 mt-1">{{ propSchema.description }}</p>
+            </div>
+            <div v-else>
               <FormLabel :label="propSchema.title || key" :required="isFieldRequired(key)" />
               <FormInput
                 :modelValue="arrayToCSV(form.config[key])"
@@ -202,6 +240,15 @@
           <button type="button" @click="regenerateToken" class="px-3 py-2 bg-piedra-800 hover:bg-lava-500/20 border border-piedra-700 rounded-lg text-xs text-arena-300 transition-colors flex-shrink-0">
             <Icon name="refresh" size="md" />
           </button>
+          <button
+            v-if="form.type === 'telegram'"
+            type="button"
+            @click="sendTelegramTest"
+            :disabled="isTestingTelegram"
+            class="px-3 py-2 bg-piedra-800 hover:bg-teal-500/20 disabled:opacity-50 disabled:cursor-not-allowed border border-piedra-700 rounded-lg text-xs text-arena-300 transition-colors flex-shrink-0"
+          >
+            {{ isTestingTelegram ? 'Testing...' : 'Test' }}
+          </button>
         </div>
         <p class="text-[10px] text-arena-500 mt-1">Use as <code class="text-arena-400">Authorization: Bearer &lt;token&gt;</code></p>
 
@@ -223,6 +270,7 @@ import FormInput from '../../components/FormInput.vue'
 import FormSelect from '../../components/FormSelect.vue'
 import FormLabel from '../../components/FormLabel.vue'
 import Icon from '../../components/Icon.vue'
+import { buildAllowedChatsPayload } from './allowedChatsRules.js'
 
 const emit = defineEmits(['saved'])
 const toast = inject('toast')
@@ -231,6 +279,7 @@ const dialogRef = ref(null)
 const editId = ref(null)
 const isEdit = ref(false)
 const tokenVisible = ref(false)
+const isTestingTelegram = ref(false)
 const showAllEntities = ref(false)
 const maxVisibleEntities = 6
 
@@ -389,6 +438,46 @@ function csvToArray(propSchema, val) {
   return parts
 }
 
+function normalizeAllowedChatRows(val) {
+  if (!Array.isArray(val)) return []
+  return val.map(rule => {
+    if (rule && typeof rule === 'object') {
+      return {
+        chatId: rule.chatId !== undefined && rule.chatId !== null ? String(rule.chatId) : '',
+        threadId: rule.threadId !== undefined && rule.threadId !== null ? String(rule.threadId) : '',
+      }
+    }
+    return null
+  }).filter(Boolean)
+}
+
+function getAllowedChatRows() {
+  return normalizeAllowedChatRows(form.config.allowedChats)
+}
+
+function setAllowedChatRows(rows) {
+  form.config.allowedChats = rows
+}
+
+function addAllowedChatRule() {
+  const rows = getAllowedChatRows()
+  rows.push({ chatId: '', threadId: '' })
+  setAllowedChatRows(rows)
+}
+
+function removeAllowedChatRule(index) {
+  const rows = getAllowedChatRows()
+  rows.splice(index, 1)
+  setAllowedChatRows(rows)
+}
+
+function updateAllowedChatRule(index, field, value) {
+  const rows = getAllowedChatRows()
+  if (!rows[index]) return
+  rows[index][field] = value?.toString().trim() ?? ''
+  setAllowedChatRows(rows)
+}
+
 function onTypeChange() {
   form.config = {}
   const props = allProperties.value
@@ -407,6 +496,9 @@ function open(client = null) {
   form.enabled = client?.enabled ?? true
   form.allowedAgents = [...(client?.allowedAgents || [])]
   form.config = { ...(client?.config?.[client?.type] || {}) }
+  if (form.type === 'telegram') {
+    form.config.allowedChats = normalizeAllowedChatRows(form.config.allowedChats)
+  }
   form.token = client?.token || ''
   tokenVisible.value = false
   showAllEntities.value = false
@@ -449,7 +541,29 @@ async function regenerateToken() {
   }
 }
 
-async function save() {
+async function sendTelegramTest() {
+  if (!editId.value || form.type !== 'telegram' || isTestingTelegram.value) return
+  isTestingTelegram.value = true
+  try {
+    const telegramConfig = buildTypeConfig().telegram || {}
+    const result = await clientsApi.telegramTest(editId.value, { config: telegramConfig })
+    if (result.failed > 0) {
+      const details = Array.isArray(result.errors) ? result.errors.filter(Boolean) : []
+      const preview = details.slice(0, 2).join(' | ')
+      const more = details.length > 2 ? ` (+${details.length - 2} more)` : ''
+      const detailText = preview ? ` Details: ${preview}${more}` : ''
+      toast.error(`Test completed with errors. Sent ${result.sent}/${result.attempted}.${detailText}`)
+      return
+    }
+    toast.success(`Test message sent to ${result.sent} destination(s).`)
+  } catch (e) {
+    toast.error(e.message)
+  } finally {
+    isTestingTelegram.value = false
+  }
+}
+
+function buildTypeConfig() {
   const config = {}
   const schema = currentSchema.value
   const props = schema.properties || {}
@@ -461,7 +575,12 @@ async function save() {
       if (propSchema.type === 'boolean') {
         typeCfg[key] = !!val
       } else if (propSchema.type === 'array') {
-        if (Array.isArray(val) && val.length) {
+        if (key === 'allowedChats') {
+          const rules = buildAllowedChatsPayload(val)
+          if (rules.length) {
+            typeCfg[key] = rules
+          }
+        } else if (Array.isArray(val) && val.length) {
           typeCfg[key] = val
         }
       } else if (propSchema.type === 'integer' || propSchema.type === 'number') {
@@ -476,14 +595,20 @@ async function save() {
     config[form.type] = typeCfg
   }
 
-  const data = {
-    name: form.name.trim(),
-    type: form.type,
-    allowedAgents: form.allowedAgents,
-    enabled: form.enabled,
-    config,
-  }
+  return config
+}
+
+async function save() {
   try {
+    const config = buildTypeConfig()
+    const data = {
+      name: form.name.trim(),
+      type: form.type,
+      allowedAgents: form.allowedAgents,
+      enabled: form.enabled,
+      config,
+    }
+
     if (isEdit.value) {
       await clientsApi.update(editId.value, data)
     } else {

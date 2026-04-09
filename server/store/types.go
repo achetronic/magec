@@ -1,6 +1,10 @@
 package store
 
-import "github.com/google/uuid"
+import (
+	"encoding/json"
+
+	"github.com/google/uuid"
+)
 
 // generateID returns a new random UUID v4 string (e.g. "550e8400-e29b-41d4-a716-446655440000").
 func generateID() string {
@@ -113,13 +117,41 @@ type ClientConfig struct {
 	Webhook  *WebhookClientConfig  `json:"webhook,omitempty" yaml:"webhook,omitempty"`
 }
 
+type TelegramAllowedChatRule struct {
+	ChatID   int64 `json:"chatId" yaml:"chatId"`
+	ThreadID *int  `json:"threadId,omitempty" yaml:"threadId,omitempty"`
+}
+
+type TelegramAllowedChatRules []TelegramAllowedChatRule
+
+func (r *TelegramAllowedChatRules) UnmarshalJSON(data []byte) error {
+	var typed []TelegramAllowedChatRule
+	if err := json.Unmarshal(data, &typed); err == nil {
+		*r = typed
+		return nil
+	}
+
+	var legacy []int64
+	if err := json.Unmarshal(data, &legacy); err != nil {
+		return err
+	}
+
+	parsed := make([]TelegramAllowedChatRule, 0, len(legacy))
+	for _, chatID := range legacy {
+		parsed = append(parsed, TelegramAllowedChatRule{ChatID: chatID})
+	}
+
+	*r = parsed
+	return nil
+}
+
 // TelegramClientConfig holds Telegram bot settings for a client.
 type TelegramClientConfig struct {
-	BotToken     string  `json:"botToken,omitempty" yaml:"botToken,omitempty"`
-	AllowedUsers []int64 `json:"allowedUsers,omitempty" yaml:"allowedUsers,omitempty"`
-	AllowedChats []int64 `json:"allowedChats,omitempty" yaml:"allowedChats,omitempty"`
-	ResponseMode string  `json:"responseMode,omitempty" yaml:"responseMode,omitempty"`
-	DefaultAgent string  `json:"defaultAgent,omitempty" yaml:"defaultAgent,omitempty"`
+	BotToken     string                   `json:"botToken,omitempty" yaml:"botToken,omitempty"`
+	AllowedUsers []int64                  `json:"allowedUsers,omitempty" yaml:"allowedUsers,omitempty"`
+	AllowedChats TelegramAllowedChatRules `json:"allowedChats,omitempty" yaml:"allowedChats,omitempty"`
+	ResponseMode string                   `json:"responseMode,omitempty" yaml:"responseMode,omitempty"`
+	DefaultAgent string                   `json:"defaultAgent,omitempty" yaml:"defaultAgent,omitempty"`
 }
 
 // DiscordClientConfig holds Discord bot settings for a client.

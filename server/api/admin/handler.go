@@ -97,6 +97,7 @@ func (h *Handler) buildRouter() *mux.Router {
 	r.HandleFunc("/clients/{id}", h.updateClient).Methods("PUT")
 	r.HandleFunc("/clients/{id}", h.deleteClient).Methods("DELETE")
 	r.HandleFunc("/clients/{id}/regenerate-token", h.regenerateClientToken).Methods("POST")
+	r.HandleFunc("/clients/{id}/telegram-test", h.testTelegramClient).Methods("POST")
 
 	// Commands
 	r.HandleFunc("/commands", h.listCommands).Methods("GET")
