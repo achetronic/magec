@@ -448,3 +448,28 @@ ADK's `InjectSessionState` automatically replaces `{anything}` in agent instruct
 **Do not**: Use ADK's static `Instruction` field on `llmagent.Config`. Always use `InstructionProvider` via `makeInstructionProvider()`. Do not introduce new substitution patterns — `{{agent.output:key}}` is the only one.
 
 **Files**: `server/agent/agent.go` (`makeInstructionProvider`, `stateVarRegex`).
+
+---
+
+## 20. Recursive snake_case→camelCase normalization for ADK REST API
+
+**Date**: 2026-04-09
+**Status**: Implemented
+
+ADK's REST decoder calls `json.Decoder.DisallowUnknownFields()`, which rejects any JSON key that doesn't match a struct tag exactly. All ADK and genai JSON tags are camelCase (`appName`, `sessionId`, `inlineData`, `mimeType`, etc.) with zero exceptions. API clients sending snake_case keys get a 400.
+
+**Solution**: `SnakeCaseNormalize` middleware intercepts POST `/run` and `/run_sse`, parses the JSON body, and recursively converts all snake_case keys to camelCase at every nesting level. Generic `snakeToCamel` conversion (not a hardcoded key list) so it handles any current and future fields without maintenance.
+
+**Key behaviors**:
+- When both `app_name` and `appName` coexist in the same object, camelCase wins (explicit client intent)
+- Single-word keys (`text`, `role`, `parts`, `data`) are never modified
+- If the body is not valid JSON or already all camelCase, the original bytes pass through unchanged
+- `Content-Length` is updated after rewriting
+
+**Scope**: Only `/run` and `/run_sse` — the only ADK endpoints with multi-word JSON body fields. Session create uses single-word fields (`state`, `events`). Session/artifact paths use URL parameters (already snake_case by ADK design).
+
+**Middleware position**: Outermost in the chain, before `ConversationRecorder`, so all downstream middlewares see the normalized camelCase body.
+
+**Do not**: Use a fixed key list (fragile, misses nested genai fields). Do not normalize non-`/run` paths (unnecessary, could interfere with other handlers). Do not modify response bodies — only request normalization.
+
+**Files**: `server/middleware/normalize.go`, `server/main.go` (wiring).

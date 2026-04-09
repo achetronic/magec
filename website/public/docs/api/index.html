@@ -183,15 +183,22 @@
 </ul>
 <p>The request format for sending a message:</p>
 <div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
-</span></span><span class="line"><span class="cl">  <span class="nt">&#34;app_name&#34;</span><span class="p">:</span> <span class="s2">&#34;AGENT_OR_FLOW_ID&#34;</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">  <span class="nt">&#34;user_id&#34;</span><span class="p">:</span> <span class="s2">&#34;user1&#34;</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">  <span class="nt">&#34;session_id&#34;</span><span class="p">:</span> <span class="s2">&#34;session1&#34;</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">  <span class="nt">&#34;new_message&#34;</span><span class="p">:</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;appName&#34;</span><span class="p">:</span> <span class="s2">&#34;AGENT_OR_FLOW_ID&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;userId&#34;</span><span class="p">:</span> <span class="s2">&#34;user1&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;sessionId&#34;</span><span class="p">:</span> <span class="s2">&#34;session1&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;newMessage&#34;</span><span class="p">:</span> <span class="p">{</span>
 </span></span><span class="line"><span class="cl">    <span class="nt">&#34;role&#34;</span><span class="p">:</span> <span class="s2">&#34;user&#34;</span><span class="p">,</span>
 </span></span><span class="line"><span class="cl">    <span class="nt">&#34;parts&#34;</span><span class="p">:</span> <span class="p">[{</span> <span class="nt">&#34;text&#34;</span><span class="p">:</span> <span class="s2">&#34;Hello!&#34;</span> <span class="p">}]</span>
 </span></span><span class="line"><span class="cl">  <span class="p">}</span>
 </span></span><span class="line"><span class="cl"><span class="p">}</span>
-</span></span></code></pre></div><h3 id="other-endpoints">
+</span></span></code></pre></div>
+
+
+<div class="docs-callout docs-callout--info">
+  Both <strong>camelCase</strong> (canonical) and <strong>snake_case</strong> field names are accepted. A normalization middleware converts snake_case keys to camelCase recursively before the request reaches the ADK handler. This applies to all fields at every nesting level — including nested structures like <code>inlineData</code>, <code>mimeType</code>, <code>functionCall</code>, etc.
+</div>
+
+<h3 id="other-endpoints">
   Other endpoints
   <a class="heading-anchor" href="#other-endpoints" aria-label="Link to this section">#</a>
 </h3>

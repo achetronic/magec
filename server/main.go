@@ -170,7 +170,7 @@ func main() {
 		middleware.ConversationRecorderSSE(filtered, executor, dataStore, "user"),
 		executor, dataStore, "user",
 	)
-	httpMux.Handle("/api/v1/agent/", userRecorded)
+	httpMux.Handle("/api/v1/agent/", middleware.SnakeCaseNormalize(userRecorded))
 	httpMux.Handle("/api/v1/voice/", newVoiceHandler(dataStore, agentRouter))
 
 	// A2A protocol endpoints (global discovery + per-agent card + JSON-RPC invoke)

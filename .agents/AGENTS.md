@@ -65,6 +65,7 @@ magec/
 │   │   ├── middleware.go       # AccessLog (httpsnoop), CORS, ClientAuth, AdminAuth (rate-limited)
 │   │   ├── recorder.go         # ConversationRecorder + ConversationRecorderSSE (dual-perspective)
 │   │   ├── flowfilter.go       # Flow response filtering by responseAgent
+│   │   ├── normalize.go        # SnakeCaseNormalize: recursive snake_case→camelCase for /run and /run_sse
 │   │   ├── sessionensure.go    # Idempotent session creation (prevents overwriting ContextGuard state)
 │   │   └── sessionstate.go     # Seeds outputKey values into session state for {{agent.output:key}} resolution
 │   ├── clients/                # Client type registry + runtime
@@ -235,6 +236,7 @@ log:
 - **Dual-perspective conversation recording**: Middleware chains recorder twice: "admin" perspective (all events, before FlowResponseFilter) and "user" perspective (filtered, after). Each conversation has a `ParentID` linking the pair
 - **Store dual-copy pattern**: Store maintains `rawData` (unexpanded, with `${VAR}` refs) and `data` (env-expanded). API responses use raw data, runtime uses expanded. Secret values injected as env vars before expansion
 - **Session middleware**: `SessionEnsure` prevents overwriting existing sessions (protects ContextGuard summaries). `SessionStateSeed` injects empty outputKey values so `{{agent.output:key}}` references in flow agent prompts resolve correctly
+- **SnakeCaseNormalize middleware**: Intercepts POST `/run` and `/run_sse`, recursively converts all snake_case JSON keys to camelCase before ADK processes the request. ADK uses `DisallowUnknownFields()` so any unconverted snake_case key causes a 400. Conversion is generic (not a fixed key list) — handles all nesting levels including `genai.Part` fields like `inlineData`, `mimeType`, `functionCall`. When both forms coexist in the same object, camelCase wins. Single-word keys are never modified. Placed outermost in the middleware chain (before ConversationRecorder)
 - **InstructionProvider pattern**: Agents use `InstructionProvider` instead of static `Instruction` strings to bypass ADK's built-in `{variable}` substitution (which conflicts with curly braces in prompts, JSON examples, scripts, etc). Magec resolves its own `{{agent.output:key}}` pattern from session state inside the provider. Plain `{text}` in prompts is never touched
 - **Flow wrapAgent pattern**: Same agent can appear in multiple flow steps — `wrapAgent()` creates uniquely-named delegate agents to satisfy ADK's single-parent constraint
 
@@ -346,6 +348,7 @@ GPU section commented out by default. Users who want cloud providers create diff
 16. **ContextGuard `safeSplitIndex`**: When splitting conversation history for summarization, the split point is adjusted to avoid orphaning Anthropic `tool_result` blocks.
 17. **Store env var expansion**: All store fields support `${VAR}` syntax. Secrets are injected as env vars (`os.Setenv`) before the store is expanded, so secrets can be referenced in backend URLs, bot tokens, etc.
 18. **Voice API routes always registered**: STT/TTS proxy endpoints are available regardless of Voice UI toggle, since Telegram/Discord/Slack clients need them.
+19. **ADK REST API accepts both camelCase and snake_case**: The `SnakeCaseNormalize` middleware converts snake_case keys recursively before ADK sees the request. This applies only to `/run` and `/run_sse` — the only ADK endpoints with multi-word JSON body fields. Session create/get/delete use single-word body fields (`state`, `events`) or path parameters only.
 
 ## Testing
 

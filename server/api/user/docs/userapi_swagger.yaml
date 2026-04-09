@@ -135,6 +135,53 @@ definitions:
         example: resource not found
         type: string
     type: object
+  user.RunAgentInlineData:
+    properties:
+      data:
+        example: iVBORw0KGgo...
+        type: string
+      mimeType:
+        example: image/png
+        type: string
+    type: object
+  user.RunAgentMessage:
+    properties:
+      parts:
+        items:
+          $ref: '#/definitions/user.RunAgentMessagePart'
+        type: array
+      role:
+        example: user
+        type: string
+    type: object
+  user.RunAgentMessagePart:
+    properties:
+      inlineData:
+        $ref: '#/definitions/user.RunAgentInlineData'
+      text:
+        example: Hello!
+        type: string
+    type: object
+  user.RunAgentRequest:
+    properties:
+      appName:
+        example: 550e8400-e29b-41d4-a716-446655440000
+        type: string
+      newMessage:
+        $ref: '#/definitions/user.RunAgentMessage'
+      sessionId:
+        example: f47ac10b-58cc-4372-a567-0e02b2c3d479
+        type: string
+      stateDelta:
+        additionalProperties: true
+        type: object
+      streaming:
+        example: false
+        type: boolean
+      userId:
+        example: user1
+        type: string
+    type: object
   user.SpeechRequest:
     properties:
       input:
@@ -680,22 +727,26 @@ paths:
     post:
       consumes:
       - application/json
-      description: Send a message to an agent and receive the full response. The app_name
-        is the agent ID.
+      description: Send a message to an agent and receive the full response. The appName
+        is the agent ID. Both camelCase (canonical) and snake_case field names are
+        accepted at every nesting level — a normalization middleware converts snake_case
+        keys to camelCase recursively before the request reaches the ADK handler.
       parameters:
-      - description: Run request with app_name, user_id, session_id, and new_message
+      - description: ADK run request
         in: body
         name: body
         required: true
         schema:
-          type: object
+          $ref: '#/definitions/user.RunAgentRequest'
       produces:
       - application/json
       responses:
         "200":
-          description: Agent response
+          description: Array of agent response events
           schema:
-            type: object
+            items:
+              type: object
+            type: array
         "400":
           description: Bad Request
           schema:
@@ -706,7 +757,7 @@ paths:
             $ref: '#/definitions/user.ErrorResponse'
       security:
       - BearerAuth: []
-      summary: Run agent
+      summary: Run agent (accepts both camelCase and snake_case)
       tags:
       - agent
   /agent/run_sse:
@@ -714,14 +765,17 @@ paths:
       consumes:
       - application/json
       description: Send a message to an agent and receive the response streamed as
-        Server-Sent Events.
+        Server-Sent Events. Both camelCase (canonical) and snake_case field names
+        are accepted at every nesting level — a normalization middleware converts
+        snake_case keys to camelCase recursively before the request reaches the ADK
+        handler.
       parameters:
-      - description: Run request with app_name, user_id, session_id, and new_message
+      - description: ADK run request
         in: body
         name: body
         required: true
         schema:
-          type: object
+          $ref: '#/definitions/user.RunAgentRequest'
       produces:
       - text/event-stream
       responses:
@@ -739,7 +793,7 @@ paths:
             $ref: '#/definitions/user.ErrorResponse'
       security:
       - BearerAuth: []
-      summary: Run agent (SSE streaming)
+      summary: Run agent SSE (accepts both camelCase and snake_case)
       tags:
       - agent
   /client/info:

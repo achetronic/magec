@@ -784,7 +784,7 @@
                         "BearerAuth": []
                     }
                 ],
-                "description": "Send a message to an agent and receive the full response. The app_name is the agent ID.",
+                "description": "Send a message to an agent and receive the full response. The appName is the agent ID. Both camelCase (canonical) and snake_case field names are accepted at every nesting level — a normalization middleware converts snake_case keys to camelCase recursively before the request reaches the ADK handler.",
                 "consumes": [
                     "application/json"
                 ],
@@ -794,23 +794,26 @@
                 "tags": [
                     "agent"
                 ],
-                "summary": "Run agent",
+                "summary": "Run agent (accepts both camelCase and snake_case)",
                 "parameters": [
                     {
-                        "description": "Run request with app_name, user_id, session_id, and new_message",
+                        "description": "ADK run request",
                         "name": "body",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "type": "object"
+                            "$ref": "#/definitions/user.RunAgentRequest"
                         }
                     }
                 ],
                 "responses": {
                     "200": {
-                        "description": "Agent response",
+                        "description": "Array of agent response events",
                         "schema": {
-                            "type": "object"
+                            "type": "array",
+                            "items": {
+                                "type": "object"
+                            }
                         }
                     },
                     "400": {
@@ -835,7 +838,7 @@
                         "BearerAuth": []
                     }
                 ],
-                "description": "Send a message to an agent and receive the response streamed as Server-Sent Events.",
+                "description": "Send a message to an agent and receive the response streamed as Server-Sent Events. Both camelCase (canonical) and snake_case field names are accepted at every nesting level — a normalization middleware converts snake_case keys to camelCase recursively before the request reaches the ADK handler.",
                 "consumes": [
                     "application/json"
                 ],
@@ -845,15 +848,15 @@
                 "tags": [
                     "agent"
                 ],
-                "summary": "Run agent (SSE streaming)",
+                "summary": "Run agent SSE (accepts both camelCase and snake_case)",
                 "parameters": [
                     {
-                        "description": "Run request with app_name, user_id, session_id, and new_message",
+                        "description": "ADK run request",
                         "name": "body",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "type": "object"
+                            "$ref": "#/definitions/user.RunAgentRequest"
                         }
                     }
                 ],
@@ -1358,6 +1361,74 @@
                 "error": {
                     "type": "string",
                     "example": "resource not found"
+                }
+            }
+        },
+        "user.RunAgentInlineData": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "type": "string",
+                    "example": "iVBORw0KGgo..."
+                },
+                "mimeType": {
+                    "type": "string",
+                    "example": "image/png"
+                }
+            }
+        },
+        "user.RunAgentMessage": {
+            "type": "object",
+            "properties": {
+                "parts": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/user.RunAgentMessagePart"
+                    }
+                },
+                "role": {
+                    "type": "string",
+                    "example": "user"
+                }
+            }
+        },
+        "user.RunAgentMessagePart": {
+            "type": "object",
+            "properties": {
+                "inlineData": {
+                    "$ref": "#/definitions/user.RunAgentInlineData"
+                },
+                "text": {
+                    "type": "string",
+                    "example": "Hello!"
+                }
+            }
+        },
+        "user.RunAgentRequest": {
+            "type": "object",
+            "properties": {
+                "appName": {
+                    "type": "string",
+                    "example": "550e8400-e29b-41d4-a716-446655440000"
+                },
+                "newMessage": {
+                    "$ref": "#/definitions/user.RunAgentMessage"
+                },
+                "sessionId": {
+                    "type": "string",
+                    "example": "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+                },
+                "stateDelta": {
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "streaming": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "userId": {
+                    "type": "string",
+                    "example": "user1"
                 }
             }
         },

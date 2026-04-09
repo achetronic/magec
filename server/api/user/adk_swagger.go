@@ -4,14 +4,43 @@ package user
 // These endpoints are served by the Google ADK router, not by our handlers.
 // The annotations here exist solely to include them in the Swagger spec.
 
+// RunAgentRequest is the body for /run and /run_sse. Both camelCase and
+// snake_case field names are accepted (snake_case is converted automatically).
+type RunAgentRequest struct {
+	AppName    string              `json:"appName" example:"550e8400-e29b-41d4-a716-446655440000"`
+	UserID     string              `json:"userId" example:"user1"`
+	SessionID  string              `json:"sessionId" example:"f47ac10b-58cc-4372-a567-0e02b2c3d479"`
+	NewMessage RunAgentMessage     `json:"newMessage"`
+	Streaming  bool                `json:"streaming,omitempty" example:"false"`
+	StateDelta map[string]interface{} `json:"stateDelta,omitempty"`
+}
+
+// RunAgentMessage is the user message sent to an agent.
+type RunAgentMessage struct {
+	Role  string                `json:"role" example:"user"`
+	Parts []RunAgentMessagePart `json:"parts"`
+}
+
+// RunAgentMessagePart is a single part of a message (text or inline data).
+type RunAgentMessagePart struct {
+	Text       string                 `json:"text,omitempty" example:"Hello!"`
+	InlineData *RunAgentInlineData    `json:"inlineData,omitempty"`
+}
+
+// RunAgentInlineData represents a binary blob sent inline (base64-encoded).
+type RunAgentInlineData struct {
+	MIMEType string `json:"mimeType" example:"image/png"`
+	Data     string `json:"data" example:"iVBORw0KGgo..."`
+}
+
 // RunAgent executes an agent synchronously.
-// @Summary      Run agent
-// @Description  Send a message to an agent and receive the full response. The app_name is the agent ID.
+// @Summary      Run agent (accepts both camelCase and snake_case)
+// @Description  Send a message to an agent and receive the full response. The appName is the agent ID. Both camelCase (canonical) and snake_case field names are accepted at every nesting level — a normalization middleware converts snake_case keys to camelCase recursively before the request reaches the ADK handler.
 // @Tags         agent
 // @Accept       json
 // @Produce      json
-// @Param        body  body      object  true  "Run request with app_name, user_id, session_id, and new_message"
-// @Success      200   {object}  object  "Agent response"
+// @Param        body  body      RunAgentRequest  true  "ADK run request"
+// @Success      200   {array}   object           "Array of agent response events"
 // @Failure      400   {object}  ErrorResponse
 // @Failure      404   {object}  ErrorResponse
 // @Security     BearerAuth
@@ -19,13 +48,13 @@ package user
 func (h *Handler) RunAgent() {}
 
 // RunAgentSSE executes an agent with streaming via Server-Sent Events.
-// @Summary      Run agent (SSE streaming)
-// @Description  Send a message to an agent and receive the response streamed as Server-Sent Events.
+// @Summary      Run agent SSE (accepts both camelCase and snake_case)
+// @Description  Send a message to an agent and receive the response streamed as Server-Sent Events. Both camelCase (canonical) and snake_case field names are accepted at every nesting level — a normalization middleware converts snake_case keys to camelCase recursively before the request reaches the ADK handler.
 // @Tags         agent
 // @Accept       json
 // @Produce      text/event-stream
-// @Param        body  body      object  true  "Run request with app_name, user_id, session_id, and new_message"
-// @Success      200   {object}  object  "SSE event stream"
+// @Param        body  body      RunAgentRequest  true  "ADK run request"
+// @Success      200   {object}  object           "SSE event stream"
 // @Failure      400   {object}  ErrorResponse
 // @Failure      404   {object}  ErrorResponse
 // @Security     BearerAuth
