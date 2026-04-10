@@ -113,6 +113,7 @@ type wakeWordModel struct {
 }
 
 // NewDetector creates a new wake word detector
+// NewDetector creates a new instance of the wake word and VAD detector.
 func NewDetector(config DetectorConfig, logger *slog.Logger) *Detector {
 	return &Detector{
 		config:           config,
@@ -151,6 +152,7 @@ func (d *Detector) GetActiveModel() string {
 }
 
 // Load initializes the ONNX models
+// Load initializes the ONNX runtime and loads the configured models into memory.
 func (d *Detector) Load() error {
 	d.logger.Info("Loading wake word models",
 		"models", len(d.config.Models),
@@ -536,6 +538,7 @@ func (d *Detector) runWakeWordModel(session *ort.DynamicAdvancedSession, feature
 }
 
 // Close releases all resources
+// Close shuts down the ONNX sessions and frees allocated C memory.
 func (d *Detector) Close() {
 	if d.melspecSession != nil {
 		d.melspecSession.Destroy()

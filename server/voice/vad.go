@@ -261,6 +261,7 @@ func (v *VAD) IsSpeaking() bool {
 }
 
 // Close releases all resources
+// Close frees the ONNX session memory.
 func (v *VAD) Close() {
 	if v.session != nil {
 		v.session.Destroy()
