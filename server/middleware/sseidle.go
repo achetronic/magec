@@ -25,6 +25,9 @@ func (w *sseIdleWriter) Unwrap() http.ResponseWriter {
 	return w.ResponseWriter
 }
 
+// SSEIdleTimeout wraps an HTTP handler to automatically timeout
+// long-running Server-Sent Events (/run_sse) requests if no data
+// is written to the response within the specified duration.
 func SSEIdleTimeout(next http.Handler, timeout time.Duration) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !(strings.HasSuffix(r.URL.Path, "/run_sse") && r.Method == "POST") {
