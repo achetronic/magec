@@ -35,7 +35,7 @@
           :class="step.responseAgent
             ? 'bg-green-500/15 text-green-400 hover:bg-green-500/25'
             : 'text-arena-600 hover:text-arena-400 hover:bg-piedra-700/60'"
-          :title="step.responseAgent ? 'This agent emits the final flow response' : 'Include this agent\'s output in the flow response'">
+          :title="step.responseAgent ? 'This agent emits the final flow response' : 'Include this output in the flow response'">
           <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
             <path stroke-linecap="round" stroke-linejoin="round" d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.087.16 2.185.283 3.293.369V21l4.076-4.076a1.526 1.526 0 0 1 1.037-.443 48.2 48.2 0 0 0 5.887-.512c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.4 48.4 0 0 0 12 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018Z" />
           </svg>
@@ -105,7 +105,8 @@
 
     <div
       ref="dropZoneRef"
-      class="flow-drop-zone p-4 min-h-[80px]"
+      class="flow-drop-zone p-4 min-h-[80px] transition-colors duration-200 rounded-b-xl"
+      :class="dropHighlight ? 'bg-white/5' : ''"
       @dragenter.stop="onDragEnter"
       @dragover.prevent.stop="onDragOver"
       @dragleave.stop="onDragLeave"
@@ -196,7 +197,7 @@ function ghostStep(type) {
 const dropZoneRef      = ref(null)
 const dropHighlight    = ref(false)
 const placeholderIndex = ref(null)
-const DEAD_ZONE        = 12
+const DEAD_ZONE        = 32
 
 function makePlaceholder() {
   return {
@@ -325,7 +326,14 @@ function onDragChange() {
 const pickerOpen = ref(false)
 
 function toggleAgentPicker() { pickerOpen.value = !pickerOpen.value }
-function pickAgent(id)       { pickerOpen.value = false; emit('update', { ...props.step, agentId: id }) }
+function pickAgent(id) { 
+  pickerOpen.value = false
+  const picked = props.agents.find(a => a.id === id)
+  emit('update', { 
+    ...props.step, 
+    agentId: id
+  }) 
+}
 function toggleResponse()    { emit('update', { ...props.step, responseAgent: !props.step.responseAgent }) }
 
 function onClickOutside() { if (pickerOpen.value) pickerOpen.value = false }
@@ -391,8 +399,18 @@ function editIterations() {
 </script>
 
 <style scoped>
-.flow-ghost { opacity: 0.25; border-radius: 0.75rem; }
-.flow-drag  { opacity: 0.95; transform: rotate(1deg); }
+.flow-ghost { 
+  opacity: 0.4; 
+  border-radius: 0.75rem; 
+  outline: 2px dashed rgba(250,204,21,0.5); 
+  outline-offset: 2px; 
+}
+.flow-drag  { 
+  opacity: 0.95; 
+  transform: scale(1.02) rotate(1deg); 
+  cursor: grabbing !important; 
+  box-shadow: 0 10px 25px -5px rgba(0,0,0,0.5); 
+}
 
 .flow-agent,
 .flow-container { position: relative; }

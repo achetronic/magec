@@ -37,7 +37,7 @@
       <!-- Sidebar -->
       <Transition name="sidebar">
         <div v-if="sidebarOpen" class="flow-sidebar">
-          <span class="text-[9px] text-arena-500 uppercase tracking-wider font-semibold px-1">Agents</span>
+          <span class="text-[9px] text-arena-500 uppercase tracking-wider font-semibold px-1">Nodes</span>
           <div
             class="flow-toolbar-item"
             :class="agentItem.cls"
@@ -56,7 +56,7 @@
 
           <div class="border-t border-piedra-700/40 my-0.5"></div>
 
-          <span class="text-[9px] text-arena-500 uppercase tracking-wider font-semibold px-1">Flow</span>
+          <span class="text-[9px] text-arena-500 uppercase tracking-wider font-semibold px-1">Containers</span>
           <div
             v-for="item in flowItems"
             :key="item.subtype"
@@ -285,7 +285,10 @@ const flowItems = [
 function onToolbarDragStart(e, item) {
   const dragType = item.type === 'agent' ? 'agent' : item.subtype
   e.dataTransfer.effectAllowed = 'copy'
-  e.dataTransfer.setData('text/plain', JSON.stringify({ type: dragType, fromToolbar: true }))
+  e.dataTransfer.setData('text/plain', JSON.stringify({ 
+    type: dragType, 
+    fromToolbar: true 
+  }))
   document.body.dataset.toolbarDragType = dragType
 }
 

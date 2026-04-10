@@ -181,22 +181,27 @@ const hasFilters = computed(() => filterAgent.value || filterSource.value)
 const hasMore = computed(() => conversations.value.length < totalCount.value)
 
 const grouped = computed(() => {
-  const seen = new Map()
   const result = []
+  const activePairs = new Map()
+
   for (const c of conversations.value) {
     const key = `${c.sessionId}::${c.agentId}`
-    const existing = seen.get(key)
-    if (!existing) {
-      seen.set(key, { ...c, hasPair: false })
-      result.push(seen.get(key))
-    } else {
-      existing.hasPair = true
-      if (c.perspective === 'user' && existing.perspective !== 'user') {
-        existing.id = c.id
-        existing.perspective = c.perspective
-        existing.preview = c.preview || existing.preview
-        existing.summary = c.summary || existing.summary
-      }
+    let pair = activePairs.get(key)
+
+    if (!pair || pair[c.perspective]) {
+      pair = { hasPair: false, admin: null, user: null, merged: { ...c } }
+      activePairs.set(key, pair)
+      result.push(pair.merged)
+    }
+
+    pair[c.perspective] = c
+    pair.merged.hasPair = !!(pair.admin && pair.user)
+
+    if (c.perspective === 'user') {
+      pair.merged.id = c.id
+      pair.merged.perspective = c.perspective
+      pair.merged.preview = c.preview || pair.merged.preview
+      pair.merged.summary = c.summary || pair.merged.summary
     }
   }
   return result

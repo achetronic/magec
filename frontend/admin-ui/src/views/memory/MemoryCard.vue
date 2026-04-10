@@ -1,10 +1,5 @@
 <template>
-  <div
-    class="bg-piedra-900 border rounded-xl p-4 transition-all duration-200"
-    :class="active
-      ? 'border-piedra-700/50 hover:border-green-500/15 hover:shadow-[0_0_15px_-3px_rgba(74,222,128,0.04)]'
-      : 'border-piedra-700/50 hover:border-piedra-600/50'"
-  >
+  <Card color="green" :class="active ? '!border-green-500/30 ring-1 ring-green-500/10' : ''">
     <div class="flex items-start gap-3">
       <!-- Radio toggle -->
       <button
@@ -68,13 +63,14 @@
         </div>
       </div>
     </div>
-  </div>
+  </Card>
 </template>
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useDataStore } from '../../lib/stores/data.js'
 import { memoryApi } from '../../lib/api/index.js'
+import Card from '../../components/Card.vue'
 import Badge from '../../components/Badge.vue'
 import Icon from '../../components/Icon.vue'
 

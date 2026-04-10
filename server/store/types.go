@@ -229,7 +229,7 @@ const (
 )
 
 // FlowStep is a recursive node in a flow tree.
-// Leaf nodes have Type "agent" and reference an AgentDefinition by ID.
+// Leaf nodes have Type "agent" and reference an AgentDefinition or FlowDefinition by ID.
 // Container nodes have Type "sequential", "parallel", or "loop" and hold
 // child steps. Loop nodes additionally specify MaxIterations.
 // ResponseAgent marks an agent node whose output should be included in the
@@ -244,7 +244,7 @@ type FlowStep struct {
 }
 
 // ResponseAgentIDs walks the flow tree and returns the agent IDs of all
-// steps marked with ResponseAgent. Returns nil if none are marked.
+// steps marked with ResponseAgent.
 func (f *FlowDefinition) ResponseAgentIDs() []string {
 	var ids []string
 	collectResponseAgents(&f.Root, &ids)
@@ -252,8 +252,10 @@ func (f *FlowDefinition) ResponseAgentIDs() []string {
 }
 
 func collectResponseAgents(step *FlowStep, ids *[]string) {
-	if step.Type == FlowStepAgent && step.ResponseAgent && step.AgentID != "" {
-		*ids = append(*ids, step.AgentID)
+	if step.Type == FlowStepAgent {
+		if step.AgentID != "" && step.ResponseAgent {
+			*ids = append(*ids, step.AgentID)
+		}
 	}
 	for i := range step.Steps {
 		collectResponseAgents(&step.Steps[i], ids)

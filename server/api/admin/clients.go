@@ -159,8 +159,8 @@ func (h *Handler) regenerateClientToken(w http.ResponseWriter, r *http.Request) 
 
 // ClientTypeInfo represents a registered client type with its JSON Schema.
 type ClientTypeInfo struct {
-	Type         string        `json:"type" example:"telegram"`
-	DisplayName  string        `json:"displayName" example:"Telegram"`
+	Type         string         `json:"type" example:"telegram"`
+	DisplayName  string         `json:"displayName" example:"Telegram"`
 	ConfigSchema clients.Schema `json:"configSchema"`
 }
 

@@ -54,10 +54,10 @@ type SSEEvent struct {
 
 // UsageMetadata holds token count information from the LLM.
 type UsageMetadata struct {
-	PromptTokens     int
-	CandidateTokens  int
-	TotalTokens      int
-	CachedTokens     int
+	PromptTokens    int
+	CandidateTokens int
+	TotalTokens     int
+	CachedTokens    int
 }
 
 // ParseSSEStream reads a /run_sse response body and calls handler for each
@@ -294,57 +294,31 @@ func FormatToolCallTelegram(evt SSEEvent) string {
 
 // FormatToolCallDiscord formats a single tool call for Discord.
 func FormatToolCallDiscord(evt SSEEvent) string {
-	lines := humanArgLines(evt.ToolArgs)
-	if len(lines) == 0 {
-		return fmt.Sprintf("> 🔧 **%s**", evt.ToolName)
-	}
-	var b strings.Builder
-	b.WriteString(fmt.Sprintf("> 🔧 **%s**\n", evt.ToolName))
-	for _, l := range lines {
-		b.WriteString(fmt.Sprintf("> **%s**: %s\n", l.Key, l.Value))
-	}
-	return strings.TrimRight(b.String(), "\n")
+	return fmt.Sprintf("🔧 **%s** — started", evt.ToolName)
 }
 
 // FormatToolCallSlack formats a single tool call for Slack.
 func FormatToolCallSlack(evt SSEEvent) string {
-	lines := humanArgLines(evt.ToolArgs)
-	if len(lines) == 0 {
-		return fmt.Sprintf("> 🔧 *%s*", evt.ToolName)
-	}
-	var b strings.Builder
-	b.WriteString(fmt.Sprintf("> 🔧 *%s*\n", evt.ToolName))
-	for _, l := range lines {
-		b.WriteString(fmt.Sprintf("> *%s*: %s\n", l.Key, l.Value))
-	}
-	return strings.TrimRight(b.String(), "\n")
+	return fmt.Sprintf("🔧 *%s* — started", evt.ToolName)
 }
 
 // FormatToolResultTelegram formats a tool result as a Telegram expandable blockquote.
 func FormatToolResultTelegram(evt SSEEvent) string {
 	result := prettyResult(evt.ToolResult)
 	if result == "" {
-		return fmt.Sprintf("<blockquote>📎 <b>%s</b> → (empty)</blockquote>", escapeHTML(evt.ToolName))
+		return fmt.Sprintf("<blockquote>✅ <b>%s</b> → (empty)</blockquote>", escapeHTML(evt.ToolName))
 	}
-	return fmt.Sprintf("<blockquote expandable>📎 <b>%s</b>\n%s</blockquote>", escapeHTML(evt.ToolName), escapeHTML(result))
+	return fmt.Sprintf("<blockquote expandable>✅ <b>%s</b>\n%s</blockquote>", escapeHTML(evt.ToolName), escapeHTML(result))
 }
 
 // FormatToolResultDiscord formats a tool result for Discord.
 func FormatToolResultDiscord(evt SSEEvent) string {
-	result := prettyResult(evt.ToolResult)
-	if result == "" {
-		return fmt.Sprintf("> 📎 **%s** → (empty)", evt.ToolName)
-	}
-	return fmt.Sprintf("📎 **%s**\n```\n%s\n```", evt.ToolName, result)
+	return fmt.Sprintf("✅ **%s** — completed", evt.ToolName)
 }
 
 // FormatToolResultSlack formats a tool result for Slack.
 func FormatToolResultSlack(evt SSEEvent) string {
-	result := prettyResult(evt.ToolResult)
-	if result == "" {
-		return fmt.Sprintf("> 📎 *%s* → (empty)", evt.ToolName)
-	}
-	return fmt.Sprintf("📎 *%s*\n```\n%s\n```", evt.ToolName, result)
+	return fmt.Sprintf("✅ *%s* — completed", evt.ToolName)
 }
 
 // argLine holds a key-value pair from tool arguments.

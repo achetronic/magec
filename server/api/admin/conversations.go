@@ -243,6 +243,10 @@ func (h *Handler) resetConversationSession(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	// Close the current conversation logs so the next message starts a new one
+	_ = h.conversations.CloseBySession(convo.SessionID, convo.AgentID, "admin")
+	_ = h.conversations.CloseBySession(convo.SessionID, convo.AgentID, "user")
+
 	writeJSON(w, http.StatusOK, map[string]interface{}{
 		"message":   "Session reset successfully",
 		"agentId":   convo.AgentID,
@@ -263,12 +267,7 @@ func (h *Handler) findPerspectivePair(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	otherPerspective := "admin"
-	if convo.Perspective == "admin" {
-		otherPerspective = "user"
-	}
-
-	pair, found := h.conversations.FindBySession(convo.SessionID, convo.AgentID, otherPerspective)
+	pair, found := h.conversations.FindExactPair(convo.ID, convo.SessionID, convo.AgentID, convo.Perspective)
 	if !found {
 		writeJSON(w, http.StatusOK, map[string]interface{}{"pairId": nil})
 		return

@@ -9,11 +9,14 @@ import (
 	toolsartifacts "github.com/achetronic/magec/server/agent/tools/artifacts"
 )
 
+// baseToolset bundles built-in tools (like artifacts) that are injected into
+// every agent by default, enabling standard capabilities across the board.
 type baseToolset struct {
 	tools         []tool.Tool
 	artifactTools *toolsartifacts.Toolset
 }
 
+// newBaseToolset creates a new baseToolset containing the artifact tools.
 func newBaseToolset() (*baseToolset, error) {
 	artifactTs, err := toolsartifacts.NewToolset()
 	if err != nil {

@@ -22,6 +22,9 @@ import (
 
 const protocolVersion = "0.2.5"
 
+// Handler manages Agent-to-Agent (A2A) protocol endpoints.
+// It maintains dynamic JSON-RPC handlers and Agent Cards for every agent
+// or flow that has A2A enabled in its configuration.
 type Handler struct {
 	mu        sync.RWMutex
 	handlers  map[string]http.Handler // agentID → JSON-RPC handler
@@ -29,6 +32,7 @@ type Handler struct {
 	publicURL string
 }
 
+// NewHandler creates a new A2A handler bound to the given public URL.
 func NewHandler(publicURL string) *Handler {
 	return &Handler{
 		handlers:  make(map[string]http.Handler),
@@ -37,6 +41,8 @@ func NewHandler(publicURL string) *Handler {
 	}
 }
 
+// Rebuild regenerates the A2A endpoints and Agent Cards based on the current
+// configuration of agents and flows. It should be called whenever the store changes.
 func (h *Handler) Rebuild(agents []store.AgentDefinition, flows []store.FlowDefinition, adkAgents map[string]agent.Agent, sessionSvc session.Service, memorySvc memory.Service) {
 	handlers := make(map[string]http.Handler)
 	cards := make(map[string]*a2a.AgentCard)
@@ -115,6 +121,8 @@ func (h *Handler) Rebuild(agents []store.AgentDefinition, flows []store.FlowDefi
 const a2aPrefix = "/api/v1/a2a/"
 const wellKnownSuffix = "/.well-known/agent-card.json"
 
+// ServeA2A routes incoming HTTP requests to either the JSON-RPC execution
+// handler or the well-known Agent Card discovery endpoints.
 func (h *Handler) ServeA2A(w http.ResponseWriter, r *http.Request) {
 	path := r.URL.Path
 	rest := strings.TrimPrefix(path, a2aPrefix)

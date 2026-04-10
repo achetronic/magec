@@ -179,7 +179,7 @@
             <div
               v-if="msg.content"
               class="text-[13px] leading-[1.7] text-arena-300 prose-content"
-              v-html="renderMarkdown(msg.content)"
+              v-html="renderMarkdown(stripMetadata(msg.content))"
             />
 
             <!-- Tool calls -->
@@ -241,6 +241,7 @@ import { ref, reactive, computed, watch, inject, onBeforeUnmount } from 'vue'
 import { marked } from 'marked'
 import { conversationsApi } from '../../lib/api/index.js'
 import { useDataStore } from '../../lib/stores/data.js'
+import { stripMetadata } from '../../lib/metadata.js'
 import Badge from '../../components/Badge.vue'
 import Icon from '../../components/Icon.vue'
 import EmptyState from '../../components/EmptyState.vue'
@@ -531,7 +532,7 @@ async function handleExportPDF() {
       const toolsHtml = (m.toolCalls || []).map(tc =>
         `<div class="tool"><span class="tool-name">⚡ ${tc.name}</span>${tc.args ? `<pre>${JSON.stringify(tc.args, null, 2)}</pre>` : ''}${tc.result ? `<pre class="tool-result">${JSON.stringify(tc.result, null, 2)}</pre>` : ''}</div>`
       ).join('')
-      return `<div class="msg ${m.role}"><div class="msg-header"><span class="author">${author}</span><span class="time">${time}</span></div>${m.content ? `<div class="content">${marked.parse(m.content)}</div>` : ''}${toolsHtml}</div>`
+      return `<div class="msg ${m.role}"><div class="msg-header"><span class="author">${author}</span><span class="time">${time}</span></div>${m.content ? `<div class="content">${marked.parse(stripMetadata(m.content))}</div>` : ''}${toolsHtml}</div>`
     }).join('')
 
     const sections = perspectives.map((p) => {

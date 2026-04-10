@@ -82,6 +82,8 @@ type Client struct {
 
 	showToolsMu sync.RWMutex
 	showTools   bool
+
+	botUsername string
 }
 
 // New creates a Telegram client ready to be started. It validates the bot token
@@ -119,6 +121,7 @@ func (c *Client) Start(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to get bot info: %w", err)
 	}
+	c.botUsername = botUser.Username
 	c.logger.Info("Telegram bot started", "username", botUser.Username)
 
 	pollCtx, cancel := context.WithCancel(ctx)
@@ -168,10 +171,10 @@ func (c *Client) Start(ctx context.Context) error {
 	})
 
 	handler.HandleMessage(func(ctx *th.Context, msg telego.Message) error {
-		c.logger.Info("Text handler triggered", "chat_id", msg.Chat.ID, "user_id", msg.From.ID, "text", msg.Text)
+		c.logger.Info("Message handler triggered", "chat_id", msg.Chat.ID, "user_id", msg.From.ID)
 		return c.handleMessage(ctx, msg)
 	}, func(_ context.Context, update telego.Update) bool {
-		return update.Message != nil && update.Message.Voice == nil && update.Message.Text != ""
+		return update.Message != nil && update.Message.Voice == nil
 	})
 
 	c.handler.Start()
@@ -312,9 +315,10 @@ func (c *Client) handleAgentCommand(ctx *th.Context, msg telego.Message) error {
 		}
 
 		_, _ = ctx.Bot().SendMessage(ctx, &telego.SendMessageParams{
-			ChatID:    tu.ID(msg.Chat.ID),
-			Text:      fmt.Sprintf("*Active agent:* %s\n\n*Available agents:*\n%s\nUsage: `/agent <id>`", currentLabel, agentList),
-			ParseMode: "Markdown",
+			ChatID:          tu.ID(msg.Chat.ID),
+			MessageThreadID: msg.MessageThreadID,
+			Text:            fmt.Sprintf("*Active agent:* %s\n\n*Available agents:*\n%s\nUsage: `/agent <id>`", currentLabel, agentList),
+			ParseMode:       "Markdown",
 		})
 		return nil
 	}
@@ -325,9 +329,10 @@ func (c *Client) handleAgentCommand(ctx *th.Context, msg telego.Message) error {
 			ids = append(ids, "`"+a.ID+"`")
 		}
 		_, _ = ctx.Bot().SendMessage(ctx, &telego.SendMessageParams{
-			ChatID:    tu.ID(msg.Chat.ID),
-			Text:      fmt.Sprintf("Unknown agent `%s`. Available: %s", args, strings.Join(ids, ", ")),
-			ParseMode: "Markdown",
+			ChatID:          tu.ID(msg.Chat.ID),
+			MessageThreadID: msg.MessageThreadID,
+			Text:            fmt.Sprintf("Unknown agent `%s`. Available: %s", args, strings.Join(ids, ", ")),
+			ParseMode:       "Markdown",
 		})
 		return nil
 	}
@@ -336,9 +341,10 @@ func (c *Client) handleAgentCommand(ctx *th.Context, msg telego.Message) error {
 	c.logger.Info("Agent switched", "chat_id", msg.Chat.ID, "user_id", msg.From.ID, "agent", args)
 
 	_, _ = ctx.Bot().SendMessage(ctx, &telego.SendMessageParams{
-		ChatID:    tu.ID(msg.Chat.ID),
-		Text:      fmt.Sprintf("Switched to agent *%s* (`%s`)", agentLabel(c.getAgentInfo(args), args), args),
-		ParseMode: "Markdown",
+		ChatID:          tu.ID(msg.Chat.ID),
+		MessageThreadID: msg.MessageThreadID,
+		Text:            fmt.Sprintf("Switched to agent *%s* (`%s`)", agentLabel(c.getAgentInfo(args), args), args),
+		ParseMode:       "Markdown",
 	})
 	return nil
 }
@@ -354,8 +360,9 @@ func (c *Client) handleResetCommand(ctx *th.Context, msg telego.Message) error {
 	if err := c.deleteSession(agentID, sessionID); err != nil {
 		c.logger.Error("Failed to delete session", "error", err)
 		_, _ = ctx.Bot().SendMessage(ctx, &telego.SendMessageParams{
-			ChatID: tu.ID(msg.Chat.ID),
-			Text:   "Failed to reset session.",
+			ChatID:          tu.ID(msg.Chat.ID),
+			MessageThreadID: msg.MessageThreadID,
+			Text:            "Failed to reset session.",
 		})
 		return nil
 	}
@@ -368,38 +375,115 @@ func (c *Client) handleResetCommand(ctx *th.Context, msg telego.Message) error {
 	)
 
 	_, _ = ctx.Bot().SendMessage(ctx, &telego.SendMessageParams{
-		ChatID:    tu.ID(msg.Chat.ID),
-		Text:      fmt.Sprintf("Session reset for *%s*. Next message starts a fresh conversation.", agentLabel(c.getAgentInfo(agentID), agentID)),
-		ParseMode: "Markdown",
+		ChatID:          tu.ID(msg.Chat.ID),
+		MessageThreadID: msg.MessageThreadID,
+		Text:            fmt.Sprintf("Session reset for *%s*. Next message starts a fresh conversation.", agentLabel(c.getAgentInfo(agentID), agentID)),
+		ParseMode:       "Markdown",
 	})
 	return nil
 }
 
-// handleMessage processes a regular text message: checks permissions, sends a
+func (c *Client) getFileAttachment(msg telego.Message) (string, string) {
+	if msg.Document != nil {
+		mime := msg.Document.MimeType
+		if mime == "" {
+			mime = "application/octet-stream"
+		}
+		return msg.Document.FileID, mime
+	}
+	if len(msg.Photo) > 0 {
+		return msg.Photo[len(msg.Photo)-1].FileID, "image/jpeg"
+	}
+	if msg.Video != nil {
+		mime := msg.Video.MimeType
+		if mime == "" {
+			mime = "video/mp4"
+		}
+		return msg.Video.FileID, mime
+	}
+	if msg.Audio != nil {
+		mime := msg.Audio.MimeType
+		if mime == "" {
+			mime = "audio/mpeg"
+		}
+		return msg.Audio.FileID, mime
+	}
+	if msg.Animation != nil {
+		mime := msg.Animation.MimeType
+		if mime == "" {
+			mime = "video/mp4"
+		}
+		return msg.Animation.FileID, mime
+	}
+	if msg.VideoNote != nil {
+		return msg.VideoNote.FileID, "video/mp4"
+	}
+	if msg.Sticker != nil && !msg.Sticker.IsAnimated && !msg.Sticker.IsVideo {
+		return msg.Sticker.FileID, "image/webp"
+	}
+	return "", ""
+}
+
+// handleMessage processes a regular text or multimodal message: checks permissions, sends a
 // typing indicator, forwards the text to the active agent via SSE, and delivers
 // each response event incrementally.
 func (c *Client) handleMessage(ctx *th.Context, msg telego.Message) error {
-	if msg.Text == "" {
+	text := msg.Text
+	if text == "" {
+		text = msg.Caption
+	}
+	fileID, mimeType := c.getFileAttachment(msg)
+
+	if text == "" && fileID == "" {
 		return nil
 	}
+
+	if msg.Chat.Type == "group" || msg.Chat.Type == "supergroup" {
+		mention := "@" + c.botUsername
+		if !strings.Contains(text, mention) {
+			return nil
+		}
+		text = strings.TrimSpace(strings.ReplaceAll(text, mention, ""))
+	}
+
 	if !c.isAllowed(msg.From.ID, msg.Chat.ID) {
 		c.logger.Debug("Unauthorized access attempt", "user_id", msg.From.ID, "chat_id", msg.Chat.ID)
 		return nil
 	}
 
-	c.logger.Info("Received message", "user_id", msg.From.ID, "chat_id", msg.Chat.ID, "text", msg.Text)
+	c.logger.Info("Received message", "user_id", msg.From.ID, "chat_id", msg.Chat.ID, "text", text)
 	c.setReaction(ctx, msg.Chat.ID, msg.MessageID, "👀")
 	_ = ctx.Bot().SendChatAction(ctx, &telego.SendChatActionParams{
-		ChatID: tu.ID(msg.Chat.ID),
-		Action: telego.ChatActionTyping,
+		ChatID:          tu.ID(msg.Chat.ID),
+		MessageThreadID: msg.MessageThreadID,
+		Action:          telego.ChatActionTyping,
 	})
 	c.setReaction(ctx, msg.Chat.ID, msg.MessageID, "🧠")
 
-	typingDone := c.startTypingLoop(ctx, msg.Chat.ID)
+	typingDone := c.startTypingLoop(ctx, msg.Chat.ID, msg.MessageThreadID)
 
-	inputText, truncated := msgutil.ValidateInputLength(msg.Text, msgutil.DefaultMaxInputLength)
+	var inlineDataParts []map[string]interface{}
+	if fileID != "" {
+		file, err := ctx.Bot().GetFile(ctx, &telego.GetFileParams{FileID: fileID})
+		if err == nil {
+			fileURL := fmt.Sprintf("https://api.telegram.org/file/bot%s/%s", c.clientDef.Config.Telegram.BotToken, file.FilePath)
+			data, err := c.downloadFile(fileURL)
+			if err == nil && len(data) <= 5*1024*1024 {
+				inlineDataParts = append(inlineDataParts, map[string]interface{}{
+					"inlineData": map[string]interface{}{
+						"mimeType": mimeType,
+						"data":     base64.StdEncoding.EncodeToString(data),
+					},
+				})
+			} else if len(data) > 5*1024*1024 {
+				c.logger.Warn("File too large to process", "size", len(data))
+			}
+		}
+	}
+
+	inputText, truncated := msgutil.ValidateInputLength(text, msgutil.DefaultMaxInputLength)
 	if truncated {
-		c.logger.Warn("Inbound message truncated", "chat_id", msg.Chat.ID, "original_len", len([]rune(msg.Text)))
+		c.logger.Warn("Inbound message truncated", "chat_id", msg.Chat.ID, "original_len", len([]rune(text)))
 	}
 
 	agentID := c.getActiveAgentID(msg.Chat.ID)
@@ -415,7 +499,7 @@ func (c *Client) handleMessage(ctx *th.Context, msg telego.Message) error {
 	toolCount := 0
 	var toolCounterMsgID int
 
-	err := c.callAgentSSE(msg, agentID, sessionID, inputText, func(evt msgutil.SSEEvent) {
+	err := c.callAgentSSE(msg, agentID, sessionID, inputText, inlineDataParts, func(evt msgutil.SSEEvent) {
 		eventCount++
 		if evt.FinishReason != "" {
 			lastFinishReason = evt.FinishReason
@@ -431,17 +515,18 @@ func (c *Client) handleMessage(ctx *th.Context, msg telego.Message) error {
 			hasText = true
 			toolCount = 0
 			toolCounterMsgID = 0
-			c.sendTextResponse(ctx, msg.Chat.ID, evt.Text, false)
+			c.sendTextResponse(ctx, msg.Chat.ID, msg.MessageThreadID, evt.Text, false)
 		case msgutil.SSEEventToolCall:
 			hasToolActivity = true
-			toolCounterMsgID = c.sendToolCounter(ctx, msg.Chat.ID, toolCounterMsgID, &toolCount, evt)
+			toolCounterMsgID = c.sendToolCounter(ctx, msg.Chat.ID, msg.MessageThreadID, toolCounterMsgID, &toolCount, evt)
 		case msgutil.SSEEventToolResult:
 			hasToolActivity = true
 			if c.getShowTools() {
 				_, _ = ctx.Bot().SendMessage(ctx, &telego.SendMessageParams{
-					ChatID:    tu.ID(msg.Chat.ID),
-					Text:      msgutil.FormatToolResultTelegram(evt),
-					ParseMode: "HTML",
+					ChatID:          tu.ID(msg.Chat.ID),
+					MessageThreadID: msg.MessageThreadID,
+					Text:            msgutil.FormatToolResultTelegram(evt),
+					ParseMode:       "HTML",
 				})
 			}
 		case msgutil.SSEEventError:
@@ -483,7 +568,7 @@ func (c *Client) handleMessage(ctx *th.Context, msg telego.Message) error {
 	}
 
 	c.setReaction(ctx, msg.Chat.ID, msg.MessageID, "👍")
-	c.sendNewArtifacts(ctx, msg.Chat.ID, agentID, userIDStr, sessionID, artifactsBefore)
+	c.sendNewArtifacts(ctx, msg.Chat.ID, msg.MessageThreadID, agentID, userIDStr, sessionID, artifactsBefore)
 
 	return nil
 }
@@ -499,11 +584,20 @@ func (c *Client) handleVoice(ctx *th.Context, msg telego.Message) error {
 		return nil
 	}
 
+	if msg.Chat.Type == "group" || msg.Chat.Type == "supergroup" {
+		mention := "@" + c.botUsername
+		if !strings.Contains(msg.Caption, mention) {
+			return nil
+		}
+		msg.Caption = strings.TrimSpace(strings.ReplaceAll(msg.Caption, mention, ""))
+	}
+
 	c.logger.Info("Received voice message", "user_id", msg.From.ID, "chat_id", msg.Chat.ID, "duration", msg.Voice.Duration)
 	c.setReaction(ctx, msg.Chat.ID, msg.MessageID, "👀")
 	_ = ctx.Bot().SendChatAction(ctx, &telego.SendChatActionParams{
-		ChatID: tu.ID(msg.Chat.ID),
-		Action: telego.ChatActionTyping,
+		ChatID:          tu.ID(msg.Chat.ID),
+		MessageThreadID: msg.MessageThreadID,
+		Action:          telego.ChatActionTyping,
 	})
 
 	file, err := ctx.Bot().GetFile(ctx, &telego.GetFileParams{FileID: msg.Voice.FileID})
@@ -511,8 +605,9 @@ func (c *Client) handleVoice(ctx *th.Context, msg telego.Message) error {
 		c.logger.Error("Failed to get voice file", "error", err)
 		c.setReaction(ctx, msg.Chat.ID, msg.MessageID, "👎")
 		_, _ = ctx.Bot().SendMessage(ctx, &telego.SendMessageParams{
-			ChatID: tu.ID(msg.Chat.ID),
-			Text:   "Failed to download your voice message. Please try again.",
+			ChatID:          tu.ID(msg.Chat.ID),
+			MessageThreadID: msg.MessageThreadID,
+			Text:            "Failed to download your voice message. Please try again.",
 		})
 		return nil
 	}
@@ -523,8 +618,9 @@ func (c *Client) handleVoice(ctx *th.Context, msg telego.Message) error {
 		c.logger.Error("Failed to download voice file", "error", err)
 		c.setReaction(ctx, msg.Chat.ID, msg.MessageID, "👎")
 		_, _ = ctx.Bot().SendMessage(ctx, &telego.SendMessageParams{
-			ChatID: tu.ID(msg.Chat.ID),
-			Text:   "Failed to download your voice message. Please try again.",
+			ChatID:          tu.ID(msg.Chat.ID),
+			MessageThreadID: msg.MessageThreadID,
+			Text:            "Failed to download your voice message. Please try again.",
 		})
 		return nil
 	}
@@ -535,8 +631,9 @@ func (c *Client) handleVoice(ctx *th.Context, msg telego.Message) error {
 		c.logger.Error("Failed to transcribe audio", "error", err)
 		c.setReaction(ctx, msg.Chat.ID, msg.MessageID, "👎")
 		_, _ = ctx.Bot().SendMessage(ctx, &telego.SendMessageParams{
-			ChatID: tu.ID(msg.Chat.ID),
-			Text:   "Sorry, I couldn't transcribe your voice message.",
+			ChatID:          tu.ID(msg.Chat.ID),
+			MessageThreadID: msg.MessageThreadID,
+			Text:            "Sorry, I couldn't transcribe your voice message.",
 		})
 		return nil
 	}
@@ -544,7 +641,7 @@ func (c *Client) handleVoice(ctx *th.Context, msg telego.Message) error {
 	c.logger.Info("Transcribed voice", "text", text)
 	c.setReaction(ctx, msg.Chat.ID, msg.MessageID, "🧠")
 
-	typingDone := c.startTypingLoop(ctx, msg.Chat.ID)
+	typingDone := c.startTypingLoop(ctx, msg.Chat.ID, msg.MessageThreadID)
 
 	voiceInput, truncated := msgutil.ValidateInputLength(text, msgutil.DefaultMaxInputLength)
 	if truncated {
@@ -562,7 +659,7 @@ func (c *Client) handleVoice(ctx *th.Context, msg telego.Message) error {
 	toolCount := 0
 	var toolCounterMsgID int
 
-	err = c.callAgentSSE(msg, agentID, sessionID, voiceInput, func(evt msgutil.SSEEvent) {
+	err = c.callAgentSSE(msg, agentID, sessionID, voiceInput, nil, func(evt msgutil.SSEEvent) {
 		if evt.FinishReason != "" {
 			lastFinishReason = evt.FinishReason
 		}
@@ -575,17 +672,18 @@ func (c *Client) handleVoice(ctx *th.Context, msg telego.Message) error {
 			lastTextResponse = evt.Text
 			toolCount = 0
 			toolCounterMsgID = 0
-			c.sendTextResponse(ctx, msg.Chat.ID, evt.Text, true)
+			c.sendTextResponse(ctx, msg.Chat.ID, msg.MessageThreadID, evt.Text, true)
 		case msgutil.SSEEventToolCall:
 			hasToolActivity = true
-			toolCounterMsgID = c.sendToolCounter(ctx, msg.Chat.ID, toolCounterMsgID, &toolCount, evt)
+			toolCounterMsgID = c.sendToolCounter(ctx, msg.Chat.ID, msg.MessageThreadID, toolCounterMsgID, &toolCount, evt)
 		case msgutil.SSEEventToolResult:
 			hasToolActivity = true
 			if c.getShowTools() {
 				_, _ = ctx.Bot().SendMessage(ctx, &telego.SendMessageParams{
-					ChatID:    tu.ID(msg.Chat.ID),
-					Text:      msgutil.FormatToolResultTelegram(evt),
-					ParseMode: "HTML",
+					ChatID:          tu.ID(msg.Chat.ID),
+					MessageThreadID: msg.MessageThreadID,
+					Text:            msgutil.FormatToolResultTelegram(evt),
+					ParseMode:       "HTML",
 				})
 			}
 		case msgutil.SSEEventError:
@@ -617,18 +715,18 @@ func (c *Client) handleVoice(ctx *th.Context, msg telego.Message) error {
 
 	mode := c.getResponseMode()
 	if (mode == ResponseModeVoice || mode == ResponseModeBoth || mode == ResponseModeMirror) && lastTextResponse != "" {
-		c.sendVoiceResponse(ctx, msg.Chat.ID, lastTextResponse, agentID)
+		c.sendVoiceResponse(ctx, msg.Chat.ID, msg.MessageThreadID, lastTextResponse, agentID)
 	}
 
 	c.setReaction(ctx, msg.Chat.ID, msg.MessageID, "👍")
-	c.sendNewArtifacts(ctx, msg.Chat.ID, agentID, userIDStr, sessionID, artifactsBefore)
+	c.sendNewArtifacts(ctx, msg.Chat.ID, msg.MessageThreadID, agentID, userIDStr, sessionID, artifactsBefore)
 
 	return nil
 }
 
 // startTypingLoop sends a typing indicator every 4 seconds until the returned
 // channel is closed. Call close(done) when the agent response is complete.
-func (c *Client) startTypingLoop(ctx *th.Context, chatID int64) chan struct{} {
+func (c *Client) startTypingLoop(ctx *th.Context, chatID int64, threadID int) chan struct{} {
 	done := make(chan struct{})
 	go func() {
 		ticker := time.NewTicker(4 * time.Second)
@@ -639,8 +737,9 @@ func (c *Client) startTypingLoop(ctx *th.Context, chatID int64) chan struct{} {
 				return
 			case <-ticker.C:
 				_ = ctx.Bot().SendChatAction(ctx, &telego.SendChatActionParams{
-					ChatID: tu.ID(chatID),
-					Action: telego.ChatActionTyping,
+					ChatID:          tu.ID(chatID),
+					MessageThreadID: threadID,
+					Action:          telego.ChatActionTyping,
 				})
 			}
 		}
@@ -651,12 +750,13 @@ func (c *Client) startTypingLoop(ctx *th.Context, chatID int64) chan struct{} {
 // sendToolCounter posts or edits a compact tool activity counter in the chat.
 // When showTools is enabled it posts the full tool call instead.
 // Returns the updated message ID for subsequent edits.
-func (c *Client) sendToolCounter(ctx *th.Context, chatID int64, counterMsgID int, toolCount *int, evt msgutil.SSEEvent) int {
+func (c *Client) sendToolCounter(ctx *th.Context, chatID int64, threadID int, counterMsgID int, toolCount *int, evt msgutil.SSEEvent) int {
 	if c.getShowTools() {
 		_, _ = ctx.Bot().SendMessage(ctx, &telego.SendMessageParams{
-			ChatID:    tu.ID(chatID),
-			Text:      msgutil.FormatToolCallTelegram(evt),
-			ParseMode: "HTML",
+			ChatID:          tu.ID(chatID),
+			MessageThreadID: threadID,
+			Text:            msgutil.FormatToolCallTelegram(evt),
+			ParseMode:       "HTML",
 		})
 		return counterMsgID
 	}
@@ -666,8 +766,9 @@ func (c *Client) sendToolCounter(ctx *th.Context, chatID int64, counterMsgID int
 
 	if counterMsgID == 0 {
 		sent, err := ctx.Bot().SendMessage(ctx, &telego.SendMessageParams{
-			ChatID: tu.ID(chatID),
-			Text:   counterText,
+			ChatID:          tu.ID(chatID),
+			MessageThreadID: threadID,
+			Text:            counterText,
 		})
 		if err == nil {
 			return sent.MessageID
@@ -685,7 +786,7 @@ func (c *Client) sendToolCounter(ctx *th.Context, chatID int64, counterMsgID int
 
 // sendTextResponse delivers a text message to the chat, splitting if needed.
 // If inputWasVoice is true and the mode is voice-only or mirror, text is suppressed.
-func (c *Client) sendTextResponse(ctx *th.Context, chatID int64, text string, inputWasVoice bool) {
+func (c *Client) sendTextResponse(ctx *th.Context, chatID int64, threadID int, text string, inputWasVoice bool) {
 	mode := c.getResponseMode()
 	switch mode {
 	case ResponseModeVoice:
@@ -699,8 +800,9 @@ func (c *Client) sendTextResponse(ctx *th.Context, chatID int64, text string, in
 	chunks := msgutil.SplitMessage(text, msgutil.TelegramMaxMessageLength)
 	for _, chunk := range chunks {
 		_, err := ctx.Bot().SendMessage(ctx, &telego.SendMessageParams{
-			ChatID: tu.ID(chatID),
-			Text:   chunk,
+			ChatID:          tu.ID(chatID),
+			MessageThreadID: threadID,
+			Text:            chunk,
 		})
 		if err != nil {
 			c.logger.Error("Failed to send message", "error", err)
@@ -744,9 +846,10 @@ func (c *Client) handleResponseModeCommand(ctx *th.Context, msg telego.Message) 
 		status += fmt.Sprintf("\n*Options:* `%s`, `reset`", strings.Join(validModes, "`, `"))
 
 		_, _ = ctx.Bot().SendMessage(ctx, &telego.SendMessageParams{
-			ChatID:    tu.ID(msg.Chat.ID),
-			Text:      status,
-			ParseMode: "Markdown",
+			ChatID:          tu.ID(msg.Chat.ID),
+			MessageThreadID: msg.MessageThreadID,
+			Text:            status,
+			ParseMode:       "Markdown",
 		})
 		return nil
 	}
@@ -757,18 +860,20 @@ func (c *Client) handleResponseModeCommand(ctx *th.Context, msg telego.Message) 
 		c.responseMu.Unlock()
 		c.logger.Info("Response mode override cleared", "user_id", msg.From.ID, "config_mode", c.clientDef.Config.Telegram.ResponseMode)
 		_, _ = ctx.Bot().SendMessage(ctx, &telego.SendMessageParams{
-			ChatID:    tu.ID(msg.Chat.ID),
-			Text:      fmt.Sprintf("Response mode reset to config default: `%s`", c.clientDef.Config.Telegram.ResponseMode),
-			ParseMode: "Markdown",
+			ChatID:          tu.ID(msg.Chat.ID),
+			MessageThreadID: msg.MessageThreadID,
+			Text:            fmt.Sprintf("Response mode reset to config default: `%s`", c.clientDef.Config.Telegram.ResponseMode),
+			ParseMode:       "Markdown",
 		})
 		return nil
 	}
 
 	if !slices.Contains(validModes, args) {
 		_, _ = ctx.Bot().SendMessage(ctx, &telego.SendMessageParams{
-			ChatID:    tu.ID(msg.Chat.ID),
-			Text:      fmt.Sprintf("Invalid mode `%s`. Valid options: `%s`, `reset`", args, strings.Join(validModes, "`, `")),
-			ParseMode: "Markdown",
+			ChatID:          tu.ID(msg.Chat.ID),
+			MessageThreadID: msg.MessageThreadID,
+			Text:            fmt.Sprintf("Invalid mode `%s`. Valid options: `%s`, `reset`", args, strings.Join(validModes, "`, `")),
+			ParseMode:       "Markdown",
 		})
 		return nil
 	}
@@ -778,9 +883,10 @@ func (c *Client) handleResponseModeCommand(ctx *th.Context, msg telego.Message) 
 	c.responseMu.Unlock()
 	c.logger.Info("Response mode overridden", "user_id", msg.From.ID, "new_mode", args)
 	_, _ = ctx.Bot().SendMessage(ctx, &telego.SendMessageParams{
-		ChatID:    tu.ID(msg.Chat.ID),
-		Text:      fmt.Sprintf("Response mode set to `%s` (until restart)", args),
-		ParseMode: "Markdown",
+		ChatID:          tu.ID(msg.Chat.ID),
+		MessageThreadID: msg.MessageThreadID,
+		Text:            fmt.Sprintf("Response mode set to `%s` (until restart)", args),
+		ParseMode:       "Markdown",
 	})
 	return nil
 }
@@ -806,9 +912,10 @@ func (c *Client) handleShowToolsCommand(ctx *th.Context, msg telego.Message) err
 		label = "ON"
 	}
 	_, _ = ctx.Bot().SendMessage(ctx, &telego.SendMessageParams{
-		ChatID:    tu.ID(msg.Chat.ID),
-		Text:      fmt.Sprintf("🔧 Tool call visibility: *%s*", label),
-		ParseMode: "Markdown",
+		ChatID:          tu.ID(msg.Chat.ID),
+		MessageThreadID: msg.MessageThreadID,
+		Text:            fmt.Sprintf("🔧 Tool call visibility: *%s*", label),
+		ParseMode:       "Markdown",
 	})
 	return nil
 }
@@ -870,24 +977,42 @@ func (c *Client) buildSessionID(chatID int64, threadID int, agentID string) stri
 
 // callAgentSSE sends a user message to the active agent via the /run_sse endpoint
 // and calls handler for each event as it arrives from the SSE stream.
-func (c *Client) callAgentSSE(msg telego.Message, agentID, sessionID, message string, handler func(msgutil.SSEEvent)) error {
+// fetchThreadContext returns prior messages in a thread as context for the agent.
+func (c *Client) fetchThreadContext(chatID int64, threadID int, currentMsgID int) string {
+	if threadID == 0 {
+		return ""
+	}
+	// Telegram Bot API does not provide a direct method to fetch history
+	// inside a topic/thread for bots. We could implement an internal buffer
+	// but the simplest solution is to return an empty string. The agent will
+	// rely on ADK's session memory, which inherently keeps the context per threadID
+	// since the sessionID is scoped to chatID_threadID.
+	return ""
+}
+
+func (c *Client) callAgentSSE(msg telego.Message, agentID, sessionID, textPart string, inlineDataParts []map[string]interface{}, handler func(msgutil.SSEEvent)) error {
 	userIDStr := "default_user"
 
 	if err := c.ensureSession(agentID, userIDStr, sessionID); err != nil {
 		c.logger.Warn("Failed to ensure session, continuing anyway", "error", err)
 	}
 
-	fullMessage := c.buildMessageContext(msg) + message
+	fullMessage := c.buildMessageContext(msg) + c.fetchThreadContext(msg.Chat.ID, msg.MessageThreadID, msg.MessageID) + textPart
+
+	parts := []interface{}{
+		map[string]string{"text": fullMessage},
+	}
+	for _, p := range inlineDataParts {
+		parts = append(parts, p)
+	}
 
 	reqBody := map[string]interface{}{
 		"appName":   agentID,
 		"userId":    userIDStr,
 		"sessionId": sessionID,
 		"newMessage": map[string]interface{}{
-			"role": "user",
-			"parts": []map[string]string{
-				{"text": fullMessage},
-			},
+			"role":  "user",
+			"parts": parts,
 		},
 	}
 
@@ -1073,10 +1198,11 @@ func (c *Client) transcribeAudio(audioData []byte, filePath string, agentID stri
 
 // sendVoiceResponse generates speech audio for the given text via the magec
 // TTS proxy and sends it back to the chat as a Telegram voice message.
-func (c *Client) sendVoiceResponse(ctx *th.Context, chatID int64, text string, agentID string) {
+func (c *Client) sendVoiceResponse(ctx *th.Context, chatID int64, threadID int, text string, agentID string) {
 	_ = ctx.Bot().SendChatAction(ctx, &telego.SendChatActionParams{
-		ChatID: tu.ID(chatID),
-		Action: telego.ChatActionRecordVoice,
+		ChatID:          tu.ID(chatID),
+		MessageThreadID: threadID,
+		Action:          telego.ChatActionRecordVoice,
 	})
 
 	audioData, err := c.generateTTS(text, agentID)
@@ -1086,8 +1212,9 @@ func (c *Client) sendVoiceResponse(ctx *th.Context, chatID int64, text string, a
 	}
 
 	_, err = ctx.Bot().SendVoice(ctx, &telego.SendVoiceParams{
-		ChatID: tu.ID(chatID),
-		Voice:  tu.FileFromReader(bytes.NewReader(audioData), "voice.ogg"),
+		ChatID:          tu.ID(chatID),
+		MessageThreadID: threadID,
+		Voice:           tu.FileFromReader(bytes.NewReader(audioData), "voice.ogg"),
 	})
 	if err != nil {
 		c.logger.Error("Failed to send voice message", "error", err)
@@ -1235,7 +1362,7 @@ func (c *Client) downloadArtifact(agentID, userID, sessionID, name string) ([]by
 	return []byte(artifact.Text), "text/plain", nil
 }
 
-func (c *Client) sendNewArtifacts(ctx *th.Context, chatID int64, agentID, userID, sessionID string, before []string) {
+func (c *Client) sendNewArtifacts(ctx *th.Context, chatID int64, threadID int, agentID, userID, sessionID string, before []string) {
 	after := c.listArtifacts(agentID, userID, sessionID)
 	if len(after) == 0 {
 		return
@@ -1258,8 +1385,9 @@ func (c *Client) sendNewArtifacts(ctx *th.Context, chatID int64, agentID, userID
 		}
 
 		_, err = ctx.Bot().SendDocument(ctx, &telego.SendDocumentParams{
-			ChatID:   tu.ID(chatID),
-			Document: tu.FileFromReader(bytes.NewReader(data), name),
+			ChatID:          tu.ID(chatID),
+			MessageThreadID: threadID,
+			Document:        tu.FileFromReader(bytes.NewReader(data), name),
 		})
 		if err != nil {
 			c.logger.Error("Failed to send artifact as document", "name", name, "error", err)

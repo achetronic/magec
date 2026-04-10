@@ -45,6 +45,7 @@ type Conversation struct {
 	Messages    []ConversationMessage `json:"messages"`
 	StartedAt   time.Time             `json:"startedAt"`
 	EndedAt     *time.Time            `json:"endedAt,omitempty"`
+	Closed      bool                  `json:"closed,omitempty"`
 	Summary     string                `json:"summary,omitempty"`
 	Preview     string                `json:"preview,omitempty"`
 	ParentID    string                `json:"parentId,omitempty"`
@@ -190,6 +191,54 @@ func (cs *ConversationStore) List(agentID, source, clientID, perspective string,
 	return PaginatedResult[Conversation]{Items: filtered, Total: total}
 }
 
+// FindExactPair finds the corresponding conversation for the other perspective
+// that was created around the same time. This is used when viewing historical
+// (closed) conversations to ensure we don't accidentally link to a newer session.
+func (cs *ConversationStore) FindExactPair(id, sessionID, agentID, perspective string) (Conversation, bool) {
+	cs.mu.RLock()
+	defer cs.mu.RUnlock()
+
+	var sourceConvo Conversation
+	foundSource := false
+	for _, c := range cs.conversations {
+		if c.ID == id {
+			sourceConvo = c
+			foundSource = true
+			break
+		}
+	}
+
+	if !foundSource {
+		return Conversation{}, false
+	}
+
+	var bestMatch Conversation
+	var minDiff time.Duration = 24 * time.Hour
+	foundMatch := false
+
+	otherPerspective := "admin"
+	if perspective == "admin" {
+		otherPerspective = "user"
+	}
+
+	for _, c := range cs.conversations {
+		if c.SessionID == sessionID && c.AgentID == agentID && c.Perspective == otherPerspective {
+			diff := c.StartedAt.Sub(sourceConvo.StartedAt)
+			if diff < 0 {
+				diff = -diff
+			}
+			// Pairs are usually created within milliseconds of each other
+			if diff < minDiff && diff < 5*time.Second {
+				minDiff = diff
+				bestMatch = c
+				foundMatch = true
+			}
+		}
+	}
+
+	return bestMatch, foundMatch
+}
+
 // FindBySession returns the most recent conversation matching the given
 // sessionID, agentID, and perspective. This is used to append messages to an
 // existing conversation instead of creating a new one for every /run call.
@@ -199,11 +248,47 @@ func (cs *ConversationStore) FindBySession(sessionID, agentID, perspective strin
 
 	for i := len(cs.conversations) - 1; i >= 0; i-- {
 		c := cs.conversations[i]
-		if c.SessionID == sessionID && c.AgentID == agentID && c.Perspective == perspective {
+		if c.SessionID == sessionID && c.AgentID == agentID && c.Perspective == perspective && !c.Closed {
 			return c, true
 		}
 	}
 	return Conversation{}, false
+}
+
+// CloseBySession marks a conversation as closed so new messages trigger a new conversation record.
+func (cs *ConversationStore) CloseBySession(sessionID, agentID, perspective string) error {
+	cs.mu.Lock()
+	defer cs.mu.Unlock()
+
+	for i := len(cs.conversations) - 1; i >= 0; i-- {
+		c := cs.conversations[i]
+		if c.SessionID == sessionID && c.AgentID == agentID && c.Perspective == perspective && !c.Closed {
+			cs.conversations[i].Closed = true
+			now := time.Now()
+			cs.conversations[i].EndedAt = &now
+			return cs.persist()
+		}
+	}
+	return fmt.Errorf("active conversation for session %q not found", sessionID)
+}
+
+// Close marks a specific conversation as closed.
+func (cs *ConversationStore) Close(id string) error {
+	cs.mu.Lock()
+	defer cs.mu.Unlock()
+
+	for i, c := range cs.conversations {
+		if c.ID == id {
+			if cs.conversations[i].Closed {
+				return nil
+			}
+			cs.conversations[i].Closed = true
+			now := time.Now()
+			cs.conversations[i].EndedAt = &now
+			return cs.persist()
+		}
+	}
+	return fmt.Errorf("conversation %q not found", id)
 }
 
 // AppendMessages adds multiple messages and raw events to an existing conversation.

@@ -38,13 +38,13 @@ var upgrader = websocket.Upgrader{
 
 // Message types for WebSocket communication
 const (
-	MsgTypeCapabilities  = "capabilities"
-	MsgTypeConfig        = "config"
-	MsgTypeSetModel      = "setModel"
-	MsgTypeWakeword      = "wakeword"
-	MsgTypeSpeechStart   = "speech_start"
-	MsgTypeSpeechEnd     = "speech_end"
-	MsgTypeError         = "error"
+	MsgTypeCapabilities = "capabilities"
+	MsgTypeConfig       = "config"
+	MsgTypeSetModel     = "setModel"
+	MsgTypeWakeword     = "wakeword"
+	MsgTypeSpeechStart  = "speech_start"
+	MsgTypeSpeechEnd    = "speech_end"
+	MsgTypeError        = "error"
 )
 
 // WSMessage represents a WebSocket message
@@ -104,6 +104,7 @@ type clientState struct {
 }
 
 // NewHandler creates a new WebSocket handler for voice event detection
+// NewHandler creates a new WebSocket handler for voice events (wake word/VAD).
 func NewHandler(detector *Detector, logger *slog.Logger) *Handler {
 	return &Handler{
 		logger:         logger,
@@ -113,6 +114,7 @@ func NewHandler(detector *Detector, logger *slog.Logger) *Handler {
 }
 
 // ServeHTTP handles WebSocket upgrade and message processing
+// ServeHTTP upgrades the connection to a WebSocket and begins the read/write pump.
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {

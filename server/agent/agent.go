@@ -36,19 +36,20 @@ import (
 	"google.golang.org/adk/memory"
 	"google.golang.org/adk/model"
 	"google.golang.org/adk/model/gemini"
+	"google.golang.org/adk/runner"
 	"google.golang.org/adk/server/adkrest"
 	"google.golang.org/adk/session"
 	"google.golang.org/adk/tool"
 	"google.golang.org/adk/tool/mcptoolset"
 	"google.golang.org/genai"
 
+	artifactfs "github.com/achetronic/adk-utils-go/artifact/filesystem"
 	genaianthro "github.com/achetronic/adk-utils-go/genai/anthropic"
 	genaiopenai "github.com/achetronic/adk-utils-go/genai/openai"
 	memorypostgres "github.com/achetronic/adk-utils-go/memory/postgres"
 	"github.com/achetronic/adk-utils-go/plugin/contextguard"
 	sessionredis "github.com/achetronic/adk-utils-go/session/redis"
 	toolsmemory "github.com/achetronic/adk-utils-go/tools/memory"
-	artifactfs "github.com/achetronic/adk-utils-go/artifact/filesystem"
 
 	"github.com/achetronic/magec/server/config"
 	"github.com/achetronic/magec/server/store"
@@ -129,14 +130,6 @@ func New(ctx context.Context, agents []store.AgentDefinition, backends []store.B
 		return nil, fmt.Errorf("memory service: %w", err)
 	}
 
-	var rootAgent agent.Agent
-	var otherAgents []agent.Agent
-	adkAgentMap := make(map[string]agent.Agent, len(agents))
-	// llmMap maps agent ID → LLM instance. The ContextGuard plugin uses it
-	// so each agent summarizes with its own model, matching user expectations.
-	// Rebuilt from scratch on every hot-reload (store change).
-	llmMap := make(map[string]model.LLM, len(agents))
-
 	artifactSvc, err := artifactfs.NewFilesystemService(artifactfs.FilesystemServiceConfig{
 		BasePath: filepath.Join("data", "artifacts"),
 	})
@@ -149,51 +142,29 @@ func New(ctx context.Context, agents []store.AgentDefinition, backends []store.B
 		return nil, fmt.Errorf("failed to create base toolset: %w", err)
 	}
 
+	adkAgentMap := make(map[string]agent.Agent, len(agents)+len(flows))
+	llmMap := make(map[string]model.LLM, len(agents))
+	var rootAgent agent.Agent
+	var otherAgents []agent.Agent
+
+	// Build ADK agents
 	for i, agentDef := range agents {
-
-		llmBackend, ok := backendMap[agentDef.LLM.Backend]
-		if !ok {
-			return nil, fmt.Errorf("agent %q: LLM backend %q not found", agentDef.ID, agentDef.LLM.Backend)
-		}
-		llmModel, err := createLLM(ctx, llmBackend, agentDef.LLM)
+		adkAgent, llmModel, err := buildSingleAgent(ctx, agentDef, backendMap, mcpServerMap, skillMap, memorySvc, baseTset)
 		if err != nil {
-			return nil, fmt.Errorf("agent %q: failed to create LLM: %w", agentDef.ID, err)
+			return nil, fmt.Errorf("agent %q: %w", agentDef.ID, err)
 		}
-		// Register this agent's LLM so ContextGuard can use it for summarization.
 		llmMap[agentDef.ID] = llmModel
-
-		toolsets, err := buildToolsets(agentDef, mcpServerMap, memorySvc)
-		if err != nil {
-			return nil, fmt.Errorf("agent %q: failed to build toolsets: %w", agentDef.ID, err)
-		}
-		toolsets = append(toolsets, baseTset)
-
-		instruction := buildInstruction(agentDef, mcpServerMap, skillMap, filepath.Join("data", "skills"), memorySvc)
-
-		agentCfg := llmagent.Config{
-			Name:                agentDef.ID,
-			Model:               llmModel,
-			Description:         agentDef.Name,
-			InstructionProvider: makeInstructionProvider(instruction),
-			Toolsets:            toolsets,
-			OutputKey:           agentDef.OutputKey,
-		}
-
-		adkAgent, err := llmagent.New(agentCfg)
-		if err != nil {
-			return nil, fmt.Errorf("agent %q: failed to create: %w", agentDef.ID, err)
-		}
+		adkAgentMap[agentDef.ID] = adkAgent
 
 		if i == 0 {
 			rootAgent = adkAgent
 		} else {
 			otherAgents = append(otherAgents, adkAgent)
 		}
-		adkAgentMap[agentDef.ID] = adkAgent
-
 		slog.Info("Agent initialized", "id", agentDef.ID, "name", agentDef.Name)
 	}
 
+	// Build flows
 	for _, flow := range flows {
 		flowAgent, err := BuildFlowAgent(flow, adkAgentMap)
 		if err != nil {
@@ -214,33 +185,11 @@ func New(ctx context.Context, agents []store.AgentDefinition, backends []store.B
 		SessionService:  sessionSvc,
 		AgentLoader:     loader,
 		ArtifactService: artifactSvc,
+		MemoryService:   memorySvc,
 	}
-	if memorySvc != nil {
-		launcherCfg.MemoryService = memorySvc
-	}
-	// Wire the ContextGuard plugin if a context window registry was provided.
-	// The plugin receives the full llmMap so every agent summarizes with its
-	// own model — a user on a powerful model gets a high-quality summary,
-	// a user on a cheap model gets a summary matching those expectations.
+
 	if registry != nil {
-		guard := contextguard.New(registry)
-		for _, agentDef := range agents {
-			cg := agentDef.ContextGuard
-			if cg == nil || !cg.Enabled {
-				continue
-			}
-			var opts []contextguard.AgentOption
-			switch cg.Strategy {
-			case contextguard.StrategySlidingWindow:
-				opts = append(opts, contextguard.WithSlidingWindow(cg.MaxTurns))
-			default:
-				if cg.MaxTokens > 0 {
-					opts = append(opts, contextguard.WithMaxTokens(cg.MaxTokens))
-				}
-			}
-			guard.Add(agentDef.ID, llmMap[agentDef.ID], opts...)
-		}
-		launcherCfg.PluginConfig = guard.PluginConfig()
+		launcherCfg.PluginConfig = buildContextGuardConfig(agents, llmMap, registry)
 	}
 
 	return &Service{
@@ -249,6 +198,136 @@ func New(ctx context.Context, agents []store.AgentDefinition, backends []store.B
 		memorySvc:  memorySvc,
 		adkAgents:  adkAgentMap,
 	}, nil
+}
+
+// sortFlowsTopologically performs a topological sort on the flow definitions.
+// This detects circular dependencies and ensures that sub-flows are constructed
+// and registered before the parent flows that depend on them.
+func sortFlowsTopologically(flows []store.FlowDefinition) ([]store.FlowDefinition, error) {
+	if len(flows) == 0 {
+		return flows, nil
+	}
+
+	flowMap := make(map[string]store.FlowDefinition, len(flows))
+	for _, f := range flows {
+		flowMap[f.ID] = f
+	}
+
+	var sorted []store.FlowDefinition
+	visited := make(map[string]bool)
+	temp := make(map[string]bool)
+
+	var visit func(id string) error
+	visit = func(id string) error {
+		if temp[id] {
+			return fmt.Errorf("circular dependency detected at flow %s", id)
+		}
+		if visited[id] {
+			return nil
+		}
+		temp[id] = true
+
+		f, ok := flowMap[id]
+		if !ok {
+			temp[id] = false
+			visited[id] = true
+			return nil
+		}
+
+		deps := f.AgentIDs()
+		for _, dep := range deps {
+			if _, isFlow := flowMap[dep]; isFlow {
+				if err := visit(dep); err != nil {
+					return err
+				}
+			}
+		}
+
+		temp[id] = false
+		visited[id] = true
+		sorted = append(sorted, f)
+		return nil
+	}
+
+	for _, f := range flows {
+		if !visited[f.ID] {
+			if err := visit(f.ID); err != nil {
+				return nil, err
+			}
+		}
+	}
+
+	return sorted, nil
+}
+
+// buildSingleAgent constructs an individual ADK agent instance from its definition.
+// It resolves the associated LLM backend, assembles its toolsets (MCPs, skills, memory),
+// and builds its persona/instruction context.
+func buildSingleAgent(
+	ctx context.Context,
+	agentDef store.AgentDefinition,
+	backendMap map[string]store.BackendDefinition,
+	mcpServerMap map[string]store.MCPServer,
+	skillMap map[string]store.Skill,
+	memorySvc memory.Service,
+	baseTset tool.Toolset,
+) (agent.Agent, model.LLM, error) {
+	llmBackend, ok := backendMap[agentDef.LLM.Backend]
+	if !ok {
+		return nil, nil, fmt.Errorf("LLM backend %q not found", agentDef.LLM.Backend)
+	}
+	llmModel, err := createLLM(ctx, llmBackend, agentDef.LLM)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to create LLM: %w", err)
+	}
+
+	toolsets, err := buildToolsets(agentDef, mcpServerMap, memorySvc)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to build toolsets: %w", err)
+	}
+	toolsets = append(toolsets, baseTset)
+
+	instruction := buildInstruction(agentDef, mcpServerMap, skillMap, filepath.Join("data", "skills"), memorySvc)
+
+	agentCfg := llmagent.Config{
+		Name:                agentDef.ID,
+		Model:               llmModel,
+		Description:         agentDef.Name,
+		InstructionProvider: makeInstructionProvider(instruction),
+		Toolsets:            toolsets,
+		OutputKey:           agentDef.OutputKey,
+	}
+
+	adkAgent, err := llmagent.New(agentCfg)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to create agent: %w", err)
+	}
+
+	return adkAgent, llmModel, nil
+}
+
+// buildContextGuardConfig generates the ContextGuard plugin configuration
+// from all agent definitions that have it enabled, enforcing their specific
+// max-token or sliding-window boundaries on the LLM prompt size.
+func buildContextGuardConfig(agents []store.AgentDefinition, llmMap map[string]model.LLM, registry contextguard.ModelRegistry) runner.PluginConfig {
+	guard := contextguard.New(registry)
+	for _, agentDef := range agents {
+		cg := agentDef.ContextGuard
+		if cg == nil || !cg.Enabled {
+			continue
+		}
+		var opts []contextguard.AgentOption
+		switch cg.Strategy {
+		case contextguard.StrategySlidingWindow:
+			opts = append(opts, contextguard.WithSlidingWindow(cg.MaxTurns))
+		default:
+			if cg.MaxTokens > 0 {
+				opts = append(opts, contextguard.WithMaxTokens(cg.MaxTokens))
+			}
+		}
+		guard.Add(agentDef.ID, llmMap[agentDef.ID], opts...)
+	}
+	return guard.PluginConfig()
 }
 
 // Handler returns the HTTP handler that serves the ADK REST API.

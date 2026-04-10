@@ -31,8 +31,8 @@ import (
 	"time"
 
 	"github.com/achetronic/adk-utils-go/plugin/contextguard"
-	"github.com/achetronic/magec/server/agent"
 	mageca2a "github.com/achetronic/magec/server/a2a"
+	"github.com/achetronic/magec/server/agent"
 	"github.com/achetronic/magec/server/api/admin"
 	user "github.com/achetronic/magec/server/api/user"
 	"github.com/achetronic/magec/server/clients"
@@ -86,7 +86,41 @@ func main() {
 
 	ctx := context.Background()
 
-	// Initialize store with JSON persistence
+	// Initialize stores
+	dataStore, convoStore := initStores(cfg)
+
+	// Admin API setup
+	adminHandler := admin.New(dataStore)
+	adminHandler.SetConversationStore(convoStore)
+
+	adminServer, adminCtx, adminCancel := startAdminServer(cfg, adminHandler)
+
+	// cwRegistry provides LLM context window sizes
+	cwRegistry := contextguard.NewCrushRegistry()
+
+	// A2A protocol handler
+	a2aHandler := mageca2a.NewHandler(getA2APublicURL(cfg))
+
+	// Swappable agent router
+	agentRouter := &agentRouterHandler{adminHandler: adminHandler, a2aHandler: a2aHandler, cwRegistry: cwRegistry}
+	agentRouter.rebuild(ctx, dataStore)
+
+	// Executor and User Server setup
+	executor, userServer, userCtx, userCancel, voiceDetector := startUserServer(cfg, dataStore, convoStore, agentRouter, a2aHandler)
+
+	// Watch for store changes
+	watchStoreChanges(ctx, dataStore, agentRouter)
+
+	// Start schedulers and clients
+	cronScheduler, clientManager := startClients(ctx, cfg, dataStore, executor)
+
+	// Graceful shutdown
+	startGracefulShutdown(adminServer, adminCtx, adminCancel, userServer, userCtx, userCancel, cronScheduler, clientManager, voiceDetector)
+}
+
+// initStores initializes the primary JSON file stores for application data
+// (agents, backends, secrets) and the conversation history store.
+func initStores(cfg *config.Config) (*store.Store, *store.ConversationStore) {
 	dataStore, err := store.New("data/store.json", cfg.Server.EncryptionKey)
 	if err != nil {
 		slog.Error("Failed to initialize store", "error", err)
@@ -98,7 +132,6 @@ func main() {
 		slog.Warn("Secrets are stored without encryption — set server.encryptionKey in config")
 	}
 
-	// Initialize conversation store for audit logging
 	convoStore, err := store.NewConversationStore("data/conversations.json")
 	if err != nil {
 		slog.Warn("Failed to initialize conversation store", "error", err)
@@ -106,10 +139,20 @@ func main() {
 	}
 	slog.Info("Conversation store initialized", "conversations", convoStore.Count())
 
-	// Admin API — start first so it's available even if agent init fails
-	adminHandler := admin.New(dataStore)
-	adminHandler.SetConversationStore(convoStore)
+	return dataStore, convoStore
+}
 
+// getA2APublicURL resolves the public base URL used for the Agent-to-Agent protocol.
+func getA2APublicURL(cfg *config.Config) string {
+	if cfg.Server.PublicURL == "" {
+		return fmt.Sprintf("http://localhost:%d", cfg.Server.Port)
+	}
+	return cfg.Server.PublicURL
+}
+
+// startAdminServer configures and starts the HTTP server that serves the admin API
+// and the Admin UI frontend. Returns the server instance and its context/cancel function.
+func startAdminServer(cfg *config.Config, adminHandler *admin.Handler) (*http.Server, context.Context, context.CancelFunc) {
 	adminMux := http.NewServeMux()
 	adminMux.Handle("/api/v1/admin/", http.StripPrefix("/api/v1/admin", adminHandler))
 	adminMux.Handle("/swagger/", httpSwagger.Handler(
@@ -131,6 +174,7 @@ func main() {
 		IdleTimeout:  60 * time.Second,
 	}
 
+	adminCtx, adminCancel := context.WithCancel(context.Background())
 	go func() {
 		slog.Info("Admin server started", "addr", adminAddr, "url", fmt.Sprintf("http://%s", adminAddr))
 		if err := adminServer.ListenAndServe(); err != http.ErrServerClosed {
@@ -138,27 +182,24 @@ func main() {
 		}
 	}()
 
-	// cwRegistry provides LLM context window sizes from catwalk's embedded database.
-	cwRegistry := contextguard.NewCrushRegistry()
+	return adminServer, adminCtx, adminCancel
+}
 
-	// A2A (Agent-to-Agent) protocol handler
-	a2aPublicURL := cfg.Server.PublicURL
-	if a2aPublicURL == "" {
-		a2aPublicURL = fmt.Sprintf("http://localhost:%d", cfg.Server.Port)
-	}
-	a2aHandler := mageca2a.NewHandler(a2aPublicURL)
-
-	// Swappable handler for agent-related routes (hot-reloaded on store changes)
-	agentRouter := &agentRouterHandler{adminHandler: adminHandler, a2aHandler: a2aHandler, cwRegistry: cwRegistry}
-	agentRouter.rebuild(ctx, dataStore)
-
-	// Executor for running commands against agents (cron, webhooks, etc.)
+// startUserServer configures and starts the HTTP server for the user-facing
+// Agent API, Voice API, and A2A endpoints. It wires up all necessary middlewares,
+// such as session assurance, SSE timeouts, and conversation recording.
+func startUserServer(
+	cfg *config.Config,
+	dataStore *store.Store,
+	convoStore *store.ConversationStore,
+	agentRouter *agentRouterHandler,
+	a2aHandler *mageca2a.Handler,
+) (*clients.Executor, *http.Server, context.Context, context.CancelFunc, *voice.Detector) {
 	agentURL := fmt.Sprintf("http://127.0.0.1:%d/api/v1/agent", cfg.Server.Port)
 	executor := clients.NewExecutor(dataStore, agentURL, slog.Default())
 	executor.SetConversationStore(convoStore)
 
 	httpMux := http.NewServeMux()
-	// Chain: Client ← RecorderUser ← FlowFilter ← RecorderAdmin ← SessionEnsure ← SessionStateSeed ← SSEIdleTimeout ← ADK
 	idleGuarded := middleware.SSEIdleTimeout(agentRouter, 15*time.Minute)
 	seeded := middleware.SessionEnsure(middleware.SessionStateSeed(idleGuarded, dataStore))
 	adminRecorded := middleware.ConversationRecorder(
@@ -170,10 +211,9 @@ func main() {
 		middleware.ConversationRecorderSSE(filtered, executor, dataStore, "user"),
 		executor, dataStore, "user",
 	)
+
 	httpMux.Handle("/api/v1/agent/", middleware.SnakeCaseNormalize(userRecorded))
 	httpMux.Handle("/api/v1/voice/", newVoiceHandler(dataStore, agentRouter))
-
-	// A2A protocol endpoints (global discovery + per-agent card + JSON-RPC invoke)
 	httpMux.HandleFunc("/api/v1/a2a/", a2aHandler.ServeA2A)
 
 	userAPI := user.New(dataStore)
@@ -185,84 +225,11 @@ func main() {
 		httpSwagger.InstanceName("userapi"),
 	))
 
-	// Voice events WebSocket handler (wake word + VAD)
-	var voiceDetector *voice.Detector
-	if *cfg.Voice.UI.Enabled {
-		const defaultOnnxLibraryPath = "/usr/lib/libonnxruntime.so"
-		onnxLibraryPath := defaultOnnxLibraryPath
-		if cfg.Voice.OnnxLibraryPath != "" {
-			onnxLibraryPath = cfg.Voice.OnnxLibraryPath
-		}
+	voiceDetector := initVoiceSubsystem(cfg, httpMux)
 
-		wakewordYAML, err := models.WakewordConfig()
-		if err != nil {
-			slog.Warn("Wake word config not available", "error", err)
-		} else {
-			wakeWordModelsCfg, err := config.LoadWakeWordModels(wakewordYAML)
-			if err != nil {
-				slog.Warn("Wake word models not available", "error", err)
-			} else if len(wakeWordModelsCfg.Models) == 0 {
-				slog.Warn("No wake word models configured in wakewords.yaml")
-			} else {
-				voiceModels := make([]voice.ModelConfig, 0, len(wakeWordModelsCfg.Models))
-				for _, m := range wakeWordModelsCfg.Models {
-					data, err := models.ReadWakewordModel(m.File)
-					if err != nil {
-						slog.Warn("Failed to read wake word model", "model", m.ID, "error", err)
-						continue
-					}
-					voiceModels = append(voiceModels, voice.ModelConfig{
-						ID:        m.ID,
-						Name:      m.Name,
-						Data:      data,
-						Phrase:    m.Phrase,
-						Threshold: m.Threshold,
-					})
-				}
-
-				melData, err1 := models.ReadAuxiliaryModel("mel-spectrogram.onnx")
-				embData, err2 := models.ReadAuxiliaryModel("speech-embedding.onnx")
-				vadData, err3 := models.ReadAuxiliaryModel("silero-vad.onnx")
-				if err1 != nil || err2 != nil || err3 != nil {
-					slog.Warn("Failed to read auxiliary models", "mel", err1, "embedding", err2, "vad", err3)
-				} else {
-					voiceDetector = voice.NewDetector(voice.DetectorConfig{
-						MelspecModelData:   melData,
-						EmbeddingModelData: embData,
-						VADModelData:       vadData,
-						Models:             voiceModels,
-						OnnxLibraryPath:    onnxLibraryPath,
-					}, slog.Default())
-
-					if err := voiceDetector.Load(); err != nil {
-						slog.Warn("Failed to load voice detection models", "error", err)
-					} else {
-						voiceHandler := voice.NewHandler(voiceDetector, slog.Default())
-						httpMux.Handle("/api/v1/voice/events", voiceHandler)
-						slog.Info("Voice detection enabled", "wakeWordModels", len(voiceModels), "vadEnabled", true)
-					}
-				}
-			}
-		}
-	} else {
-		slog.Info("Voice UI disabled via config")
-	}
-
-	// Watch for store changes and hot-reload the agent
-	storeChanged := dataStore.OnChange()
-	go func() {
-		for range storeChanged {
-			time.Sleep(500 * time.Millisecond)
-			slog.Info("Store changed, reloading agent...")
-			agentRouter.rebuild(ctx, dataStore)
-		}
-	}()
-
-	// Webhook handler for trigger endpoints
 	webhookHandler := webhook.NewHandler(executor, dataStore, slog.Default())
 	httpMux.Handle("/api/v1/webhooks/", http.StripPrefix("/api/v1/webhooks", webhookHandler))
 
-	// Static files
 	if *cfg.Voice.UI.Enabled {
 		voiceFS, err := frontend.VoiceUI()
 		if err != nil {
@@ -281,37 +248,139 @@ func main() {
 		IdleTimeout:  60 * time.Second,
 	}
 
-	// Start cron scheduler
+	userCtx, userCancel := context.WithCancel(context.Background())
+	go func() {
+		slog.Info("Server started", "addr", addr, "url", fmt.Sprintf("http://%s", addr))
+		if err := server.ListenAndServe(); err != http.ErrServerClosed {
+			slog.Error("Server error", "error", err)
+		}
+	}()
+
+	return executor, server, userCtx, userCancel, voiceDetector
+}
+
+// initVoiceSubsystem prepares the Voice subsystem by loading the required ONNX
+// models for VAD, embedding, and mel-spectrogram processing if Voice UI is enabled.
+func initVoiceSubsystem(cfg *config.Config, httpMux *http.ServeMux) *voice.Detector {
+	if !*cfg.Voice.UI.Enabled {
+		slog.Info("Voice UI disabled via config")
+		return nil
+	}
+
+	onnxLibraryPath := "/usr/lib/libonnxruntime.so"
+	if cfg.Voice.OnnxLibraryPath != "" {
+		onnxLibraryPath = cfg.Voice.OnnxLibraryPath
+	}
+
+	wakewordYAML, err := models.WakewordConfig()
+	if err != nil {
+		slog.Warn("Wake word config not available", "error", err)
+		return nil
+	}
+
+	wakeWordModelsCfg, err := config.LoadWakeWordModels(wakewordYAML)
+	if err != nil || len(wakeWordModelsCfg.Models) == 0 {
+		slog.Warn("Wake word models not available or empty", "error", err)
+		return nil
+	}
+
+	voiceModels := make([]voice.ModelConfig, 0, len(wakeWordModelsCfg.Models))
+	for _, m := range wakeWordModelsCfg.Models {
+		data, err := models.ReadWakewordModel(m.File)
+		if err != nil {
+			slog.Warn("Failed to read wake word model", "model", m.ID, "error", err)
+			continue
+		}
+		voiceModels = append(voiceModels, voice.ModelConfig{
+			ID:        m.ID,
+			Name:      m.Name,
+			Data:      data,
+			Phrase:    m.Phrase,
+			Threshold: m.Threshold,
+		})
+	}
+
+	melData, err1 := models.ReadAuxiliaryModel("mel-spectrogram.onnx")
+	embData, err2 := models.ReadAuxiliaryModel("speech-embedding.onnx")
+	vadData, err3 := models.ReadAuxiliaryModel("silero-vad.onnx")
+
+	if err1 != nil || err2 != nil || err3 != nil {
+		slog.Warn("Failed to read auxiliary models", "mel", err1, "embedding", err2, "vad", err3)
+		return nil
+	}
+
+	detector := voice.NewDetector(voice.DetectorConfig{
+		MelspecModelData:   melData,
+		EmbeddingModelData: embData,
+		VADModelData:       vadData,
+		Models:             voiceModels,
+		OnnxLibraryPath:    onnxLibraryPath,
+	}, slog.Default())
+
+	if err := detector.Load(); err != nil {
+		slog.Warn("Failed to load voice detection models", "error", err)
+		return nil
+	}
+
+	voiceHandler := voice.NewHandler(detector, slog.Default())
+	httpMux.Handle("/api/v1/voice/events", voiceHandler)
+	slog.Info("Voice detection enabled", "wakeWordModels", len(voiceModels), "vadEnabled", true)
+
+	return detector
+}
+
+// watchStoreChanges listens for modifications in the data store file
+// and triggers a hot-reload of the agent routing engine when detected.
+func watchStoreChanges(ctx context.Context, dataStore *store.Store, agentRouter *agentRouterHandler) {
+	storeChanged := dataStore.OnChange()
+	go func() {
+		for range storeChanged {
+			time.Sleep(500 * time.Millisecond)
+			slog.Info("Store changed, reloading agent...")
+			agentRouter.rebuild(ctx, dataStore)
+		}
+	}()
+}
+
+// startClients initializes and starts external messaging clients (Discord, Slack, Telegram, etc.)
+// and the cron job scheduler for automated tasks.
+func startClients(ctx context.Context, cfg *config.Config, dataStore *store.Store, executor *clients.Executor) (*cron.Scheduler, *clientManager) {
 	cronScheduler := cron.NewScheduler(executor, dataStore, slog.Default())
 	go cronScheduler.Start(ctx)
 
-	// Start Telegram, Slack, and Discord clients (hot-reloaded on store changes)
 	cm := newClientManager(dataStore, cfg.Server.Port, slog.Default())
 	cm.start(ctx)
 
-	// Graceful shutdown
-	go func() {
-		sigChan := make(chan os.Signal, 1)
-		signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
-		<-sigChan
+	return cronScheduler, cm
+}
 
-		slog.Info("Shutting down...")
-		cronScheduler.Stop()
-		cm.stop()
-		if voiceDetector != nil {
-			voiceDetector.Close()
-		}
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-		adminServer.Shutdown(ctx)
-		server.Shutdown(ctx)
-	}()
+// startGracefulShutdown blocks execution until an interrupt signal is received.
+// Upon signal, it gracefully shuts down HTTP servers, cron jobs, clients, and AI subsystems.
+func startGracefulShutdown(
+	adminServer *http.Server, adminCtx context.Context, adminCancel context.CancelFunc,
+	userServer *http.Server, userCtx context.Context, userCancel context.CancelFunc,
+	cronScheduler *cron.Scheduler, cm *clientManager,
+	voiceDetector *voice.Detector,
+) {
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+	<-sigChan
 
-	slog.Info("Server started", "addr", addr, "url", fmt.Sprintf("http://%s", addr))
-	if err := server.ListenAndServe(); err != http.ErrServerClosed {
-		slog.Error("Server error", "error", err)
-		os.Exit(1)
+	slog.Info("Shutting down...")
+	cronScheduler.Stop()
+	cm.stop()
+	if voiceDetector != nil {
+		voiceDetector.Close()
 	}
+
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	adminServer.Shutdown(shutdownCtx)
+	userServer.Shutdown(shutdownCtx)
+
+	adminCancel()
+	userCancel()
 }
 
 // newVoiceHandler creates a router for /api/v1/voice/{agentId}/{action} routes.

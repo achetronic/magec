@@ -51,10 +51,10 @@ type VAD struct {
 	c []float32
 
 	// State tracking
-	isSpeaking       bool
-	lastSpeechTime   time.Time
-	audioBuffer      []float32
-	mu               sync.Mutex
+	isSpeaking     bool
+	lastSpeechTime time.Time
+	audioBuffer    []float32
+	mu             sync.Mutex
 
 	// Callbacks
 	onSpeechStart func()
@@ -261,6 +261,7 @@ func (v *VAD) IsSpeaking() bool {
 }
 
 // Close releases all resources
+// Close frees the ONNX session memory.
 func (v *VAD) Close() {
 	if v.session != nil {
 		v.session.Destroy()

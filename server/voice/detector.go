@@ -93,7 +93,7 @@ type Detector struct {
 
 	melspecSession   *ort.DynamicAdvancedSession
 	embeddingSession *ort.DynamicAdvancedSession
-	
+
 	// Wake word models (can have multiple loaded)
 	wakeWordSessions map[string]*wakeWordModel
 	activeModelID    string
@@ -113,6 +113,7 @@ type wakeWordModel struct {
 }
 
 // NewDetector creates a new wake word detector
+// NewDetector creates a new instance of the wake word and VAD detector.
 func NewDetector(config DetectorConfig, logger *slog.Logger) *Detector {
 	return &Detector{
 		config:           config,
@@ -136,7 +137,7 @@ func (d *Detector) GetModels() []ModelConfig {
 func (d *Detector) SetActiveModel(modelID string) error {
 	d.mu.Lock()
 	defer d.mu.Unlock()
-	
+
 	if _, ok := d.wakeWordSessions[modelID]; !ok {
 		return fmt.Errorf("model %q not loaded", modelID)
 	}
@@ -151,6 +152,7 @@ func (d *Detector) GetActiveModel() string {
 }
 
 // Load initializes the ONNX models
+// Load initializes the ONNX runtime and loads the configured models into memory.
 func (d *Detector) Load() error {
 	d.logger.Info("Loading wake word models",
 		"models", len(d.config.Models),
@@ -208,7 +210,7 @@ func (d *Detector) Load() error {
 			d.logger.Warn("Failed to load wake word model", "model", modelCfg.ID, "error", err)
 			continue
 		}
-		
+
 		d.wakeWordSessions[modelCfg.ID] = &wakeWordModel{
 			config:  modelCfg,
 			session: session,
@@ -485,7 +487,7 @@ func (d *Detector) getEmbeddings(melspec [][]float32) ([][]float32, error) {
 
 	// Output shape should be [batch, 96] or similar
 	embSize := int(outputShape[len(outputShape)-1])
-	
+
 	// Reshape output to [batch, embSize]
 	embeddings := make([][]float32, batchSize)
 	for b := 0; b < batchSize; b++ {
@@ -536,6 +538,7 @@ func (d *Detector) runWakeWordModel(session *ort.DynamicAdvancedSession, feature
 }
 
 // Close releases all resources
+// Close shuts down the ONNX sessions and frees allocated C memory.
 func (d *Detector) Close() {
 	if d.melspecSession != nil {
 		d.melspecSession.Destroy()
