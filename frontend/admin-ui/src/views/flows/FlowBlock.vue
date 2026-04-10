@@ -4,8 +4,12 @@
     <div class="bg-piedra-800 border border-sol-500/30 rounded-xl
                 hover:border-sol-500/60 transition-all min-w-[130px] shadow-sm hover:shadow-md">
       <div class="flex items-center gap-2 px-3 py-2.5 cursor-grab active:cursor-grabbing">
-        <div class="w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0 bg-sol-500/15">
-          <svg class="w-3.5 h-3.5 text-sol-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div class="w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0"
+             :class="agentNode?._isFlow ? 'bg-lava-500/15' : 'bg-sol-500/15'">
+          <svg v-if="agentNode?._isFlow" class="w-3.5 h-3.5 text-lava-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 6h16M4 12h16M4 18h7" />
+          </svg>
+          <svg v-else class="w-3.5 h-3.5 text-sol-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
               d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
           </svg>
@@ -40,6 +44,16 @@
             <path stroke-linecap="round" stroke-linejoin="round" d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.087.16 2.185.283 3.293.369V21l4.076-4.076a1.526 1.526 0 0 1 1.037-.443 48.2 48.2 0 0 0 5.887-.512c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.4 48.4 0 0 0 12 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018Z" />
           </svg>
         </button>
+        <button v-if="agentNode?._isFlow" @click.stop="toggleInheritResponseAgents"
+          class="p-1 rounded-md transition-all select-none ml-auto"
+          :class="step.inheritResponseAgents !== false
+            ? 'bg-lava-500/15 text-lava-400 hover:bg-lava-500/25'
+            : 'text-arena-600 hover:text-arena-400 hover:bg-piedra-700/60'"
+          :title="step.inheritResponseAgents !== false ? 'Inheriting sub-flow response agents' : 'Ignoring sub-flow response agents'">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z" />
+          </svg>
+        </button>
       </div>
     </div>
 
@@ -50,11 +64,14 @@
             v-for="a in agents" :key="a.id"
             @click.stop="pickAgent(a.id)"
             class="w-full flex items-center gap-2.5 px-3 py-2 text-left transition-colors"
-            :class="a.id === step.agentId ? 'bg-sol-500/10' : 'hover:bg-piedra-700/60'"
+            :class="a.id === step.agentId ? (a._isFlow ? 'bg-lava-500/10' : 'bg-sol-500/10') : 'hover:bg-piedra-700/60'"
           >
             <div class="w-5 h-5 rounded-md flex items-center justify-center flex-shrink-0"
-              :class="a.id === step.agentId ? 'bg-sol-500/20' : 'bg-piedra-700'">
-              <svg class="w-3 h-3" :class="a.id === step.agentId ? 'text-sol-400' : 'text-arena-500'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              :class="a.id === step.agentId ? (a._isFlow ? 'bg-lava-500/20' : 'bg-sol-500/20') : 'bg-piedra-700'">
+              <svg v-if="a._isFlow" class="w-3 h-3" :class="a.id === step.agentId ? 'text-lava-400' : 'text-arena-500'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 6h16M4 12h16M4 18h7" />
+              </svg>
+              <svg v-else class="w-3 h-3" :class="a.id === step.agentId ? 'text-sol-400' : 'text-arena-500'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
                   d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
               </svg>
@@ -63,12 +80,12 @@
               <div class="text-xs font-medium truncate" :class="a.id === step.agentId ? 'text-sol-300' : 'text-arena-100'">{{ a.name || a.id }}</div>
               <div v-if="a.description" class="text-[9px] text-arena-500 truncate">{{ a.description }}</div>
             </div>
-            <svg v-if="a.id === step.agentId" class="w-3.5 h-3.5 text-sol-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg v-if="a.id === step.agentId" class="w-3.5 h-3.5 flex-shrink-0" :class="a._isFlow ? 'text-lava-400' : 'text-sol-400'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
             </svg>
           </button>
         </div>
-        <div v-else class="px-3 py-4 text-[10px] text-arena-500 italic text-center">No agents available</div>
+        <div v-else class="px-3 py-4 text-[10px] text-arena-500 italic text-center">No items available</div>
       </div>
     </Transition>
   </div>
@@ -326,8 +343,17 @@ function onDragChange() {
 const pickerOpen = ref(false)
 
 function toggleAgentPicker() { pickerOpen.value = !pickerOpen.value }
-function pickAgent(id)       { pickerOpen.value = false; emit('update', { ...props.step, agentId: id }) }
+function pickAgent(id) { 
+  pickerOpen.value = false
+  const picked = props.agents.find(a => a.id === id)
+  emit('update', { 
+    ...props.step, 
+    agentId: id, 
+    ...(picked?._isFlow ? { inheritResponseAgents: true } : {}) 
+  }) 
+}
 function toggleResponse()    { emit('update', { ...props.step, responseAgent: !props.step.responseAgent }) }
+function toggleInheritResponseAgents() { emit('update', { ...props.step, inheritResponseAgents: props.step.inheritResponseAgents === false }) }
 
 function onClickOutside() { if (pickerOpen.value) pickerOpen.value = false }
 onMounted(()        => document.addEventListener('click', onClickOutside))
@@ -361,9 +387,10 @@ const COLORS = {
   },
 }
 
+const agentNode = computed(() => props.agents.find(a => a.id === props.step.agentId))
 const agentName = computed(() => {
-  const a = props.agents.find(a => a.id === props.step.agentId)
-  return a?.name || props.step.agentId || 'Select agent...'
+  const a = agentNode.value
+  return a?.name || props.step.agentId || 'Select item...'
 })
 
 const typeLabel       = computed(() => ({ sequential: 'Sequential', parallel: 'Parallel', loop: 'Loop' })[props.step.type] || props.step.type)

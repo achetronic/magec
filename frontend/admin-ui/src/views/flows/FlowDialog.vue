@@ -22,7 +22,7 @@
       </div>
       <FlowCanvas
         v-model="form.root"
-        :agents="store.agents"
+        :agents="availableNodes"
       />
       <details class="group text-arena-500">
         <summary class="text-[10px] font-medium cursor-pointer select-none hover:text-arena-300 transition-colors">
@@ -49,7 +49,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, inject } from 'vue'
+import { ref, reactive, inject, computed } from 'vue'
 import { useDataStore } from '../../lib/stores/data.js'
 import { flowsApi } from '../../lib/api/index.js'
 import AppDialog from '../../components/AppDialog.vue'
@@ -70,6 +70,15 @@ const form = reactive({
   description: '',
   root: null,
   a2aEnabled: false,
+})
+
+const availableNodes = computed(() => {
+  const nodes = store.agents.map(a => ({ ...a, _isFlow: false }))
+  for (const f of store.flows) {
+    if (f.id === editId.value) continue
+    nodes.push({ ...f, _isFlow: true })
+  }
+  return nodes
 })
 
 function open(flow = null) {
@@ -107,6 +116,7 @@ function cleanStep(step) {
   if (step.type === 'agent') {
     clean.agentId = step.agentId
     if (step.responseAgent) clean.responseAgent = true
+    if (step.inheritResponseAgents !== undefined) clean.inheritResponseAgents = step.inheritResponseAgents
   } else {
     clean.steps = (step.steps || []).map(cleanStep)
     if (step.type === 'loop') {
