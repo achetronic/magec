@@ -106,13 +106,7 @@ func (h *Handler) ClientInfo(w http.ResponseWriter, r *http.Request) {
 		for _, f := range flows {
 			if f.ID == id {
 				responseSet := make(map[string]bool)
-				for _, rid := range f.ResponseAgentIDs(func(id string) (*store.FlowDefinition, bool) {
-					sub, ok := h.store.GetFlow(id)
-					if ok {
-						return &sub, true
-					}
-					return nil, false
-				}) {
+				for _, rid := range f.ResponseAgentIDs() {
 					responseSet[rid] = true
 				}
 				var nested []AgentSummary

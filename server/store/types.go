@@ -236,46 +236,29 @@ const (
 // final response when the flow is invoked via webhook/cron. If no agent in
 // the flow is marked, all agent outputs are concatenated (default behavior).
 type FlowStep struct {
-	Type                  string     `json:"type"`
-	AgentID               string     `json:"agentId,omitempty"`
-	ResponseAgent         bool       `json:"responseAgent,omitempty"`
-	InheritResponseAgents *bool      `json:"inheritResponseAgents,omitempty"`
-	MaxIterations         uint       `json:"maxIterations,omitempty"`
-	Steps                 []FlowStep `json:"steps,omitempty"`
+	Type          string     `json:"type"`
+	AgentID       string     `json:"agentId,omitempty"`
+	ResponseAgent bool       `json:"responseAgent,omitempty"`
+	MaxIterations uint       `json:"maxIterations,omitempty"`
+	Steps         []FlowStep `json:"steps,omitempty"`
 }
 
 // ResponseAgentIDs walks the flow tree and returns the agent IDs of all
-// steps marked with ResponseAgent. If a step is a subflow and InheritResponseAgents
-// is not false, it recursively includes the subflow's response agents.
-func (f *FlowDefinition) ResponseAgentIDs(getFlow func(string) (*FlowDefinition, bool)) []string {
+// steps marked with ResponseAgent.
+func (f *FlowDefinition) ResponseAgentIDs() []string {
 	var ids []string
-	collectResponseAgents(&f.Root, &ids, getFlow)
+	collectResponseAgents(&f.Root, &ids)
 	return ids
 }
 
-func collectResponseAgents(step *FlowStep, ids *[]string, getFlow func(string) (*FlowDefinition, bool)) {
+func collectResponseAgents(step *FlowStep, ids *[]string) {
 	if step.Type == FlowStepAgent {
-		if step.AgentID != "" {
-			if step.ResponseAgent {
-				*ids = append(*ids, step.AgentID)
-			}
-
-			// If it's a subflow, check inheritance
-			if getFlow != nil {
-				if subFlow, isFlow := getFlow(step.AgentID); isFlow {
-					inherit := true
-					if step.InheritResponseAgents != nil {
-						inherit = *step.InheritResponseAgents
-					}
-					if inherit {
-						collectResponseAgents(&subFlow.Root, ids, getFlow)
-					}
-				}
-			}
+		if step.AgentID != "" && step.ResponseAgent {
+			*ids = append(*ids, step.AgentID)
 		}
 	}
 	for i := range step.Steps {
-		collectResponseAgents(&step.Steps[i], ids, getFlow)
+		collectResponseAgents(&step.Steps[i], ids)
 	}
 }
 

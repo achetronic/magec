@@ -82,13 +82,7 @@ func (e *Executor) RunClient(ctx context.Context, cl store.ClientDefinition, pas
 	for _, agentID := range cl.AllowedAgents {
 		var responseFilter []string
 		if flow, ok := e.store.GetFlow(agentID); ok {
-			responseFilter = flow.ResponseAgentIDs(func(id string) (*store.FlowDefinition, bool) {
-				f, ok := e.store.GetFlow(id)
-				if ok {
-					return &f, true
-				}
-				return nil, false
-			})
+			responseFilter = flow.ResponseAgentIDs()
 		}
 		result, err := e.callAgent(ctx, agentID, prompt, cl.Token, responseFilter)
 		if err != nil {

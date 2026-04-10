@@ -107,7 +107,6 @@ function cleanStep(step) {
   if (step.type === 'agent') {
     clean.agentId = step.agentId
     if (step.responseAgent) clean.responseAgent = true
-    if (step.inheritResponseAgents !== undefined) clean.inheritResponseAgents = step.inheritResponseAgents
   } else {
     clean.steps = (step.steps || []).map(cleanStep)
     if (step.type === 'loop') {

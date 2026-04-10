@@ -165,13 +165,7 @@ func New(ctx context.Context, agents []store.AgentDefinition, backends []store.B
 	}
 
 	// Build flows
-	sortedFlows, err := sortFlowsTopologically(flows)
-	if err != nil {
-		slog.Warn("Failed to sort flows topologically (circular dependency)", "error", err)
-		sortedFlows = flows // Fallback to unsorted
-	}
-
-	for _, flow := range sortedFlows {
+	for _, flow := range flows {
 		flowAgent, err := BuildFlowAgent(flow, adkAgentMap)
 		if err != nil {
 			slog.Warn("Failed to build flow", "flow", flow.Name, "error", err)

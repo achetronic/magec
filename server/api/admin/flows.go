@@ -65,7 +65,7 @@ func (h *Handler) createFlow(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "name is required")
 		return
 	}
-	if err := validateFlowStep(&f.Root, h.store.ListRawFlows(), "", make(map[string]bool)); err != nil {
+	if err := validateFlowStep(&f.Root); err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
@@ -97,7 +97,7 @@ func (h *Handler) updateFlow(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid JSON: "+err.Error())
 		return
 	}
-	if err := validateFlowStep(&f.Root, h.store.ListRawFlows(), id, make(map[string]bool)); err != nil {
+	if err := validateFlowStep(&f.Root); err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
@@ -127,34 +127,18 @@ func (h *Handler) deleteFlow(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func validateFlowStep(step *store.FlowStep, storeFlows []store.FlowDefinition, currentFlowID string, visited map[string]bool) error {
+func validateFlowStep(step *store.FlowStep) error {
 	switch step.Type {
 	case store.FlowStepAgent:
 		if step.AgentID == "" {
 			return fmt.Errorf("agent step requires agentId")
-		}
-		if step.AgentID == currentFlowID {
-			return fmt.Errorf("circular dependency: flow cannot reference itself directly or indirectly")
-		}
-		for _, f := range storeFlows {
-			if f.ID == step.AgentID {
-				if visited[f.ID] {
-					return fmt.Errorf("circular dependency detected involving flow %s", f.ID)
-				}
-				visited[f.ID] = true
-				if err := validateFlowStep(&f.Root, storeFlows, currentFlowID, visited); err != nil {
-					return err
-				}
-				delete(visited, f.ID)
-				break
-			}
 		}
 	case store.FlowStepSequential, store.FlowStepParallel:
 		if len(step.Steps) == 0 {
 			return fmt.Errorf("%s step requires at least one child step", step.Type)
 		}
 		for i := range step.Steps {
-			if err := validateFlowStep(&step.Steps[i], storeFlows, currentFlowID, visited); err != nil {
+			if err := validateFlowStep(&step.Steps[i]); err != nil {
 				return err
 			}
 		}
@@ -163,7 +147,7 @@ func validateFlowStep(step *store.FlowStep, storeFlows []store.FlowDefinition, c
 			return fmt.Errorf("loop step requires at least one child step")
 		}
 		for i := range step.Steps {
-			if err := validateFlowStep(&step.Steps[i], storeFlows, currentFlowID, visited); err != nil {
+			if err := validateFlowStep(&step.Steps[i]); err != nil {
 				return err
 			}
 		}

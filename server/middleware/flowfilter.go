@@ -139,13 +139,7 @@ func FlowResponseFilter(next http.Handler, dataStore *store.Store) http.Handler 
 			return
 		}
 
-		responseIDs := flow.ResponseAgentIDs(func(id string) (*store.FlowDefinition, bool) {
-			f, ok := dataStore.GetFlow(id)
-			if ok {
-				return &f, true
-			}
-			return nil, false
-		})
+		responseIDs := flow.ResponseAgentIDs()
 		if len(responseIDs) == 0 {
 			next.ServeHTTP(w, r)
 			return
