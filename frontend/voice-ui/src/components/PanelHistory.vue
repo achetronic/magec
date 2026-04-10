@@ -151,15 +151,15 @@ async function onFileChange(e) {
   const files = e.target.files
   if (!files) return
   
-  // Total size validation: < 10MB
+  // Total size validation: < 20MB
   let totalSize = attachedFiles.value.reduce((acc, f) => acc + f.size, 0)
   for (const f of files) {
-    if (f.size > 5 * 1024 * 1024) {
-      alert(`File ${f.name} is too large (max 5MB)`)
+    if (f.size > 20 * 1024 * 1024) {
+      alert(`File ${f.name} is too large (max 20MB)`)
       continue
     }
-    if (totalSize + f.size > 10 * 1024 * 1024) {
-      alert("Total attachment size exceeds 10MB limit")
+    if (totalSize + f.size > 20 * 1024 * 1024) {
+      alert("Total attachment size exceeds 20MB limit")
       break
     }
     if (attachedFiles.value.length >= 10) {

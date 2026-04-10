@@ -45,7 +45,11 @@ export class AgentClient {
     await this.ensureSession(sessionId)
 
     const parts = []
-    if (message) parts.push({ text: message })
+    if (message) {
+      parts.push({ text: message })
+    } else if (fileParts && fileParts.length > 0) {
+      parts.push({ text: " " }) // Ensure at least a blank text part exists for LLM context
+    }
     for (const fp of fileParts) {
       parts.push(fp)
     }
