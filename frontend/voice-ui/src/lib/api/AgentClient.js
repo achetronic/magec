@@ -41,8 +41,14 @@ export class AgentClient {
     }
   }
 
-  async sendMessage(sessionId, message) {
+  async sendMessage(sessionId, message, fileParts = []) {
     await this.ensureSession(sessionId)
+
+    const parts = []
+    if (message) parts.push({ text: message })
+    for (const fp of fileParts) {
+      parts.push(fp)
+    }
 
     const response = await fetch(`${this.baseUrl}/run`, {
       method: 'POST',
@@ -53,7 +59,7 @@ export class AgentClient {
         sessionId: sessionId,
         newMessage: {
           role: 'user',
-          parts: [{ text: message }]
+          parts: parts
         }
       })
     })
@@ -73,14 +79,63 @@ export class AgentClient {
 
     if (Array.isArray(result)) {
       for (const event of result) {
-        if (event.content?.parts?.[0]?.text) {
-          responses.push(event.content.parts[0].text)
+        if (!event.content?.parts?.length) continue
+
+        for (const part of event.content.parts) {
+          if (part.text) {
+            responses.push({ type: 'text', text: part.text })
+          } else if (part.functionCall) {
+            responses.push({
+              type: 'tool',
+              name: part.functionCall.name,
+              args: part.functionCall.args
+            })
+          } else if (part.functionResponse) {
+            responses.push({
+              type: 'tool_result',
+              name: part.functionResponse.name,
+              result: part.functionResponse.response
+            })
+          }
         }
       }
-    } else if (result.content?.parts?.[0]?.text) {
-      responses.push(result.content.parts[0].text)
+    } else if (result.content?.parts) {
+      for (const part of result.content.parts) {
+        if (part.text) {
+          responses.push({ type: 'text', text: part.text })
+        } else if (part.functionCall) {
+          responses.push({
+            type: 'tool',
+            name: part.functionCall.name,
+            args: part.functionCall.args
+          })
+        } else if (part.functionResponse) {
+          responses.push({
+            type: 'tool_result',
+            name: part.functionResponse.name,
+            result: part.functionResponse.response
+          })
+        }
+      }
     }
 
-    return responses
+    // Merge adjacent tool calls and results
+    const merged = []
+    for (const r of responses) {
+      if (r.type === 'text') {
+        merged.push(r)
+      } else if (r.type === 'tool') {
+        merged.push({ type: 'tool', name: r.name, args: r.args, result: null })
+      } else if (r.type === 'tool_result') {
+        const last = merged[merged.length - 1]
+        if (last && last.type === 'tool' && last.name === r.name) {
+          last.result = r.result
+        } else {
+          merged.push({ type: 'tool', name: r.name, args: null, result: r.result })
+        }
+      }
+    }
+
+    return merged
   }
 }

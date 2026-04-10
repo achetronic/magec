@@ -354,19 +354,19 @@ export const useAppStore = defineStore('app', () => {
     return transcriber.transcribe(blob)
   }
 
-  async function sendTextMessage(text) {
-    messages.value.push({ role: 'user', text })
-    await _sendToAgent(text)
+  async function sendTextMessage(text, fileParts = []) {
+    messages.value.push({ role: 'user', text, fileParts })
+    await _sendToAgent(text, fileParts)
   }
 
-  async function _sendToAgent(message) {
+  async function _sendToAgent(message, fileParts = []) {
     tts?.stop()
     setStatus(t('status.thinking'), 'processing')
 
     let responses = []
     try {
       const sessionId = sessionManager.getCurrentSessionId()
-      responses = await agentClient.sendMessage(sessionId, message)
+      responses = await agentClient.sendMessage(sessionId, message, fileParts)
     } catch {
       messages.value.push({ role: 'ai', text: t('errors.generic') })
       setStatus(t('status.ready'), 'listening')
@@ -377,14 +377,27 @@ export const useAppStore = defineStore('app', () => {
     refreshSessionList()
 
     for (const response of responses) {
-      messages.value.push({ role: 'ai', text: response })
-      if (ttsEnabled.value) {
-        try {
-          await tts.speak(response)
-        } catch {
-          tts?.stop()
-          addNotification('warning', t('errors.ttsUnavailable'))
+      if (response.type === 'text') {
+        messages.value.push({ role: 'ai', text: response.text })
+        if (ttsEnabled.value) {
+          try {
+            const wasWakeWordEnabled = wakeWordEnabled.value
+            wakeWordEnabled.value = false // prevent mic picking up TTS
+            await tts.speak(response.text)
+            wakeWordEnabled.value = wasWakeWordEnabled
+          } catch {
+            tts?.stop()
+            addNotification('warning', t('errors.ttsUnavailable'))
+          }
         }
+      } else if (response.type === 'tool') {
+        messages.value.push({ 
+          role: 'ai', 
+          isTool: true, 
+          toolName: response.name, 
+          toolArgs: response.args,
+          toolResult: response.result 
+        })
       }
     }
   }

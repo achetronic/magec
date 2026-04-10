@@ -105,7 +105,8 @@
 
     <div
       ref="dropZoneRef"
-      class="flow-drop-zone p-4 min-h-[80px]"
+      class="flow-drop-zone p-4 min-h-[80px] transition-colors duration-200 rounded-b-xl"
+      :class="dropHighlight ? 'bg-white/5' : ''"
       @dragenter.stop="onDragEnter"
       @dragover.prevent.stop="onDragOver"
       @dragleave.stop="onDragLeave"
@@ -196,7 +197,7 @@ function ghostStep(type) {
 const dropZoneRef      = ref(null)
 const dropHighlight    = ref(false)
 const placeholderIndex = ref(null)
-const DEAD_ZONE        = 12
+const DEAD_ZONE        = 32
 
 function makePlaceholder() {
   return {
@@ -391,8 +392,18 @@ function editIterations() {
 </script>
 
 <style scoped>
-.flow-ghost { opacity: 0.25; border-radius: 0.75rem; }
-.flow-drag  { opacity: 0.95; transform: rotate(1deg); }
+.flow-ghost { 
+  opacity: 0.4; 
+  border-radius: 0.75rem; 
+  outline: 2px dashed rgba(250,204,21,0.5); 
+  outline-offset: 2px; 
+}
+.flow-drag  { 
+  opacity: 0.95; 
+  transform: scale(1.02) rotate(1deg); 
+  cursor: grabbing !important; 
+  box-shadow: 0 10px 25px -5px rgba(0,0,0,0.5); 
+}
 
 .flow-agent,
 .flow-container { position: relative; }
