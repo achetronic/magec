@@ -45,6 +45,7 @@ type Conversation struct {
 	Messages    []ConversationMessage `json:"messages"`
 	StartedAt   time.Time             `json:"startedAt"`
 	EndedAt     *time.Time            `json:"endedAt,omitempty"`
+	Closed      bool                  `json:"closed,omitempty"`
 	Summary     string                `json:"summary,omitempty"`
 	Preview     string                `json:"preview,omitempty"`
 	ParentID    string                `json:"parentId,omitempty"`
@@ -199,11 +200,47 @@ func (cs *ConversationStore) FindBySession(sessionID, agentID, perspective strin
 
 	for i := len(cs.conversations) - 1; i >= 0; i-- {
 		c := cs.conversations[i]
-		if c.SessionID == sessionID && c.AgentID == agentID && c.Perspective == perspective {
+		if c.SessionID == sessionID && c.AgentID == agentID && c.Perspective == perspective && !c.Closed {
 			return c, true
 		}
 	}
 	return Conversation{}, false
+}
+
+// CloseBySession marks a conversation as closed so new messages trigger a new conversation record.
+func (cs *ConversationStore) CloseBySession(sessionID, agentID, perspective string) error {
+	cs.mu.Lock()
+	defer cs.mu.Unlock()
+
+	for i := len(cs.conversations) - 1; i >= 0; i-- {
+		c := cs.conversations[i]
+		if c.SessionID == sessionID && c.AgentID == agentID && c.Perspective == perspective && !c.Closed {
+			cs.conversations[i].Closed = true
+			now := time.Now()
+			cs.conversations[i].EndedAt = &now
+			return cs.persist()
+		}
+	}
+	return fmt.Errorf("active conversation for session %q not found", sessionID)
+}
+
+// Close marks a specific conversation as closed.
+func (cs *ConversationStore) Close(id string) error {
+	cs.mu.Lock()
+	defer cs.mu.Unlock()
+
+	for i, c := range cs.conversations {
+		if c.ID == id {
+			if cs.conversations[i].Closed {
+				return nil
+			}
+			cs.conversations[i].Closed = true
+			now := time.Now()
+			cs.conversations[i].EndedAt = &now
+			return cs.persist()
+		}
+	}
+	return fmt.Errorf("conversation %q not found", id)
 }
 
 // AppendMessages adds multiple messages and raw events to an existing conversation.

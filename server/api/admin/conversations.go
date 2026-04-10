@@ -243,6 +243,10 @@ func (h *Handler) resetConversationSession(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	// Close the current conversation logs so the next message starts a new one
+	_ = h.conversations.CloseBySession(convo.SessionID, convo.AgentID, "admin")
+	_ = h.conversations.CloseBySession(convo.SessionID, convo.AgentID, "user")
+
 	writeJSON(w, http.StatusOK, map[string]interface{}{
 		"message":   "Session reset successfully",
 		"agentId":   convo.AgentID,

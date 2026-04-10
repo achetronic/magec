@@ -220,6 +220,14 @@ func (e *Executor) ensureSession(ctx context.Context, agentID, userID, sessionID
 	return nil
 }
 
+func (e *Executor) CloseConversationSession(sessionID, agentID string) {
+	if e.conversations == nil {
+		return
+	}
+	_ = e.conversations.CloseBySession(sessionID, agentID, "admin")
+	_ = e.conversations.CloseBySession(sessionID, agentID, "user")
+}
+
 // LogExternalConversation records a conversation from an external source (e.g. telegram, voice-ui).
 func (e *Executor) LogExternalConversation(agentID, userID, sessionID, source, clientID, prompt, perspective string, events []map[string]interface{}) {
 	if e.conversations == nil {

@@ -42,6 +42,21 @@ func ConversationRecorder(next http.Handler, executor *clients.Executor, dataSto
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		path := r.URL.Path
 		isRun := strings.HasSuffix(path, "/run") && r.Method == "POST"
+		isSessionDelete := r.Method == "DELETE" && strings.Contains(path, "/sessions/")
+
+		if isSessionDelete {
+			parts := strings.Split(path, "/")
+			// Format: /api/v1/agent/apps/{app}/users/{user}/sessions/{session}
+			if len(parts) >= 6 && parts[len(parts)-2] == "sessions" {
+				sessionID := parts[len(parts)-1]
+				agentID := parts[len(parts)-5]
+				// We don't want to block the actual DELETE, so we just run it
+				// and also close the conversation logs.
+				next.ServeHTTP(w, r)
+				executor.CloseConversationSession(sessionID, agentID)
+				return
+			}
+		}
 
 		if !isRun {
 			next.ServeHTTP(w, r)
