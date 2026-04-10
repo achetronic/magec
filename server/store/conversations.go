@@ -191,6 +191,54 @@ func (cs *ConversationStore) List(agentID, source, clientID, perspective string,
 	return PaginatedResult[Conversation]{Items: filtered, Total: total}
 }
 
+// FindExactPair finds the corresponding conversation for the other perspective
+// that was created around the same time. This is used when viewing historical
+// (closed) conversations to ensure we don't accidentally link to a newer session.
+func (cs *ConversationStore) FindExactPair(id, sessionID, agentID, perspective string) (Conversation, bool) {
+	cs.mu.RLock()
+	defer cs.mu.RUnlock()
+
+	var sourceConvo Conversation
+	foundSource := false
+	for _, c := range cs.conversations {
+		if c.ID == id {
+			sourceConvo = c
+			foundSource = true
+			break
+		}
+	}
+
+	if !foundSource {
+		return Conversation{}, false
+	}
+
+	var bestMatch Conversation
+	var minDiff time.Duration = 24 * time.Hour
+	foundMatch := false
+
+	otherPerspective := "admin"
+	if perspective == "admin" {
+		otherPerspective = "user"
+	}
+
+	for _, c := range cs.conversations {
+		if c.SessionID == sessionID && c.AgentID == agentID && c.Perspective == otherPerspective {
+			diff := c.StartedAt.Sub(sourceConvo.StartedAt)
+			if diff < 0 {
+				diff = -diff
+			}
+			// Pairs are usually created within milliseconds of each other
+			if diff < minDiff && diff < 5*time.Second {
+				minDiff = diff
+				bestMatch = c
+				foundMatch = true
+			}
+		}
+	}
+
+	return bestMatch, foundMatch
+}
+
 // FindBySession returns the most recent conversation matching the given
 // sessionID, agentID, and perspective. This is used to append messages to an
 // existing conversation instead of creating a new one for every /run call.

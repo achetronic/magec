@@ -267,12 +267,7 @@ func (h *Handler) findPerspectivePair(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	otherPerspective := "admin"
-	if convo.Perspective == "admin" {
-		otherPerspective = "user"
-	}
-
-	pair, found := h.conversations.FindBySession(convo.SessionID, convo.AgentID, otherPerspective)
+	pair, found := h.conversations.FindExactPair(convo.ID, convo.SessionID, convo.AgentID, convo.Perspective)
 	if !found {
 		writeJSON(w, http.StatusOK, map[string]interface{}{"pairId": nil})
 		return
