@@ -54,22 +54,6 @@
             <span class="text-[10px] font-medium">{{ agentItem.label }}</span>
           </div>
 
-          <div
-            class="flow-toolbar-item"
-            :class="flowItem.cls"
-            :title="flowItem.title"
-            draggable="true"
-            @dragstart="onToolbarDragStart($event, flowItem)"
-            @dragend="onToolbarDragEnd"
-          >
-            <div class="w-5 h-5 rounded flex items-center justify-center flex-shrink-0" :class="flowItem.iconBg">
-              <svg class="w-3 h-3" :class="flowItem.iconColor" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" :d="flowItem.icon" />
-              </svg>
-            </div>
-            <span class="text-[10px] font-medium">{{ flowItem.label }}</span>
-          </div>
-
           <div class="border-t border-piedra-700/40 my-0.5"></div>
 
           <span class="text-[9px] text-arena-500 uppercase tracking-wider font-semibold px-1">Containers</span>
@@ -274,14 +258,6 @@ const agentItem = {
   icon: 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z',
 }
 
-const flowItem = {
-  type: 'agent', label: 'Flow',
-  title: 'Another flow that acts as a step',
-  cls: 'border-lava-500/30 hover:border-lava-500/60 bg-piedra-800',
-  iconBg: 'bg-lava-500/15', iconColor: 'text-lava-400',
-  icon: 'M4 6h16M4 12h16M4 18h7',
-}
-
 const flowItems = [
   {
     type: 'container', subtype: 'sequential', label: 'Sequential',
@@ -308,15 +284,12 @@ const flowItems = [
 
 function onToolbarDragStart(e, item) {
   const dragType = item.type === 'agent' ? 'agent' : item.subtype
-  const nodeType = item.label === 'Flow' ? 'flow' : 'agent'
   e.dataTransfer.effectAllowed = 'copy'
   e.dataTransfer.setData('text/plain', JSON.stringify({ 
     type: dragType, 
-    nodeType: nodeType,
     fromToolbar: true 
   }))
   document.body.dataset.toolbarDragType = dragType
-  document.body.dataset.toolbarNodeType = nodeType
 }
 
 function stripPlaceholders(step) {
@@ -331,7 +304,6 @@ function stripPlaceholders(step) {
 
 function onToolbarDragEnd() {
   delete document.body.dataset.toolbarDragType
-  delete document.body.dataset.toolbarNodeType
   if (props.modelValue) {
     emit('update:modelValue', stripPlaceholders(props.modelValue))
   }

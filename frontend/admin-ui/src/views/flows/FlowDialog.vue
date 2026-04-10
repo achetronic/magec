@@ -22,7 +22,7 @@
       </div>
       <FlowCanvas
         v-model="form.root"
-        :agents="availableNodes"
+        :agents="store.agents"
       />
       <details class="group text-arena-500">
         <summary class="text-[10px] font-medium cursor-pointer select-none hover:text-arena-300 transition-colors">
@@ -70,15 +70,6 @@ const form = reactive({
   description: '',
   root: null,
   a2aEnabled: false,
-})
-
-const availableNodes = computed(() => {
-  const nodes = store.agents.map(a => ({ ...a, _isFlow: false }))
-  for (const f of store.flows) {
-    if (f.id === editId.value) continue
-    nodes.push({ ...f, _isFlow: true })
-  }
-  return nodes
 })
 
 function open(flow = null) {
