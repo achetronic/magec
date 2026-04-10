@@ -118,6 +118,8 @@ func main() {
 	startGracefulShutdown(adminServer, adminCtx, adminCancel, userServer, userCtx, userCancel, cronScheduler, clientManager, voiceDetector)
 }
 
+// initStores initializes the primary JSON file stores for application data
+// (agents, backends, secrets) and the conversation history store.
 func initStores(cfg *config.Config) (*store.Store, *store.ConversationStore) {
 	dataStore, err := store.New("data/store.json", cfg.Server.EncryptionKey)
 	if err != nil {
@@ -140,6 +142,7 @@ func initStores(cfg *config.Config) (*store.Store, *store.ConversationStore) {
 	return dataStore, convoStore
 }
 
+// getA2APublicURL resolves the public base URL used for the Agent-to-Agent protocol.
 func getA2APublicURL(cfg *config.Config) string {
 	if cfg.Server.PublicURL == "" {
 		return fmt.Sprintf("http://localhost:%d", cfg.Server.Port)
@@ -147,6 +150,8 @@ func getA2APublicURL(cfg *config.Config) string {
 	return cfg.Server.PublicURL
 }
 
+// startAdminServer configures and starts the HTTP server that serves the admin API
+// and the Admin UI frontend. Returns the server instance and its context/cancel function.
 func startAdminServer(cfg *config.Config, adminHandler *admin.Handler) (*http.Server, context.Context, context.CancelFunc) {
 	adminMux := http.NewServeMux()
 	adminMux.Handle("/api/v1/admin/", http.StripPrefix("/api/v1/admin", adminHandler))
@@ -180,6 +185,9 @@ func startAdminServer(cfg *config.Config, adminHandler *admin.Handler) (*http.Se
 	return adminServer, adminCtx, adminCancel
 }
 
+// startUserServer configures and starts the HTTP server for the user-facing
+// Agent API, Voice API, and A2A endpoints. It wires up all necessary middlewares,
+// such as session assurance, SSE timeouts, and conversation recording.
 func startUserServer(
 	cfg *config.Config,
 	dataStore *store.Store,
@@ -251,6 +259,8 @@ func startUserServer(
 	return executor, server, userCtx, userCancel, voiceDetector
 }
 
+// initVoiceSubsystem prepares the Voice subsystem by loading the required ONNX
+// models for VAD, embedding, and mel-spectrogram processing if Voice UI is enabled.
 func initVoiceSubsystem(cfg *config.Config, httpMux *http.ServeMux) *voice.Detector {
 	if !*cfg.Voice.UI.Enabled {
 		slog.Info("Voice UI disabled via config")
@@ -319,6 +329,8 @@ func initVoiceSubsystem(cfg *config.Config, httpMux *http.ServeMux) *voice.Detec
 	return detector
 }
 
+// watchStoreChanges listens for modifications in the data store file
+// and triggers a hot-reload of the agent routing engine when detected.
 func watchStoreChanges(ctx context.Context, dataStore *store.Store, agentRouter *agentRouterHandler) {
 	storeChanged := dataStore.OnChange()
 	go func() {
@@ -330,6 +342,8 @@ func watchStoreChanges(ctx context.Context, dataStore *store.Store, agentRouter 
 	}()
 }
 
+// startClients initializes and starts external messaging clients (Discord, Slack, Telegram, etc.)
+// and the cron job scheduler for automated tasks.
 func startClients(ctx context.Context, cfg *config.Config, dataStore *store.Store, executor *clients.Executor) (*cron.Scheduler, *clientManager) {
 	cronScheduler := cron.NewScheduler(executor, dataStore, slog.Default())
 	go cronScheduler.Start(ctx)
@@ -340,6 +354,8 @@ func startClients(ctx context.Context, cfg *config.Config, dataStore *store.Stor
 	return cronScheduler, cm
 }
 
+// startGracefulShutdown blocks execution until an interrupt signal is received.
+// Upon signal, it gracefully shuts down HTTP servers, cron jobs, clients, and AI subsystems.
 func startGracefulShutdown(
 	adminServer *http.Server, adminCtx context.Context, adminCancel context.CancelFunc,
 	userServer *http.Server, userCtx context.Context, userCancel context.CancelFunc,

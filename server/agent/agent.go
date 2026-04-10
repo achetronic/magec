@@ -206,6 +206,9 @@ func New(ctx context.Context, agents []store.AgentDefinition, backends []store.B
 	}, nil
 }
 
+// sortFlowsTopologically performs a topological sort on the flow definitions.
+// This detects circular dependencies and ensures that sub-flows are constructed
+// and registered before the parent flows that depend on them.
 func sortFlowsTopologically(flows []store.FlowDefinition) ([]store.FlowDefinition, error) {
 	if len(flows) == 0 {
 		return flows, nil
@@ -263,6 +266,9 @@ func sortFlowsTopologically(flows []store.FlowDefinition) ([]store.FlowDefinitio
 	return sorted, nil
 }
 
+// buildSingleAgent constructs an individual ADK agent instance from its definition.
+// It resolves the associated LLM backend, assembles its toolsets (MCPs, skills, memory),
+// and builds its persona/instruction context.
 func buildSingleAgent(
 	ctx context.Context,
 	agentDef store.AgentDefinition,
@@ -306,6 +312,9 @@ func buildSingleAgent(
 	return adkAgent, llmModel, nil
 }
 
+// buildContextGuardConfig generates the ContextGuard plugin configuration
+// from all agent definitions that have it enabled, enforcing their specific
+// max-token or sliding-window boundaries on the LLM prompt size.
 func buildContextGuardConfig(agents []store.AgentDefinition, llmMap map[string]model.LLM, registry contextguard.ModelRegistry) runner.PluginConfig {
 	guard := contextguard.New(registry)
 	for _, agentDef := range agents {
