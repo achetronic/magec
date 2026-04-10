@@ -1046,8 +1046,8 @@ func (s *Store) CreateSecret(sec Secret) (Secret, error) {
 		os.Setenv(sec.Key, sec.Value)
 	}
 
-	s.data.Secrets = append(s.data.Secrets, sec)
 	s.rawData.Secrets = append(s.rawData.Secrets, rawSec)
+	s.reExpandDataLocked()
 	return sec, s.persist()
 }
 
@@ -1080,9 +1080,12 @@ func (s *Store) UpdateSecret(id string, sec Secret) error {
 			if sec.Key != "" && sec.Value != "" {
 				os.Setenv(sec.Key, sec.Value)
 			}
+			if existing.Key != "" && existing.Key != sec.Key {
+				os.Unsetenv(existing.Key)
+			}
 
-			s.data.Secrets[i] = sec
 			s.rawData.Secrets[i] = rawSec
+			s.reExpandDataLocked()
 			return s.persist()
 		}
 	}
@@ -1095,15 +1098,32 @@ func (s *Store) DeleteSecret(id string) error {
 
 	for i, existing := range s.data.Secrets {
 		if existing.ID == id {
-			s.data.Secrets = append(s.data.Secrets[:i], s.data.Secrets[i+1:]...)
+			if existing.Key != "" {
+				os.Unsetenv(existing.Key)
+			}
 			s.rawData.Secrets = append(s.rawData.Secrets[:i], s.rawData.Secrets[i+1:]...)
+			s.reExpandDataLocked()
 			return s.persist()
 		}
 	}
 	return fmt.Errorf("secret %q not found", id)
 }
 
-// --- Persistence (internal) ---
+// reExpandDataLocked re-evaluates all environment variables across the store's
+// raw data and updates the expanded data representation. Must be called while holding s.mu.Lock().
+func (s *Store) reExpandDataLocked() {
+	data, err := json.Marshal(s.rawData)
+	if err != nil {
+		return
+	}
+	expanded := os.ExpandEnv(string(data))
+	var storeData StoreData
+	if err := json.Unmarshal([]byte(expanded), &storeData); err != nil {
+		return
+	}
+	initSlices(&storeData)
+	s.data = storeData
+}
 
 // persist writes the current store data to disk as formatted JSON and
 // notifies all change subscribers.
@@ -1179,36 +1199,6 @@ func (s *Store) loadFromDisk() error {
 		return err
 	}
 
-	initSlices := func(sd *StoreData) {
-		if sd.Backends == nil {
-			sd.Backends = []BackendDefinition{}
-		}
-		if sd.MemoryProviders == nil {
-			sd.MemoryProviders = []MemoryProvider{}
-		}
-		if sd.MCPServers == nil {
-			sd.MCPServers = []MCPServer{}
-		}
-		if sd.Skills == nil {
-			sd.Skills = []Skill{}
-		}
-		if sd.Agents == nil {
-			sd.Agents = []AgentDefinition{}
-		}
-		if sd.Clients == nil {
-			sd.Clients = []ClientDefinition{}
-		}
-		if sd.Flows == nil {
-			sd.Flows = []FlowDefinition{}
-		}
-		if sd.Commands == nil {
-			sd.Commands = []Command{}
-		}
-		if sd.Secrets == nil {
-			sd.Secrets = []Secret{}
-		}
-	}
-
 	initSlices(&storeData)
 	initSlices(&raw)
 
@@ -1216,6 +1206,36 @@ func (s *Store) loadFromDisk() error {
 	s.rawData = raw
 
 	return nil
+}
+
+func initSlices(sd *StoreData) {
+	if sd.Backends == nil {
+		sd.Backends = []BackendDefinition{}
+	}
+	if sd.MemoryProviders == nil {
+		sd.MemoryProviders = []MemoryProvider{}
+	}
+	if sd.MCPServers == nil {
+		sd.MCPServers = []MCPServer{}
+	}
+	if sd.Skills == nil {
+		sd.Skills = []Skill{}
+	}
+	if sd.Agents == nil {
+		sd.Agents = []AgentDefinition{}
+	}
+	if sd.Clients == nil {
+		sd.Clients = []ClientDefinition{}
+	}
+	if sd.Flows == nil {
+		sd.Flows = []FlowDefinition{}
+	}
+	if sd.Commands == nil {
+		sd.Commands = []Command{}
+	}
+	if sd.Secrets == nil {
+		sd.Secrets = []Secret{}
+	}
 }
 
 // migrateTTSConfig migrates old store formats to the typed config pattern:
