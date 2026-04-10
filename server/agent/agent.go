@@ -36,6 +36,7 @@ import (
 	"google.golang.org/adk/memory"
 	"google.golang.org/adk/model"
 	"google.golang.org/adk/model/gemini"
+	"google.golang.org/adk/runner"
 	"google.golang.org/adk/server/adkrest"
 	"google.golang.org/adk/session"
 	"google.golang.org/adk/tool"
@@ -129,14 +130,6 @@ func New(ctx context.Context, agents []store.AgentDefinition, backends []store.B
 		return nil, fmt.Errorf("memory service: %w", err)
 	}
 
-	var rootAgent agent.Agent
-	var otherAgents []agent.Agent
-	adkAgentMap := make(map[string]agent.Agent, len(agents))
-	// llmMap maps agent ID → LLM instance. The ContextGuard plugin uses it
-	// so each agent summarizes with its own model, matching user expectations.
-	// Rebuilt from scratch on every hot-reload (store change).
-	llmMap := make(map[string]model.LLM, len(agents))
-
 	artifactSvc, err := artifactfs.NewFilesystemService(artifactfs.FilesystemServiceConfig{
 		BasePath: filepath.Join("data", "artifacts"),
 	})
@@ -149,51 +142,29 @@ func New(ctx context.Context, agents []store.AgentDefinition, backends []store.B
 		return nil, fmt.Errorf("failed to create base toolset: %w", err)
 	}
 
+	adkAgentMap := make(map[string]agent.Agent, len(agents)+len(flows))
+	llmMap := make(map[string]model.LLM, len(agents))
+	var rootAgent agent.Agent
+	var otherAgents []agent.Agent
+
+	// Build ADK agents
 	for i, agentDef := range agents {
-
-		llmBackend, ok := backendMap[agentDef.LLM.Backend]
-		if !ok {
-			return nil, fmt.Errorf("agent %q: LLM backend %q not found", agentDef.ID, agentDef.LLM.Backend)
-		}
-		llmModel, err := createLLM(ctx, llmBackend, agentDef.LLM)
+		adkAgent, llmModel, err := buildSingleAgent(ctx, agentDef, backendMap, mcpServerMap, skillMap, memorySvc, baseTset)
 		if err != nil {
-			return nil, fmt.Errorf("agent %q: failed to create LLM: %w", agentDef.ID, err)
+			return nil, fmt.Errorf("agent %q: %w", agentDef.ID, err)
 		}
-		// Register this agent's LLM so ContextGuard can use it for summarization.
 		llmMap[agentDef.ID] = llmModel
-
-		toolsets, err := buildToolsets(agentDef, mcpServerMap, memorySvc)
-		if err != nil {
-			return nil, fmt.Errorf("agent %q: failed to build toolsets: %w", agentDef.ID, err)
-		}
-		toolsets = append(toolsets, baseTset)
-
-		instruction := buildInstruction(agentDef, mcpServerMap, skillMap, filepath.Join("data", "skills"), memorySvc)
-
-		agentCfg := llmagent.Config{
-			Name:                agentDef.ID,
-			Model:               llmModel,
-			Description:         agentDef.Name,
-			InstructionProvider: makeInstructionProvider(instruction),
-			Toolsets:            toolsets,
-			OutputKey:           agentDef.OutputKey,
-		}
-
-		adkAgent, err := llmagent.New(agentCfg)
-		if err != nil {
-			return nil, fmt.Errorf("agent %q: failed to create: %w", agentDef.ID, err)
-		}
+		adkAgentMap[agentDef.ID] = adkAgent
 
 		if i == 0 {
 			rootAgent = adkAgent
 		} else {
 			otherAgents = append(otherAgents, adkAgent)
 		}
-		adkAgentMap[agentDef.ID] = adkAgent
-
 		slog.Info("Agent initialized", "id", agentDef.ID, "name", agentDef.Name)
 	}
 
+	// Build flows
 	for _, flow := range flows {
 		flowAgent, err := BuildFlowAgent(flow, adkAgentMap)
 		if err != nil {
@@ -214,33 +185,11 @@ func New(ctx context.Context, agents []store.AgentDefinition, backends []store.B
 		SessionService:  sessionSvc,
 		AgentLoader:     loader,
 		ArtifactService: artifactSvc,
+		MemoryService:   memorySvc,
 	}
-	if memorySvc != nil {
-		launcherCfg.MemoryService = memorySvc
-	}
-	// Wire the ContextGuard plugin if a context window registry was provided.
-	// The plugin receives the full llmMap so every agent summarizes with its
-	// own model — a user on a powerful model gets a high-quality summary,
-	// a user on a cheap model gets a summary matching those expectations.
+
 	if registry != nil {
-		guard := contextguard.New(registry)
-		for _, agentDef := range agents {
-			cg := agentDef.ContextGuard
-			if cg == nil || !cg.Enabled {
-				continue
-			}
-			var opts []contextguard.AgentOption
-			switch cg.Strategy {
-			case contextguard.StrategySlidingWindow:
-				opts = append(opts, contextguard.WithSlidingWindow(cg.MaxTurns))
-			default:
-				if cg.MaxTokens > 0 {
-					opts = append(opts, contextguard.WithMaxTokens(cg.MaxTokens))
-				}
-			}
-			guard.Add(agentDef.ID, llmMap[agentDef.ID], opts...)
-		}
-		launcherCfg.PluginConfig = guard.PluginConfig()
+		launcherCfg.PluginConfig = buildContextGuardConfig(agents, llmMap, registry)
 	}
 
 	return &Service{
@@ -249,6 +198,70 @@ func New(ctx context.Context, agents []store.AgentDefinition, backends []store.B
 		memorySvc:  memorySvc,
 		adkAgents:  adkAgentMap,
 	}, nil
+}
+
+func buildSingleAgent(
+	ctx context.Context,
+	agentDef store.AgentDefinition,
+	backendMap map[string]store.BackendDefinition,
+	mcpServerMap map[string]store.MCPServer,
+	skillMap map[string]store.Skill,
+	memorySvc memory.Service,
+	baseTset tool.Toolset,
+) (agent.Agent, model.LLM, error) {
+	llmBackend, ok := backendMap[agentDef.LLM.Backend]
+	if !ok {
+		return nil, nil, fmt.Errorf("LLM backend %q not found", agentDef.LLM.Backend)
+	}
+	llmModel, err := createLLM(ctx, llmBackend, agentDef.LLM)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to create LLM: %w", err)
+	}
+
+	toolsets, err := buildToolsets(agentDef, mcpServerMap, memorySvc)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to build toolsets: %w", err)
+	}
+	toolsets = append(toolsets, baseTset)
+
+	instruction := buildInstruction(agentDef, mcpServerMap, skillMap, filepath.Join("data", "skills"), memorySvc)
+
+	agentCfg := llmagent.Config{
+		Name:                agentDef.ID,
+		Model:               llmModel,
+		Description:         agentDef.Name,
+		InstructionProvider: makeInstructionProvider(instruction),
+		Toolsets:            toolsets,
+		OutputKey:           agentDef.OutputKey,
+	}
+
+	adkAgent, err := llmagent.New(agentCfg)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to create agent: %w", err)
+	}
+
+	return adkAgent, llmModel, nil
+}
+
+func buildContextGuardConfig(agents []store.AgentDefinition, llmMap map[string]model.LLM, registry contextguard.ModelRegistry) runner.PluginConfig {
+	guard := contextguard.New(registry)
+	for _, agentDef := range agents {
+		cg := agentDef.ContextGuard
+		if cg == nil || !cg.Enabled {
+			continue
+		}
+		var opts []contextguard.AgentOption
+		switch cg.Strategy {
+		case contextguard.StrategySlidingWindow:
+			opts = append(opts, contextguard.WithSlidingWindow(cg.MaxTurns))
+		default:
+			if cg.MaxTokens > 0 {
+				opts = append(opts, contextguard.WithMaxTokens(cg.MaxTokens))
+			}
+		}
+		guard.Add(agentDef.ID, llmMap[agentDef.ID], opts...)
+	}
+	return guard.PluginConfig()
 }
 
 // Handler returns the HTTP handler that serves the ADK REST API.
