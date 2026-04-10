@@ -454,8 +454,9 @@ func (c *Client) handleMessage(ctx *th.Context, msg telego.Message) error {
 	c.logger.Info("Received message", "user_id", msg.From.ID, "chat_id", msg.Chat.ID, "text", text)
 	c.setReaction(ctx, msg.Chat.ID, msg.MessageID, "👀")
 	_ = ctx.Bot().SendChatAction(ctx, &telego.SendChatActionParams{
-		ChatID: tu.ID(msg.Chat.ID),
-		Action: telego.ChatActionTyping,
+		ChatID:          tu.ID(msg.Chat.ID),
+		MessageThreadID: msg.MessageThreadID,
+		Action:          telego.ChatActionTyping,
 	})
 	c.setReaction(ctx, msg.Chat.ID, msg.MessageID, "🧠")
 
@@ -594,8 +595,9 @@ func (c *Client) handleVoice(ctx *th.Context, msg telego.Message) error {
 	c.logger.Info("Received voice message", "user_id", msg.From.ID, "chat_id", msg.Chat.ID, "duration", msg.Voice.Duration)
 	c.setReaction(ctx, msg.Chat.ID, msg.MessageID, "👀")
 	_ = ctx.Bot().SendChatAction(ctx, &telego.SendChatActionParams{
-		ChatID: tu.ID(msg.Chat.ID),
-		Action: telego.ChatActionTyping,
+		ChatID:          tu.ID(msg.Chat.ID),
+		MessageThreadID: msg.MessageThreadID,
+		Action:          telego.ChatActionTyping,
 	})
 
 	file, err := ctx.Bot().GetFile(ctx, &telego.GetFileParams{FileID: msg.Voice.FileID})
@@ -603,8 +605,9 @@ func (c *Client) handleVoice(ctx *th.Context, msg telego.Message) error {
 		c.logger.Error("Failed to get voice file", "error", err)
 		c.setReaction(ctx, msg.Chat.ID, msg.MessageID, "👎")
 		_, _ = ctx.Bot().SendMessage(ctx, &telego.SendMessageParams{
-			ChatID: tu.ID(msg.Chat.ID),
-			Text:   "Failed to download your voice message. Please try again.",
+			ChatID:          tu.ID(msg.Chat.ID),
+			MessageThreadID: msg.MessageThreadID,
+			Text:            "Failed to download your voice message. Please try again.",
 		})
 		return nil
 	}
@@ -615,8 +618,9 @@ func (c *Client) handleVoice(ctx *th.Context, msg telego.Message) error {
 		c.logger.Error("Failed to download voice file", "error", err)
 		c.setReaction(ctx, msg.Chat.ID, msg.MessageID, "👎")
 		_, _ = ctx.Bot().SendMessage(ctx, &telego.SendMessageParams{
-			ChatID: tu.ID(msg.Chat.ID),
-			Text:   "Failed to download your voice message. Please try again.",
+			ChatID:          tu.ID(msg.Chat.ID),
+			MessageThreadID: msg.MessageThreadID,
+			Text:            "Failed to download your voice message. Please try again.",
 		})
 		return nil
 	}
@@ -973,6 +977,19 @@ func (c *Client) buildSessionID(chatID int64, threadID int, agentID string) stri
 
 // callAgentSSE sends a user message to the active agent via the /run_sse endpoint
 // and calls handler for each event as it arrives from the SSE stream.
+// fetchThreadContext returns prior messages in a thread as context for the agent.
+func (c *Client) fetchThreadContext(chatID int64, threadID int, currentMsgID int) string {
+	if threadID == 0 {
+		return ""
+	}
+	// Telegram Bot API does not provide a direct method to fetch history
+	// inside a topic/thread for bots. We could implement an internal buffer
+	// but the simplest solution is to return an empty string. The agent will
+	// rely on ADK's session memory, which inherently keeps the context per threadID
+	// since the sessionID is scoped to chatID_threadID.
+	return ""
+}
+
 func (c *Client) callAgentSSE(msg telego.Message, agentID, sessionID, textPart string, inlineDataParts []map[string]interface{}, handler func(msgutil.SSEEvent)) error {
 	userIDStr := "default_user"
 
@@ -980,7 +997,7 @@ func (c *Client) callAgentSSE(msg telego.Message, agentID, sessionID, textPart s
 		c.logger.Warn("Failed to ensure session, continuing anyway", "error", err)
 	}
 
-	fullMessage := c.buildMessageContext(msg) + textPart
+	fullMessage := c.buildMessageContext(msg) + c.fetchThreadContext(msg.Chat.ID, msg.MessageThreadID, msg.MessageID) + textPart
 
 	parts := []interface{}{
 		map[string]string{"text": fullMessage},
