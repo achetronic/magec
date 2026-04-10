@@ -7,11 +7,11 @@ package user
 // RunAgentRequest is the body for /run and /run_sse. Both camelCase and
 // snake_case field names are accepted (snake_case is converted automatically).
 type RunAgentRequest struct {
-	AppName    string              `json:"appName" example:"550e8400-e29b-41d4-a716-446655440000"`
-	UserID     string              `json:"userId" example:"user1"`
-	SessionID  string              `json:"sessionId" example:"f47ac10b-58cc-4372-a567-0e02b2c3d479"`
-	NewMessage RunAgentMessage     `json:"newMessage"`
-	Streaming  bool                `json:"streaming,omitempty" example:"false"`
+	AppName    string                 `json:"appName" example:"550e8400-e29b-41d4-a716-446655440000"`
+	UserID     string                 `json:"userId" example:"user1"`
+	SessionID  string                 `json:"sessionId" example:"f47ac10b-58cc-4372-a567-0e02b2c3d479"`
+	NewMessage RunAgentMessage        `json:"newMessage"`
+	Streaming  bool                   `json:"streaming,omitempty" example:"false"`
 	StateDelta map[string]interface{} `json:"stateDelta,omitempty"`
 }
 
@@ -23,8 +23,8 @@ type RunAgentMessage struct {
 
 // RunAgentMessagePart is a single part of a message (text or inline data).
 type RunAgentMessagePart struct {
-	Text       string                 `json:"text,omitempty" example:"Hello!"`
-	InlineData *RunAgentInlineData    `json:"inlineData,omitempty"`
+	Text       string              `json:"text,omitempty" example:"Hello!"`
+	InlineData *RunAgentInlineData `json:"inlineData,omitempty"`
 }
 
 // RunAgentInlineData represents a binary blob sent inline (base64-encoded).

@@ -6,18 +6,18 @@ package user
 
 // A2AAgentCard describes an A2A-enabled agent for discovery.
 type A2AAgentCard struct {
-	Name               string              `json:"name" example:"Home Assistant"`
-	Description        string              `json:"description" example:"Smart home control agent with access to Home Assistant"`
-	URL                string              `json:"url" example:"https://magec.example.com/api/v1/a2a/home-assistant"`
-	Version            string              `json:"version" example:"1.0.0"`
-	ProtocolVersion    string              `json:"protocolVersion" example:"0.2.5"`
-	PreferredTransport string              `json:"preferredTransport" example:"JSONRPC"`
-	DefaultInputModes  []string            `json:"defaultInputModes" example:"text/plain"`
-	DefaultOutputModes []string            `json:"defaultOutputModes" example:"text/plain"`
-	Capabilities       A2ACapabilities     `json:"capabilities"`
-	Skills             []A2ASkill          `json:"skills"`
-	SecuritySchemes    map[string]any      `json:"securitySchemes"`
-	Security           []map[string]any    `json:"security"`
+	Name               string           `json:"name" example:"Home Assistant"`
+	Description        string           `json:"description" example:"Smart home control agent with access to Home Assistant"`
+	URL                string           `json:"url" example:"https://magec.example.com/api/v1/a2a/home-assistant"`
+	Version            string           `json:"version" example:"1.0.0"`
+	ProtocolVersion    string           `json:"protocolVersion" example:"0.2.5"`
+	PreferredTransport string           `json:"preferredTransport" example:"JSONRPC"`
+	DefaultInputModes  []string         `json:"defaultInputModes" example:"text/plain"`
+	DefaultOutputModes []string         `json:"defaultOutputModes" example:"text/plain"`
+	Capabilities       A2ACapabilities  `json:"capabilities"`
+	Skills             []A2ASkill       `json:"skills"`
+	SecuritySchemes    map[string]any   `json:"securitySchemes"`
+	Security           []map[string]any `json:"security"`
 }
 
 // A2ACapabilities describes supported A2A protocol capabilities.

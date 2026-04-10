@@ -9,10 +9,10 @@ import (
 
 // ClientInfoResponse is returned when a client is authenticated.
 type ClientInfoResponse struct {
-	Paired        bool              `json:"paired" example:"true"`
-	Name          string            `json:"name,omitempty" example:"my-tablet"`
-	DefaultAgent  string            `json:"defaultAgent,omitempty" example:"magec"`
-	AllowedAgents []AgentSummary    `json:"allowedAgents,omitempty"`
+	Paired        bool           `json:"paired" example:"true"`
+	Name          string         `json:"name,omitempty" example:"my-tablet"`
+	DefaultAgent  string         `json:"defaultAgent,omitempty" example:"magec"`
+	AllowedAgents []AgentSummary `json:"allowedAgents,omitempty"`
 }
 
 // ClientInfoUnpairedResponse is returned when no auth token is provided.

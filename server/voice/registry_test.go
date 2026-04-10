@@ -14,10 +14,10 @@ type mockProvider struct {
 	stt         bool
 }
 
-func (m *mockProvider) Type() string        { return m.typ }
-func (m *mockProvider) DisplayName() string { return m.displayName }
-func (m *mockProvider) SupportsTTS() bool   { return m.tts }
-func (m *mockProvider) SupportsSTT() bool   { return m.stt }
+func (m *mockProvider) Type() string            { return m.typ }
+func (m *mockProvider) DisplayName() string     { return m.displayName }
+func (m *mockProvider) SupportsTTS() bool       { return m.tts }
+func (m *mockProvider) SupportsSTT() bool       { return m.stt }
 func (m *mockProvider) TTSConfigSchema() Schema { return nil }
 func (m *mockProvider) STTConfigSchema() Schema { return nil }
 func (m *mockProvider) SynthesizeSpeech(_ context.Context, _ TTSRequest, _ store.BackendDefinition) (*TTSResponse, error) {

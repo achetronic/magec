@@ -18,9 +18,9 @@ func (p *Provider) ConfigSchema() clients.Schema {
 		"type": "object",
 		"properties": clients.Schema{
 			"passthrough": clients.Schema{
-				"type":    "boolean",
-				"title":   "Passthrough",
-				"default": false,
+				"type":        "boolean",
+				"title":       "Passthrough",
+				"default":     false,
 				"description": "When enabled, the prompt comes from the webhook request body instead of a command.",
 			},
 			"commandId": clients.Schema{

@@ -42,13 +42,13 @@ import (
 	"google.golang.org/adk/tool/mcptoolset"
 	"google.golang.org/genai"
 
+	artifactfs "github.com/achetronic/adk-utils-go/artifact/filesystem"
 	genaianthro "github.com/achetronic/adk-utils-go/genai/anthropic"
 	genaiopenai "github.com/achetronic/adk-utils-go/genai/openai"
 	memorypostgres "github.com/achetronic/adk-utils-go/memory/postgres"
 	"github.com/achetronic/adk-utils-go/plugin/contextguard"
 	sessionredis "github.com/achetronic/adk-utils-go/session/redis"
 	toolsmemory "github.com/achetronic/adk-utils-go/tools/memory"
-	artifactfs "github.com/achetronic/adk-utils-go/artifact/filesystem"
 
 	"github.com/achetronic/magec/server/config"
 	"github.com/achetronic/magec/server/store"

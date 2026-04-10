@@ -214,7 +214,6 @@ func (e *Executor) ensureSession(ctx context.Context, agentID, userID, sessionID
 	return nil
 }
 
-
 // LogExternalConversation records a conversation from an external source (e.g. telegram, voice-ui).
 func (e *Executor) LogExternalConversation(agentID, userID, sessionID, source, clientID, prompt, perspective string, events []map[string]interface{}) {
 	if e.conversations == nil {
@@ -321,7 +320,7 @@ func (e *Executor) LogExternalConversation(agentID, userID, sessionID, source, c
 		FlowName:    flowName,
 		ClientID:    clientID,
 		ClientName:  clientName,
-		Source:       source,
+		Source:      source,
 		Perspective: perspective,
 		UserID:      userID,
 		Messages:    messages,

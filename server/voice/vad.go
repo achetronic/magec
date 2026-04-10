@@ -51,10 +51,10 @@ type VAD struct {
 	c []float32
 
 	// State tracking
-	isSpeaking       bool
-	lastSpeechTime   time.Time
-	audioBuffer      []float32
-	mu               sync.Mutex
+	isSpeaking     bool
+	lastSpeechTime time.Time
+	audioBuffer    []float32
+	mu             sync.Mutex
 
 	// Callbacks
 	onSpeechStart func()

@@ -54,10 +54,10 @@ type SSEEvent struct {
 
 // UsageMetadata holds token count information from the LLM.
 type UsageMetadata struct {
-	PromptTokens     int
-	CandidateTokens  int
-	TotalTokens      int
-	CachedTokens     int
+	PromptTokens    int
+	CandidateTokens int
+	TotalTokens     int
+	CachedTokens    int
 }
 
 // ParseSSEStream reads a /run_sse response body and calls handler for each

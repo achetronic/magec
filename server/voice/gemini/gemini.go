@@ -39,7 +39,7 @@ func resolveURL(backend store.BackendDefinition) string {
 
 func (p *provider) TTSConfigSchema() voice.Schema {
 	return voice.Schema{
-		"type": "object",
+		"type":          "object",
 		"propertyOrder": []string{"languageCode", "temperature", "stylePrompt"},
 		"properties": map[string]interface{}{
 			"languageCode": map[string]interface{}{

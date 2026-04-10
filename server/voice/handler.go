@@ -38,13 +38,13 @@ var upgrader = websocket.Upgrader{
 
 // Message types for WebSocket communication
 const (
-	MsgTypeCapabilities  = "capabilities"
-	MsgTypeConfig        = "config"
-	MsgTypeSetModel      = "setModel"
-	MsgTypeWakeword      = "wakeword"
-	MsgTypeSpeechStart   = "speech_start"
-	MsgTypeSpeechEnd     = "speech_end"
-	MsgTypeError         = "error"
+	MsgTypeCapabilities = "capabilities"
+	MsgTypeConfig       = "config"
+	MsgTypeSetModel     = "setModel"
+	MsgTypeWakeword     = "wakeword"
+	MsgTypeSpeechStart  = "speech_start"
+	MsgTypeSpeechEnd    = "speech_end"
+	MsgTypeError        = "error"
 )
 
 // WSMessage represents a WebSocket message
