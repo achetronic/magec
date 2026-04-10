@@ -59,9 +59,9 @@
 
     <Transition name="dropdown">
       <div v-if="pickerOpen" class="absolute z-50 left-0 top-full mt-1 w-52 bg-piedra-800 border border-piedra-700/60 rounded-xl shadow-2xl overflow-hidden">
-        <div v-if="agents.length" class="py-1 max-h-48 overflow-y-auto">
+        <div v-if="filteredAgents.length" class="py-1 max-h-48 overflow-y-auto">
           <button
-            v-for="a in agents" :key="a.id"
+            v-for="a in filteredAgents" :key="a.id"
             @click.stop="pickAgent(a.id)"
             class="w-full flex items-center gap-2.5 px-3 py-2 text-left transition-colors"
             :class="a.id === step.agentId ? (a._isFlow ? 'bg-lava-500/10' : 'bg-sol-500/10') : 'hover:bg-piedra-700/60'"
@@ -143,7 +143,7 @@
           <div class="flow-item-wrap" :class="isHorizontal ? 'flow-item-wrap-h' : 'flow-item-wrap-v'">
             <div v-if="element.__placeholder" class="flow-ghost-wrap">
               <FlowBlock
-                :step="ghostStep(element.__placeholderType)"
+                :step="ghostStep(element)"
                 :agents="agents"
                 :is-root="false"
                 :parent-type="step.type"
@@ -204,9 +204,10 @@ function isToolbarDrag() {
   return 'toolbarDragType' in document.body.dataset
 }
 
-function ghostStep(type) {
+function ghostStep(element) {
+  const type = element.__placeholderType
   return type === 'agent'
-    ? { type: 'agent', agentId: '' }
+    ? { type: 'agent', agentId: '', _nodeType: element.__placeholderNodeType || 'agent' }
     : { type, steps: [] }
 }
 
@@ -221,6 +222,7 @@ function makePlaceholder() {
     __key: '__toolbar_placeholder__',
     __placeholder: true,
     __placeholderType: document.body.dataset.toolbarDragType || 'agent',
+    __placeholderNodeType: document.body.dataset.toolbarNodeType || 'agent',
   }
 }
 
@@ -298,7 +300,7 @@ function onDrop(e) {
     if (!data?.fromToolbar) return
 
     const newStep = data.type === 'agent'
-      ? { type: 'agent', agentId: '' }
+      ? { type: 'agent', agentId: '', _nodeType: data.nodeType || 'agent' }
       : { type: data.type, steps: [], ...(data.type === 'loop' ? { maxIterations: 3 } : {}) }
 
     addStepAt(newStep, insertAt)
@@ -388,6 +390,20 @@ const COLORS = {
 }
 
 const agentNode = computed(() => props.agents.find(a => a.id === props.step.agentId))
+
+const filteredAgents = computed(() => {
+  if (props.step.agentId) {
+    const a = agentNode.value
+    if (a) return props.agents.filter(x => !!x._isFlow === !!a._isFlow)
+  }
+  if (props.step._nodeType === 'flow') {
+    return props.agents.filter(a => a._isFlow)
+  } else if (props.step._nodeType === 'agent') {
+    return props.agents.filter(a => !a._isFlow)
+  }
+  return props.agents
+})
+
 const agentName = computed(() => {
   const a = agentNode.value
   return a?.name || props.step.agentId || 'Select item...'

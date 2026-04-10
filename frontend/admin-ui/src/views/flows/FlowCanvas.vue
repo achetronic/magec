@@ -308,9 +308,15 @@ const flowItems = [
 
 function onToolbarDragStart(e, item) {
   const dragType = item.type === 'agent' ? 'agent' : item.subtype
+  const nodeType = item.label === 'Flow' ? 'flow' : 'agent'
   e.dataTransfer.effectAllowed = 'copy'
-  e.dataTransfer.setData('text/plain', JSON.stringify({ type: dragType, fromToolbar: true }))
+  e.dataTransfer.setData('text/plain', JSON.stringify({ 
+    type: dragType, 
+    nodeType: nodeType,
+    fromToolbar: true 
+  }))
   document.body.dataset.toolbarDragType = dragType
+  document.body.dataset.toolbarNodeType = nodeType
 }
 
 function stripPlaceholders(step) {
@@ -325,6 +331,7 @@ function stripPlaceholders(step) {
 
 function onToolbarDragEnd() {
   delete document.body.dataset.toolbarDragType
+  delete document.body.dataset.toolbarNodeType
   if (props.modelValue) {
     emit('update:modelValue', stripPlaceholders(props.modelValue))
   }
