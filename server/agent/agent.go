@@ -165,7 +165,13 @@ func New(ctx context.Context, agents []store.AgentDefinition, backends []store.B
 	}
 
 	// Build flows
-	for _, flow := range flows {
+	sortedFlows, err := sortFlowsTopologically(flows)
+	if err != nil {
+		slog.Warn("Failed to sort flows topologically (circular dependency)", "error", err)
+		sortedFlows = flows // Fallback to unsorted
+	}
+
+	for _, flow := range sortedFlows {
 		flowAgent, err := BuildFlowAgent(flow, adkAgentMap)
 		if err != nil {
 			slog.Warn("Failed to build flow", "flow", flow.Name, "error", err)
@@ -198,6 +204,63 @@ func New(ctx context.Context, agents []store.AgentDefinition, backends []store.B
 		memorySvc:  memorySvc,
 		adkAgents:  adkAgentMap,
 	}, nil
+}
+
+func sortFlowsTopologically(flows []store.FlowDefinition) ([]store.FlowDefinition, error) {
+	if len(flows) == 0 {
+		return flows, nil
+	}
+
+	flowMap := make(map[string]store.FlowDefinition, len(flows))
+	for _, f := range flows {
+		flowMap[f.ID] = f
+	}
+
+	var sorted []store.FlowDefinition
+	visited := make(map[string]bool)
+	temp := make(map[string]bool)
+
+	var visit func(id string) error
+	visit = func(id string) error {
+		if temp[id] {
+			return fmt.Errorf("circular dependency detected at flow %s", id)
+		}
+		if visited[id] {
+			return nil
+		}
+		temp[id] = true
+
+		f, ok := flowMap[id]
+		if !ok {
+			temp[id] = false
+			visited[id] = true
+			return nil
+		}
+
+		deps := f.AgentIDs()
+		for _, dep := range deps {
+			if _, isFlow := flowMap[dep]; isFlow {
+				if err := visit(dep); err != nil {
+					return err
+				}
+			}
+		}
+
+		temp[id] = false
+		visited[id] = true
+		sorted = append(sorted, f)
+		return nil
+	}
+
+	for _, f := range flows {
+		if !visited[f.ID] {
+			if err := visit(f.ID); err != nil {
+				return nil, err
+			}
+		}
+	}
+
+	return sorted, nil
 }
 
 func buildSingleAgent(

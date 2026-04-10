@@ -229,34 +229,53 @@ const (
 )
 
 // FlowStep is a recursive node in a flow tree.
-// Leaf nodes have Type "agent" and reference an AgentDefinition by ID.
+// Leaf nodes have Type "agent" and reference an AgentDefinition or FlowDefinition by ID.
 // Container nodes have Type "sequential", "parallel", or "loop" and hold
 // child steps. Loop nodes additionally specify MaxIterations.
 // ResponseAgent marks an agent node whose output should be included in the
 // final response when the flow is invoked via webhook/cron. If no agent in
 // the flow is marked, all agent outputs are concatenated (default behavior).
 type FlowStep struct {
-	Type          string     `json:"type"`
-	AgentID       string     `json:"agentId,omitempty"`
-	ResponseAgent bool       `json:"responseAgent,omitempty"`
-	MaxIterations uint       `json:"maxIterations,omitempty"`
-	Steps         []FlowStep `json:"steps,omitempty"`
+	Type                  string     `json:"type"`
+	AgentID               string     `json:"agentId,omitempty"`
+	ResponseAgent         bool       `json:"responseAgent,omitempty"`
+	InheritResponseAgents *bool      `json:"inheritResponseAgents,omitempty"`
+	MaxIterations         uint       `json:"maxIterations,omitempty"`
+	Steps                 []FlowStep `json:"steps,omitempty"`
 }
 
 // ResponseAgentIDs walks the flow tree and returns the agent IDs of all
-// steps marked with ResponseAgent. Returns nil if none are marked.
-func (f *FlowDefinition) ResponseAgentIDs() []string {
+// steps marked with ResponseAgent. If a step is a subflow and InheritResponseAgents
+// is not false, it recursively includes the subflow's response agents.
+func (f *FlowDefinition) ResponseAgentIDs(getFlow func(string) (*FlowDefinition, bool)) []string {
 	var ids []string
-	collectResponseAgents(&f.Root, &ids)
+	collectResponseAgents(&f.Root, &ids, getFlow)
 	return ids
 }
 
-func collectResponseAgents(step *FlowStep, ids *[]string) {
-	if step.Type == FlowStepAgent && step.ResponseAgent && step.AgentID != "" {
-		*ids = append(*ids, step.AgentID)
+func collectResponseAgents(step *FlowStep, ids *[]string, getFlow func(string) (*FlowDefinition, bool)) {
+	if step.Type == FlowStepAgent {
+		if step.AgentID != "" {
+			if step.ResponseAgent {
+				*ids = append(*ids, step.AgentID)
+			}
+
+			// If it's a subflow, check inheritance
+			if getFlow != nil {
+				if subFlow, isFlow := getFlow(step.AgentID); isFlow {
+					inherit := true
+					if step.InheritResponseAgents != nil {
+						inherit = *step.InheritResponseAgents
+					}
+					if inherit {
+						collectResponseAgents(&subFlow.Root, ids, getFlow)
+					}
+				}
+			}
+		}
 	}
 	for i := range step.Steps {
-		collectResponseAgents(&step.Steps[i], ids)
+		collectResponseAgents(&step.Steps[i], ids, getFlow)
 	}
 }
 
