@@ -20,10 +20,13 @@ const (
 
 var pbkdf2Salt = []byte("magec-secrets-v1")
 
+// deriveKey creates a 32-byte AES key from a password using PBKDF2 and a static salt.
 func deriveKey(password string) []byte {
 	return pbkdf2.Key([]byte(password), pbkdf2Salt, pbkdf2Iter, pbkdf2KeyLen, sha256.New)
 }
 
+// encryptValue encrypts a plaintext string using AES-GCM and the derived key.
+// It returns a base64-encoded ciphertext prefixed with the encryption version tag.
 func encryptValue(plaintext, password string) (string, error) {
 	key := deriveKey(password)
 	block, err := aes.NewCipher(key)
@@ -44,6 +47,8 @@ func encryptValue(plaintext, password string) (string, error) {
 	return encPrefix + base64.StdEncoding.EncodeToString(ciphertext), nil
 }
 
+// decryptValue decrypts an encoded ciphertext using AES-GCM and the derived key.
+// If the encoded string lacks the encryption prefix, it returns it unmodified.
 func decryptValue(encoded, password string) (string, error) {
 	if !strings.HasPrefix(encoded, encPrefix) {
 		return encoded, nil
@@ -77,6 +82,7 @@ func decryptValue(encoded, password string) (string, error) {
 	return string(plaintext), nil
 }
 
+// isEncrypted returns true if the value starts with the encryption version prefix.
 func isEncrypted(value string) bool {
 	return strings.HasPrefix(value, encPrefix)
 }
