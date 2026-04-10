@@ -11,6 +11,7 @@ import {
   skillsApi,
   settingsApi,
   secretsApi,
+  voiceApi,
 } from '../api/index.js'
 
 export const useDataStore = defineStore('data', () => {
@@ -25,12 +26,14 @@ export const useDataStore = defineStore('data', () => {
   const secrets = ref([])
   const memoryTypes = ref([])
   const clientTypes = ref([])
+  const voiceTypes = ref([])
   const settings = ref({ sessionProvider: '', longTermProvider: '' })
   const loading = ref(false)
 
   async function init() {
     try { memoryTypes.value = await memoryApi.listTypes() } catch { memoryTypes.value = [] }
     try { clientTypes.value = await clientsApi.listTypes() } catch { clientTypes.value = [] }
+    try { voiceTypes.value = await voiceApi.listTypes() } catch { voiceTypes.value = [] }
     await refresh()
   }
 
@@ -106,6 +109,7 @@ export const useDataStore = defineStore('data', () => {
     secrets,
     memoryTypes,
     clientTypes,
+    voiceTypes,
     settings,
     loading,
     init,

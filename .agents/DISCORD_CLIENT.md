@@ -10,8 +10,8 @@ The bot opens an outbound WebSocket connection to Discord's Gateway API via `dis
 
 **Single token required:**
 
-| Token | Purpose |
-|-------|---------|
+| Token         | Purpose                                                                                      |
+| ------------- | -------------------------------------------------------------------------------------------- |
 | **Bot Token** | Everything: establish Gateway connection, send/read messages, manage reactions, upload files |
 
 Simpler than Slack (which needs two tokens). Similar to Telegram (one token), but uses persistent WebSocket instead of long polling.
@@ -33,15 +33,15 @@ https://discord.com/oauth2/authorize?client_id=YOUR_APP_ID&permissions=706436221
 
 ### Required Permissions
 
-| Permission | Bit | Value |
-|------------|-----|-------|
-| Send Messages | `1 << 11` | `2048` |
-| Read Message History | `1 << 16` | `65536` |
-| Add Reactions | `1 << 6` | `64` |
-| Attach Files | `1 << 15` | `32768` |
-| Send Messages in Threads | `1 << 38` | `274877906944` |
-| Send Voice Messages | `1 << 46` | `70368744177664` |
-| **Total** | | **`70643622186048`** |
+| Permission               | Bit       | Value                |
+| ------------------------ | --------- | -------------------- |
+| Send Messages            | `1 << 11` | `2048`               |
+| Read Message History     | `1 << 16` | `65536`              |
+| Add Reactions            | `1 << 6`  | `64`                 |
+| Attach Files             | `1 << 15` | `32768`              |
+| Send Messages in Threads | `1 << 38` | `274877906944`       |
+| Send Voice Messages      | `1 << 46` | `70368744177664`     |
+| **Total**                |           | **`70643622186048`** |
 
 ### Gateway Intents
 
@@ -121,6 +121,7 @@ Redacts bot token from error messages before showing to users.
 ### Voice message handling
 
 **Incoming (voice messages → STT):**
+
 1. Detect voice via `m.Flags & discordgo.MessageFlagsIsVoiceMessage` or `audio/*` attachment with `DurationSecs > 0`
 2. Download audio attachment via `att.URL`
 3. Convert to WAV using ffmpeg (`-ar 16000 -ac 1 -f wav`)
@@ -128,18 +129,19 @@ Redacts bot token from error messages before showing to users.
 5. Process transcribed text as a normal message (with `inputWasVoice=true`)
 
 **Outgoing (TTS → file upload):**
+
 1. POST to `/api/v1/voice/{agentId}/speech` with `{"input": text, "response_format": "opus"}`
 2. Upload audio as `voice.ogg` via `ChannelMessageSendComplex` with file attachment
 3. Falls back to text if TTS fails
 
 ### Response modes
 
-| Mode | Behavior |
-|------|----------|
-| `text` | Text only (default) |
-| `voice` | TTS voice file only |
+| Mode     | Behavior                                 |
+| -------- | ---------------------------------------- |
+| `text`   | Text only (default)                      |
+| `voice`  | TTS voice file only                      |
 | `mirror` | Voice in → voice out, text in → text out |
-| `both` | Both text + voice file |
+| `both`   | Both text + voice file                   |
 
 Runtime override via `!responsemode <mode>`. `!responsemode reset` reverts to config default.
 
@@ -147,13 +149,13 @@ Runtime override via `!responsemode <mode>`. `!responsemode reset` reverts to co
 
 ```json
 {
-    "source": "discord",
-    "discord_user_id": "123456789012345678",
-    "discord_channel_id": "987654321098765432",
-    "discord_channel_type": "guild|dm",
-    "discord_username": "john",
-    "discord_name": "John Doe",
-    "discord_guild_id": "111222333444555666"
+  "source": "discord",
+  "discord_user_id": "123456789012345678",
+  "discord_channel_id": "987654321098765432",
+  "discord_channel_type": "guild|dm",
+  "discord_username": "john",
+  "discord_name": "John Doe",
+  "discord_guild_id": "111222333444555666"
 }
 ```
 
@@ -176,13 +178,13 @@ Uses `msgutil.SplitMessage(text, msgutil.DiscordMaxMessageLength)` with Discord'
 
 ## Bot commands
 
-| Command | Description |
-|---------|-------------|
-| `!help` | Show available commands |
-| `!agent` | Show/switch active agent |
-| `!agent <id>` | Switch to specific agent |
-| `!reset` | Reset session (delete ADK session, start fresh) |
-| `!responsemode` | Show current response mode |
+| Command                | Description                                      |
+| ---------------------- | ------------------------------------------------ |
+| `!help`                | Show available commands                          |
+| `!agent`               | Show/switch active agent                         |
+| `!agent <id>`          | Switch to specific agent                         |
+| `!reset`               | Reset session (delete ADK session, start fresh)  |
+| `!responsemode`        | Show current response mode                       |
 | `!responsemode <mode>` | Set response mode (text/voice/mirror/both/reset) |
 
 ## Access control
@@ -214,17 +216,17 @@ Same pattern as Telegram and Slack:
 
 ## Differences from Telegram and Slack
 
-| Aspect | Discord | Slack | Telegram |
-|--------|---------|-------|----------|
-| Connection | Gateway WebSocket | Socket Mode (WebSocket) | Long polling |
-| Tokens | 1 (botToken) | 2 (botToken + appToken) | 1 (botToken) |
-| User IDs | Snowflake strings | String IDs (`U01ABCDEF`) | int64 |
-| Voice input | Native voice messages | Audio clips (M4A) | Native voice (OGG) |
-| Voice output | `.ogg` file attachment | File upload (Opus) | Native voice message |
-| Commands | `!` prefix | `!` prefix | `/` slash commands |
-| Channel replies | @mention → reply | @mention → thread reply | Group messages |
-| Message limit | 2,000 chars | 39,000 chars | 4,096 chars |
-| Privileged setup | Message Content Intent | None | None |
+| Aspect           | Discord                | Slack                    | Telegram             |
+| ---------------- | ---------------------- | ------------------------ | -------------------- |
+| Connection       | Gateway WebSocket      | Socket Mode (WebSocket)  | Long polling         |
+| Tokens           | 1 (botToken)           | 2 (botToken + appToken)  | 1 (botToken)         |
+| User IDs         | Snowflake strings      | String IDs (`U01ABCDEF`) | int64                |
+| Voice input      | Native voice messages  | Audio clips (M4A)        | Native voice (OGG)   |
+| Voice output     | `.ogg` file attachment | File upload (Opus)       | Native voice message |
+| Commands         | `!` prefix             | `!` prefix               | `/` slash commands   |
+| Channel replies  | @mention → reply       | @mention → thread reply  | Group messages       |
+| Message limit    | 2,000 chars            | 39,000 chars             | 4,096 chars          |
+| Privileged setup | Message Content Intent | None                     | None                 |
 
 ## Out of scope
 
@@ -238,6 +240,7 @@ Same pattern as Telegram and Slack:
 Files from Discord users will be sent as `inlineData` parts in the ADK `/run` request. See `CLIENT_DESIGN.md` for full design.
 
 **Changes needed in `bot.go`**:
+
 - Add handling for non-audio attachments (`image/*`, `application/pdf`, generic mimetypes)
 - Download via attachment URL, encode base64, add as `inlineData` part
 - File size: check `att.Size` < 20MB before downloading

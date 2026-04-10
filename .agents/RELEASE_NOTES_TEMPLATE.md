@@ -36,12 +36,12 @@
 
 ## Section icons
 
-| Section | Icon |
-|---------|------|
-| Bug fixes | 🐛 |
-| Features | ✨ |
-| Improvements | 🔧 |
-| Breaking changes | 💥 |
+| Section          | Icon |
+| ---------------- | ---- |
+| Bug fixes        | 🐛   |
+| Features         | ✨   |
+| Improvements     | 🔧   |
+| Breaking changes | 💥   |
 
 ## Example
 

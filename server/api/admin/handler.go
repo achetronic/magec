@@ -148,6 +148,9 @@ func (h *Handler) buildRouter() *mux.Router {
 	r.HandleFunc("/settings/backup", h.backupDownload).Methods("GET")
 	r.HandleFunc("/settings/restore", h.backupRestore).Methods("POST")
 
+	// Voice provider types
+	r.HandleFunc("/voice/types", h.listVoiceTypes).Methods("GET")
+
 	return r
 }
 

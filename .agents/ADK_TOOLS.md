@@ -4,17 +4,17 @@ Reference for all tools shipped with `google.golang.org/adk` (evaluated at v0.4.
 
 ## Tools Overview
 
-| Package | Tool Name | Type | Used in Magec | Description |
-|---------|-----------|------|---------------|-------------|
-| `exitlooptool` | `exit_loop` | Tool | Yes (loop escalate) | Sets `Escalate=true` to break out of a `loopagent` |
-| `functiontool` | *(factory)* | Constructor | Yes (indirectly) | Creates tools from Go functions. Used by `adk-utils-go` for memory tools |
-| `mcptoolset` | *(toolset)* | Toolset | Yes | Wraps MCP servers as ADK toolsets |
-| `agenttool` | `{agent.Name()}` | Tool | Not yet | Calls another agent as a tool (creates runner + session internally) |
-| `geminitool` | `google_search` + factory | Tool | No | Gemini-native tools (Google Search, Retrieval). Only works with Gemini models |
-| `loadartifactstool` | `load_artifacts` | Tool | Not yet | Lets agents load session artifacts (files, images) on demand |
-| `toolconfirmation` | *(protocol)* | Protocol | Not yet | Human-in-the-Loop confirmation via `ctx.RequestConfirmation()` |
-| `loadmemorytool` | `load_memory` | Tool | Not yet (custom equivalent exists) | LLM-driven memory search. Official ADK version of `search_memory` |
-| `preloadmemorytool` | `preload_memory` | Tool (auto) | Not yet (custom equivalent exists) | Auto-injects relevant memories into system prompt before each LLM call |
+| Package             | Tool Name                 | Type        | Used in Magec                      | Description                                                                   |
+| ------------------- | ------------------------- | ----------- | ---------------------------------- | ----------------------------------------------------------------------------- |
+| `exitlooptool`      | `exit_loop`               | Tool        | Yes (loop escalate)                | Sets `Escalate=true` to break out of a `loopagent`                            |
+| `functiontool`      | _(factory)_               | Constructor | Yes (indirectly)                   | Creates tools from Go functions. Used by `adk-utils-go` for memory tools      |
+| `mcptoolset`        | _(toolset)_               | Toolset     | Yes                                | Wraps MCP servers as ADK toolsets                                             |
+| `agenttool`         | `{agent.Name()}`          | Tool        | Not yet                            | Calls another agent as a tool (creates runner + session internally)           |
+| `geminitool`        | `google_search` + factory | Tool        | No                                 | Gemini-native tools (Google Search, Retrieval). Only works with Gemini models |
+| `loadartifactstool` | `load_artifacts`          | Tool        | Not yet                            | Lets agents load session artifacts (files, images) on demand                  |
+| `toolconfirmation`  | _(protocol)_              | Protocol    | Not yet                            | Human-in-the-Loop confirmation via `ctx.RequestConfirmation()`                |
+| `loadmemorytool`    | `load_memory`             | Tool        | Not yet (custom equivalent exists) | LLM-driven memory search. Official ADK version of `search_memory`             |
+| `preloadmemorytool` | `preload_memory`          | Tool (auto) | Not yet (custom equivalent exists) | Auto-injects relevant memories into system prompt before each LLM call        |
 
 > **Note**: `loadmemorytool` and `preloadmemorytool` are only on `main` branch, not yet in any release tag.
 
@@ -206,32 +206,36 @@ filtered := tool.FilterToolset(myToolset, func(ctx agent.ReadonlyContext, t tool
 ## Relevance for Magec
 
 ### Use now
+
 - `exitlooptool` — For loop escalate (contextual injection, not base)
 - `functiontool` — Already used indirectly
 - `mcptoolset` — Already used
 
 ### Use soon
+
 - `toolconfirmation` — Human-in-the-Loop for flows. Needs admin UI notification area
 - `agenttool` — Agent-to-agent calls without flows. Configurable via admin UI
 
 ### Use later
+
 - `loadartifactstool` — When implementing Telegram file/artifact support
 - `loadmemorytool` + `preloadmemorytool` — When released in a tag, consider replacing `adk-utils-go` memory tools with these official ones. `preloadmemorytool` would eliminate the current prompt hack for startup memory search
 
 ### Skip
+
 - `geminitool` — Gemini-only, not applicable with OpenAI/Anthropic backends
 
 ### Memory tools: `adk-utils-go` vs ADK official
 
 Magec currently uses custom memory tools from `adk-utils-go/tools/memory` (v0.7.0 in use):
 
-| Tool | `adk-utils-go` (current v0.7.0) | ADK official (`main`) |
-|------|----------------------|----------------------|----------------------|
-| **Search** | `search_memory` (with entry IDs) | `loadmemorytool` (`load_memory`) |
-| **Save** | `save_to_memory` | — (no equivalent) |
-| **Update** | `update_memory` (by entry ID) | — (no equivalent) |
-| **Delete** | `delete_memory` (by entry ID) | — (no equivalent) |
-| **Auto-preload** | — | `preloadmemorytool` (auto-injects memories) |
+| Tool             | `adk-utils-go` (current v0.7.0)  | ADK official (`main`)                       |
+| ---------------- | -------------------------------- | ------------------------------------------- |
+| **Search**       | `search_memory` (with entry IDs) | `loadmemorytool` (`load_memory`)            |
+| **Save**         | `save_to_memory`                 | — (no equivalent)                           |
+| **Update**       | `update_memory` (by entry ID)    | — (no equivalent)                           |
+| **Delete**       | `delete_memory` (by entry ID)    | — (no equivalent)                           |
+| **Auto-preload** | —                                | `preloadmemorytool` (auto-injects memories) |
 
 #### `adk-utils-go` v0.2.2 features
 
@@ -247,6 +251,7 @@ These are enabled by default but can be disabled via `DisableExtendedTools: true
 The `memoryInstruction` in `agent.go` forces the LLM to call `search_memory` at the start of every conversation. `preloadmemorytool` would replace that pattern entirely by auto-injecting memories before the LLM even runs.
 
 When ADK's memory tools reach a release tag:
+
 1. Replace `search_memory` with `loadmemorytool` (on-demand search)
 2. Add `preloadmemorytool` (automatic context injection)
 3. Keep `save_to_memory`, `update_memory`, and `delete_memory` from `adk-utils-go` (ADK has no save/update/delete equivalents)

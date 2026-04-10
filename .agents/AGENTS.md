@@ -18,14 +18,14 @@ Self-hosted multi-agent AI platform with voice, visual workflows, and tool integ
 
 ### Clients
 
-| Client | Type | Description |
-|--------|------|-------------|
-| **Voice UI** | `direct` | Vue 3 PWA with voice/text chat, wake word detection, audio visualizer |
-| **Telegram** | `telegram` | Text and voice messages. Emoji reactions, per-chat agent switching, response modes |
-| **Discord** | `discord` | Gateway WebSocket (no public URL). DMs, @mentions, voice messages, reactions, ! commands |
-| **Slack** | `slack` | Socket Mode (WebSocket, no public URL). DMs, @mentions, audio clips. See `.agents/SLACK_CLIENT.md` |
-| **Webhook** | `webhook` | HTTP endpoint for external integrations (fixed command or passthrough prompt) |
-| **Cron** | `cron` | Scheduled task that fires a command against agents on a schedule |
+| Client       | Type       | Description                                                                                        |
+| ------------ | ---------- | -------------------------------------------------------------------------------------------------- |
+| **Voice UI** | `direct`   | Vue 3 PWA with voice/text chat, wake word detection, audio visualizer                              |
+| **Telegram** | `telegram` | Text and voice messages. Emoji reactions, per-chat agent switching, response modes                 |
+| **Discord**  | `discord`  | Gateway WebSocket (no public URL). DMs, @mentions, voice messages, reactions, ! commands           |
+| **Slack**    | `slack`    | Socket Mode (WebSocket, no public URL). DMs, @mentions, audio clips. See `.agents/SLACK_CLIENT.md` |
+| **Webhook**  | `webhook`  | HTTP endpoint for external integrations (fixed command or passthrough prompt)                      |
+| **Cron**     | `cron`     | Scheduled task that fires a command against agents on a schedule                                   |
 
 ## Architecture
 
@@ -51,6 +51,7 @@ magec/
 │   │   │   ├── flows.go        # Flow CRUD + recursive validation
 │   │   │   ├── conversations.go # Conversation audit (list/get/delete/clear/stats/summary/pair/reset-session)
 │   │   │   ├── backup.go       # Backup/restore (tar.gz of data/ directory)
+│   │   │   ├── voice.go        # Voice provider types endpoint
 │   │   │   └── docs/           # Generated swagger
 │   │   └── user/               # User-facing REST API
 │   │       ├── handlers.go     # Health, ClientInfo, Voice, Webhook swagger types
@@ -91,11 +92,15 @@ magec/
 │   ├── schema/validate.go      # JSON Schema validation (google/jsonschema-go)
 │   ├── config/config.go        # YAML config parsing (server + voice + log)
 │   ├── logging/logging.go      # Structured logging (slog)
-│   ├── voice/                  # Server-side voice detection (ONNX)
+│   ├── voice/                  # Server-side voice detection (ONNX) + voice provider registry
+│   │   ├── provider.go         # TTSProvider/STTProvider interfaces, TTSRequest/STTRequest types
+│   │   ├── registry.go         # Register(), Get(), All() — same pattern as clients/memory
 │   │   ├── detector.go         # OpenWakeWord inference
 │   │   ├── vad.go              # Silero VAD inference
 │   │   ├── handler.go          # WebSocket handler for audio streaming
-│   │   └── resampler.go        # Audio resampling to 16kHz
+│   │   ├── resampler.go        # Audio resampling to 16kHz
+│   │   ├── openai/openai.go    # OpenAI-compatible TTS+STT provider (/v1/audio/speech, /v1/audio/transcriptions)
+│   │   └── gemini/gemini.go    # Gemini TTS+STT provider (generateContent + speechConfig / inlineData)
 │   ├── frontend/               # Embedded UI dist files (//go:embed)
 │   │   ├── embed.go
 │   │   ├── admin-ui/           # Built admin UI (copied by Makefile)
@@ -150,44 +155,46 @@ magec/
 
 ### Main Server (port 8080) — User API
 
-| Method | Path | Description |
-|--------|------|-------------|
-| GET/POST | `/api/v1/agent/*` | ADK REST API (sessions, run, events) |
-| POST | `/api/v1/agent/run_sse` | Run agent (SSE streaming) — all clients use this |
-| POST | `/api/v1/webhooks/{clientId}` | Webhook endpoint — Bearer token auth |
-| POST | `/api/v1/voice/{agentId}/speech` | TTS proxy (per-agent backend) |
-| POST | `/api/v1/voice/{agentId}/transcription` | STT proxy (per-agent backend) |
-| WebSocket | `/api/v1/voice/events` | Voice events stream (wake word + VAD) |
-| GET | `/api/v1/client/info` | Client info (paired status, allowed agents with type/nested agents) |
-| POST | `/api/v1/a2a/{agentID}` | A2A JSON-RPC endpoint (per-agent/flow) |
-| GET | `/api/v1/a2a/.well-known/agent-card.json` | A2A global agent card discovery (all enabled agents) |
-| GET | `/api/v1/a2a/{agentID}/.well-known/agent-card.json` | A2A per-agent card (no auth required) |
-| GET | `/api/v1/health` | Health check |
-| GET | `/api/v1/swagger/` | Swagger UI |
-| GET | `/` | Voice UI static files |
+| Method    | Path                                                | Description                                                         |
+| --------- | --------------------------------------------------- | ------------------------------------------------------------------- |
+| GET/POST  | `/api/v1/agent/*`                                   | ADK REST API (sessions, run, events)                                |
+| POST      | `/api/v1/agent/run_sse`                             | Run agent (SSE streaming) — all clients use this                    |
+| POST      | `/api/v1/webhooks/{clientId}`                       | Webhook endpoint — Bearer token auth                                |
+| POST      | `/api/v1/voice/{agentId}/speech`                    | TTS proxy (per-agent backend)                                       |
+| POST      | `/api/v1/voice/{agentId}/transcription`             | STT proxy (per-agent backend)                                       |
+| WebSocket | `/api/v1/voice/events`                              | Voice events stream (wake word + VAD)                               |
+| GET       | `/api/v1/client/info`                               | Client info (paired status, allowed agents with type/nested agents) |
+| POST      | `/api/v1/a2a/{agentID}`                             | A2A JSON-RPC endpoint (per-agent/flow)                              |
+| GET       | `/api/v1/a2a/.well-known/agent-card.json`           | A2A global agent card discovery (all enabled agents)                |
+| GET       | `/api/v1/a2a/{agentID}/.well-known/agent-card.json` | A2A per-agent card (no auth required)                               |
+| GET       | `/api/v1/health`                                    | Health check                                                        |
+| GET       | `/api/v1/swagger/`                                  | Swagger UI                                                          |
+| GET       | `/`                                                 | Voice UI static files                                               |
 
 ### Admin Server (port 8081) — Admin API
 
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/` | Admin UI static files |
-| GET | `/api/v1/admin/auth/check` | Verify admin credentials (200 if valid) |
-| | **Backends** | CRUD: `/backends`, `/backends/{id}` |
-| | **Memory** | CRUD: `/memory`, `/memory/{id}`, `/memory/types`, `/memory/{id}/health` |
-| | **MCP Servers** | CRUD: `/mcps`, `/mcps/{id}` |
-| | **Skills** | CRUD: `/skills`, `/skills/{id}` + references: `/skills/{id}/references`, `/skills/{id}/references/{filename}` + package: `/skills/{id}/package` |
-| | **Agents** | CRUD: `/agents`, `/agents/{id}`, `/agents/{id}/mcps`, `/agents/{id}/mcps/{mcpId}` |
-| | **Clients** | CRUD: `/clients`, `/clients/{id}`, `/clients/types`, `/clients/{id}/regenerate-token` |
-| | **Commands** | CRUD: `/commands`, `/commands/{id}` |
-| | **Flows** | CRUD: `/flows`, `/flows/{id}` |
-| | **Secrets** | CRUD: `/secrets`, `/secrets/{id}` (GET never returns value) |
-| | **Settings** | GET/PUT: `/settings` (global memory provider selection) |
-| | **Conversations** | `/conversations`, `/conversations/{id}`, `/conversations/clear`, `/conversations/stats`, `/conversations/{id}/summary`, `/conversations/{id}/pair`, `/conversations/{id}/reset-session` |
-| | **Backup** | GET `/settings/backup`, POST `/settings/restore` (tar.gz of data/) |
+| Method | Path                       | Description                                                                                                                                                                             |
+| ------ | -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GET    | `/`                        | Admin UI static files                                                                                                                                                                   |
+| GET    | `/api/v1/admin/auth/check` | Verify admin credentials (200 if valid)                                                                                                                                                 |
+|        | **Backends**               | CRUD: `/backends`, `/backends/{id}`                                                                                                                                                     |
+|        | **Memory**                 | CRUD: `/memory`, `/memory/{id}`, `/memory/types`, `/memory/{id}/health`                                                                                                                 |
+|        | **MCP Servers**            | CRUD: `/mcps`, `/mcps/{id}`                                                                                                                                                             |
+|        | **Skills**                 | CRUD: `/skills`, `/skills/{id}` + references: `/skills/{id}/references`, `/skills/{id}/references/{filename}` + package: `/skills/{id}/package`                                         |
+|        | **Agents**                 | CRUD: `/agents`, `/agents/{id}`, `/agents/{id}/mcps`, `/agents/{id}/mcps/{mcpId}`                                                                                                       |
+|        | **Clients**                | CRUD: `/clients`, `/clients/{id}`, `/clients/types`, `/clients/{id}/regenerate-token`                                                                                                   |
+|        | **Commands**               | CRUD: `/commands`, `/commands/{id}`                                                                                                                                                     |
+|        | **Flows**                  | CRUD: `/flows`, `/flows/{id}`                                                                                                                                                           |
+|        | **Secrets**                | CRUD: `/secrets`, `/secrets/{id}` (GET never returns value)                                                                                                                             |
+|        | **Settings**               | GET/PUT: `/settings` (global memory provider selection)                                                                                                                                 |
+|        | **Conversations**          | `/conversations`, `/conversations/{id}`, `/conversations/clear`, `/conversations/stats`, `/conversations/{id}/summary`, `/conversations/{id}/pair`, `/conversations/{id}/reset-session` |
+|        | **Backup**                 | GET `/settings/backup`, POST `/settings/restore` (tar.gz of data/)                                                                                                                      |
+|        | **Voice**                  | GET `/voice/types` (registered voice providers with JSON Schemas)                                                                                                                       |
 
 ## Configuration
 
 **Split model**:
+
 - **`config.yaml`** — Server infrastructure only (ports, logging, voice/ONNX). Read at startup.
 - **Admin API + Store** — All resources managed via Admin UI at `:8081`. Persisted to `data/store.json`.
 
@@ -203,14 +210,12 @@ server:
 voice:
   ui:
     enabled: true
-  onnxLibraryPath: ""   # default: /usr/lib/libonnxruntime.so
+  onnxLibraryPath: "" # default: /usr/lib/libonnxruntime.so
 
 log:
-  level: info           # debug, info, warn, error
-  format: console       # console, json
+  level: info # debug, info, warn, error
+  format: console # console, json
 ```
-
-## Code Patterns
 
 ## Code Patterns
 
@@ -224,7 +229,7 @@ log:
 - **Memory provider registry**: Same pattern as clients — `init()` + blank imports in `main.go`
 - **Hot-reload**: Store `OnChange()` channel → `agentRouterHandler` rebuilds with 500ms debounce
 - **MCP transports**: HTTP (`StreamableClientTransport` with optional headers + TLS skip) and stdio (`CommandTransport`). Stdio spawns subprocesses — works best with binary installs, not Docker
-- **Migration chain** (on load): `devices→clients` → `cronJobs→triggers` → `triggers→clients` → `device→direct` → `migrateIDs`. All idempotent
+- **Migration chain** (on load): `migrateTTSConfig` moves legacy `tts.speed` → `tts.config.openai.speed` and flat Gemini config → `tts.config.gemini.*`. Operates on raw JSON before unmarshal. All idempotent
 - **Webhook auth**: Separate from `clientAuthMiddleware`. Webhook handler validates Bearer token against client's `cl.Token`
 - **Flow execution**: `FlowDefinition` recursive tree maps 1:1 to ADK workflow agents. `responseAgent` flag on `FlowStep` filters output
 - **Voice endpoints**: `/api/v1/voice/{agentId}/speech` and `/transcription` resolve backends dynamically per agent
@@ -239,6 +244,7 @@ log:
 - **SnakeCaseNormalize middleware**: Intercepts POST `/run` and `/run_sse`, recursively converts all snake_case JSON keys to camelCase before ADK processes the request. ADK uses `DisallowUnknownFields()` so any unconverted snake_case key causes a 400. Conversion is generic (not a fixed key list) — handles all nesting levels including `genai.Part` fields like `inlineData`, `mimeType`, `functionCall`. When both forms coexist in the same object, camelCase wins. Single-word keys are never modified. Placed outermost in the middleware chain (before ConversationRecorder)
 - **InstructionProvider pattern**: Agents use `InstructionProvider` instead of static `Instruction` strings to bypass ADK's built-in `{variable}` substitution (which conflicts with curly braces in prompts, JSON examples, scripts, etc). Magec resolves its own `{{agent.output:key}}` pattern from session state inside the provider. Plain `{text}` in prompts is never touched
 - **Flow wrapAgent pattern**: Same agent can appear in multiple flow steps — `wrapAgent()` creates uniquely-named delegate agents to satisfy ADK's single-parent constraint
+- **Voice provider registry**: TTS/STT proxies dispatch to per-backend-type providers via `voice.Get(backend.Type)`. Same pattern as clients/memory — `init()` + blank imports. OpenAI provider handles `/v1/audio/speech` and `/v1/audio/transcriptions`. Gemini provider translates to `generateContent` with `speechConfig`/`inlineData`. `TTSRef.Config` and `BackendRef.Config` use typed structs (`TTSConfig`, `STTConfig`) with per-provider namespaces matching the `ClientConfig` pattern (e.g. `config.openai.speed`, `config.gemini.languageCode`). `GET /voice/types` returns JSON Schemas per provider. Store migration moves legacy `tts.speed` → `tts.config.openai.speed` and flat config fields → `tts.config.gemini.*`
 
 ### Design Philosophy
 
@@ -308,6 +314,7 @@ GPU section commented out by default. Users who want cloud providers create diff
 ## Dependencies
 
 **Go backend:**
+
 - `google.golang.org/adk` — Agent Development Kit (v0.4.0)
 - `google.golang.org/genai` — Google GenAI SDK (v1.40.0)
 - `github.com/achetronic/adk-utils-go` — ADK utilities (v0.7.0): providers, session, memory tools, ContextGuard plugin
@@ -324,6 +331,7 @@ GPU section commented out by default. Users who want cloud providers create diff
 - `gopkg.in/yaml.v3` — YAML config parsing
 
 **Frontends:**
+
 - Vue 3, Vite 7.3, Tailwind CSS 4.1, Pinia 3
 - vuedraggable (admin-ui flow editor)
 - marked (admin-ui markdown rendering in conversations)

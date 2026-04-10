@@ -10,10 +10,10 @@ Socket Mode uses an outbound WebSocket connection from Magec to Slack's servers.
 
 **Two tokens required:**
 
-| Token | Prefix | Purpose |
-|-------|--------|---------|
+| Token         | Prefix  | Purpose                                                                 |
+| ------------- | ------- | ----------------------------------------------------------------------- |
 | **Bot Token** | `xoxb-` | Operational: send/read messages, manage channels, download/upload files |
-| **App Token** | `xapp-` | Connection: establish the Socket Mode WebSocket tunnel |
+| **App Token** | `xapp-` | Connection: establish the Socket Mode WebSocket tunnel                  |
 
 Both are configured in the client's config. The App Token only opens the tunnel — it cannot read or send messages.
 
@@ -106,6 +106,7 @@ Redacts `xoxb-` and `xapp-` tokens from error messages before showing to users.
 ### Voice message handling
 
 **Incoming (audio clips → STT):**
+
 1. Detect files with `audio/*` mimetype in `ev.Message.Files`
 2. Download via `url_private_download` with Bearer token auth
 3. Convert WebM → WAV using ffmpeg (`-ar 16000 -ac 1 -f wav`)
@@ -113,6 +114,7 @@ Redacts `xoxb-` and `xapp-` tokens from error messages before showing to users.
 5. Process transcribed text as a normal message (with `inputWasVoice=true`)
 
 **Outgoing (TTS → file upload):**
+
 1. POST to `/api/v1/voice/{agentId}/speech` with `{"input": text, "response_format": "opus"}`
 2. Upload audio as `voice.ogg` via `UploadFileV2` to the channel
 3. Falls back to text if TTS fails
@@ -121,12 +123,12 @@ Redacts `xoxb-` and `xapp-` tokens from error messages before showing to users.
 
 Same as Telegram:
 
-| Mode | Behavior |
-|------|----------|
-| `text` | Text only (default) |
-| `voice` | TTS voice file only |
+| Mode     | Behavior                                 |
+| -------- | ---------------------------------------- |
+| `text`   | Text only (default)                      |
+| `voice`  | TTS voice file only                      |
 | `mirror` | Voice in → voice out, text in → text out |
-| `both` | Both text + voice file |
+| `both`   | Both text + voice file                   |
 
 Runtime override via `responsemode <mode>` command. `responsemode reset` reverts to config default.
 
@@ -134,15 +136,15 @@ Runtime override via `responsemode <mode>` command. `responsemode reset` reverts
 
 ```json
 {
-    "source": "slack",
-    "slack_user_id": "U01ABCDEF",
-    "slack_channel_id": "C01ABCDEF",
-    "slack_channel_type": "im|channel|group",
-    "slack_username": "john.doe",
-    "slack_name": "John Doe",
-    "slack_email": "john.doe@example.com",
-    "slack_team_id": "T01ABCDEF",
-    "slack_thread_ts": "1234567890.123456"
+  "source": "slack",
+  "slack_user_id": "U01ABCDEF",
+  "slack_channel_id": "C01ABCDEF",
+  "slack_channel_type": "im|channel|group",
+  "slack_username": "john.doe",
+  "slack_name": "John Doe",
+  "slack_email": "john.doe@example.com",
+  "slack_team_id": "T01ABCDEF",
+  "slack_thread_ts": "1234567890.123456"
 }
 ```
 
@@ -156,13 +158,13 @@ When a user mentions the bot in a channel, the response is posted as a **thread 
 
 ## Bot commands (DMs only)
 
-| Command | Description |
-|---------|-------------|
-| `!help` | Show available commands |
-| `!agent` | Show/switch active agent |
-| `!agent <id>` | Switch to specific agent |
-| `!reset` | Reset session (delete ADK session, start fresh) |
-| `!responsemode` | Show current response mode |
+| Command                | Description                                      |
+| ---------------------- | ------------------------------------------------ |
+| `!help`                | Show available commands                          |
+| `!agent`               | Show/switch active agent                         |
+| `!agent <id>`          | Switch to specific agent                         |
+| `!reset`               | Reset session (delete ADK session, start fresh)  |
+| `!responsemode`        | Show current response mode                       |
 | `!responsemode <mode>` | Set response mode (text/voice/mirror/both/reset) |
 
 ## Wiring (main.go)
@@ -181,16 +183,16 @@ Same pattern as Telegram:
 
 ## Differences from Telegram
 
-| Aspect | Telegram | Slack |
-|--------|----------|-------|
-| Connection | Long polling | Socket Mode (WebSocket) |
-| Tokens | 1 (botToken) | 2 (botToken + appToken) |
-| User IDs | int64 | string |
-| Voice input | Native voice messages (OGG) | Audio clips (WebM) |
-| Voice output | Native voice message | File upload (Opus) |
-| Response modes | text/voice/mirror/both | text/voice/mirror/both |
-| Thread support | Not applicable | Reply in thread for channel mentions |
-| Commands | /start, /help, /agent, /responsemode | help, agent, responsemode (plain text) |
+| Aspect         | Telegram                             | Slack                                  |
+| -------------- | ------------------------------------ | -------------------------------------- |
+| Connection     | Long polling                         | Socket Mode (WebSocket)                |
+| Tokens         | 1 (botToken)                         | 2 (botToken + appToken)                |
+| User IDs       | int64                                | string                                 |
+| Voice input    | Native voice messages (OGG)          | Audio clips (WebM)                     |
+| Voice output   | Native voice message                 | File upload (Opus)                     |
+| Response modes | text/voice/mirror/both               | text/voice/mirror/both                 |
+| Thread support | Not applicable                       | Reply in thread for channel mentions   |
+| Commands       | /start, /help, /agent, /responsemode | help, agent, responsemode (plain text) |
 
 ## Out of scope
 
@@ -203,6 +205,7 @@ Same pattern as Telegram:
 Files from Slack users will be sent as `inlineData` parts in the ADK `/run` request. See `CLIENT_DESIGN.md` for full design.
 
 **Changes needed in `bot.go`**:
+
 - `handleAudioClip()` currently only processes `audio/*` files. Rename/refactor to `handleFiles()` and add handling for `image/*`, `application/pdf`, and generic mimetypes.
 - For non-audio files: download via `downloadSlackFile()`, encode base64, add as `inlineData` part.
 - `processMessage()`: change parts from `[]map[string]string` to `[]interface{}` to support mixed text+inlineData.

@@ -8,14 +8,14 @@ The `Client` entity unifies authentication/authorization for all access points: 
 
 ### Client Types
 
-| Type | Config Schema | Use Case |
-|------|--------------|----------|
-| `direct` | `{}` (empty) | Voice-UI tablets, apps — token-only auth |
-| `telegram` | `botToken`, `allowedUsers`, `allowedChats`, `responseMode` | Telegram bot |
-| `discord` | `botToken`, `allowedUsers`, `allowedChannels`, `responseMode` | Discord bot (Gateway WebSocket) |
-| `slack` | `botToken`, `appToken`, `allowedUsers`, `allowedChannels`, `responseMode` | Slack bot (Socket Mode) |
-| `cron` | `schedule`, `commandId` | Scheduled automation |
-| `webhook` | `passthrough` XOR `commandId` (via `oneOf`) | HTTP endpoint for integrations |
+| Type       | Config Schema                                                             | Use Case                                 |
+| ---------- | ------------------------------------------------------------------------- | ---------------------------------------- |
+| `direct`   | `{}` (empty)                                                              | Voice-UI tablets, apps — token-only auth |
+| `telegram` | `botToken`, `allowedUsers`, `allowedChats`, `responseMode`                | Telegram bot                             |
+| `discord`  | `botToken`, `allowedUsers`, `allowedChannels`, `responseMode`             | Discord bot (Gateway WebSocket)          |
+| `slack`    | `botToken`, `appToken`, `allowedUsers`, `allowedChannels`, `responseMode` | Slack bot (Socket Mode)                  |
+| `cron`     | `schedule`, `commandId`                                                   | Scheduled automation                     |
+| `webhook`  | `passthrough` XOR `commandId` (via `oneOf`)                               | HTTP endpoint for integrations           |
 
 ### Data Model
 
@@ -74,6 +74,7 @@ type WebhookClientConfig struct {
 ### JSON Examples
 
 **voice-ui tablet (direct):**
+
 ```json
 {
   "id": "uuid-v4",
@@ -87,6 +88,7 @@ type WebhookClientConfig struct {
 ```
 
 **Telegram bot:**
+
 ```json
 {
   "id": "uuid-v4",
@@ -107,6 +109,7 @@ type WebhookClientConfig struct {
 ```
 
 **Slack bot:**
+
 ```json
 {
   "id": "uuid-v4",
@@ -128,6 +131,7 @@ type WebhookClientConfig struct {
 ```
 
 **Discord bot:**
+
 ```json
 {
   "id": "uuid-v4",
@@ -148,6 +152,7 @@ type WebhookClientConfig struct {
 ```
 
 **Cron job:**
+
 ```json
 {
   "id": "uuid-v4",
@@ -166,6 +171,7 @@ type WebhookClientConfig struct {
 ```
 
 **Webhook (fixed command):**
+
 ```json
 {
   "id": "uuid-v4",
@@ -184,6 +190,7 @@ type WebhookClientConfig struct {
 ```
 
 **Webhook (passthrough):**
+
 ```json
 {
   "id": "uuid-v4",
@@ -250,6 +257,7 @@ type Provider interface {
 ### Config Validation
 
 `ValidateConfig(providerType, configBlock)` walks the JSON Schema recursively:
+
 - Checks `required` fields exist in the data
 - Validates `properties` types
 - For `oneOf`: uses `matchOneOf()` to find the matching branch by comparing `const` values against actual data, then validates that branch's requirements
@@ -272,10 +280,24 @@ type Provider interface {
       "type": "object",
       "required": ["botToken"],
       "properties": {
-        "botToken": {"type": "string", "x-format": "password", "x-placeholder": "123456:ABC-DEF..."},
-        "allowedUsers": {"type": "string", "x-placeholder": "Comma-separated user IDs"},
-        "allowedChats": {"type": "string", "x-placeholder": "Comma-separated chat IDs"},
-        "responseMode": {"type": "string", "enum": ["text", "voice", "mirror", "both"], "default": "text"}
+        "botToken": {
+          "type": "string",
+          "x-format": "password",
+          "x-placeholder": "123456:ABC-DEF..."
+        },
+        "allowedUsers": {
+          "type": "string",
+          "x-placeholder": "Comma-separated user IDs"
+        },
+        "allowedChats": {
+          "type": "string",
+          "x-placeholder": "Comma-separated chat IDs"
+        },
+        "responseMode": {
+          "type": "string",
+          "enum": ["text", "voice", "mirror", "both"],
+          "default": "text"
+        }
       }
     }
   },
@@ -286,11 +308,31 @@ type Provider interface {
       "type": "object",
       "required": ["botToken", "appToken"],
       "properties": {
-        "botToken": {"type": "string", "x-format": "password", "x-placeholder": "xoxb-..."},
-        "appToken": {"type": "string", "x-format": "password", "x-placeholder": "xapp-..."},
-        "allowedUsers": {"type": "array", "items": {"type": "string"}, "x-placeholder": "Comma-separated Slack user IDs"},
-        "allowedChannels": {"type": "array", "items": {"type": "string"}, "x-placeholder": "Comma-separated Slack channel IDs"},
-        "responseMode": {"type": "string", "enum": ["text", "voice", "mirror", "both"], "default": "text"}
+        "botToken": {
+          "type": "string",
+          "x-format": "password",
+          "x-placeholder": "xoxb-..."
+        },
+        "appToken": {
+          "type": "string",
+          "x-format": "password",
+          "x-placeholder": "xapp-..."
+        },
+        "allowedUsers": {
+          "type": "array",
+          "items": { "type": "string" },
+          "x-placeholder": "Comma-separated Slack user IDs"
+        },
+        "allowedChannels": {
+          "type": "array",
+          "items": { "type": "string" },
+          "x-placeholder": "Comma-separated Slack channel IDs"
+        },
+        "responseMode": {
+          "type": "string",
+          "enum": ["text", "voice", "mirror", "both"],
+          "default": "text"
+        }
       }
     }
   },
@@ -301,8 +343,8 @@ type Provider interface {
       "type": "object",
       "required": ["schedule", "commandId"],
       "properties": {
-        "schedule": {"type": "string", "x-placeholder": "0 8 * * *"},
-        "commandId": {"type": "string", "x-entity": "commands"}
+        "schedule": { "type": "string", "x-placeholder": "0 8 * * *" },
+        "commandId": { "type": "string", "x-entity": "commands" }
       }
     }
   },
@@ -312,16 +354,16 @@ type Provider interface {
     "configSchema": {
       "type": "object",
       "properties": {
-        "passthrough": {"type": "boolean", "default": false},
-        "commandId": {"type": "string", "x-entity": "commands"}
+        "passthrough": { "type": "boolean", "default": false },
+        "commandId": { "type": "string", "x-entity": "commands" }
       },
       "oneOf": [
         {
-          "properties": {"passthrough": {"const": false}},
+          "properties": { "passthrough": { "const": false } },
           "required": ["commandId"]
         },
         {
-          "properties": {"passthrough": {"const": true}}
+          "properties": { "passthrough": { "const": true } }
         }
       ]
     }
@@ -331,15 +373,16 @@ type Provider interface {
 
 ### JSON Schema Extensions
 
-| Extension | Purpose | Example |
-|-----------|---------|---------|
-| `x-entity` | UI renders a `<select>` populated from the named store collection | `"x-entity": "commands"` |
-| `x-format` | UI renders password input instead of text | `"x-format": "password"` |
-| `x-placeholder` | Placeholder text for input fields | `"x-placeholder": "0 8 * * *"` |
+| Extension       | Purpose                                                           | Example                        |
+| --------------- | ----------------------------------------------------------------- | ------------------------------ |
+| `x-entity`      | UI renders a `<select>` populated from the named store collection | `"x-entity": "commands"`       |
+| `x-format`      | UI renders password input instead of text                         | `"x-format": "password"`       |
+| `x-placeholder` | Placeholder text for input fields                                 | `"x-placeholder": "0 8 * * *"` |
 
 ### Frontend Rendering (ClientDialog.vue)
 
 The dialog renders forms dynamically from JSON Schema:
+
 - `currentSchema` computed: finds the matching type's `configSchema`
 - `activeOneOfBranch` computed: evaluates `oneOf` branches by matching `const` values against form data
 - `visibleProperties` computed: shows/hides fields based on active `oneOf` branch
@@ -351,21 +394,21 @@ The dialog renders forms dynamically from JSON Schema:
 
 Base path: `/api/v1/admin`
 
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/clients` | List all clients |
-| POST | `/clients` | Create a client (token auto-generated as `mgc_...`) |
-| GET | `/clients/types` | List registered client types with JSON schemas |
-| GET | `/clients/{id}` | Get a client by ID |
-| PUT | `/clients/{id}` | Update a client |
-| DELETE | `/clients/{id}` | Delete a client |
-| POST | `/clients/{id}/regenerate-token` | Regenerate auth token |
+| Method | Path                             | Description                                         |
+| ------ | -------------------------------- | --------------------------------------------------- |
+| GET    | `/clients`                       | List all clients                                    |
+| POST   | `/clients`                       | Create a client (token auto-generated as `mgc_...`) |
+| GET    | `/clients/types`                 | List registered client types with JSON schemas      |
+| GET    | `/clients/{id}`                  | Get a client by ID                                  |
+| PUT    | `/clients/{id}`                  | Update a client                                     |
+| DELETE | `/clients/{id}`                  | Delete a client                                     |
+| POST   | `/clients/{id}/regenerate-token` | Regenerate auth token                               |
 
 ## Webhook Endpoint (User API)
 
-| Method | Path | Description |
-|--------|------|-------------|
-| POST | `/api/v1/webhooks/{clientId}` | Fire a webhook client |
+| Method | Path                          | Description           |
+| ------ | ----------------------------- | --------------------- |
+| POST   | `/api/v1/webhooks/{clientId}` | Fire a webhook client |
 
 - Auth: `Authorization: Bearer <mgc_token>` (client's own token)
 - Passthrough body: `{"prompt": "your text here"}`
@@ -426,23 +469,24 @@ User sends photo in Telegram/Slack
 
 ### Telegram file types to handle
 
-| telego Field | Type | Notes |
-|---|---|---|
-| `Photo` | `[]PhotoSize` | Use last element (highest resolution). Has `FileID` |
-| `Document` | `*Document` | General file. Has `FileID`, `MIMEType` |
-| `Video` | `*Video` | Has `FileID`, `MIMEType` |
-| `Audio` | `*Audio` | Non-voice audio (.mp3). Has `FileID`, `MIMEType` |
-| `Animation` | `*Animation` | GIF. Has `FileID`, `MIMEType`. Also sets `Document` |
-| `VideoNote` | `*VideoNote` | Round video. Has `FileID` |
-| `Sticker` | `*Sticker` | Has `FileID`. Static or animated |
-| `Voice` | `*Voice` | Already handled (STT pipeline) — no change |
-| `Caption` | `string` | Text accompanying any media — goes as text part |
+| telego Field | Type          | Notes                                               |
+| ------------ | ------------- | --------------------------------------------------- |
+| `Photo`      | `[]PhotoSize` | Use last element (highest resolution). Has `FileID` |
+| `Document`   | `*Document`   | General file. Has `FileID`, `MIMEType`              |
+| `Video`      | `*Video`      | Has `FileID`, `MIMEType`                            |
+| `Audio`      | `*Audio`      | Non-voice audio (.mp3). Has `FileID`, `MIMEType`    |
+| `Animation`  | `*Animation`  | GIF. Has `FileID`, `MIMEType`. Also sets `Document` |
+| `VideoNote`  | `*VideoNote`  | Round video. Has `FileID`                           |
+| `Sticker`    | `*Sticker`    | Has `FileID`. Static or animated                    |
+| `Voice`      | `*Voice`      | Already handled (STT pipeline) — no change          |
+| `Caption`    | `string`      | Text accompanying any media — goes as text part     |
 
 All use `bot.GetFile(FileID)` → download URL → HTTP GET → raw bytes.
 
 ### Slack file types to handle
 
 Files are in `ev.Message.Files` (type `[]slack.File`). Each has:
+
 - `Mimetype` — IANA MIME type
 - `Size` — file size in bytes
 - `URLPrivateDownload` / `URLPrivate` — download URL (requires Bearer token)
@@ -492,33 +536,35 @@ Shared utility package for message validation and splitting. Both Telegram and S
 
 ### Constants
 
-| Constant | Value | Usage |
-|----------|-------|-------|
-| `TelegramMaxMessageLength` | 4096 | Telegram API limit per message |
-| `SlackMaxMessageLength` | 39000 | Slack API limit per message block |
-| `DefaultMaxInputLength` | 16000 | Max inbound user message length |
+| Constant                   | Value | Usage                             |
+| -------------------------- | ----- | --------------------------------- |
+| `TelegramMaxMessageLength` | 4096  | Telegram API limit per message    |
+| `SlackMaxMessageLength`    | 39000 | Slack API limit per message block |
+| `DefaultMaxInputLength`    | 16000 | Max inbound user message length   |
 
 ### Functions
 
 **`ValidateInputLength(text string, maxLen int) (string, bool)`**
+
 - Truncates at `maxLen` runes (unicode-safe), appends `\n\n[message truncated]`
 - Returns the (possibly truncated) text and whether truncation occurred
 - Applied at client entry points before calling the agent
 
 **`SplitMessage(text string, maxLen int) []string`**
+
 - Splits into chunks respecting `maxLen` runes per chunk
 - Split priority: paragraph (`\n\n`) > line (`\n`) > word (space) > hard cut
 - Returns `[]string` — all chunks non-empty, within limit
 
 ### Where it's applied
 
-| Client | Inbound | Outbound |
-|--------|---------|----------|
+| Client       | Inbound                                                                            | Outbound                                                                          |
+| ------------ | ---------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
 | **Telegram** | `handleMessage()` validates `msg.Text`; `handleVoice()` validates transcribed text | `sendResponse()` splits via `SplitMessage(text, 4096)`, sends chunks sequentially |
-| **Discord** | `handleTextMessage()` validates text; `handleVoice()` validates transcribed text | `sendResponse()` splits via `SplitMessage(text, 2000)`, sends chunks sequentially |
-| **Slack** | `processMessage()` validates text (covers DMs + audio clips) | `postMessage()` splits via `SplitMessage(text, 39000)`, posts chunks sequentially |
-| **Voice UI** | No validation (browser input is bounded) | No splitting (browser has no render limit) |
-| **Executor** | No validation (prompts are from commands/webhooks, admin-controlled) | No splitting (returns string to HTTP caller) |
+| **Discord**  | `handleTextMessage()` validates text; `handleVoice()` validates transcribed text   | `sendResponse()` splits via `SplitMessage(text, 2000)`, sends chunks sequentially |
+| **Slack**    | `processMessage()` validates text (covers DMs + audio clips)                       | `postMessage()` splits via `SplitMessage(text, 39000)`, posts chunks sequentially |
+| **Voice UI** | No validation (browser input is bounded)                                           | No splitting (browser has no render limit)                                        |
+| **Executor** | No validation (prompts are from commands/webhooks, admin-controlled)               | No splitting (returns string to HTTP caller)                                      |
 
 ---
 
@@ -532,25 +578,26 @@ When an LLM uses `save_artifact` during a `/run` call, clients automatically del
 
 ### Delivery per client
 
-| Client | Method | Details |
-|--------|--------|---------|
-| **Telegram** | `ctx.Bot().SendDocument()` with `tu.FileFromReader()` | Artifact name used as filename |
-| **Discord** | `s.ChannelMessageSendComplex()` with `discordgo.File` | Artifact name used as filename |
-| **Slack** | `c.api.UploadFileV2()` | Artifact name as filename + title, respects thread |
-| **Voice UI** | Not yet implemented | Would need download button in UI |
+| Client       | Method                                                | Details                                            |
+| ------------ | ----------------------------------------------------- | -------------------------------------------------- |
+| **Telegram** | `ctx.Bot().SendDocument()` with `tu.FileFromReader()` | Artifact name used as filename                     |
+| **Discord**  | `s.ChannelMessageSendComplex()` with `discordgo.File` | Artifact name used as filename                     |
+| **Slack**    | `c.api.UploadFileV2()`                                | Artifact name as filename + title, respects thread |
+| **Voice UI** | Not yet implemented                                   | Would need download button in UI                   |
 
 ### Artifact REST response format
 
 The ADK artifact endpoint returns a `genai.Part` JSON:
+
 - **Text artifacts**: `{"text": "content..."}`
 - **Binary artifacts**: `{"inlineData": {"mimeType": "...", "data": "<base64>"}}`
 
 ### Key files
 
-| File | Role |
-|------|------|
-| `server/agent/tools/artifacts/toolset.go` | Toolset with save/load/list tools |
-| `server/agent/base_toolset.go` | Wires artifact toolset into all agents |
-| `server/agent/agent.go` | Creates `artifactfs.NewFilesystemService()`, sets `launcherCfg.ArtifactService` |
-| `server/clients/telegram/bot.go` | `listArtifacts()`, `downloadArtifact()`, `sendNewArtifacts()` |
-| `server/clients/slack/bot.go` | Same three methods, adapted for Slack API |
+| File                                      | Role                                                                            |
+| ----------------------------------------- | ------------------------------------------------------------------------------- |
+| `server/agent/tools/artifacts/toolset.go` | Toolset with save/load/list tools                                               |
+| `server/agent/base_toolset.go`            | Wires artifact toolset into all agents                                          |
+| `server/agent/agent.go`                   | Creates `artifactfs.NewFilesystemService()`, sets `launcherCfg.ArtifactService` |
+| `server/clients/telegram/bot.go`          | `listArtifacts()`, `downloadArtifact()`, `sendNewArtifacts()`                   |
+| `server/clients/slack/bot.go`             | Same three methods, adapted for Slack API                                       |

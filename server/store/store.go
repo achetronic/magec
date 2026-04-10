@@ -1151,6 +1151,8 @@ func (s *Store) loadFromDisk() error {
 		return err
 	}
 
+	data = migrateTTSConfig(data)
+
 	var raw StoreData
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return err
@@ -1214,4 +1216,88 @@ func (s *Store) loadFromDisk() error {
 	s.rawData = raw
 
 	return nil
+}
+
+// migrateTTSConfig migrates old store formats to the typed config pattern:
+// - tts.speed (top-level) → tts.config.openai.speed
+// - tts.config.languageCode / temperature / stylePrompt (flat) → tts.config.gemini.*
+// Operates on raw JSON bytes before unmarshal so no data is lost.
+//
+// TEMPORARY: introduced in v0.18.0. Remove after v0.20.0 — by then all
+// installations will have been migrated on first load.
+func migrateTTSConfig(data []byte) []byte {
+	var store map[string]interface{}
+	if err := json.Unmarshal(data, &store); err != nil {
+		return data
+	}
+
+	agents, ok := store["agents"].([]interface{})
+	if !ok {
+		return data
+	}
+
+	changed := false
+	for _, a := range agents {
+		agent, ok := a.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		tts, ok := agent["tts"].(map[string]interface{})
+		if !ok {
+			continue
+		}
+
+		if speed, ok := tts["speed"]; ok {
+			delete(tts, "speed")
+			cfg, _ := tts["config"].(map[string]interface{})
+			if cfg == nil {
+				cfg = map[string]interface{}{}
+			}
+			openai, _ := cfg["openai"].(map[string]interface{})
+			if openai == nil {
+				openai = map[string]interface{}{}
+			}
+			if _, exists := openai["speed"]; !exists {
+				openai["speed"] = speed
+			}
+			cfg["openai"] = openai
+			tts["config"] = cfg
+			changed = true
+		}
+
+		cfg, _ := tts["config"].(map[string]interface{})
+		if cfg == nil {
+			continue
+		}
+		gemini := map[string]interface{}{}
+		for _, key := range []string{"languageCode", "temperature", "stylePrompt"} {
+			if v, ok := cfg[key]; ok {
+				gemini[key] = v
+				delete(cfg, key)
+				changed = true
+			}
+		}
+		if len(gemini) > 0 {
+			existing, _ := cfg["gemini"].(map[string]interface{})
+			if existing == nil {
+				cfg["gemini"] = gemini
+			} else {
+				for k, v := range gemini {
+					if _, exists := existing[k]; !exists {
+						existing[k] = v
+					}
+				}
+			}
+		}
+	}
+
+	if !changed {
+		return data
+	}
+
+	out, err := json.Marshal(store)
+	if err != nil {
+		return data
+	}
+	return out
 }

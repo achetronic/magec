@@ -192,14 +192,27 @@
                 <FormLabel label="Backend" />
                 <FormSelect v-model="form.transcriptionBackend">
                   <option value="">(none)</option>
-                  <option v-for="b in store.backends" :key="b.id" :value="b.id">{{ b.name }} ({{ b.type }})</option>
+                  <option v-for="b in sttBackends" :key="b.id" :value="b.id">{{ b.name }} ({{ b.type }})</option>
                 </FormSelect>
               </div>
               <div>
                 <FormLabel label="Model" />
-                <FormInput v-model="form.transcriptionModel" placeholder="whisper-1" />
+                <FormInput v-model="form.transcriptionModel" :placeholder="sttModelPlaceholder" />
               </div>
             </div>
+            <template v-if="sttExtraProps.length">
+              <div class="grid gap-3" :class="sttExtraHasHalf ? 'grid-cols-2' : 'grid-cols-1'">
+                <div v-for="{ key, prop } in sttExtraProps" :key="key" :class="prop['x-size'] === 'half' ? '' : 'col-span-full'">
+                  <label class="flex items-center gap-1 text-xs text-arena-400 mb-1">
+                    {{ prop.title || key }}
+                    <a v-if="prop['x-link']" :href="prop['x-link']" target="_blank" class="text-arena-600 hover:text-arena-400 transition-colors" :title="prop.title || key"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="13" height="13"><circle cx="8" cy="8" r="6"/><path d="M8 7.5V11M8 5.5V5"/></svg></a>
+                  </label>
+                  <textarea v-if="prop['x-format'] === 'textarea'" v-model="form.sttProviderConfig[key]" rows="2" class="w-full bg-piedra-800 border border-piedra-700 rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-sol-500 focus:border-sol-500 outline-none resize-y" :placeholder="prop['x-placeholder'] || prop.default || ''" />
+                  <FormInput v-else v-model="form.sttProviderConfig[key]" :placeholder="prop['x-placeholder'] || prop.default || ''" :type="prop.type === 'number' ? 'number' : 'text'" />
+                  <p v-if="prop.description" class="text-[10px] text-arena-500 mt-1">{{ prop.description }}</p>
+                </div>
+              </div>
+            </template>
           </div>
           <hr class="border-piedra-700/30" />
           <div class="space-y-3">
@@ -209,22 +222,51 @@
                 <FormLabel label="Backend" />
                 <FormSelect v-model="form.ttsBackend">
                   <option value="">(none)</option>
-                  <option v-for="b in store.backends" :key="b.id" :value="b.id">{{ b.name }} ({{ b.type }})</option>
+                  <option v-for="b in ttsBackends" :key="b.id" :value="b.id">{{ b.name }} ({{ b.type }})</option>
                 </FormSelect>
               </div>
               <div>
                 <FormLabel label="Model" />
-                <FormInput v-model="form.ttsModel" placeholder="tts-1" />
+                <FormInput v-model="form.ttsModel" :placeholder="ttsModelPlaceholder" />
               </div>
             </div>
             <div class="grid grid-cols-2 gap-3">
               <div>
-                <FormLabel label="Voice" />
-                <FormInput v-model="form.ttsVoice" placeholder="alloy" />
+                <label class="flex items-center gap-1 text-xs text-arena-400 mb-1">
+                  Voice
+                  <a v-if="selectedTtsProviderType === 'gemini'" href="https://cloud.google.com/text-to-speech/docs/gemini-tts#voice_options" target="_blank" class="text-arena-600 hover:text-arena-400 transition-colors" title="Available voices"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="13" height="13"><circle cx="8" cy="8" r="6"/><path d="M8 7.5V11M8 5.5V5"/></svg></a>
+                </label>
+                <FormInput v-model="form.ttsVoice" :placeholder="ttsVoicePlaceholder" />
               </div>
-              <div>
-                <FormLabel label="Speed" />
-                <FormInput v-model="form.ttsSpeed" type="number" placeholder="1.0" />
+            </div>
+            <template v-if="ttsMainProps.length">
+              <div class="grid gap-3" :class="ttsMainHasHalf ? 'grid-cols-2' : 'grid-cols-1'">
+                <div v-for="{ key, prop } in ttsMainProps" :key="key" :class="prop['x-size'] === 'half' ? '' : 'col-span-full'">
+                  <label class="flex items-center gap-1 text-xs text-arena-400 mb-1">
+                    {{ prop.title || key }}
+                    <a v-if="prop['x-link']" :href="prop['x-link']" target="_blank" class="text-arena-600 hover:text-arena-400 transition-colors" :title="prop.title || key"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="13" height="13"><circle cx="8" cy="8" r="6"/><path d="M8 7.5V11M8 5.5V5"/></svg></a>
+                  </label>
+                  <textarea v-if="prop['x-format'] === 'textarea'" v-model="form.ttsProviderConfig[key]" rows="2" class="w-full bg-piedra-800 border border-piedra-700 rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-sol-500 focus:border-sol-500 outline-none resize-y" :placeholder="prop['x-placeholder'] || prop.default || ''" />
+                  <FormInput v-else v-model="form.ttsProviderConfig[key]" :placeholder="prop['x-placeholder'] || prop.default || ''" :type="prop.type === 'number' ? 'number' : 'text'" />
+                  <p v-if="prop.description" class="text-[10px] text-arena-500 mt-1">{{ prop.description }}</p>
+                </div>
+              </div>
+            </template>
+            <div v-if="ttsAdvancedProps.length" class="border-t border-piedra-700/30 pt-3">
+              <div class="flex items-center justify-between mb-3">
+                <h4 class="text-[10px] font-medium text-arena-500 uppercase tracking-wider">Advanced</h4>
+                <FormToggle v-model="showTtsAdvanced" />
+              </div>
+              <div v-if="showTtsAdvanced" class="grid gap-3" :class="ttsAdvancedHasHalf ? 'grid-cols-2' : 'grid-cols-1'">
+                <div v-for="{ key, prop } in ttsAdvancedProps" :key="key" :class="prop['x-size'] === 'half' ? '' : 'col-span-full'">
+                  <label class="flex items-center gap-1 text-xs text-arena-400 mb-1">
+                    {{ prop.title || key }}
+                    <a v-if="prop['x-link']" :href="prop['x-link']" target="_blank" class="text-arena-600 hover:text-arena-400 transition-colors" :title="prop.title || key"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="13" height="13"><circle cx="8" cy="8" r="6"/><path d="M8 7.5V11M8 5.5V5"/></svg></a>
+                  </label>
+                  <textarea v-if="prop['x-format'] === 'textarea'" v-model="form.ttsProviderConfig[key]" rows="2" class="w-full bg-piedra-800 border border-piedra-700 rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-sol-500 focus:border-sol-500 outline-none resize-y" :placeholder="prop['x-placeholder'] || prop.default || ''" />
+                  <FormInput v-else v-model="form.ttsProviderConfig[key]" :placeholder="prop['x-placeholder'] || prop.default || ''" :type="prop.type === 'number' ? 'number' : 'text'" />
+                  <p v-if="prop.description" class="text-[10px] text-arena-500 mt-1">{{ prop.description }}</p>
+                </div>
               </div>
             </div>
           </div>
@@ -235,7 +277,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, inject } from 'vue'
+import { ref, reactive, computed, inject, watch, nextTick } from 'vue'
 import { useDataStore } from '../../lib/stores/data.js'
 import { agentsApi } from '../../lib/api/index.js'
 import AppDialog from '../../components/AppDialog.vue'
@@ -252,6 +294,8 @@ const dialogRef = ref(null)
 const editId = ref(null)
 const isEdit = ref(false)
 const tagInput = ref('')
+const showTtsAdvanced = ref(false)
+const isOpening = ref(false)
 
 const form = reactive({
   name: '',
@@ -266,16 +310,77 @@ const form = reactive({
   tags: [],
   transcriptionBackend: '',
   transcriptionModel: '',
+  sttProviderConfig: {},
   ttsBackend: '',
   ttsModel: '',
   ttsVoice: '',
-  ttsSpeed: '',
+  ttsProviderConfig: {},
   contextGuardEnabled: false,
   contextGuardStrategy: 'threshold',
   contextGuardMaxTurns: '',
   contextGuardMaxTokens: '',
   a2aEnabled: false,
 })
+
+function backendType(backendId) {
+  if (!backendId) return ''
+  const b = store.backends.find(b => b.id === backendId)
+  return b?.type || ''
+}
+
+const selectedTtsProviderType = computed(() => backendType(form.ttsBackend))
+const selectedSttProviderType = computed(() => backendType(form.transcriptionBackend))
+
+function voiceProviderFor(type) {
+  return store.voiceTypes.find(v => v.type === type) || null
+}
+
+const ttsBackends = computed(() => {
+  return store.backends.filter(b => {
+    const p = voiceProviderFor(b.type)
+    return !p || p.supportsTts
+  })
+})
+
+const sttBackends = computed(() => {
+  return store.backends.filter(b => {
+    const p = voiceProviderFor(b.type)
+    return !p || p.supportsStt
+  })
+})
+
+const ttsExtraSchema = computed(() => {
+  const p = voiceProviderFor(selectedTtsProviderType.value)
+  return p?.ttsConfigSchema || null
+})
+
+const sttExtraSchema = computed(() => {
+  const p = voiceProviderFor(selectedSttProviderType.value)
+  return p?.sttConfigSchema || null
+})
+
+function schemaToProps(schema) {
+  if (!schema?.properties) return []
+  const order = schema.propertyOrder || Object.keys(schema.properties)
+  return order
+    .filter(key => key in schema.properties)
+    .map(key => ({ key, prop: schema.properties[key] }))
+}
+
+const ttsExtraProps = computed(() => schemaToProps(ttsExtraSchema.value))
+const sttExtraProps = computed(() => schemaToProps(sttExtraSchema.value))
+const ttsMainProps = computed(() => ttsExtraProps.value.filter(p => !p.prop['x-advanced']))
+const ttsAdvancedProps = computed(() => ttsExtraProps.value.filter(p => p.prop['x-advanced']))
+const ttsMainHasHalf = computed(() => ttsMainProps.value.some(p => p.prop['x-size'] === 'half'))
+const ttsAdvancedHasHalf = computed(() => ttsAdvancedProps.value.some(p => p.prop['x-size'] === 'half'))
+const sttExtraHasHalf = computed(() => sttExtraProps.value.some(p => p.prop['x-size'] === 'half'))
+
+const ttsModelPlaceholder = computed(() => selectedTtsProviderType.value === 'gemini' ? 'gemini-2.5-flash-preview-tts' : 'tts-1')
+const ttsVoicePlaceholder = computed(() => selectedTtsProviderType.value === 'gemini' ? 'Kore' : 'alloy')
+const sttModelPlaceholder = computed(() => selectedSttProviderType.value === 'gemini' ? 'gemini-2.0-flash' : 'whisper-1')
+
+watch(() => form.ttsBackend, () => { if (!isOpening.value) form.ttsProviderConfig = {} })
+watch(() => form.transcriptionBackend, () => { if (!isOpening.value) form.sttProviderConfig = {} })
 
 function headersToList(obj) {
   if (!obj || !Object.keys(obj).length) return []
@@ -315,7 +420,26 @@ function removeTag(i) {
   form.tags.splice(i, 1)
 }
 
-function open(agent = null) {
+function cleanConfig(cfg) {
+  if (!cfg) return undefined
+  const clean = {}
+  for (const [k, v] of Object.entries(cfg)) {
+    if (v !== '' && v !== undefined && v !== null) {
+      clean[k] = typeof v === 'string' && !isNaN(Number(v)) && v.includes('.') ? parseFloat(v) : v
+    }
+  }
+  return Object.keys(clean).length ? clean : undefined
+}
+
+function buildNamespacedConfig(providerType, providerConfig) {
+  if (!providerType) return undefined
+  const clean = cleanConfig(providerConfig)
+  if (!clean) return undefined
+  return { [providerType]: clean }
+}
+
+async function open(agent = null) {
+  isOpening.value = true
   isEdit.value = !!agent
   editId.value = agent?.id || null
   form.name = agent?.name || ''
@@ -330,15 +454,22 @@ function open(agent = null) {
   form.tags = [...(agent?.tags || [])]
   form.transcriptionBackend = agent?.transcription?.backend || ''
   form.transcriptionModel = agent?.transcription?.model || ''
+  const sttType = backendType(form.transcriptionBackend)
+  form.sttProviderConfig = { ...(agent?.transcription?.config?.[sttType] || {}) }
   form.ttsBackend = agent?.tts?.backend || ''
   form.ttsModel = agent?.tts?.model || ''
   form.ttsVoice = agent?.tts?.voice || ''
-  form.ttsSpeed = agent?.tts?.speed || ''
+  const ttsType = backendType(form.ttsBackend)
+  form.ttsProviderConfig = { ...(agent?.tts?.config?.[ttsType] || {}) }
   form.contextGuardEnabled = agent?.contextGuard?.enabled || false
   form.contextGuardStrategy = agent?.contextGuard?.strategy || 'threshold'
   form.contextGuardMaxTurns = agent?.contextGuard?.maxTurns || ''
   form.contextGuardMaxTokens = agent?.contextGuard?.maxTokens || ''
   form.a2aEnabled = agent?.a2a?.enabled || false
+  const gcfg = agent?.tts?.config?.gemini || {}
+  showTtsAdvanced.value = !!(gcfg.languageCode || gcfg.temperature || gcfg.stylePrompt)
+  await nextTick()
+  isOpening.value = false
   dialogRef.value?.open()
 }
 
@@ -349,12 +480,12 @@ async function save() {
     outputKey: form.outputKey.trim(),
     systemPrompt: form.systemPrompt.trim(),
     llm: { backend: form.llmBackend, model: form.llmModel.trim(), headers: listToHeaders(form.llmHeaders) },
-    transcription: { backend: form.transcriptionBackend, model: form.transcriptionModel.trim() },
+    transcription: { backend: form.transcriptionBackend, model: form.transcriptionModel.trim(), config: buildNamespacedConfig(selectedSttProviderType.value, form.sttProviderConfig) },
     tts: {
       backend: form.ttsBackend,
       model: form.ttsModel.trim(),
       voice: form.ttsVoice.trim(),
-      speed: parseFloat(form.ttsSpeed) || 0,
+      config: buildNamespacedConfig(selectedTtsProviderType.value, form.ttsProviderConfig),
     },
     mcpServers: form.mcpServers,
     skills: form.skills,

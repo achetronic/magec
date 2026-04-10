@@ -79,6 +79,23 @@ definitions:
         example: sk-...
         type: string
     type: object
+  admin.VoiceProviderInfo:
+    properties:
+      displayName:
+        example: OpenAI Compatible
+        type: string
+      sttConfigSchema:
+        $ref: '#/definitions/voice.Schema'
+      supportsStt:
+        type: boolean
+      supportsTts:
+        type: boolean
+      ttsConfigSchema:
+        $ref: '#/definitions/voice.Schema'
+      type:
+        example: openai
+        type: string
+    type: object
   clients.Schema:
     additionalProperties: true
     type: object
@@ -153,6 +170,8 @@ definitions:
     properties:
       backend:
         type: string
+      config:
+        $ref: '#/definitions/store.STTConfig'
       headers:
         additionalProperties:
           type: string
@@ -328,6 +347,17 @@ definitions:
       type:
         type: string
     type: object
+  store.GeminiSTTConfig:
+    type: object
+  store.GeminiTTSConfig:
+    properties:
+      languageCode:
+        type: string
+      stylePrompt:
+        type: string
+      temperature:
+        type: number
+    type: object
   store.MCPServer:
     properties:
       args:
@@ -375,6 +405,13 @@ definitions:
       type:
         type: string
     type: object
+  store.OpenAISTTConfig:
+    type: object
+  store.OpenAITTSConfig:
+    properties:
+      speed:
+        type: number
+    type: object
   store.PaginatedResult-store_Conversation:
     properties:
       items:
@@ -383,6 +420,13 @@ definitions:
         type: array
       total:
         type: integer
+    type: object
+  store.STTConfig:
+    properties:
+      gemini:
+        $ref: '#/definitions/store.GeminiSTTConfig'
+      openai:
+        $ref: '#/definitions/store.OpenAISTTConfig'
     type: object
   store.Settings:
     properties:
@@ -434,14 +478,21 @@ definitions:
       threadHistoryLimit:
         type: integer
     type: object
+  store.TTSConfig:
+    properties:
+      gemini:
+        $ref: '#/definitions/store.GeminiTTSConfig'
+      openai:
+        $ref: '#/definitions/store.OpenAITTSConfig'
+    type: object
   store.TTSRef:
     properties:
       backend:
         type: string
+      config:
+        $ref: '#/definitions/store.TTSConfig'
       model:
         type: string
-      speed:
-        type: number
       voice:
         type: string
     type: object
@@ -475,6 +526,9 @@ definitions:
         type: string
       passthrough:
         type: boolean
+    type: object
+  voice.Schema:
+    additionalProperties: true
     type: object
 host: localhost:8081
 info:
@@ -2257,6 +2311,25 @@ paths:
       summary: Download skill reference
       tags:
       - skills
+  /voice/types:
+    get:
+      description: Returns registered voice providers with config schemas for dynamic
+        form rendering. The backend type determines which voice provider handles TTS/STT
+        requests.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/admin.VoiceProviderInfo'
+            type: array
+      security:
+      - AdminAuth: []
+      summary: List voice provider types
+      tags:
+      - voice
 schemes:
 - http
 securityDefinitions:

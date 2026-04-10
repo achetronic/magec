@@ -56,12 +56,12 @@ Once the VAD determines you've finished speaking, the captured audio needs to be
 
 Both STT and TTS are configured per-agent in the [agent settings](/docs/agents/). This means different agents can use different providers — one agent might use a local STT for privacy, while another uses cloud TTS for higher voice quality.
 
+Magec supports any backend you've configured for TTS and STT — including OpenAI-compatible services (OpenAI, Parakeet, Edge TTS, etc.) and Google Gemini. Just point the agent's voice config to the backend you want to use, pick a model and voice, and it works. The Admin UI shows relevant options depending on the backend type — for example, Gemini backends offer language and style controls, while OpenAI-compatible backends offer speed control.
+
 | | Local option | Cloud option |
 |---|---|---|
-| **STT** (voice → text) | Parakeet (NVIDIA) — runs in Docker, no data leaves your server | OpenAI Whisper — higher accuracy, sends audio to OpenAI |
-| **TTS** (text → voice) | OpenAI Edge TTS — runs in Docker, many voices available | OpenAI TTS — premium voices, sends text to OpenAI |
-
-Any service that implements the OpenAI-compatible API (`/v1/audio/transcriptions` for STT, `/v1/audio/speech` for TTS) will work. You're not locked into these specific options.
+| **STT** (voice → text) | Parakeet (NVIDIA) — runs in Docker, no data leaves your server | OpenAI Whisper, Google Gemini — higher accuracy, sends audio to provider |
+| **TTS** (text → voice) | OpenAI Edge TTS — runs in Docker, many voices available | OpenAI TTS, Google Gemini TTS — premium voices, sends text to provider |
 
 {{< callout type="info" >}}
 In the fully local deployment, both STT and TTS run on your server by default. No audio or text is sent anywhere. If you switch to a cloud provider, only the captured speech (STT) or response text (TTS) is sent to that provider — the continuous microphone stream and detection still happen entirely on your server.
