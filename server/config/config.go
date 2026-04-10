@@ -60,18 +60,18 @@ type VoiceUI struct {
 	Enabled *bool `yaml:"enabled"`
 }
 
-// Log configures the application logger
+// Log configures the application logger.
 type Log struct {
 	Level  string `yaml:"level"`  // debug, info, warn, error (default: info)
 	Format string `yaml:"format"` // console, json (default: console)
 }
 
-// WakeWordModelsConfig is loaded from models/wakeword/wakewords.yaml
+// WakeWordModelsConfig is loaded from models/wakeword/wakewords.yaml.
 type WakeWordModelsConfig struct {
 	Models []WakeWordModel `yaml:"models"`
 }
 
-// WakeWordModel represents a wake word model configuration
+// WakeWordModel represents a wake word model configuration.
 type WakeWordModel struct {
 	ID        string  `yaml:"id"`
 	Name      string  `yaml:"name"`
@@ -80,7 +80,7 @@ type WakeWordModel struct {
 	Threshold float32 `yaml:"threshold"`
 }
 
-// Load reads, parses, and resolves a config file with environment variable expansion
+// Load reads, parses, and resolves a config file with environment variable expansion.
 func Load(path string) (*Config, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
