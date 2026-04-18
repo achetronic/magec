@@ -84,38 +84,6 @@ type Client struct {
 	showTools   bool
 
 	botUsername string
-
-	// conversations is optional: when set, reset commands close the active
-	// conversation so subsequent messages produce a fresh record instead of
-	// appending to the old one.
-	conversations *store.ConversationStore
-}
-
-// SetConversationStore enables conversation closing on !reset. Safe to call
-// before Start(); clients created without a conversation store continue to
-// work, they just won't split records after resets.
-func (c *Client) SetConversationStore(cs *store.ConversationStore) {
-	c.conversations = cs
-}
-
-// closeConversations closes the admin+user perspectives of the active
-// conversation for the given session, if a conversation store is configured.
-// Missing conversations are silently ignored — they may simply not exist yet
-// (first reset before any message was logged).
-func (c *Client) closeConversations(sessionID, agentID string) {
-	if c.conversations == nil {
-		return
-	}
-	for _, perspective := range []string{"admin", "user"} {
-		if err := c.conversations.CloseBySession(sessionID, agentID, perspective); err != nil {
-			c.logger.Debug("No active conversation to close after reset",
-				"session", sessionID,
-				"agent", agentID,
-				"perspective", perspective,
-				"error", err,
-			)
-		}
-	}
 }
 
 // New creates a Telegram client ready to be started. It validates the bot token
@@ -405,8 +373,6 @@ func (c *Client) handleResetCommand(ctx *th.Context, msg telego.Message) error {
 		"agent", agentID,
 		"session", sessionID,
 	)
-
-	c.closeConversations(sessionID, agentID)
 
 	_, _ = ctx.Bot().SendMessage(ctx, &telego.SendMessageParams{
 		ChatID:          tu.ID(msg.Chat.ID),

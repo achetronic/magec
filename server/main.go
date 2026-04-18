@@ -112,7 +112,7 @@ func main() {
 	watchStoreChanges(ctx, dataStore, agentRouter)
 
 	// Start schedulers and clients
-	cronScheduler, clientManager := startClients(ctx, cfg, dataStore, convoStore, executor)
+	cronScheduler, clientManager := startClients(ctx, cfg, dataStore, executor)
 
 	// Graceful shutdown
 	startGracefulShutdown(adminServer, adminCtx, adminCancel, userServer, userCtx, userCancel, cronScheduler, clientManager, voiceDetector)
@@ -344,11 +344,11 @@ func watchStoreChanges(ctx context.Context, dataStore *store.Store, agentRouter 
 
 // startClients initializes and starts external messaging clients (Discord, Slack, Telegram, etc.)
 // and the cron job scheduler for automated tasks.
-func startClients(ctx context.Context, cfg *config.Config, dataStore *store.Store, convoStore *store.ConversationStore, executor *clients.Executor) (*cron.Scheduler, *clientManager) {
+func startClients(ctx context.Context, cfg *config.Config, dataStore *store.Store, executor *clients.Executor) (*cron.Scheduler, *clientManager) {
 	cronScheduler := cron.NewScheduler(executor, dataStore, slog.Default())
 	go cronScheduler.Start(ctx)
 
-	cm := newClientManager(dataStore, convoStore, cfg.Server.Port, slog.Default())
+	cm := newClientManager(dataStore, cfg.Server.Port, slog.Default())
 	cm.start(ctx)
 
 	return cronScheduler, cm
@@ -621,10 +621,9 @@ func checkDependencies(cfg *config.Config) {
 // It subscribes to store changes and reconciles running clients: stopping
 // removed/disabled ones and starting new/re-enabled ones automatically.
 type clientManager struct {
-	store         *store.Store
-	conversations *store.ConversationStore
-	agentURL      string
-	logger        *slog.Logger
+	store    *store.Store
+	agentURL string
+	logger   *slog.Logger
 
 	mu      sync.Mutex
 	running map[string]*managedClient
@@ -636,13 +635,12 @@ type managedClient struct {
 	hash   string
 }
 
-func newClientManager(s *store.Store, cs *store.ConversationStore, port int, logger *slog.Logger) *clientManager {
+func newClientManager(s *store.Store, port int, logger *slog.Logger) *clientManager {
 	return &clientManager{
-		store:         s,
-		conversations: cs,
-		agentURL:      fmt.Sprintf("http://127.0.0.1:%d/api/v1/agent", port),
-		logger:        logger,
-		running:       make(map[string]*managedClient),
+		store:    s,
+		agentURL: fmt.Sprintf("http://127.0.0.1:%d/api/v1/agent", port),
+		logger:   logger,
+		running:  make(map[string]*managedClient),
 	}
 }
 
@@ -750,7 +748,6 @@ func (m *clientManager) startTelegram(ctx context.Context, cl store.ClientDefini
 		m.logger.Error("Failed to create Telegram client", "client", cl.Name, "error", err)
 		return
 	}
-	tgClient.SetConversationStore(m.conversations)
 
 	clientCtx, cancel := context.WithCancel(ctx)
 	m.running[cl.ID] = &managedClient{stop: tgClient.Stop, cancel: cancel, hash: clientHash(cl)}
@@ -796,7 +793,6 @@ func (m *clientManager) startSlack(ctx context.Context, cl store.ClientDefinitio
 		m.logger.Error("Failed to create Slack client", "client", cl.Name, "error", err)
 		return
 	}
-	skClient.SetConversationStore(m.conversations)
 
 	clientCtx, cancel := context.WithCancel(ctx)
 	m.running[cl.ID] = &managedClient{stop: skClient.Stop, cancel: cancel, hash: clientHash(cl)}
@@ -842,7 +838,6 @@ func (m *clientManager) startDiscord(ctx context.Context, cl store.ClientDefinit
 		m.logger.Error("Failed to create Discord client", "client", cl.Name, "error", err)
 		return
 	}
-	dcClient.SetConversationStore(m.conversations)
 
 	clientCtx, cancel := context.WithCancel(ctx)
 	m.running[cl.ID] = &managedClient{stop: dcClient.Stop, cancel: cancel, hash: clientHash(cl)}
