@@ -53,6 +53,32 @@ type Client struct {
 
 	showToolsMu sync.RWMutex
 	showTools   bool
+
+	// conversations is optional: when set, reset commands close the active
+	// conversation so subsequent messages produce a fresh record.
+	conversations *store.ConversationStore
+}
+
+// SetConversationStore enables conversation closing on !reset.
+func (c *Client) SetConversationStore(cs *store.ConversationStore) {
+	c.conversations = cs
+}
+
+// closeConversations closes admin+user perspectives for the session.
+func (c *Client) closeConversations(sessionID, agentID string) {
+	if c.conversations == nil {
+		return
+	}
+	for _, perspective := range []string{"admin", "user"} {
+		if err := c.conversations.CloseBySession(sessionID, agentID, perspective); err != nil {
+			c.logger.Debug("No active conversation to close after reset",
+				"session", sessionID,
+				"agent", agentID,
+				"perspective", perspective,
+				"error", err,
+			)
+		}
+	}
 }
 
 func New(clientDef store.ClientDefinition, agentURL string, agents []AgentInfo, s interface {
@@ -256,6 +282,8 @@ func (c *Client) handleTextMessage(s *discordgo.Session, m *discordgo.MessageCre
 
 	artifactsBefore := c.listArtifacts(agentID, userIDStr, sessionID)
 
+	inlineDataParts := c.extractInlineDataFromAttachments(m)
+
 	firstText := true
 	hasText := false
 	hasToolActivity := false
@@ -264,7 +292,7 @@ func (c *Client) handleTextMessage(s *discordgo.Session, m *discordgo.MessageCre
 	toolCount := 0
 	var toolCounterMsgID string
 
-	err := c.callAgentSSE(m, targetID, agentID, sessionID, inputText, func(evt msgutil.SSEEvent) {
+	err := c.callAgentSSE(m, targetID, agentID, sessionID, inputText, inlineDataParts, func(evt msgutil.SSEEvent) {
 		if evt.FinishReason != "" {
 			lastFinishReason = evt.FinishReason
 		}
@@ -399,7 +427,7 @@ func (c *Client) handleVoice(s *discordgo.Session, m *discordgo.MessageCreate) {
 	toolCount := 0
 	var toolCounterMsgID string
 
-	err = c.callAgentSSE(m, targetID, agentID, sessionID, voiceInput, func(evt msgutil.SSEEvent) {
+	err = c.callAgentSSE(m, targetID, agentID, sessionID, voiceInput, nil, func(evt msgutil.SSEEvent) {
 		if evt.FinishReason != "" {
 			lastFinishReason = evt.FinishReason
 		}
@@ -560,6 +588,7 @@ func (c *Client) handleBotCommand(s *discordgo.Session, m *discordgo.MessageCrea
 			s.ChannelMessageSend(m.ChannelID, "Failed to reset session.")
 			return true
 		}
+		c.closeConversations(sessionID, agentID)
 		c.logger.Info("Session reset", "channel", m.ChannelID, "agent", agentID, "session", sessionID)
 		agent := c.getAgentInfo(agentID)
 		label := agentID
@@ -678,22 +707,71 @@ func (c *Client) buildSessionID(channelID, agentID string) string {
 	return fmt.Sprintf("discord_%s_%s", channelID, agentID)
 }
 
-func (c *Client) callAgentSSE(m *discordgo.MessageCreate, targetID, agentID, sessionID, message string, handler func(msgutil.SSEEvent)) error {
+// extractInlineDataFromAttachments downloads non-audio attachments from the
+// Discord message and returns them as inlineData parts. Audio attachments are
+// handled by handleVoice. Files larger than 5MB are skipped with a warning.
+func (c *Client) extractInlineDataFromAttachments(m *discordgo.MessageCreate) []map[string]interface{} {
+	if len(m.Attachments) == 0 {
+		return nil
+	}
+	const maxFileSize = 5 * 1024 * 1024
+	var parts []map[string]interface{}
+	for _, att := range m.Attachments {
+		if strings.HasPrefix(att.ContentType, "audio/") {
+			continue
+		}
+		if att.Size > maxFileSize {
+			c.logger.Warn("Discord attachment too large to process",
+				"name", att.Filename,
+				"content_type", att.ContentType,
+				"size", att.Size,
+			)
+			continue
+		}
+		data, err := c.downloadFile(att.URL)
+		if err != nil {
+			c.logger.Warn("Failed to download Discord attachment", "name", att.Filename, "error", err)
+			continue
+		}
+		if len(data) > maxFileSize {
+			c.logger.Warn("Discord attachment exceeded size limit after download", "name", att.Filename, "size", len(data))
+			continue
+		}
+		mime := att.ContentType
+		if mime == "" {
+			mime = "application/octet-stream"
+		}
+		parts = append(parts, map[string]interface{}{
+			"inlineData": map[string]interface{}{
+				"mimeType": mime,
+				"data":     base64.StdEncoding.EncodeToString(data),
+			},
+		})
+	}
+	return parts
+}
+
+func (c *Client) callAgentSSE(m *discordgo.MessageCreate, targetID, agentID, sessionID, message string, inlineDataParts []map[string]interface{}, handler func(msgutil.SSEEvent)) error {
 	if err := c.ensureSession(agentID, "default_user", sessionID); err != nil {
 		c.logger.Warn("Failed to ensure session, continuing anyway", "error", err)
 	}
 
 	fullMessage := c.buildMessageContext(m, targetID) + c.fetchThreadContext(targetID, m.ID) + message
 
+	parts := []interface{}{
+		map[string]string{"text": fullMessage},
+	}
+	for _, p := range inlineDataParts {
+		parts = append(parts, p)
+	}
+
 	reqBody := map[string]interface{}{
 		"appName":   agentID,
 		"userId":    "default_user",
 		"sessionId": sessionID,
 		"newMessage": map[string]interface{}{
-			"role": "user",
-			"parts": []map[string]string{
-				{"text": fullMessage},
-			},
+			"role":  "user",
+			"parts": parts,
 		},
 	}
 
