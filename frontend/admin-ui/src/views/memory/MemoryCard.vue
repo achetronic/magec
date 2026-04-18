@@ -1,5 +1,5 @@
 <template>
-  <Card color="green" :class="active ? '!border-green-500/30 ring-1 ring-green-500/10' : ''">
+  <Card color="green" :class="active ? 'ring-1 ring-green-500/20' : ''">
     <div class="flex items-start gap-3">
       <!-- Radio toggle -->
       <button

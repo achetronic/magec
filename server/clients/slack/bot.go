@@ -62,6 +62,32 @@ type Client struct {
 	seen   map[string]struct{}
 
 	botUserID string
+
+	// conversations is optional: when set, reset commands close the active
+	// conversation so subsequent messages produce a fresh record.
+	conversations *store.ConversationStore
+}
+
+// SetConversationStore enables conversation closing on !reset.
+func (c *Client) SetConversationStore(cs *store.ConversationStore) {
+	c.conversations = cs
+}
+
+// closeConversations closes admin+user perspectives for the session.
+func (c *Client) closeConversations(sessionID, agentID string) {
+	if c.conversations == nil {
+		return
+	}
+	for _, perspective := range []string{"admin", "user"} {
+		if err := c.conversations.CloseBySession(sessionID, agentID, perspective); err != nil {
+			c.logger.Debug("No active conversation to close after reset",
+				"session", sessionID,
+				"agent", agentID,
+				"perspective", perspective,
+				"error", err,
+			)
+		}
+	}
 }
 
 func New(clientDef store.ClientDefinition, agentURL string, agents []AgentInfo, s interface {
@@ -198,7 +224,7 @@ func (c *Client) handleAppMention(event slackevents.EventsAPIEvent) {
 	}
 
 	c.logger.Info("Slack mention received", "user", ev.User, "channel", ev.Channel, "text", text)
-	c.processMessage(ev.User, ev.Channel, "channel", text, threadTS, ev.TimeStamp, event.TeamID, false)
+	c.processMessage(ev.User, ev.Channel, "channel", text, threadTS, ev.TimeStamp, event.TeamID, false, nil)
 }
 
 func (c *Client) handleMessage(event slackevents.EventsAPIEvent) {
@@ -224,17 +250,19 @@ func (c *Client) handleMessage(event slackevents.EventsAPIEvent) {
 		return
 	}
 
+	inlineDataParts := c.extractInlineDataFromFiles(ev)
+
 	text := strings.TrimSpace(ev.Text)
-	if text == "" {
+	if text == "" && len(inlineDataParts) == 0 {
 		return
 	}
 
-	if c.handleBotCommand(ev.User, ev.Channel, text, ev.ThreadTimeStamp) {
+	if text != "" && c.handleBotCommand(ev.User, ev.Channel, text, ev.ThreadTimeStamp) {
 		return
 	}
 
-	c.logger.Info("Slack DM received", "user", ev.User, "channel", ev.Channel, "text", text)
-	c.processMessage(ev.User, ev.Channel, "im", text, ev.ThreadTimeStamp, ev.TimeStamp, event.TeamID, false)
+	c.logger.Info("Slack DM received", "user", ev.User, "channel", ev.Channel, "text", text, "attachments", len(inlineDataParts))
+	c.processMessage(ev.User, ev.Channel, "im", text, ev.ThreadTimeStamp, ev.TimeStamp, event.TeamID, false, inlineDataParts)
 }
 
 func (c *Client) handleAudioClip(ev *slackevents.MessageEvent, teamID string) bool {
@@ -286,10 +314,56 @@ func (c *Client) handleAudioClip(ev *slackevents.MessageEvent, teamID string) bo
 		}
 
 		c.logger.Info("Transcribed audio clip", "text", text)
-		c.processMessage(ev.User, ev.Channel, "im", text, ev.ThreadTimeStamp, ev.TimeStamp, teamID, true)
+		c.processMessage(ev.User, ev.Channel, "im", text, ev.ThreadTimeStamp, ev.TimeStamp, teamID, true, nil)
 		return true
 	}
 	return false
+}
+
+// extractInlineDataFromFiles downloads non-audio file attachments from the
+// message event and returns them as inlineData parts ready to be appended to
+// the /run_sse request body. Audio files are skipped (handled separately by
+// handleAudioClip). Files larger than 5MB are skipped with a warning.
+func (c *Client) extractInlineDataFromFiles(ev *slackevents.MessageEvent) []map[string]interface{} {
+	if ev == nil || ev.Message == nil || len(ev.Message.Files) == 0 {
+		return nil
+	}
+	const maxFileSize = 5 * 1024 * 1024
+	var parts []map[string]interface{}
+	for _, file := range ev.Message.Files {
+		if strings.HasPrefix(file.Mimetype, "audio/") {
+			continue
+		}
+		if file.Size > maxFileSize {
+			c.logger.Warn("Slack file too large to process",
+				"name", file.Name,
+				"mimetype", file.Mimetype,
+				"size", file.Size,
+			)
+			continue
+		}
+		downloadURL := c.resolveFileURL(file.ID, file.URLPrivateDownload, file.URLPrivate)
+		if downloadURL == "" {
+			c.logger.Debug("Slack file has no download URL", "name", file.Name)
+			continue
+		}
+		data, err := c.downloadSlackFile(downloadURL)
+		if err != nil {
+			c.logger.Warn("Failed to download Slack file", "name", file.Name, "error", err)
+			continue
+		}
+		if len(data) > maxFileSize {
+			c.logger.Warn("Slack file exceeded size limit after download", "name", file.Name, "size", len(data))
+			continue
+		}
+		parts = append(parts, map[string]interface{}{
+			"inlineData": map[string]interface{}{
+				"mimeType": file.Mimetype,
+				"data":     base64.StdEncoding.EncodeToString(data),
+			},
+		})
+	}
+	return parts
 }
 
 // resolveFileURL returns the best available download URL for a Slack file,
@@ -384,6 +458,7 @@ func (c *Client) handleBotCommand(userID, channelID, text, threadTS string) bool
 			c.postMessage(channelID, "Failed to reset session.", threadTS)
 			return true
 		}
+		c.closeConversations(sessionID, agentID)
 		c.logger.Info("Session reset", "channel", channelID, "agent", agentID, "session", sessionID)
 		agent := c.getAgentInfo(agentID)
 		label := agentID
@@ -455,7 +530,7 @@ func (c *Client) handleResponseModeCommand(channelID, arg, threadTS string) bool
 	return true
 }
 
-func (c *Client) processMessage(userID, channelID, channelType, text, threadTS, messageTS, teamID string, inputWasVoice bool) {
+func (c *Client) processMessage(userID, channelID, channelType, text, threadTS, messageTS, teamID string, inputWasVoice bool, inlineDataParts []map[string]interface{}) {
 	msgRef := slackapi.NewRefToMessage(channelID, messageTS)
 	c.addReaction("eyes", msgRef)
 
@@ -483,7 +558,7 @@ func (c *Client) processMessage(userID, channelID, channelType, text, threadTS, 
 	toolCount := 0
 	var toolCounterTS string
 
-	err := c.callAgentSSE(agentID, sessionID, fullMessage, func(evt msgutil.SSEEvent) {
+	err := c.callAgentSSE(agentID, sessionID, fullMessage, inlineDataParts, func(evt msgutil.SSEEvent) {
 		if evt.FinishReason != "" {
 			lastFinishReason = evt.FinishReason
 		}
@@ -568,9 +643,16 @@ func (c *Client) sendTextMessage(channelID, text, threadTS string, inputWasVoice
 	c.postMessage(channelID, text, threadTS)
 }
 
-func (c *Client) callAgentSSE(agentID, sessionID, message string, handler func(msgutil.SSEEvent)) error {
+func (c *Client) callAgentSSE(agentID, sessionID, message string, inlineDataParts []map[string]interface{}, handler func(msgutil.SSEEvent)) error {
 	if err := c.ensureSession(agentID, "default_user", sessionID); err != nil {
 		c.logger.Warn("Failed to ensure session, continuing anyway", "error", err)
+	}
+
+	parts := []interface{}{
+		map[string]string{"text": message},
+	}
+	for _, p := range inlineDataParts {
+		parts = append(parts, p)
 	}
 
 	reqBody := map[string]interface{}{
@@ -579,7 +661,7 @@ func (c *Client) callAgentSSE(agentID, sessionID, message string, handler func(m
 		"sessionId": sessionID,
 		"newMessage": map[string]interface{}{
 			"role":  "user",
-			"parts": []map[string]string{{"text": message}},
+			"parts": parts,
 		},
 	}
 
