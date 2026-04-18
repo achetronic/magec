@@ -50,6 +50,7 @@ import (
 	"github.com/achetronic/magec/server/voice"
 
 	httpSwagger "github.com/swaggo/http-swagger/v2"
+	"google.golang.org/adk/artifact"
 
 	_ "github.com/achetronic/magec/server/api/user/docs"
 
@@ -112,7 +113,7 @@ func main() {
 	watchStoreChanges(ctx, dataStore, agentRouter)
 
 	// Start schedulers and clients
-	cronScheduler, clientManager := startClients(ctx, cfg, dataStore, executor)
+	cronScheduler, clientManager := startClients(ctx, cfg, dataStore, agentRouter, executor)
 
 	// Graceful shutdown
 	startGracefulShutdown(adminServer, adminCtx, adminCancel, userServer, userCtx, userCancel, cronScheduler, clientManager, voiceDetector)
@@ -344,11 +345,11 @@ func watchStoreChanges(ctx context.Context, dataStore *store.Store, agentRouter 
 
 // startClients initializes and starts external messaging clients (Discord, Slack, Telegram, etc.)
 // and the cron job scheduler for automated tasks.
-func startClients(ctx context.Context, cfg *config.Config, dataStore *store.Store, executor *clients.Executor) (*cron.Scheduler, *clientManager) {
+func startClients(ctx context.Context, cfg *config.Config, dataStore *store.Store, router *agentRouterHandler, executor *clients.Executor) (*cron.Scheduler, *clientManager) {
 	cronScheduler := cron.NewScheduler(executor, dataStore, slog.Default())
 	go cronScheduler.Start(ctx)
 
-	cm := newClientManager(dataStore, cfg.Server.Port, slog.Default())
+	cm := newClientManager(dataStore, router, cfg.Server.Port, slog.Default())
 	cm.start(ctx)
 
 	return cronScheduler, cm
@@ -542,11 +543,21 @@ func serveTranscriptionProxy(w http.ResponseWriter, r *http.Request, agentDef st
 type agentRouterHandler struct {
 	mu           sync.RWMutex
 	agentHandler http.Handler
+	artifactSvc  artifact.Service
 	adminHandler *admin.Handler
 	a2aHandler   *mageca2a.Handler
 	// cwRegistry is passed through to agent.New so the ContextGuard plugin
 	// can look up each model's context window at runtime.
 	cwRegistry *contextguard.CrushRegistry
+}
+
+// ArtifactService returns the ADK artifact.Service currently wired, or nil
+// when no agents are configured. The reference refreshes whenever the store
+// rebuilds agents, so callers should fetch it on demand rather than caching.
+func (h *agentRouterHandler) ArtifactService() artifact.Service {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	return h.artifactSvc
 }
 
 // ServeHTTP delegates to the current agent handler, or returns 503 if no
@@ -569,12 +580,14 @@ func (h *agentRouterHandler) rebuild(ctx context.Context, dataStore *store.Store
 	storeData := dataStore.Data()
 
 	var agentHandler http.Handler
+	var artifactSvc artifact.Service
 	if len(storeData.Agents) > 0 {
 		svc, err := agent.New(ctx, storeData.Agents, storeData.Backends, storeData.MemoryProviders, storeData.MCPServers, storeData.Skills, storeData.Flows, storeData.Settings, h.cwRegistry)
 		if err != nil {
 			slog.Warn("Failed to initialize agents", "error", err)
 		} else {
 			agentHandler = http.StripPrefix("/api/v1/agent", svc.Handler())
+			artifactSvc = svc.ArtifactService()
 			if h.adminHandler != nil {
 				h.adminHandler.SetSessionService(svc.SessionService())
 			}
@@ -588,6 +601,7 @@ func (h *agentRouterHandler) rebuild(ctx context.Context, dataStore *store.Store
 
 	h.mu.Lock()
 	h.agentHandler = agentHandler
+	h.artifactSvc = artifactSvc
 	h.mu.Unlock()
 }
 
@@ -622,6 +636,7 @@ func checkDependencies(cfg *config.Config) {
 // removed/disabled ones and starting new/re-enabled ones automatically.
 type clientManager struct {
 	store    *store.Store
+	router   *agentRouterHandler
 	agentURL string
 	logger   *slog.Logger
 
@@ -635,13 +650,24 @@ type managedClient struct {
 	hash   string
 }
 
-func newClientManager(s *store.Store, port int, logger *slog.Logger) *clientManager {
+func newClientManager(s *store.Store, router *agentRouterHandler, port int, logger *slog.Logger) *clientManager {
 	return &clientManager{
 		store:    s,
+		router:   router,
 		agentURL: fmt.Sprintf("http://127.0.0.1:%d/api/v1/agent", port),
 		logger:   logger,
 		running:  make(map[string]*managedClient),
 	}
+}
+
+// artifactService returns the current ADK artifact.Service, or nil when no
+// agents are configured yet. Called by each startX helper to inject the
+// service into newly-created clients.
+func (m *clientManager) artifactService() artifact.Service {
+	if m.router == nil {
+		return nil
+	}
+	return m.router.ArtifactService()
 }
 
 func (m *clientManager) start(ctx context.Context) {
@@ -748,6 +774,7 @@ func (m *clientManager) startTelegram(ctx context.Context, cl store.ClientDefini
 		m.logger.Error("Failed to create Telegram client", "client", cl.Name, "error", err)
 		return
 	}
+	tgClient.SetArtifactService(m.artifactService())
 
 	clientCtx, cancel := context.WithCancel(ctx)
 	m.running[cl.ID] = &managedClient{stop: tgClient.Stop, cancel: cancel, hash: clientHash(cl)}
@@ -793,6 +820,7 @@ func (m *clientManager) startSlack(ctx context.Context, cl store.ClientDefinitio
 		m.logger.Error("Failed to create Slack client", "client", cl.Name, "error", err)
 		return
 	}
+	skClient.SetArtifactService(m.artifactService())
 
 	clientCtx, cancel := context.WithCancel(ctx)
 	m.running[cl.ID] = &managedClient{stop: skClient.Stop, cancel: cancel, hash: clientHash(cl)}
@@ -838,6 +866,7 @@ func (m *clientManager) startDiscord(ctx context.Context, cl store.ClientDefinit
 		m.logger.Error("Failed to create Discord client", "client", cl.Name, "error", err)
 		return
 	}
+	dcClient.SetArtifactService(m.artifactService())
 
 	clientCtx, cancel := context.WithCancel(ctx)
 	m.running[cl.ID] = &managedClient{stop: dcClient.Stop, cancel: cancel, hash: clientHash(cl)}

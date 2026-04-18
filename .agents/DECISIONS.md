@@ -538,7 +538,7 @@ This responsibility lives in **one place only**: the `ConversationRecorder` midd
 
 ---
 
-## 22. ADK REST API construction via `adkrest.NewServer`
+## 23. ADK REST API construction via `adkrest.NewServer`
 
 **Date**: 2026-04-18
 **Status**: Implemented
@@ -550,3 +550,48 @@ This responsibility lives in **one place only**: the `ConversationRecorder` midd
 **Do not**: Reintroduce `launcher.Config` as an input to `adkrest`. The dependency is being removed upstream — keep each concrete service (session, memory, artifact, loader) as the source of truth.
 
 **Files**: `server/agent/agent.go`.
+
+---
+
+## 24. Large user attachments are persisted as session artifacts instead of inlined
+
+**Date**: 2026-04-19
+**Status**: Implemented
+
+When a user attaches files to a chat message (Telegram photos/documents, Slack file uploads, Discord attachments), the client embeds them inline in the `/run_sse` request body as `inlineData` parts. Large files — a 20MB PDF, a multi-megabyte screenshot — burn context tokens even when the model does not need to read them, and sometimes overflow the backend's request size limit.
+
+**Decision**: A size threshold (`msgutil.DefaultInlineThreshold = 1 MiB`) splits the flow:
+
+- Files **at or below** the threshold go inline — fast path, one request, no tool calls needed.
+- Files **above** the threshold are persisted via the ADK `artifact.Service` with a deterministic per-message filename (`{messageID}_{originalName}`). The prompt is annotated with a `MAGEC_ATTACHED_ARTIFACTS` HTML-comment block listing each file's name, MIME type and human size, with instructions telling the LLM to call `load_artifact` on demand.
+
+The artifact toolset (`save_artifact`/`load_artifact`/`list_artifacts`) is already universal (decision #17), so no tool wiring changes were needed. The artifact service is plumbed into each client through `SetArtifactService(artifact.Service)` and sourced from `agentRouterHandler.ArtifactService()`, which refreshes on every store rebuild.
+
+**Helper shape (DRY real, not over-engineered)**:
+
+Rather than a single `PrepareAttachments(...)` function with many parameters and a fat return struct, the helpers are broken into one-job primitives in `server/clients/msgutil/attachments.go`:
+
+- `ShouldInline(sizeBytes int) bool` — threshold check.
+- `InlinePart(mimeType string, data []byte) map[string]interface{}` — builds the ADK inlineData map.
+- `StoreAsArtifact(ctx, svc, appName, userID, sessionID, filename, mimeType, data) (descriptor, error)` — persists via `artifact.Service.Save` and returns a single descriptor line.
+- `AttachedArtifactsBlock(lines []string) string` — wraps lines in the `MAGEC_ATTACHED_ARTIFACTS` HTML-comment block; returns `""` on empty input so callers can concatenate unconditionally.
+
+Each client keeps its own short loop iterating over platform-specific attachment types (`msg.Photo/Document/...`, `ev.Message.Files`, `m.Attachments`). That asymmetry is inherent to each platform — hiding it behind a generic "prepare everything" call would leak platform details back into the helper API.
+
+**Fallback**: when `artifacts` is `nil` (no agents configured yet, or the feature is explicitly disabled), every file is inlined regardless of size. This keeps the clients functional during the window between startup and the first agent rebuild.
+
+**Graceful degradation**: if `StoreAsArtifact` fails (disk error, service down), the client logs a warning and falls back to inline for that file. The user message is still delivered.
+
+**Rationale**:
+
+- Token budget: large binaries are almost always checkpoint data the model consults occasionally, not content it needs in every turn.
+- Backend compatibility: OpenAI, Anthropic and Gemini all reject requests above their respective body caps. Artifact offloading keeps the path uniform regardless of provider.
+- Reuses decision #17 universal artifact toolset — no new tools or wiring.
+
+**Do not**:
+
+- Raise `DefaultInlineThreshold` beyond what the smallest supported backend accepts comfortably. Keep the policy uniform across providers.
+- Use per-provider thresholds. If a provider rejects a given `inlineData`, the adapter fails loudly (decision #18) and the user sees it — that is the right feedback loop.
+- Replace the single-purpose helpers with a fat `PrepareAttachments` returning a multi-field struct. The current shape is DRY where it matters (the ADK wire format, the prompt block, the save call) without coupling the three platform-specific loops.
+
+**Files**: `server/clients/msgutil/attachments.go` (helpers + tests), `server/agent/agent.go` (`ArtifactService()` getter), `server/main.go` (router plumbing, `clientManager.artifactService()`), `server/clients/telegram/bot.go`, `server/clients/slack/bot.go`, `server/clients/discord/bot.go`.

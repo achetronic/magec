@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/bwmarrin/discordgo"
+	"google.golang.org/adk/artifact"
 
 	"github.com/achetronic/magec/server/clients/msgutil"
 	"github.com/achetronic/magec/server/store"
@@ -53,6 +54,17 @@ type Client struct {
 
 	showToolsMu sync.RWMutex
 	showTools   bool
+
+	// artifacts is optional: when set, files larger than
+	// msgutil.DefaultInlineThreshold are persisted here instead of being
+	// inlined in the /run_sse request. Set via SetArtifactService before Start.
+	artifacts artifact.Service
+}
+
+// SetArtifactService enables offloading large user attachments to the session
+// artifact store. When unset, all files are inlined regardless of size.
+func (c *Client) SetArtifactService(a artifact.Service) {
+	c.artifacts = a
 }
 
 func New(clientDef store.ClientDefinition, agentURL string, agents []AgentInfo, s interface {
@@ -256,7 +268,25 @@ func (c *Client) handleTextMessage(s *discordgo.Session, m *discordgo.MessageCre
 
 	artifactsBefore := c.listArtifacts(agentID, userIDStr, sessionID)
 
-	inlineDataParts := c.extractInlineDataFromAttachments(m)
+	// Apply the inline-vs-artifact policy to attached files (see
+	// decision #23 in .agents/DECISIONS.md).
+	var inlineDataParts []map[string]interface{}
+	var artifactLines []string
+	bgCtx := context.Background()
+	for _, f := range c.collectNonAudioAttachments(m) {
+		if msgutil.ShouldInline(len(f.Data)) || c.artifacts == nil {
+			inlineDataParts = append(inlineDataParts, msgutil.InlinePart(f.MIMEType, f.Data))
+			continue
+		}
+		line, err := msgutil.StoreAsArtifact(bgCtx, c.artifacts, agentID, userIDStr, sessionID, f.Name, f.MIMEType, f.Data)
+		if err != nil {
+			c.logger.Warn("Falling back to inline after artifact save failed", "file", f.Name, "error", err)
+			inlineDataParts = append(inlineDataParts, msgutil.InlinePart(f.MIMEType, f.Data))
+			continue
+		}
+		artifactLines = append(artifactLines, line)
+	}
+	inputText += msgutil.AttachedArtifactsBlock(artifactLines)
 
 	firstText := true
 	hasText := false
@@ -681,14 +711,23 @@ func (c *Client) buildSessionID(channelID, agentID string) string {
 }
 
 // extractInlineDataFromAttachments downloads non-audio attachments from the
-// Discord message and returns them as inlineData parts. Audio attachments are
-// handled by handleVoice. Files larger than 5MB are skipped with a warning.
-func (c *Client) extractInlineDataFromAttachments(m *discordgo.MessageCreate) []map[string]interface{} {
+// downloadedAttachment groups an attachment ready for the inline-vs-artifact
+// policy. Audio attachments are filtered out upstream.
+type downloadedAttachment struct {
+	Name     string
+	MIMEType string
+	Data     []byte
+}
+
+// collectNonAudioAttachments downloads every non-audio attachment of a Discord
+// message and returns them in a flat list. The inline-vs-artifact decision
+// happens later in handleTextMessage, once the session context is known.
+func (c *Client) collectNonAudioAttachments(m *discordgo.MessageCreate) []downloadedAttachment {
 	if len(m.Attachments) == 0 {
 		return nil
 	}
-	const maxFileSize = 5 * 1024 * 1024
-	var parts []map[string]interface{}
+	const maxFileSize = 25 * 1024 * 1024 // Discord default upload cap
+	var out []downloadedAttachment
 	for _, att := range m.Attachments {
 		if strings.HasPrefix(att.ContentType, "audio/") {
 			continue
@@ -714,14 +753,17 @@ func (c *Client) extractInlineDataFromAttachments(m *discordgo.MessageCreate) []
 		if mime == "" {
 			mime = "application/octet-stream"
 		}
-		parts = append(parts, map[string]interface{}{
-			"inlineData": map[string]interface{}{
-				"mimeType": mime,
-				"data":     base64.StdEncoding.EncodeToString(data),
-			},
+		name := att.Filename
+		if name == "" {
+			name = "attachment"
+		}
+		out = append(out, downloadedAttachment{
+			Name:     fmt.Sprintf("%s_%s", m.ID, name),
+			MIMEType: mime,
+			Data:     data,
 		})
 	}
-	return parts
+	return out
 }
 
 func (c *Client) callAgentSSE(m *discordgo.MessageCreate, targetID, agentID, sessionID, message string, inlineDataParts []map[string]interface{}, handler func(msgutil.SSEEvent)) error {
@@ -1152,26 +1194,26 @@ func (c *Client) downloadArtifact(agentID, userID, sessionID, name string) ([]by
 		return nil, "", fmt.Errorf("artifact download returned status %d", resp.StatusCode)
 	}
 
-	var artifact struct {
+	var payload struct {
 		Text       string `json:"text,omitempty"`
 		InlineData *struct {
 			MIMEType string `json:"mimeType"`
 			Data     string `json:"data"`
 		} `json:"inlineData,omitempty"`
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&artifact); err != nil {
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
 		return nil, "", fmt.Errorf("failed to decode artifact: %w", err)
 	}
 
-	if artifact.InlineData != nil {
-		data, err := base64.StdEncoding.DecodeString(artifact.InlineData.Data)
+	if payload.InlineData != nil {
+		data, err := base64.StdEncoding.DecodeString(payload.InlineData.Data)
 		if err != nil {
 			return nil, "", fmt.Errorf("failed to decode artifact binary data: %w", err)
 		}
-		return data, artifact.InlineData.MIMEType, nil
+		return data, payload.InlineData.MIMEType, nil
 	}
 
-	return []byte(artifact.Text), "text/plain", nil
+	return []byte(payload.Text), "text/plain", nil
 }
 
 func (c *Client) sendNewArtifacts(s *discordgo.Session, channelID, agentID, userID, sessionID string, before []string) {
