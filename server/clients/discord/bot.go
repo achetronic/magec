@@ -53,32 +53,6 @@ type Client struct {
 
 	showToolsMu sync.RWMutex
 	showTools   bool
-
-	// conversations is optional: when set, reset commands close the active
-	// conversation so subsequent messages produce a fresh record.
-	conversations *store.ConversationStore
-}
-
-// SetConversationStore enables conversation closing on !reset.
-func (c *Client) SetConversationStore(cs *store.ConversationStore) {
-	c.conversations = cs
-}
-
-// closeConversations closes admin+user perspectives for the session.
-func (c *Client) closeConversations(sessionID, agentID string) {
-	if c.conversations == nil {
-		return
-	}
-	for _, perspective := range []string{"admin", "user"} {
-		if err := c.conversations.CloseBySession(sessionID, agentID, perspective); err != nil {
-			c.logger.Debug("No active conversation to close after reset",
-				"session", sessionID,
-				"agent", agentID,
-				"perspective", perspective,
-				"error", err,
-			)
-		}
-	}
 }
 
 func New(clientDef store.ClientDefinition, agentURL string, agents []AgentInfo, s interface {
@@ -588,7 +562,6 @@ func (c *Client) handleBotCommand(s *discordgo.Session, m *discordgo.MessageCrea
 			s.ChannelMessageSend(m.ChannelID, "Failed to reset session.")
 			return true
 		}
-		c.closeConversations(sessionID, agentID)
 		c.logger.Info("Session reset", "channel", m.ChannelID, "agent", agentID, "session", sessionID)
 		agent := c.getAgentInfo(agentID)
 		label := agentID

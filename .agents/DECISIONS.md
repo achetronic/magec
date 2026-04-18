@@ -514,3 +514,24 @@ TTS and STT proxies were hardcoded to OpenAI-compatible endpoints (`/v1/audio/sp
 **Do not**: Hardcode endpoint paths in the proxy handlers. Do not add provider-specific logic to `main.go` — all translation lives in the provider package. Do not put provider-specific fields as top-level fields on `TTSRef` or `BackendRef` — use the typed config structs.
 
 **Files**: `server/voice/provider.go`, `server/voice/registry.go`, `server/voice/openai/openai.go`, `server/voice/gemini/gemini.go`, `server/api/admin/voice.go`, `server/main.go` (proxy refactor + blank imports), `server/store/types.go` (typed config structs), `server/store/store.go` (migration), `frontend/admin-ui/src/views/agents/AgentDialog.vue`.
+
+---
+
+## 22. Conversation close on reset is a middleware concern, not a client one
+
+**Date**: 2026-04-18
+**Status**: Implemented (since 75cc2de, 2026-04-10)
+
+When a chat client (Telegram/Slack/Discord) or the admin UI triggers a session reset, the corresponding conversation record must be marked `Closed` so the next message starts a fresh conversation instead of appending to the old one.
+
+This responsibility lives in **one place only**: the `ConversationRecorder` middleware in `server/middleware/recorder.go`. Every `DELETE /api/v1/agent/apps/{app}/users/{user}/sessions/{session}` is intercepted regardless of origin; after the delete succeeds the middleware calls `executor.CloseConversationSession(sessionID, agentID)`, which internally closes both the `admin` and `user` perspectives via `ConversationStore.CloseBySession`.
+
+**Do not**:
+
+- Re-implement `CloseBySession` inside individual client bots (Telegram `handleResetCommand`, Slack/Discord reset command handlers). The middleware already handles it transparently for every session delete, including those triggered by the admin `/conversations/{id}/reset-session` endpoint.
+- Add `SetConversationStore` methods to `Client` structs. The conversation store stays behind the executor/middleware boundary — clients have no business touching it.
+- Duplicate the `admin`+`user` perspective loop. It belongs in `Executor.CloseConversationSession`, a single function.
+
+**Files**: `server/middleware/recorder.go` (interception), `server/clients/executor.go` (`CloseConversationSession`), `server/store/conversations.go` (`Closed` flag + `CloseBySession` + `FindBySession` skipping closed records).
+
+**History**: Fix was introduced by commit `75cc2de` on 2026-04-10. A later audit attempted to re-add the close-on-reset logic inside each client bot; this was reverted in favour of the original middleware-based design.

@@ -4,11 +4,10 @@
 
 ### This branch (`feature/todo-audit-cleanup`, 2026-04-18)
 
-- **Conversation split on `!reset`** — Telegram/Slack/Discord clients now call `CloseBySession` on both admin+user perspectives after a successful reset so the next message creates a fresh conversation record. Wiring via new `SetConversationStore` on each client; store injected through `clientManager` in `server/main.go`.
 - **Telegram: thread-aware error messages** — the 4 remaining error-path `SendMessage` calls in `telegram/bot.go` now pass `MessageThreadID`, keeping error replies in the origin topic.
 - **Slack multimodal (inlineData)** — new `extractInlineDataFromFiles` in `slack/bot.go` processes non-audio files (`image/*`, `application/pdf`, `text/*`, etc.) from DMs, encodes them as base64 `inlineData` parts. `callAgentSSE` and `processMessage` now accept a `[]map[string]interface{}` parts slice. 5MB/file limit.
 - **Discord multimodal (inlineData)** — new `extractInlineDataFromAttachments` in `discord/bot.go` processes non-audio message attachments the same way. Voice messages still handled separately by `handleVoice`.
-- **MemoryCard border: grey at rest, green on hover** — removed the `!border-green-500/30` override when a provider is marked active; active state is now signalled by a subtle ring only, matching the "quiet by default, color on hover" design rule from `ADMIN_UI_DESIGN_SYSTEM.md`.
+- **MemoryCard border** — removed the active-state override so the card follows the normal Card hover behaviour (grey at rest, green tint on hover). Active state is indicated solely by the radio button at the top-left.
 
 ### Earlier audit (2026-04-18)
 
