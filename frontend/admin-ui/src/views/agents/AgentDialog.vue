@@ -33,7 +33,7 @@
           <div>
             <FormLabel label="Output Key (optional)" />
             <FormInput v-model="form.outputKey" placeholder="e.g. analysis_result" />
-            <p class="text-[10px] text-arena-500 mt-1">Saves this agent's final output under the given key. Other agents can reference it with <code class="text-arena-300 bg-piedra-800 px-0.5 rounded">{key_name}</code> in their system prompt.</p>
+            <p class="text-[10px] text-arena-500 mt-1">Saves this agent's final output under the given key. Other agents can reference it with <code class="text-arena-300 bg-piedra-800 px-0.5 rounded">&#123;&#123;agent.output:key_name&#125;&#125;</code> in their system prompt.</p>
           </div>
         </div>
       </details>

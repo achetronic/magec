@@ -236,7 +236,7 @@ log:
 - **MCP headers/TLS**: `MCPServer` struct has `Headers map[string]string` and `Insecure bool`. `httpClientForMCP()` creates transport with optional `InsecureSkipVerify`
 - **Skill injection**: Skills are injected into the agent system prompt at build time. Instructions appended as `--- Skill: {name} ---`, reference file contents appended as `[Reference: {filename}]`. Files read from `data/skills/{skillId}/`
 - **Encryption key**: `server.encryptionKey` in config.yaml. Independent from `adminPassword`. Used to encrypt secrets at rest (AES-256-GCM, PBKDF2-derived)
-- **ContextGuard plugin**: Externalized to `adk-utils-go/plugin/contextguard` (v0.7.0). Builder API: `contextguard.New(registry)` + `guard.Add(agentID, llm, opts...)` + `guard.PluginConfig()`. Two strategies: `threshold` (token-based, auto-detect via CrushRegistry or manual `WithMaxTokens`) and `sliding_window` (turn-count via `WithSlidingWindow`). Each agent summarizes with its own LLM. Summary persisted in session state with `{agentName}` suffix keys. `CrushRegistry` fetches model metadata from Crush's provider.json with 6h background refresh
+- **ContextGuard plugin**: Externalized to `adk-utils-go/plugin/contextguard` (v0.13.0). Builder API: `contextguard.New(registry)` + `guard.Add(agentID, llm, opts...)` + `guard.PluginConfig()`. Two strategies: `threshold` (token-based, auto-detect via CrushRegistry or manual `WithMaxTokens`) and `sliding_window` (turn-count via `WithSlidingWindow`). Each agent summarizes with its own LLM. Summary persisted in session state with `{agentName}` suffix keys. `CrushRegistry` fetches model metadata from Crush's provider.json with 6h background refresh
 - **A2A protocol**: Agents/flows with `A2A.Enabled` get JSON-RPC endpoints via `a2a-go` + ADK `adka2a`. Agent cards auto-generated with capabilities and skills. SSE streaming for responses
 - **Dual-perspective conversation recording**: Middleware chains recorder twice: "admin" perspective (all events, before FlowResponseFilter) and "user" perspective (filtered, after). Each conversation has a `ParentID` linking the pair
 - **Store dual-copy pattern**: Store maintains `rawData` (unexpanded, with `${VAR}` refs) and `data` (env-expanded). API responses use raw data, runtime uses expanded. Secret values injected as env vars before expansion
@@ -315,11 +315,11 @@ GPU section commented out by default. Users who want cloud providers create diff
 
 **Go backend:**
 
-- `google.golang.org/adk` — Agent Development Kit (v0.4.0)
+- `google.golang.org/adk` — Agent Development Kit (v1.0.0)
 - `google.golang.org/genai` — Google GenAI SDK (v1.40.0)
-- `github.com/achetronic/adk-utils-go` — ADK utilities (v0.7.0): providers, session, memory tools, ContextGuard plugin
-- `github.com/a2aproject/a2a-go` — A2A protocol library (v0.3.3)
-- `github.com/modelcontextprotocol/go-sdk` — MCP client (v1.2.0)
+- `github.com/achetronic/adk-utils-go` — ADK utilities (v0.13.0): providers, session, memory tools, ContextGuard plugin, Langfuse plugin, artifact filesystem service
+- `github.com/a2aproject/a2a-go` — A2A protocol library (v0.3.10)
+- `github.com/modelcontextprotocol/go-sdk` — MCP client (v1.4.1)
 - `github.com/gorilla/mux` — HTTP router (v1.8.1)
 - `github.com/gorilla/websocket` — WebSocket for voice handler (v1.5.3)
 - `github.com/mymmrac/telego` — Telegram bot API (v1.5.1)

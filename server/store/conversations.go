@@ -348,17 +348,19 @@ func (cs *ConversationStore) Get(id string, msgLimit, msgOffset int) (Conversati
 	return Conversation{}, 0, false
 }
 
-// Delete removes a conversation and its paired perspective (user↔admin).
+// Delete removes a conversation and its paired perspective (admin↔user).
+// Only the pair created within a short window of the target is removed —
+// unrelated historical conversations with the same sessionID (produced by
+// /reset splits) are kept intact.
 func (cs *ConversationStore) Delete(id string) error {
 	cs.mu.Lock()
 	defer cs.mu.Unlock()
 
-	var sessionID, agentID string
+	var source Conversation
 	found := false
 	for _, c := range cs.conversations {
 		if c.ID == id {
-			sessionID = c.SessionID
-			agentID = c.AgentID
+			source = c
 			found = true
 			break
 		}
@@ -367,9 +369,40 @@ func (cs *ConversationStore) Delete(id string) error {
 		return fmt.Errorf("conversation %q not found", id)
 	}
 
+	toDelete := map[string]struct{}{source.ID: {}}
+
+	// Find the paired conversation of the opposite perspective created within
+	// a few seconds of the source. Anything older (a previous conversation
+	// over the same sessionID that was Closed by /reset) must NOT be touched.
+	otherPerspective := "admin"
+	if source.Perspective == "admin" {
+		otherPerspective = "user"
+	}
+	var bestMatch string
+	var minDiff time.Duration = 5 * time.Second
+	for _, c := range cs.conversations {
+		if c.ID == source.ID {
+			continue
+		}
+		if c.SessionID != source.SessionID || c.AgentID != source.AgentID || c.Perspective != otherPerspective {
+			continue
+		}
+		diff := c.StartedAt.Sub(source.StartedAt)
+		if diff < 0 {
+			diff = -diff
+		}
+		if diff < minDiff {
+			minDiff = diff
+			bestMatch = c.ID
+		}
+	}
+	if bestMatch != "" {
+		toDelete[bestMatch] = struct{}{}
+	}
+
 	filtered := cs.conversations[:0]
 	for _, c := range cs.conversations {
-		if c.ID == id || (c.SessionID == sessionID && c.AgentID == agentID) {
+		if _, drop := toDelete[c.ID]; drop {
 			continue
 		}
 		filtered = append(filtered, c)
