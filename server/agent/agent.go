@@ -32,7 +32,6 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"google.golang.org/adk/agent"
 	"google.golang.org/adk/agent/llmagent"
-	"google.golang.org/adk/cmd/launcher"
 	"google.golang.org/adk/memory"
 	"google.golang.org/adk/model"
 	"google.golang.org/adk/model/gemini"
@@ -181,19 +180,25 @@ func New(ctx context.Context, agents []store.AgentDefinition, backends []store.B
 		return nil, fmt.Errorf("failed to create multi-loader: %w", err)
 	}
 
-	launcherCfg := &launcher.Config{
+	restCfg := adkrest.ServerConfig{
 		SessionService:  sessionSvc,
 		AgentLoader:     loader,
 		ArtifactService: artifactSvc,
 		MemoryService:   memorySvc,
+		SSEWriteTimeout: 15 * time.Minute,
 	}
 
 	if registry != nil {
-		launcherCfg.PluginConfig = buildContextGuardConfig(agents, llmMap, registry)
+		restCfg.PluginConfig = buildContextGuardConfig(agents, llmMap, registry)
+	}
+
+	restServer, err := adkrest.NewServer(restCfg)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create ADK REST server: %w", err)
 	}
 
 	return &Service{
-		handler:    adkrest.NewHandler(launcherCfg, 15*time.Minute),
+		handler:    restServer,
 		sessionSvc: sessionSvc,
 		memorySvc:  memorySvc,
 		adkAgents:  adkAgentMap,

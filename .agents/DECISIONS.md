@@ -535,3 +535,18 @@ This responsibility lives in **one place only**: the `ConversationRecorder` midd
 **Files**: `server/middleware/recorder.go` (interception), `server/clients/executor.go` (`CloseConversationSession`), `server/store/conversations.go` (`Closed` flag + `CloseBySession` + `FindBySession` skipping closed records).
 
 **History**: Fix was introduced by commit `75cc2de` on 2026-04-10. A later audit attempted to re-add the close-on-reset logic inside each client bot; this was reverted in favour of the original middleware-based design.
+
+---
+
+## 22. ADK REST API construction via `adkrest.NewServer`
+
+**Date**: 2026-04-18
+**Status**: Implemented
+
+`google.golang.org/adk` v1.0.0 removed `adkrest.NewHandler(launcher.Config, timeout)` in favour of `adkrest.NewServer(adkrest.ServerConfig{...})`, which takes each service directly instead of a `launcher.Config` wrapper. This matches the broader v1.0.0 refactor that decoupled `adkrest` from `cmd/launcher`.
+
+`*agent.Service` still exposes `Handler() http.Handler`; middleware does not care whether the underlying implementation is `*adkrest.Server` or anything else satisfying the interface.
+
+**Do not**: Reintroduce `launcher.Config` as an input to `adkrest`. The dependency is being removed upstream — keep each concrete service (session, memory, artifact, loader) as the source of truth.
+
+**Files**: `server/agent/agent.go`.
