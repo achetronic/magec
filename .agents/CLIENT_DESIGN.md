@@ -446,83 +446,64 @@ On `loadFromDisk()`, these migrations run in order (all idempotent):
 - **Memory provider migration to JSON Schema** — `server/memory/` still uses FieldSpec
 - **Enrollment** — `open` / `closed` / `approval` modes for user self-registration
 
-## Multimodal File Support (pending implementation)
+## Multimodal File Support (implemented)
 
 ### Overview
 
-Clients send user-uploaded files (images, documents, PDFs) as `inlineData` parts in the ADK `/run_sse` request. The ADK and LLM backends handle them natively — no new endpoints or backend changes needed.
+Telegram, Slack and Discord clients accept user-uploaded files and forward them to the ADK `/run_sse` request. The adapter chooses between two paths based on size, using the helpers in `server/clients/msgutil/attachments.go`:
 
-### How it works
+- **Inline** — files at or below `msgutil.DefaultInlineThreshold` (1 MiB) ride in the request body as `inlineData` parts next to the user text. Fastest path, no tool calls required.
+- **Artifact** — files above the threshold are persisted through the ADK `artifact.Service` with a session-unique filename (`{messageID}_{originalName}`). The prompt is amended with a `MAGEC_ATTACHED_ARTIFACTS` HTML-comment block listing each file (name, MIME, human size) and instructing the model to call `load_artifact` on demand.
+
+See decision #24 in `.agents/DECISIONS.md` for the rationale and "do not" rules.
+
+### Helper primitives (`server/clients/msgutil/attachments.go`)
+
+- `ShouldInline(sizeBytes int) bool` — threshold check.
+- `InlinePart(mimeType string, data []byte) map[string]interface{}` — builds the `inlineData` map that ADK serializes to `genai.Part`.
+- `StoreAsArtifact(ctx, svc, appName, userID, sessionID, filename, mimeType, data) (descriptor, error)` — persists via `artifact.Service.Save` and returns a single descriptor line meant to be wrapped by `AttachedArtifactsBlock`.
+- `AttachedArtifactsBlock(lines []string) string` — wraps descriptor lines in the `MAGEC_ATTACHED_ARTIFACTS` block; returns `""` on empty input so callers can concatenate unconditionally.
+
+Each client has its own short loop over platform-specific attachment types (`msg.Photo/Document/...`, `ev.Message.Files`, `m.Attachments`) because download APIs, size caps, and MIME discovery differ per platform. The DRY surface is the helper set, not the loop.
+
+### Flow
 
 ```
-User sends photo in Telegram/Slack
-  → Client downloads file bytes from platform API
-  → Client encodes as base64
-  → Client sends to ADK /run as:
-    {"parts": [
-      {"text": "<!--MAGEC_META:...-->\nUser caption or empty"},
-      {"inlineData": {"mimeType": "image/jpeg", "data": "base64..."}}
-    ]}
-  → ADK deserializes to genai.Part{InlineData: &Blob{...}}
-  → LLM processes the file
+User sends file in Telegram/Slack/Discord
+  → Client downloads bytes from platform API (per-platform size cap: 20–25 MiB)
+  → For each file:
+      if ShouldInline(len(data)) || artifacts == nil:
+          inline = append(inline, InlinePart(mime, data))
+      else:
+          descriptor := StoreAsArtifact(ctx, artifacts, agentID, userID, sessionID, name, mime, data)
+          artifactLines = append(artifactLines, descriptor)
+  → prompt += AttachedArtifactsBlock(artifactLines)
+  → POST /run_sse with {parts: [{text: prompt}, ...inline]}
+  → LLM either reads inline content or calls load_artifact for the rest
 ```
 
-### Telegram file types to handle
+### Fallback
 
-| telego Field | Type          | Notes                                               |
-| ------------ | ------------- | --------------------------------------------------- |
-| `Photo`      | `[]PhotoSize` | Use last element (highest resolution). Has `FileID` |
-| `Document`   | `*Document`   | General file. Has `FileID`, `MIMEType`              |
-| `Video`      | `*Video`      | Has `FileID`, `MIMEType`                            |
-| `Audio`      | `*Audio`      | Non-voice audio (.mp3). Has `FileID`, `MIMEType`    |
-| `Animation`  | `*Animation`  | GIF. Has `FileID`, `MIMEType`. Also sets `Document` |
-| `VideoNote`  | `*VideoNote`  | Round video. Has `FileID`                           |
-| `Sticker`    | `*Sticker`    | Has `FileID`. Static or animated                    |
-| `Voice`      | `*Voice`      | Already handled (STT pipeline) — no change          |
-| `Caption`    | `string`      | Text accompanying any media — goes as text part     |
+When `artifacts == nil` (no agents configured yet, or intentionally unset) the policy inlines everything regardless of size. When a `StoreAsArtifact` call fails (disk error, service down), the client logs a warning and falls back to inline for that file — the user message is still delivered.
 
-All use `bot.GetFile(FileID)` → download URL → HTTP GET → raw bytes.
+### Platform specifics
 
-### Slack file types to handle
+**Telegram**: `Photo` (highest-resolution), `Document`, `Video`, `Audio` (non-voice), `Animation`, `VideoNote`, `Sticker`. All resolve via `bot.GetFile(FileID)` + HTTP GET. `Caption` becomes the text part. Voice messages keep their own STT path (`handleVoice`).
 
-Files are in `ev.Message.Files` (type `[]slack.File`). Each has:
+**Slack (DMs)**: every non-audio entry in `ev.Message.Files`. Downloaded via `URLPrivateDownload` (fallback: `URLPrivate`) with Bearer auth. `AppMentionEvent` does not surface files in slack-go v0.17.3; channel-mention files remain a pending item in `TODO.md`.
 
-- `Mimetype` — IANA MIME type
-- `Size` — file size in bytes
-- `URLPrivateDownload` / `URLPrivate` — download URL (requires Bearer token)
-- `Name`, `Title` — display names
-
-Currently only `audio/*` is handled (for STT). Need to add: `image/*`, `application/pdf`, and generic fallback.
+**Discord**: every non-audio `m.Attachments[i]`. Downloaded via `att.URL`. Voice messages flow through `handleVoice`. `m.Content` with stripped mention becomes the text part.
 
 ### Parts serialization
 
-Clients construct parts as raw `map[string]interface{}` (not `genai` types) since they serialize to JSON for the HTTP call to ADK. The change is from:
+Clients construct parts as raw `map[string]interface{}` (not `genai` types) since they serialize directly to JSON for the HTTP call to ADK. `msgutil.InlinePart` returns exactly this shape, so callers just append its result:
 
 ```go
-"parts": []map[string]string{
-    {"text": fullMessage},
+parts := []interface{}{map[string]string{"text": fullMessage}}
+for _, p := range inlineDataParts {
+    parts = append(parts, p)
 }
 ```
-
-To:
-
-```go
-"parts": []interface{}{
-    map[string]string{"text": metaContext},
-    map[string]interface{}{
-        "inlineData": map[string]interface{}{
-            "mimeType": mimeType,
-            "data":     base64EncodedBytes,
-        },
-    },
-}
-```
-
-If the message has a caption, it goes as the text part. If no caption, the text part contains only the MAGEC_META context.
-
-### File size validation
-
-5MB per file, 10MB total per message, max 10 files. Enforced client-side before downloading. Telegram bot API limits files to 20MB anyway. For Slack, check `file.Size` before calling `downloadSlackFile()`.
 
 ### A2A (future)
 

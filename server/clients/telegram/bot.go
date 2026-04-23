@@ -24,6 +24,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os/exec"
+	"path"
 	"slices"
 	"strings"
 	"sync"
@@ -32,6 +33,7 @@ import (
 	"github.com/mymmrac/telego"
 	th "github.com/mymmrac/telego/telegohandler"
 	tu "github.com/mymmrac/telego/telegoutil"
+	"google.golang.org/adk/artifact"
 
 	"github.com/achetronic/magec/server/clients/msgutil"
 	"github.com/achetronic/magec/server/store"
@@ -84,6 +86,29 @@ type Client struct {
 	showTools   bool
 
 	botUsername string
+
+	// artifacts is optional: when set, files larger than
+	// msgutil.DefaultInlineThreshold are persisted here instead of being
+	// inlined in the /run_sse request. Set via SetArtifactService before Start.
+	artifacts artifact.Service
+}
+
+// SetArtifactService enables offloading large user attachments to the session
+// artifact store. Safe to call before Start(); when unset, all files are
+// inlined regardless of size (legacy behaviour).
+func (c *Client) SetArtifactService(a artifact.Service) {
+	c.artifacts = a
+}
+
+// artifactFilenameFromTelegram builds a session-unique filename for an
+// attachment using the message ID as a prefix. Without the prefix two
+// photos sent in a row would clash on "file_123.jpg" style names.
+func artifactFilenameFromTelegram(msg telego.Message, filePath string) string {
+	base := path.Base(filePath)
+	if base == "" || base == "." || base == "/" {
+		base = fmt.Sprintf("attachment_%d", msg.MessageID)
+	}
+	return fmt.Sprintf("%d_%s", msg.MessageID, base)
 }
 
 // New creates a Telegram client ready to be started. It validates the bot token
@@ -462,25 +487,6 @@ func (c *Client) handleMessage(ctx *th.Context, msg telego.Message) error {
 
 	typingDone := c.startTypingLoop(ctx, msg.Chat.ID, msg.MessageThreadID)
 
-	var inlineDataParts []map[string]interface{}
-	if fileID != "" {
-		file, err := ctx.Bot().GetFile(ctx, &telego.GetFileParams{FileID: fileID})
-		if err == nil {
-			fileURL := fmt.Sprintf("https://api.telegram.org/file/bot%s/%s", c.clientDef.Config.Telegram.BotToken, file.FilePath)
-			data, err := c.downloadFile(fileURL)
-			if err == nil && len(data) <= 5*1024*1024 {
-				inlineDataParts = append(inlineDataParts, map[string]interface{}{
-					"inlineData": map[string]interface{}{
-						"mimeType": mimeType,
-						"data":     base64.StdEncoding.EncodeToString(data),
-					},
-				})
-			} else if len(data) > 5*1024*1024 {
-				c.logger.Warn("File too large to process", "size", len(data))
-			}
-		}
-	}
-
 	inputText, truncated := msgutil.ValidateInputLength(text, msgutil.DefaultMaxInputLength)
 	if truncated {
 		c.logger.Warn("Inbound message truncated", "chat_id", msg.Chat.ID, "original_len", len([]rune(text)))
@@ -489,6 +495,36 @@ func (c *Client) handleMessage(ctx *th.Context, msg telego.Message) error {
 	agentID := c.getActiveAgentID(msg.Chat.ID)
 	sessionID := c.buildSessionID(msg.Chat.ID, msg.MessageThreadID, agentID)
 	userIDStr := "default_user"
+
+	// Download the attachment (if any) and decide whether to embed it inline
+	// in the request body or persist it as a session artifact so the LLM can
+	// call load_artifact on demand. See decision #24 in .agents/DECISIONS.md.
+	var inlineDataParts []map[string]interface{}
+	var artifactLines []string
+	if fileID != "" {
+		file, ferr := ctx.Bot().GetFile(ctx, &telego.GetFileParams{FileID: fileID})
+		if ferr == nil {
+			fileURL := fmt.Sprintf("https://api.telegram.org/file/bot%s/%s", c.clientDef.Config.Telegram.BotToken, file.FilePath)
+			data, dlErr := c.downloadFile(fileURL)
+			switch {
+			case dlErr != nil:
+				c.logger.Warn("Failed to download Telegram attachment", "error", dlErr)
+			case msgutil.ShouldInline(len(data)) || c.artifacts == nil:
+				inlineDataParts = append(inlineDataParts, msgutil.InlinePart(mimeType, data))
+			default:
+				filename := artifactFilenameFromTelegram(msg, file.FilePath)
+				line, aErr := msgutil.StoreAsArtifact(ctx, c.artifacts, agentID, userIDStr, sessionID, filename, mimeType, data)
+				if aErr != nil {
+					c.logger.Warn("Falling back to inline after artifact save failed", "file", filename, "error", aErr)
+					inlineDataParts = append(inlineDataParts, msgutil.InlinePart(mimeType, data))
+				} else {
+					artifactLines = append(artifactLines, line)
+				}
+			}
+		}
+	}
+	inputText += msgutil.AttachedArtifactsBlock(artifactLines)
+
 	artifactsBefore := c.listArtifacts(agentID, userIDStr, sessionID)
 
 	hasText := false
@@ -1344,26 +1380,26 @@ func (c *Client) downloadArtifact(agentID, userID, sessionID, name string) ([]by
 		return nil, "", fmt.Errorf("artifact download returned status %d", resp.StatusCode)
 	}
 
-	var artifact struct {
+	var payload struct {
 		Text       string `json:"text,omitempty"`
 		InlineData *struct {
 			MIMEType string `json:"mimeType"`
 			Data     string `json:"data"`
 		} `json:"inlineData,omitempty"`
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&artifact); err != nil {
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
 		return nil, "", fmt.Errorf("failed to decode artifact: %w", err)
 	}
 
-	if artifact.InlineData != nil {
-		data, err := base64.StdEncoding.DecodeString(artifact.InlineData.Data)
+	if payload.InlineData != nil {
+		data, err := base64.StdEncoding.DecodeString(payload.InlineData.Data)
 		if err != nil {
 			return nil, "", fmt.Errorf("failed to decode artifact binary data: %w", err)
 		}
-		return data, artifact.InlineData.MIMEType, nil
+		return data, payload.InlineData.MIMEType, nil
 	}
 
-	return []byte(artifact.Text), "text/plain", nil
+	return []byte(payload.Text), "text/plain", nil
 }
 
 func (c *Client) sendNewArtifacts(ctx *th.Context, chatID int64, threadID int, agentID, userID, sessionID string, before []string) {

@@ -32,6 +32,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"google.golang.org/adk/agent"
 	"google.golang.org/adk/agent/llmagent"
+	"google.golang.org/adk/artifact"
 	"google.golang.org/adk/memory"
 	"google.golang.org/adk/model"
 	"google.golang.org/adk/model/gemini"
@@ -83,10 +84,11 @@ IMPORTANT: When generating code files, long documents, configuration files, scri
 // Service wraps the ADK REST handler that serves all configured agents.
 // Incoming requests are routed to the correct agent by the appName field.
 type Service struct {
-	handler    http.Handler
-	sessionSvc session.Service
-	memorySvc  memory.Service
-	adkAgents  map[string]agent.Agent
+	handler     http.Handler
+	sessionSvc  session.Service
+	memorySvc   memory.Service
+	artifactSvc artifact.Service
+	adkAgents   map[string]agent.Agent
 }
 
 // New builds an ADK agent for every AgentDefinition in the store, wires up
@@ -198,10 +200,11 @@ func New(ctx context.Context, agents []store.AgentDefinition, backends []store.B
 	}
 
 	return &Service{
-		handler:    restServer,
-		sessionSvc: sessionSvc,
-		memorySvc:  memorySvc,
-		adkAgents:  adkAgentMap,
+		handler:     restServer,
+		sessionSvc:  sessionSvc,
+		memorySvc:   memorySvc,
+		artifactSvc: artifactSvc,
+		adkAgents:   adkAgentMap,
 	}, nil
 }
 
@@ -348,6 +351,13 @@ func (s *Service) SessionService() session.Service {
 // MemoryService returns the memory.Service used by the launcher (may be nil).
 func (s *Service) MemoryService() memory.Service {
 	return s.memorySvc
+}
+
+// ArtifactService returns the artifact.Service that backs the save_artifact /
+// load_artifact tools. Clients use it to persist user-uploaded files that are
+// too large to embed inline in the /run_sse request.
+func (s *Service) ArtifactService() artifact.Service {
+	return s.artifactSvc
 }
 
 // ADKAgents returns the map of agent ID → ADK agent instance.

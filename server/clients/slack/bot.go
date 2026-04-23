@@ -19,6 +19,7 @@ import (
 	slackapi "github.com/slack-go/slack"
 	"github.com/slack-go/slack/slackevents"
 	"github.com/slack-go/slack/socketmode"
+	"google.golang.org/adk/artifact"
 
 	"github.com/achetronic/magec/server/clients/msgutil"
 	"github.com/achetronic/magec/server/store"
@@ -62,6 +63,17 @@ type Client struct {
 	seen   map[string]struct{}
 
 	botUserID string
+
+	// artifacts is optional: when set, files larger than
+	// msgutil.DefaultInlineThreshold are persisted here instead of being
+	// inlined in the /run_sse request. Set via SetArtifactService before Start.
+	artifacts artifact.Service
+}
+
+// SetArtifactService enables offloading large user attachments to the session
+// artifact store. When unset, all files are inlined regardless of size.
+func (c *Client) SetArtifactService(a artifact.Service) {
+	c.artifacts = a
 }
 
 func New(clientDef store.ClientDefinition, agentURL string, agents []AgentInfo, s interface {
@@ -224,10 +236,10 @@ func (c *Client) handleMessage(event slackevents.EventsAPIEvent) {
 		return
 	}
 
-	inlineDataParts := c.extractInlineDataFromFiles(ev)
+	files := c.collectNonAudioFiles(ev)
 
 	text := strings.TrimSpace(ev.Text)
-	if text == "" && len(inlineDataParts) == 0 {
+	if text == "" && len(files) == 0 {
 		return
 	}
 
@@ -235,8 +247,8 @@ func (c *Client) handleMessage(event slackevents.EventsAPIEvent) {
 		return
 	}
 
-	c.logger.Info("Slack DM received", "user", ev.User, "channel", ev.Channel, "text", text, "attachments", len(inlineDataParts))
-	c.processMessage(ev.User, ev.Channel, "im", text, ev.ThreadTimeStamp, ev.TimeStamp, event.TeamID, false, inlineDataParts)
+	c.logger.Info("Slack DM received", "user", ev.User, "channel", ev.Channel, "text", text, "attachments", len(files))
+	c.processMessage(ev.User, ev.Channel, "im", text, ev.ThreadTimeStamp, ev.TimeStamp, event.TeamID, false, files)
 }
 
 func (c *Client) handleAudioClip(ev *slackevents.MessageEvent, teamID string) bool {
@@ -294,16 +306,23 @@ func (c *Client) handleAudioClip(ev *slackevents.MessageEvent, teamID string) bo
 	return false
 }
 
-// extractInlineDataFromFiles downloads non-audio file attachments from the
-// message event and returns them as inlineData parts ready to be appended to
-// the /run_sse request body. Audio files are skipped (handled separately by
-// handleAudioClip). Files larger than 5MB are skipped with a warning.
-func (c *Client) extractInlineDataFromFiles(ev *slackevents.MessageEvent) []map[string]interface{} {
+// downloadedFile groups an attachment ready for the inline-vs-artifact policy.
+type downloadedFile struct {
+	Name     string
+	MIMEType string
+	Data     []byte
+}
+
+// collectNonAudioFiles downloads every non-audio attachment of a Slack
+// message and returns them in a flat list. The inline-vs-artifact decision
+// happens later, in processMessage, where the session context is known.
+// Audio is filtered out because it flows through handleAudioClip's STT path.
+func (c *Client) collectNonAudioFiles(ev *slackevents.MessageEvent) []downloadedFile {
 	if ev == nil || ev.Message == nil || len(ev.Message.Files) == 0 {
 		return nil
 	}
-	const maxFileSize = 5 * 1024 * 1024
-	var parts []map[string]interface{}
+	const maxFileSize = 20 * 1024 * 1024 // Slack's own upload cap
+	var out []downloadedFile
 	for _, file := range ev.Message.Files {
 		if strings.HasPrefix(file.Mimetype, "audio/") {
 			continue
@@ -330,14 +349,17 @@ func (c *Client) extractInlineDataFromFiles(ev *slackevents.MessageEvent) []map[
 			c.logger.Warn("Slack file exceeded size limit after download", "name", file.Name, "size", len(data))
 			continue
 		}
-		parts = append(parts, map[string]interface{}{
-			"inlineData": map[string]interface{}{
-				"mimeType": file.Mimetype,
-				"data":     base64.StdEncoding.EncodeToString(data),
-			},
+		name := file.Name
+		if name == "" {
+			name = "attachment"
+		}
+		out = append(out, downloadedFile{
+			Name:     fmt.Sprintf("%s_%s", ev.TimeStamp, name),
+			MIMEType: file.Mimetype,
+			Data:     data,
 		})
 	}
-	return parts
+	return out
 }
 
 // resolveFileURL returns the best available download URL for a Slack file,
@@ -503,14 +525,34 @@ func (c *Client) handleResponseModeCommand(channelID, arg, threadTS string) bool
 	return true
 }
 
-func (c *Client) processMessage(userID, channelID, channelType, text, threadTS, messageTS, teamID string, inputWasVoice bool, inlineDataParts []map[string]interface{}) {
+func (c *Client) processMessage(userID, channelID, channelType, text, threadTS, messageTS, teamID string, inputWasVoice bool, files []downloadedFile) {
 	msgRef := slackapi.NewRefToMessage(channelID, messageTS)
 	c.addReaction("eyes", msgRef)
 
 	agentID := c.getActiveAgentID(channelID)
 	sessionID := c.buildSessionID(channelID, threadTS, agentID)
+	userID0 := "default_user"
 
-	artifactsBefore := c.listArtifacts(agentID, "default_user", sessionID)
+	// Apply the inline-vs-artifact policy to the attached files (see
+	// decision #24 in .agents/DECISIONS.md).
+	var inlineDataParts []map[string]interface{}
+	var artifactLines []string
+	ctx := context.Background()
+	for _, f := range files {
+		if msgutil.ShouldInline(len(f.Data)) || c.artifacts == nil {
+			inlineDataParts = append(inlineDataParts, msgutil.InlinePart(f.MIMEType, f.Data))
+			continue
+		}
+		line, err := msgutil.StoreAsArtifact(ctx, c.artifacts, agentID, userID0, sessionID, f.Name, f.MIMEType, f.Data)
+		if err != nil {
+			c.logger.Warn("Falling back to inline after artifact save failed", "file", f.Name, "error", err)
+			inlineDataParts = append(inlineDataParts, msgutil.InlinePart(f.MIMEType, f.Data))
+			continue
+		}
+		artifactLines = append(artifactLines, line)
+	}
+
+	artifactsBefore := c.listArtifacts(agentID, userID0, sessionID)
 
 	validatedText, truncated := msgutil.ValidateInputLength(text, msgutil.DefaultMaxInputLength)
 	if truncated {
@@ -519,7 +561,8 @@ func (c *Client) processMessage(userID, channelID, channelType, text, threadTS, 
 
 	fullMessage := c.buildMessageContext(userID, channelID, channelType, threadTS, teamID) +
 		c.fetchThreadContext(channelID, threadTS, messageTS) +
-		validatedText
+		validatedText +
+		msgutil.AttachedArtifactsBlock(artifactLines)
 
 	c.addReaction("brain", msgRef)
 
@@ -1070,25 +1113,25 @@ func (c *Client) downloadArtifact(agentID, userID, sessionID, name string) ([]by
 		return nil, "", fmt.Errorf("artifact download returned status %d", resp.StatusCode)
 	}
 
-	var artifact struct {
+	var payload struct {
 		Text       string `json:"text,omitempty"`
 		InlineData *struct {
 			MIMEType string `json:"mimeType"`
 			Data     string `json:"data"`
 		} `json:"inlineData,omitempty"`
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&artifact); err != nil {
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
 		return nil, "", fmt.Errorf("failed to decode artifact: %w", err)
 	}
 
-	if artifact.InlineData != nil {
-		data, err := base64.StdEncoding.DecodeString(artifact.InlineData.Data)
+	if payload.InlineData != nil {
+		data, err := base64.StdEncoding.DecodeString(payload.InlineData.Data)
 		if err != nil {
 			return nil, "", fmt.Errorf("failed to decode artifact binary data: %w", err)
 		}
-		return data, artifact.InlineData.MIMEType, nil
+		return data, payload.InlineData.MIMEType, nil
 	}
-	return []byte(artifact.Text), "text/plain", nil
+	return []byte(payload.Text), "text/plain", nil
 }
 
 func (c *Client) sendNewArtifacts(channelID, threadTS, agentID, userID, sessionID string, before []string) {
