@@ -534,7 +534,7 @@ func (c *Client) processMessage(userID, channelID, channelType, text, threadTS, 
 	userID0 := "default_user"
 
 	// Apply the inline-vs-artifact policy to the attached files (see
-	// decision #23 in .agents/DECISIONS.md).
+	// decision #24 in .agents/DECISIONS.md).
 	var inlineDataParts []map[string]interface{}
 	var artifactLines []string
 	ctx := context.Background()

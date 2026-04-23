@@ -90,6 +90,20 @@ See `.agents/ADK_TOOLS.md` for protocol details.
 
 ## Medium Priority
 
+### A2A FilePart → inline/artifact policy
+
+**Problem**: A2A messages carry three `Part` types: `TextPart`, `FilePart` (binary + MIME), and `DataPart` (structured JSON). The A2A handler in `server/a2a/handler.go` currently only extracts the `TextPart` and ignores files. Agent cards advertise `DefaultInputModes: ["text/plain"]`.
+
+**Solution**: Reuse the existing `msgutil` helpers (decision #24). When an incoming A2A message contains `FilePart`s:
+
+- Below `msgutil.DefaultInlineThreshold` → `msgutil.InlinePart(mime, bytes)` appended to the ADK `/run_sse` parts.
+- Above threshold → `msgutil.StoreAsArtifact(...)` via the router's `ArtifactService()`, descriptor lines wrapped with `msgutil.AttachedArtifactsBlock(...)`.
+- Declare additional MIME types in the agent card's `DefaultInputModes` (`image/*`, `application/pdf`, `text/*`, `audio/*`).
+
+**Files**: `server/a2a/handler.go`, agent-card builder inside the same file, wire `ArtifactService()` from `agentRouterHandler` into the handler on rebuild.
+
+---
+
 ### Telegram Channel Posts (`update.ChannelPost`)
 
 Messages posted in Telegram channels (not groups) are silently ignored. Supporting them requires deciding on:

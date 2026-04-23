@@ -12,7 +12,7 @@
 // for user-uploaded files: small files ride inline in the /run_sse request
 // body as inlineData parts, while larger files are persisted through the
 // ADK artifact service and referenced from the prompt so the LLM can call
-// load_artifact on demand. See decision #23 in .agents/DECISIONS.md.
+// load_artifact on demand. See decision #24 in .agents/DECISIONS.md.
 
 package msgutil
 

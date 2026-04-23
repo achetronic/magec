@@ -269,7 +269,7 @@ func (c *Client) handleTextMessage(s *discordgo.Session, m *discordgo.MessageCre
 	artifactsBefore := c.listArtifacts(agentID, userIDStr, sessionID)
 
 	// Apply the inline-vs-artifact policy to attached files (see
-	// decision #23 in .agents/DECISIONS.md).
+	// decision #24 in .agents/DECISIONS.md).
 	var inlineDataParts []map[string]interface{}
 	var artifactLines []string
 	bgCtx := context.Background()
@@ -710,7 +710,6 @@ func (c *Client) buildSessionID(channelID, agentID string) string {
 	return fmt.Sprintf("discord_%s_%s", channelID, agentID)
 }
 
-// extractInlineDataFromAttachments downloads non-audio attachments from the
 // downloadedAttachment groups an attachment ready for the inline-vs-artifact
 // policy. Audio attachments are filtered out upstream.
 type downloadedAttachment struct {

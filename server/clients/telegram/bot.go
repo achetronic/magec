@@ -498,7 +498,7 @@ func (c *Client) handleMessage(ctx *th.Context, msg telego.Message) error {
 
 	// Download the attachment (if any) and decide whether to embed it inline
 	// in the request body or persist it as a session artifact so the LLM can
-	// call load_artifact on demand. See decision #23 in .agents/DECISIONS.md.
+	// call load_artifact on demand. See decision #24 in .agents/DECISIONS.md.
 	var inlineDataParts []map[string]interface{}
 	var artifactLines []string
 	if fileID != "" {
