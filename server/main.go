@@ -582,7 +582,7 @@ func (h *agentRouterHandler) rebuild(ctx context.Context, dataStore *store.Store
 	var agentHandler http.Handler
 	var artifactSvc artifact.Service
 	if len(storeData.Agents) > 0 {
-		svc, err := agent.New(ctx, storeData.Agents, storeData.Backends, storeData.MemoryProviders, storeData.MCPServers, storeData.Skills, storeData.Flows, storeData.Settings, h.cwRegistry)
+		svc, err := agent.New(ctx, storeData.Agents, storeData.Backends, storeData.MemoryProviders, storeData.MCPServers, storeData.Skills, storeData.Flows, storeData.Settings, h.cwRegistry, dataStore.ResolveTemporaryDir)
 		if err != nil {
 			slog.Warn("Failed to initialize agents", "error", err)
 		} else {

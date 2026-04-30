@@ -313,6 +313,12 @@ type FlowDefinition struct {
 type Settings struct {
 	SessionProvider  string `json:"sessionProvider,omitempty" yaml:"sessionProvider,omitempty"`
 	LongTermProvider string `json:"longTermProvider,omitempty" yaml:"longTermProvider,omitempty"`
+	// TemporaryDir is the absolute path used by tools and subsystems that need
+	// to write transient files visible to other on-disk consumers (filesystem
+	// MCPs, shell tools, etc.). When empty, callers must fall back to the OS
+	// temporary directory via Store.ResolveTemporaryDir, which is the only
+	// place that performs that fallback.
+	TemporaryDir string `json:"temporaryDir,omitempty" yaml:"temporaryDir,omitempty"`
 }
 
 // Secret represents an encrypted key-value pair used for environment variable injection.

@@ -186,7 +186,7 @@ magec/
 |        | **Commands**               | CRUD: `/commands`, `/commands/{id}`                                                                                                                                                     |
 |        | **Flows**                  | CRUD: `/flows`, `/flows/{id}`                                                                                                                                                           |
 |        | **Secrets**                | CRUD: `/secrets`, `/secrets/{id}` (GET never returns value)                                                                                                                             |
-|        | **Settings**               | GET/PUT: `/settings` (global memory provider selection)                                                                                                                                 |
+|        | **Settings**               | GET/PUT: `/settings` (global memory provider selection + `temporaryDir` for transient on-disk files)                                                                                  |
 |        | **Conversations**          | `/conversations`, `/conversations/{id}`, `/conversations/clear`, `/conversations/stats`, `/conversations/{id}/summary`, `/conversations/{id}/pair`, `/conversations/{id}/reset-session` |
 |        | **Backup**                 | GET `/settings/backup`, POST `/settings/restore` (tar.gz of data/)                                                                                                                      |
 |        | **Voice**                  | GET `/voice/types` (registered voice providers with JSON Schemas)                                                                                                                       |
@@ -246,6 +246,7 @@ log:
 - **Flow wrapAgent pattern**: Same agent can appear in multiple flow steps — `wrapAgent()` creates uniquely-named delegate agents to satisfy ADK's single-parent constraint
 - **Voice provider registry**: TTS/STT proxies dispatch to per-backend-type providers via `voice.Get(backend.Type)`. Same pattern as clients/memory — `init()` + blank imports. OpenAI provider handles `/v1/audio/speech` and `/v1/audio/transcriptions`. Gemini provider translates to `generateContent` with `speechConfig`/`inlineData`. `TTSRef.Config` and `BackendRef.Config` use typed structs (`TTSConfig`, `STTConfig`) with per-provider namespaces matching the `ClientConfig` pattern (e.g. `config.openai.speed`, `config.gemini.languageCode`). `GET /voice/types` returns JSON Schemas per provider. Store migration moves legacy `tts.speed` → `tts.config.openai.speed` and flat config fields → `tts.config.gemini.*`
 - **Input artifact offloading**: User-uploaded files are persisted through the ADK `artifact.Service` and replaced in the prompt with a `MAGEC_ATTACHED_ARTIFACTS` block telling the model to call `load_artifact` on demand. Reuses the universal artifact toolset (decision #17). The service is injected per-client through `SetArtifactService` and sourced from `agentRouterHandler.ArtifactService()` so it tracks store rebuilds. Helpers in `server/clients/msgutil/attachments.go`: `StoreAsArtifact`, `AttachedArtifactsBlock` — each client runs its own short loop over platform-specific attachment types.
+- **Artifact toolset**: universal via `base_toolset.go` (decision #17). Exposes `save_artifact`, `load_artifact`, `list_artifacts`, and `export_artifact`. `load_artifact` injects the artifact as a native multimodal `*genai.Part` via `ProcessRequest` rather than serialising base64 (decision #25). `export_artifact` writes raw bytes to disk under `Store.ResolveTemporaryDir()` and returns the absolute path so non-artifact-aware tools can pick the file up (decision #26). `Store.ResolveTemporaryDir()` is the single fallback point for `Settings.TemporaryDir` → `os.TempDir()`; nobody else may compute that fallback.
 
 ### Design Philosophy
 
@@ -266,7 +267,7 @@ log:
 - **Tailwind v4**: `@tailwindcss/vite` plugin, `@theme` directive for custom colors
 - **11 active tabs**: backends, memory, mcps, agents, flows, commands, skills, clients, secrets, conversations, settings
 - **Keyboard shortcuts**: `n` (new entity), `r` (refresh), `Cmd+K` (search palette)
-- **Settings view**: Global memory provider selection + backup/restore (tar.gz)
+- **Settings view**: Runtime (`temporaryDir` for transient files used by tools like `export_artifact`) + backup/restore (tar.gz). Memory provider selection lives in the global settings struct but is not yet exposed in the UI.
 
 ### Frontend Conventions (voice-ui)
 

@@ -2,7 +2,14 @@
 
 ## Recently Completed
 
-### This branch (`feature/todo-audit-cleanup`, 2026-04-18)
+### This branch (`feature/always-artifacts`, 2026-04-30)
+
+- **Always-artifact attachments** — removed the inline-vs-artifact size threshold; `msgutil.ShouldInline` and `msgutil.InlinePart` are gone. Every user upload (Telegram/Slack/Discord) flows through `msgutil.StoreAsArtifact` + `AttachedArtifactsBlock`. Decision #24 rewritten.
+- **`load_artifact` via RequestProcessor** — replaced the old `functiontool` that returned base64 in JSON (which corrupted the model's view and burned context) with a manual `tool.Tool` implementing `RequestProcessor`. It mutates the existing `FunctionResponse` Content rather than appending a new one, preserving the "1 session event = 1 req.Contents entry" invariant ContextGuard relies on. Decision #25.
+- **`adk-utils-go` v0.15.2** — bumped from v0.13.0 to pick up `lowercaseTypes` in the Anthropic provider, which normalises `Type: "STRING"` (Gemini-style) to `"string"` (JSON Schema draft 2020-12) for tool input schemas built with `genai.Schema`.
+- **`export_artifact` tool + Settings.TemporaryDir** — new tool decodes an artifact and writes the raw bytes to disk under a single, centrally-resolved directory (`Store.ResolveTemporaryDir()` → `Settings.TemporaryDir` or `os.TempDir()`). Lets the model hand artifacts off to any filesystem-aware tool. Admin UI gained a Runtime section under Settings to configure the path. Decision #26.
+
+### Older branch (`feature/todo-audit-cleanup`, 2026-04-18)
 
 - **Telegram: thread-aware error messages** — the 4 remaining error-path `SendMessage` calls in `telegram/bot.go` now pass `MessageThreadID`, keeping error replies in the origin topic.
 - **Slack multimodal (inlineData)** — new `extractInlineDataFromFiles` in `slack/bot.go` processes non-audio files (`image/*`, `application/pdf`, `text/*`, etc.) from DMs, encodes them as base64 `inlineData` parts. `callAgentSSE` and `processMessage` now accept a `[]map[string]interface{}` parts slice. 5MB/file limit.

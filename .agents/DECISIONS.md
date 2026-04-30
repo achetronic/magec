@@ -617,3 +617,32 @@ The provider adapters (`adk-utils-go/genai/{openai,anthropic,gemini}`) then tran
 - Depend on ADK's `internal/toolinternal` package directly. The `RequestProcessor` interface is matched structurally at runtime; declaring the method with the right signature is enough.
 
 **Files**: `server/agent/tools/artifacts/toolset.go` (loadArtifactTool), `server/agent/agent.go` (`artifactInstruction` rewording), `server/clients/msgutil/attachments.go` (`AttachedArtifactsBlock` rewording).
+
+---
+
+## 26. `export_artifact` bridges artifacts and the local filesystem; `Store.ResolveTemporaryDir` is the single source of truth
+
+**Date**: 2026-05-01
+**Status**: Implemented
+
+Artifacts live in their own world: `data/artifacts/{appName}/{userID}/{sessionID}/{fileName}/{version}.json`, with binary payloads encoded as base64 inside JSON. That layout is invisible to any external tool that reads from the filesystem — a parser, a shell utility, an MCP server pointed at a workdir. There was no clean way for the model to hand an artifact off to such a tool.
+
+**Decision**: a new function tool, `export_artifact`, decodes an artifact through `ctx.Artifacts().Load(name)`, writes the raw bytes (or the UTF-8 text for text artifacts) to a fresh file under a single, centrally-configured directory, and returns the absolute path. From that point on, any other tool reading from disk can pick the file up. The model only learns about an absolute path; it never proposes the destination directory.
+
+**Single resolution point**: the directory is owned by `Store.ResolveTemporaryDir()`. That method is the **only** place where the fallback `Settings.TemporaryDir → os.TempDir()` is performed. Any future tool or subsystem that needs a transient on-disk location must call this method; nobody else may read `Settings.TemporaryDir` directly nor recompute the fallback elsewhere. `Settings.TemporaryDir` is exposed in the Admin UI Settings → Runtime section so the operator can pin the directory to whatever path their filesystem-aware tools (MCP servers, shells, scripts) are allowed to read from.
+
+**Decoupling**: the tool does not reach into the store. `agent.New` accepts a `tempDirProvider func() string` parameter, the caller (`main.go` `agentRouterHandler.rebuild`) wires `dataStore.ResolveTemporaryDir` into it, and the closure flows down to the artifact toolset constructor. Each `export_artifact` call invokes the provider, so changes to `Settings.TemporaryDir` take effect on the next call without rebuilding the toolset (the agent rebuild on store change still happens for other reasons, but isn't required to refresh this path).
+
+**Filename collisions**: `os.CreateTemp(dir, stem+"-*"+ext)` injects a random suffix between the original stem and extension (e.g. `report-1234567890.pdf`). Two parallel exports of the same artifact never collide and downstream tools can still infer the format from the extension.
+
+**Description policy**: the tool description deliberately makes no mention of any specific MCP server or filesystem integration. It says only "writes the artifact's bytes to a file on disk and returns the absolute path so other tools can read it". Whether the operator has wired a filesystem MCP, a shell tool, or none at all is orthogonal to the tool's contract.
+
+**Do not**:
+
+- Do not duplicate the `TemporaryDir → os.TempDir()` fallback anywhere outside `Store.ResolveTemporaryDir`. Any caller that reads `Settings.TemporaryDir` directly is a bug.
+- Do not let the model pass a destination path to `export_artifact`. The argument set is intentionally `{name}` only; the tool decides the directory and filename. Allowing a path opens up traversal and surprises ("where did my file end up?").
+- Do not couple the artifact toolset to the Store. The `tempDirProvider` closure pattern keeps the tool ignorant of any storage concern.
+- Do not reference specific external integrations (MCP filesystem, shell, etc.) in the tool's `Description`. The tool must read as a generic capability so that deployments without those integrations still see a coherent contract.
+- Do not add cleanup logic for the temp directory inside Magec. When `TemporaryDir` is unset, the OS handles `os.TempDir()` cleanup. When it's set to a custom path, the operator owns retention.
+
+**Files**: `server/store/types.go` (`Settings.TemporaryDir`), `server/store/store.go` (`ResolveTemporaryDir`), `server/agent/tools/artifacts/toolset.go` (`exportArtifact` + `tempDirProvider` plumbing), `server/agent/base_toolset.go`, `server/agent/agent.go` (`tempDirProvider` parameter, `artifactInstruction` updated), `server/main.go` (provider wired from `dataStore.ResolveTemporaryDir`), `frontend/admin-ui/src/views/settings/RuntimeSection.vue`, `frontend/admin-ui/src/views/settings/SettingsView.vue`.

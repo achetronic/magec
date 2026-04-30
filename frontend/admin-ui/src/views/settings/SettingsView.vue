@@ -38,11 +38,17 @@
 import { ref, computed, watch, nextTick, onMounted, onUnmounted, markRaw } from 'vue'
 import Icon from '../../components/Icon.vue'
 import BackupSection from './BackupSection.vue'
+import RuntimeSection from './RuntimeSection.vue'
 
 const search = ref('')
 const sectionRefs = ref({})
 
 const sections = [
+  {
+    id: 'runtime',
+    keywords: ['runtime', 'temporary', 'temp', 'directory', 'dir', 'workdir', 'filesystem', 'path'],
+    component: markRaw(RuntimeSection),
+  },
   {
     id: 'backup',
     keywords: ['backup', 'restore', 'export', 'import', 'download', 'upload', 'data', 'archive', 'tar'],
