@@ -7,7 +7,6 @@ package msgutil
 
 import (
 	"context"
-	"encoding/base64"
 	"errors"
 	"strings"
 	"sync"
@@ -50,58 +49,6 @@ func (f *fakeArtifactService) List(_ context.Context, _ *artifact.ListRequest) (
 }
 func (f *fakeArtifactService) Versions(_ context.Context, _ *artifact.VersionsRequest) (*artifact.VersionsResponse, error) {
 	return &artifact.VersionsResponse{}, nil
-}
-
-// ----- ShouldInline -----
-
-func TestShouldInline_BelowThreshold(t *testing.T) {
-	if !ShouldInline(500 * 1024) {
-		t.Fatalf("500 KiB should be inline")
-	}
-}
-
-func TestShouldInline_AtThreshold(t *testing.T) {
-	if !ShouldInline(DefaultInlineThreshold) {
-		t.Fatalf("exactly %d bytes (threshold) should be inline", DefaultInlineThreshold)
-	}
-}
-
-func TestShouldInline_AboveThreshold(t *testing.T) {
-	if ShouldInline(DefaultInlineThreshold + 1) {
-		t.Fatalf("threshold+1 bytes should NOT be inline")
-	}
-}
-
-func TestShouldInline_Zero(t *testing.T) {
-	if !ShouldInline(0) {
-		t.Fatalf("0-byte file should be inline (degenerate but harmless)")
-	}
-}
-
-// ----- InlinePart -----
-
-func TestInlinePart_EncodesMimeAndBase64(t *testing.T) {
-	part := InlinePart("image/png", []byte("hello"))
-
-	inline, ok := part["inlineData"].(map[string]interface{})
-	if !ok {
-		t.Fatalf("expected inlineData key to be a map, got %T", part["inlineData"])
-	}
-	if inline["mimeType"] != "image/png" {
-		t.Fatalf("wrong mimeType: %v", inline["mimeType"])
-	}
-	want := base64.StdEncoding.EncodeToString([]byte("hello"))
-	if inline["data"] != want {
-		t.Fatalf("wrong data: got %v want %v", inline["data"], want)
-	}
-}
-
-func TestInlinePart_EmptyMimeFallsBackToOctetStream(t *testing.T) {
-	part := InlinePart("", []byte("x"))
-	inline := part["inlineData"].(map[string]interface{})
-	if inline["mimeType"] != "application/octet-stream" {
-		t.Fatalf("empty mime should fall back to octet-stream, got %v", inline["mimeType"])
-	}
 }
 
 // ----- StoreAsArtifact -----

@@ -76,7 +76,7 @@ When a user shares preferences or important information, proactively save it to 
 const artifactInstruction = `
 You have access to artifact tools for creating and managing files:
 - Use 'save_artifact' to save code, documents, data files, or any content that should be delivered as a downloadable file. Provide a filename (e.g. "report.md", "main.py", "data.csv"), the content, and optionally a mime_type. For binary content, set is_base64=true and provide base64-encoded data.
-- Use 'load_artifact' to retrieve a previously saved artifact by name.
+- Use 'load_artifact' to read a previously saved artifact, or to access a file the user attached in an earlier message (these are listed in the MAGEC_ATTACHED_ARTIFACTS block). After calling it, the artifact contents arrive on the next turn as a native multimodal attachment that you can read directly — you do NOT need to decode any base64 yourself.
 - Use 'list_artifacts' to see all artifacts in the current session.
 
 IMPORTANT: When generating code files, long documents, configuration files, scripts, or any substantial structured content, ALWAYS use save_artifact instead of pasting it in the chat. The artifact will be delivered to the user as a downloadable file automatically.`

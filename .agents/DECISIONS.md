@@ -553,17 +553,14 @@ This responsibility lives in **one place only**: the `ConversationRecorder` midd
 
 ---
 
-## 24. Large user attachments are persisted as session artifacts instead of inlined
+## 24. User attachments are always persisted as session artifacts instead of inlined
 
 **Date**: 2026-04-19
 **Status**: Implemented
 
-When a user attaches files to a chat message (Telegram photos/documents, Slack file uploads, Discord attachments), the client embeds them inline in the `/run_sse` request body as `inlineData` parts. Large files — a 20MB PDF, a multi-megabyte screenshot — burn context tokens even when the model does not need to read them, and sometimes overflow the backend's request size limit.
+Previously, when a user attached files to a chat message (Telegram photos/documents, Slack file uploads, Discord attachments), the client embedded them inline in the `/run_sse` request body as `inlineData` parts. Large files — a 20MB PDF, a multi-megabyte screenshot — burn context tokens even when the model does not need to read them, and sometimes overflow the backend's request size limit. A size threshold split the logic, but it proved insufficient as even small PDFs could exhaust the context window.
 
-**Decision**: A size threshold (`msgutil.DefaultInlineThreshold = 1 MiB`) splits the flow:
-
-- Files **at or below** the threshold go inline — fast path, one request, no tool calls needed.
-- Files **above** the threshold are persisted via the ADK `artifact.Service` with a deterministic per-message filename (`{messageID}_{originalName}`). The prompt is annotated with a `MAGEC_ATTACHED_ARTIFACTS` HTML-comment block listing each file's name, MIME type and human size, with instructions telling the LLM to call `load_artifact` on demand.
+**Decision**: All files are now persisted via the ADK `artifact.Service` with a deterministic per-message filename (`{messageID}_{originalName}`). The prompt is annotated with a `MAGEC_ATTACHED_ARTIFACTS` HTML-comment block listing each file's name, MIME type and human size, with instructions telling the LLM to call `load_artifact` on demand.
 
 The artifact toolset (`save_artifact`/`load_artifact`/`list_artifacts`) is already universal (decision #17), so no tool wiring changes were needed. The artifact service is plumbed into each client through `SetArtifactService(artifact.Service)` and sourced from `agentRouterHandler.ArtifactService()`, which refreshes on every store rebuild.
 
@@ -571,27 +568,52 @@ The artifact toolset (`save_artifact`/`load_artifact`/`list_artifacts`) is alrea
 
 Rather than a single `PrepareAttachments(...)` function with many parameters and a fat return struct, the helpers are broken into one-job primitives in `server/clients/msgutil/attachments.go`:
 
-- `ShouldInline(sizeBytes int) bool` — threshold check.
-- `InlinePart(mimeType string, data []byte) map[string]interface{}` — builds the ADK inlineData map.
 - `StoreAsArtifact(ctx, svc, appName, userID, sessionID, filename, mimeType, data) (descriptor, error)` — persists via `artifact.Service.Save` and returns a single descriptor line.
 - `AttachedArtifactsBlock(lines []string) string` — wraps lines in the `MAGEC_ATTACHED_ARTIFACTS` HTML-comment block; returns `""` on empty input so callers can concatenate unconditionally.
 
 Each client keeps its own short loop iterating over platform-specific attachment types (`msg.Photo/Document/...`, `ev.Message.Files`, `m.Attachments`). That asymmetry is inherent to each platform — hiding it behind a generic "prepare everything" call would leak platform details back into the helper API.
 
-**Fallback**: when `artifacts` is `nil` (no agents configured yet, or the feature is explicitly disabled), every file is inlined regardless of size. This keeps the clients functional during the window between startup and the first agent rebuild.
+**Fallback**: when `artifacts` is `nil` (no agents configured yet, or the feature is explicitly disabled), the files are dropped with a warning. This ensures safety.
 
-**Graceful degradation**: if `StoreAsArtifact` fails (disk error, service down), the client logs a warning and falls back to inline for that file. The user message is still delivered.
+**Graceful degradation**: if `StoreAsArtifact` fails (disk error, service down), the client logs a warning and drops the file — the text part of the user message is still delivered.
 
 **Rationale**:
 
-- Token budget: large binaries are almost always checkpoint data the model consults occasionally, not content it needs in every turn.
+- Token budget: binary files or text blobs are almost always checkpoint data the model consults occasionally, not content it needs in every turn.
 - Backend compatibility: OpenAI, Anthropic and Gemini all reject requests above their respective body caps. Artifact offloading keeps the path uniform regardless of provider.
 - Reuses decision #17 universal artifact toolset — no new tools or wiring.
 
 **Do not**:
 
-- Raise `DefaultInlineThreshold` beyond what the smallest supported backend accepts comfortably. Keep the policy uniform across providers.
-- Use per-provider thresholds. If a provider rejects a given `inlineData`, the adapter fails loudly (decision #18) and the user sees it — that is the right feedback loop.
+- Reintroduce an inline path or size thresholds. All attachments should flow through the artifact system to protect the context window.
 - Replace the single-purpose helpers with a fat `PrepareAttachments` returning a multi-field struct. The current shape is DRY where it matters (the ADK wire format, the prompt block, the save call) without coupling the three platform-specific loops.
 
 **Files**: `server/clients/msgutil/attachments.go` (helpers + tests), `server/agent/agent.go` (`ArtifactService()` getter), `server/main.go` (router plumbing, `clientManager.artifactService()`), `server/clients/telegram/bot.go`, `server/clients/slack/bot.go`, `server/clients/discord/bot.go`.
+
+---
+
+## 25. `load_artifact` injects content via RequestProcessor, not as JSON base64
+
+**Date**: 2026-04-30
+**Status**: Implemented
+
+The previous `load_artifact` tool returned binary artifact contents as base64 strings inside a `LoadResult` JSON struct. That value travelled through ADK's standard FunctionResponse path, meaning the LLM saw a wall of base64 text it could not interpret. For PDFs and images this defeated the entire artifact-offloading design (decision #24): the user attached a PDF, the model called `load_artifact` to read it, and instead of getting a multimodal attachment it got megabytes of opaque text that exploded the context window.
+
+**Decision**: `load_artifact` is no longer a plain `functiontool`. It implements ADK's `tool.Tool` interface manually plus the duck-typed `toolinternal.RequestProcessor` interface (matched at runtime via `t.(RequestProcessor)` in ADK's flow):
+
+- `Run(ctx, args)` returns only metadata (`{success, name, message}`). It does NOT load the file. This prevents binary content from leaking into the FunctionResponse.
+- `ProcessRequest(ctx, req)` runs on the next LLM turn. It detects the prior `load_artifact` FunctionResponse, calls `ctx.Artifacts().Load(name)`, and appends a fresh user-role `*genai.Content` with the original `*genai.Part` (text or `InlineData`) into `req.Contents`.
+
+The provider adapters (`adk-utils-go/genai/{openai,anthropic,gemini}`) then translate that Part into their native multimodal format (FileParam / Base64PDFSource / inlineData). The model reads the file as a real attachment, never as base64 text.
+
+`save_artifact` and `list_artifacts` remain plain function tools — they only deal with metadata, no binary payload to deliver.
+
+**Why not use ADK's official `loadartifactstool`**: the official tool batches multiple artifacts per call and prepends a global "you have artifacts X, Y, Z, you must load them before answering" instruction every turn via `utils.AppendInstructions`. Magec already manages attachment hints itself through the `MAGEC_ATTACHED_ARTIFACTS` block in the user prompt (decision #24), and surfaces saved artifacts through client diffing. The official tool would duplicate that logic and pollute the system instructions on every request even when no artifacts exist. Our single-file `load_artifact` mirrors the same RequestProcessor mechanism but stays scoped to one explicit call at a time.
+
+**Do not**:
+
+- Reintroduce a JSON path that returns artifact bytes as base64 to the model. The whole point of artifact offloading is to keep binaries out of context until the model decides to read them, and even then to deliver them through the multimodal channel.
+- Wrap binary payloads in custom JSON structs from any future tool. If a tool needs to deliver binary or multimodal content to the LLM, it must follow this same pattern: lightweight metadata in `Run`, real `*genai.Part` injection in `ProcessRequest`.
+- Depend on ADK's `internal/toolinternal` package directly. The `RequestProcessor` interface is matched structurally at runtime; declaring the method with the right signature is enough.
+
+**Files**: `server/agent/tools/artifacts/toolset.go` (loadArtifactTool), `server/agent/agent.go` (`artifactInstruction` rewording), `server/clients/msgutil/attachments.go` (`AttachedArtifactsBlock` rewording).

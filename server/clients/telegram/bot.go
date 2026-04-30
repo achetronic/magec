@@ -87,9 +87,9 @@ type Client struct {
 
 	botUsername string
 
-	// artifacts is optional: when set, files larger than
-	// msgutil.DefaultInlineThreshold are persisted here instead of being
-	// inlined in the /run_sse request. Set via SetArtifactService before Start.
+	// artifacts is optional: when set, user attachments
+	// are persisted here instead of being dropped.
+	// Set via SetArtifactService before Start.
 	artifacts artifact.Service
 }
 
@@ -496,27 +496,23 @@ func (c *Client) handleMessage(ctx *th.Context, msg telego.Message) error {
 	sessionID := c.buildSessionID(msg.Chat.ID, msg.MessageThreadID, agentID)
 	userIDStr := "default_user"
 
-	// Download the attachment (if any) and decide whether to embed it inline
-	// in the request body or persist it as a session artifact so the LLM can
-	// call load_artifact on demand. See decision #24 in .agents/DECISIONS.md.
-	var inlineDataParts []map[string]interface{}
+	// Download the attachment (if any) and persist it as a session artifact
+	// so the LLM can call load_artifact on demand. See decision #24 in .agents/DECISIONS.md.
 	var artifactLines []string
 	if fileID != "" {
 		file, ferr := ctx.Bot().GetFile(ctx, &telego.GetFileParams{FileID: fileID})
 		if ferr == nil {
 			fileURL := fmt.Sprintf("https://api.telegram.org/file/bot%s/%s", c.clientDef.Config.Telegram.BotToken, file.FilePath)
 			data, dlErr := c.downloadFile(fileURL)
-			switch {
-			case dlErr != nil:
+			if dlErr != nil {
 				c.logger.Warn("Failed to download Telegram attachment", "error", dlErr)
-			case msgutil.ShouldInline(len(data)) || c.artifacts == nil:
-				inlineDataParts = append(inlineDataParts, msgutil.InlinePart(mimeType, data))
-			default:
+			} else if c.artifacts == nil {
+				c.logger.Warn("Artifact service not available, dropping attachment")
+			} else {
 				filename := artifactFilenameFromTelegram(msg, file.FilePath)
 				line, aErr := msgutil.StoreAsArtifact(ctx, c.artifacts, agentID, userIDStr, sessionID, filename, mimeType, data)
 				if aErr != nil {
-					c.logger.Warn("Falling back to inline after artifact save failed", "file", filename, "error", aErr)
-					inlineDataParts = append(inlineDataParts, msgutil.InlinePart(mimeType, data))
+					c.logger.Warn("Failed to save artifact, dropping attachment", "file", filename, "error", aErr)
 				} else {
 					artifactLines = append(artifactLines, line)
 				}
@@ -535,7 +531,7 @@ func (c *Client) handleMessage(ctx *th.Context, msg telego.Message) error {
 	toolCount := 0
 	var toolCounterMsgID int
 
-	err := c.callAgentSSE(msg, agentID, sessionID, inputText, inlineDataParts, func(evt msgutil.SSEEvent) {
+	err := c.callAgentSSE(msg, agentID, sessionID, inputText, func(evt msgutil.SSEEvent) {
 		eventCount++
 		if evt.FinishReason != "" {
 			lastFinishReason = evt.FinishReason
@@ -697,7 +693,7 @@ func (c *Client) handleVoice(ctx *th.Context, msg telego.Message) error {
 	toolCount := 0
 	var toolCounterMsgID int
 
-	err = c.callAgentSSE(msg, agentID, sessionID, voiceInput, nil, func(evt msgutil.SSEEvent) {
+	err = c.callAgentSSE(msg, agentID, sessionID, voiceInput, func(evt msgutil.SSEEvent) {
 		if evt.FinishReason != "" {
 			lastFinishReason = evt.FinishReason
 		}
@@ -1030,7 +1026,7 @@ func (c *Client) fetchThreadContext(chatID int64, threadID int, currentMsgID int
 	return ""
 }
 
-func (c *Client) callAgentSSE(msg telego.Message, agentID, sessionID, textPart string, inlineDataParts []map[string]interface{}, handler func(msgutil.SSEEvent)) error {
+func (c *Client) callAgentSSE(msg telego.Message, agentID, sessionID, textPart string, handler func(msgutil.SSEEvent)) error {
 	userIDStr := "default_user"
 
 	if err := c.ensureSession(agentID, userIDStr, sessionID); err != nil {
@@ -1041,9 +1037,6 @@ func (c *Client) callAgentSSE(msg telego.Message, agentID, sessionID, textPart s
 
 	parts := []interface{}{
 		map[string]string{"text": fullMessage},
-	}
-	for _, p := range inlineDataParts {
-		parts = append(parts, p)
 	}
 
 	reqBody := map[string]interface{}{

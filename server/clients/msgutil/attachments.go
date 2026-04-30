@@ -18,41 +18,12 @@ package msgutil
 
 import (
 	"context"
-	"encoding/base64"
 	"fmt"
 	"strings"
 
 	"google.golang.org/adk/artifact"
 	"google.golang.org/genai"
 )
-
-// DefaultInlineThreshold is the byte size at or below which a file is
-// embedded inline in the /run_sse request. Larger files are stored as
-// session artifacts so the LLM can fetch them on demand and not burn
-// context tokens up front.
-const DefaultInlineThreshold = 1 * 1024 * 1024
-
-// ShouldInline reports whether a payload of sizeBytes should be embedded
-// inline (true) or offloaded as an artifact (false).
-func ShouldInline(sizeBytes int) bool {
-	return sizeBytes <= DefaultInlineThreshold
-}
-
-// InlinePart builds the JSON-shaped inlineData part that /run_sse expects.
-// The returned value is the exact shape ADK deserializes into
-// genai.Part{InlineData: &Blob{...}}; callers append it straight into the
-// "parts" array of newMessage.
-func InlinePart(mimeType string, data []byte) map[string]interface{} {
-	if mimeType == "" {
-		mimeType = "application/octet-stream"
-	}
-	return map[string]interface{}{
-		"inlineData": map[string]interface{}{
-			"mimeType": mimeType,
-			"data":     base64.StdEncoding.EncodeToString(data),
-		},
-	}
-}
 
 // StoreAsArtifact persists the file through svc under the given filename and
 // returns a single human+machine readable line describing it. The line is
@@ -106,12 +77,12 @@ func AttachedArtifactsBlock(lines []string) string {
 	}
 	var b strings.Builder
 	b.WriteString("\n\n<!--MAGEC_ATTACHED_ARTIFACTS:\n")
-	b.WriteString("The user attached the following files to this message. They were saved to the session artifact store because they are too large to inline in the request.\n")
+	b.WriteString("The user attached the following files to this message. They were saved to the session artifact store so they do not consume context tokens upfront.\n")
 	for _, l := range lines {
 		b.WriteString(l)
 		b.WriteByte('\n')
 	}
-	b.WriteString("Call the load_artifact tool with the filename to read any of them when you need its contents.\n")
+	b.WriteString("Call the load_artifact tool with the exact filename when you need to read its contents. The artifact will arrive on the next turn as a native multimodal attachment — do not attempt to decode base64 yourself.\n")
 	b.WriteString(":MAGEC_ATTACHED_ARTIFACTS-->")
 	return b.String()
 }

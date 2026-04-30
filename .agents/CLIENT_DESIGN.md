@@ -450,17 +450,14 @@ On `loadFromDisk()`, these migrations run in order (all idempotent):
 
 ### Overview
 
-Telegram, Slack and Discord clients accept user-uploaded files and forward them to the ADK `/run_sse` request. The adapter chooses between two paths based on size, using the helpers in `server/clients/msgutil/attachments.go`:
+Telegram, Slack and Discord clients accept user-uploaded files and forward them to the ADK `/run_sse` request. The adapter processes them using helpers in `server/clients/msgutil/attachments.go`:
 
-- **Inline** — files at or below `msgutil.DefaultInlineThreshold` (1 MiB) ride in the request body as `inlineData` parts next to the user text. Fastest path, no tool calls required.
-- **Artifact** — files above the threshold are persisted through the ADK `artifact.Service` with a session-unique filename (`{messageID}_{originalName}`). The prompt is amended with a `MAGEC_ATTACHED_ARTIFACTS` HTML-comment block listing each file (name, MIME, human size) and instructing the model to call `load_artifact` on demand.
+- **Artifact** — files are persisted through the ADK `artifact.Service` with a session-unique filename (`{messageID}_{originalName}`). The prompt is amended with a `MAGEC_ATTACHED_ARTIFACTS` HTML-comment block listing each file (name, MIME, human size) and instructing the model to call `load_artifact` on demand.
 
 See decision #24 in `.agents/DECISIONS.md` for the rationale and "do not" rules.
 
 ### Helper primitives (`server/clients/msgutil/attachments.go`)
 
-- `ShouldInline(sizeBytes int) bool` — threshold check.
-- `InlinePart(mimeType string, data []byte) map[string]interface{}` — builds the `inlineData` map that ADK serializes to `genai.Part`.
 - `StoreAsArtifact(ctx, svc, appName, userID, sessionID, filename, mimeType, data) (descriptor, error)` — persists via `artifact.Service.Save` and returns a single descriptor line meant to be wrapped by `AttachedArtifactsBlock`.
 - `AttachedArtifactsBlock(lines []string) string` — wraps descriptor lines in the `MAGEC_ATTACHED_ARTIFACTS` block; returns `""` on empty input so callers can concatenate unconditionally.
 
@@ -472,19 +469,16 @@ Each client has its own short loop over platform-specific attachment types (`msg
 User sends file in Telegram/Slack/Discord
   → Client downloads bytes from platform API (per-platform size cap: 20–25 MiB)
   → For each file:
-      if ShouldInline(len(data)) || artifacts == nil:
-          inline = append(inline, InlinePart(mime, data))
-      else:
-          descriptor := StoreAsArtifact(ctx, artifacts, agentID, userID, sessionID, name, mime, data)
-          artifactLines = append(artifactLines, descriptor)
+      descriptor := StoreAsArtifact(ctx, artifacts, agentID, userID, sessionID, name, mime, data)
+      artifactLines = append(artifactLines, descriptor)
   → prompt += AttachedArtifactsBlock(artifactLines)
-  → POST /run_sse with {parts: [{text: prompt}, ...inline]}
-  → LLM either reads inline content or calls load_artifact for the rest
+  → POST /run_sse with {parts: [{text: prompt}]}
+  → LLM calls load_artifact when it needs to read the file contents
 ```
 
 ### Fallback
 
-When `artifacts == nil` (no agents configured yet, or intentionally unset) the policy inlines everything regardless of size. When a `StoreAsArtifact` call fails (disk error, service down), the client logs a warning and falls back to inline for that file — the user message is still delivered.
+When `artifacts == nil` (no agents configured yet, or intentionally unset), the file is dropped with a warning. When a `StoreAsArtifact` call fails (disk error, service down), the client logs a warning and drops that file — the text part of the user message is still delivered.
 
 ### Platform specifics
 
@@ -496,12 +490,11 @@ When `artifacts == nil` (no agents configured yet, or intentionally unset) the p
 
 ### Parts serialization
 
-Clients construct parts as raw `map[string]interface{}` (not `genai` types) since they serialize directly to JSON for the HTTP call to ADK. `msgutil.InlinePart` returns exactly this shape, so callers just append its result:
+Clients construct parts as raw `map[string]interface{}` (not `genai` types) since they serialize directly to JSON for the HTTP call to ADK:
 
 ```go
-parts := []interface{}{map[string]string{"text": fullMessage}}
-for _, p := range inlineDataParts {
-    parts = append(parts, p)
+parts := []interface{}{
+    map[string]string{"text": fullMessage},
 }
 ```
 

@@ -96,8 +96,7 @@ See `.agents/ADK_TOOLS.md` for protocol details.
 
 **Solution**: Reuse the existing `msgutil` helpers (decision #24). When an incoming A2A message contains `FilePart`s:
 
-- Below `msgutil.DefaultInlineThreshold` → `msgutil.InlinePart(mime, bytes)` appended to the ADK `/run_sse` parts.
-- Above threshold → `msgutil.StoreAsArtifact(...)` via the router's `ArtifactService()`, descriptor lines wrapped with `msgutil.AttachedArtifactsBlock(...)`.
+- Files are saved via `msgutil.StoreAsArtifact(...)` using the router's `ArtifactService()`, descriptor lines wrapped with `msgutil.AttachedArtifactsBlock(...)`.
 - Declare additional MIME types in the agent card's `DefaultInputModes` (`image/*`, `application/pdf`, `text/*`, `audio/*`).
 
 **Files**: `server/a2a/handler.go`, agent-card builder inside the same file, wire `ArtifactService()` from `agentRouterHandler` into the handler on rebuild.
