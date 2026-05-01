@@ -54,7 +54,7 @@ magec/
 │   │   │   ├── voice.go        # Voice provider types endpoint
 │   │   │   └── docs/           # Generated swagger
 │   │   └── user/               # User-facing REST API
-│   │       ├── handlers.go     # Health, ClientInfo, Voice, Webhook swagger types
+│   │       ├── handlers.go     # Health, ClientInfo, Voice, Webhook, EphemeralArtifact swagger types
 │   │       ├── doc.go          # Swagger metadata
 │   │       ├── a2a_swagger.go  # A2A swagger documentation stubs
 │   │       ├── adk_swagger.go  # ADK REST API swagger documentation stubs
@@ -356,10 +356,11 @@ GPU section commented out by default. Users who want cloud providers create diff
 13. **Git branch is `master`**, not `main`. All raw GitHub URLs use `master`.
 14. **Go 1.25+, Node 22+, Hugo v0.155+**.
 15. **A2A agent card endpoints bypass client auth**: `.well-known/agent-card.json` paths are exempted from `ClientAuth` middleware so external agents can discover cards.
-16. **ContextGuard `safeSplitIndex`**: When splitting conversation history for summarization, the split point is adjusted to avoid orphaning Anthropic `tool_result` blocks.
-17. **Store env var expansion**: All store fields support `${VAR}` syntax. Secrets are injected as env vars (`os.Setenv`) before the store is expanded, so secrets can be referenced in backend URLs, bot tokens, etc.
-18. **Voice API routes always registered**: STT/TTS proxy endpoints are available regardless of Voice UI toggle, since Telegram/Discord/Slack clients need them.
-19. **ADK REST API accepts both camelCase and snake_case**: The `SnakeCaseNormalize` middleware converts snake_case keys recursively before ADK sees the request. This applies only to `/run` and `/run_sse` — the only ADK endpoints with multi-word JSON body fields. Session create/get/delete use single-word body fields (`state`, `events`) or path parameters only.
+16. **Ephemeral artifact URLs bypass client auth**: `/api/v1/ephemeral/*` paths are exempted from `ClientAuth` because the HMAC-SHA256 signed token in the URL is the credential. Tokens are minted by the `get_artifact_url` tool and verified server-side with `server.encryptionKey`. See decision #27.
+17. **ContextGuard `safeSplitIndex`**: When splitting conversation history for summarization, the split point is adjusted to avoid orphaning Anthropic `tool_result` blocks.
+18. **Store env var expansion**: All store fields support `${VAR}` syntax. Secrets are injected as env vars (`os.Setenv`) before the store is expanded, so secrets can be referenced in backend URLs, bot tokens, etc.
+19. **Voice API routes always registered**: STT/TTS proxy endpoints are available regardless of Voice UI toggle, since Telegram/Discord/Slack clients need them.
+20. **ADK REST API accepts both camelCase and snake_case**: The `SnakeCaseNormalize` middleware converts snake_case keys recursively before ADK sees the request. This applies only to `/run` and `/run_sse` — the only ADK endpoints with multi-word JSON body fields. Session create/get/delete use single-word body fields (`state`, `events`) or path parameters only.
 
 ## Testing
 
