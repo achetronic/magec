@@ -134,6 +134,21 @@ func (s *Store) UpdateSettings(settings Settings) error {
 	return s.persist()
 }
 
+// ResolveTemporaryDir returns the absolute path that callers must use when
+// writing transient files. It is the single source of truth for that path:
+// any subsystem that needs a workdir-style location (e.g. the export_artifact
+// tool) must call this method and obey what it returns. When the operator
+// has not configured Settings.TemporaryDir, it falls back to os.TempDir().
+// Callers must not duplicate this fallback elsewhere.
+func (s *Store) ResolveTemporaryDir() string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if s.data.Settings.TemporaryDir != "" {
+		return s.data.Settings.TemporaryDir
+	}
+	return os.TempDir()
+}
+
 // --- Backends ---
 
 func (s *Store) ListBackends() []BackendDefinition {

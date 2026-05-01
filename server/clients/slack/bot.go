@@ -64,9 +64,9 @@ type Client struct {
 
 	botUserID string
 
-	// artifacts is optional: when set, files larger than
-	// msgutil.DefaultInlineThreshold are persisted here instead of being
-	// inlined in the /run_sse request. Set via SetArtifactService before Start.
+	// artifacts is optional: when set, user attachments
+	// are persisted here instead of being dropped.
+	// Set via SetArtifactService before Start.
 	artifacts artifact.Service
 }
 
@@ -533,20 +533,18 @@ func (c *Client) processMessage(userID, channelID, channelType, text, threadTS, 
 	sessionID := c.buildSessionID(channelID, threadTS, agentID)
 	userID0 := "default_user"
 
-	// Apply the inline-vs-artifact policy to the attached files (see
-	// decision #24 in .agents/DECISIONS.md).
-	var inlineDataParts []map[string]interface{}
+	// Persist attached files as session artifacts so the LLM can call
+	// load_artifact on demand. See decision #24 in .agents/DECISIONS.md.
 	var artifactLines []string
 	ctx := context.Background()
 	for _, f := range files {
-		if msgutil.ShouldInline(len(f.Data)) || c.artifacts == nil {
-			inlineDataParts = append(inlineDataParts, msgutil.InlinePart(f.MIMEType, f.Data))
+		if c.artifacts == nil {
+			c.logger.Warn("Artifact service not available, dropping attachment", "file", f.Name)
 			continue
 		}
 		line, err := msgutil.StoreAsArtifact(ctx, c.artifacts, agentID, userID0, sessionID, f.Name, f.MIMEType, f.Data)
 		if err != nil {
-			c.logger.Warn("Falling back to inline after artifact save failed", "file", f.Name, "error", err)
-			inlineDataParts = append(inlineDataParts, msgutil.InlinePart(f.MIMEType, f.Data))
+			c.logger.Warn("Failed to save artifact, dropping attachment", "file", f.Name, "error", err)
 			continue
 		}
 		artifactLines = append(artifactLines, line)
@@ -574,7 +572,7 @@ func (c *Client) processMessage(userID, channelID, channelType, text, threadTS, 
 	toolCount := 0
 	var toolCounterTS string
 
-	err := c.callAgentSSE(agentID, sessionID, fullMessage, inlineDataParts, func(evt msgutil.SSEEvent) {
+	err := c.callAgentSSE(agentID, sessionID, fullMessage, func(evt msgutil.SSEEvent) {
 		if evt.FinishReason != "" {
 			lastFinishReason = evt.FinishReason
 		}
@@ -659,16 +657,13 @@ func (c *Client) sendTextMessage(channelID, text, threadTS string, inputWasVoice
 	c.postMessage(channelID, text, threadTS)
 }
 
-func (c *Client) callAgentSSE(agentID, sessionID, message string, inlineDataParts []map[string]interface{}, handler func(msgutil.SSEEvent)) error {
+func (c *Client) callAgentSSE(agentID, sessionID, message string, handler func(msgutil.SSEEvent)) error {
 	if err := c.ensureSession(agentID, "default_user", sessionID); err != nil {
 		c.logger.Warn("Failed to ensure session, continuing anyway", "error", err)
 	}
 
 	parts := []interface{}{
 		map[string]string{"text": message},
-	}
-	for _, p := range inlineDataParts {
-		parts = append(parts, p)
 	}
 
 	reqBody := map[string]interface{}{

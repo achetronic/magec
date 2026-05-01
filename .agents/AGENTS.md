@@ -54,7 +54,7 @@ magec/
 │   │   │   ├── voice.go        # Voice provider types endpoint
 │   │   │   └── docs/           # Generated swagger
 │   │   └── user/               # User-facing REST API
-│   │       ├── handlers.go     # Health, ClientInfo, Voice, Webhook swagger types
+│   │       ├── handlers.go     # Health, ClientInfo, Voice, Webhook, EphemeralArtifact swagger types
 │   │       ├── doc.go          # Swagger metadata
 │   │       ├── a2a_swagger.go  # A2A swagger documentation stubs
 │   │       ├── adk_swagger.go  # ADK REST API swagger documentation stubs
@@ -160,6 +160,7 @@ magec/
 | GET/POST  | `/api/v1/agent/*`                                   | ADK REST API (sessions, run, events)                                |
 | POST      | `/api/v1/agent/run_sse`                             | Run agent (SSE streaming) — all clients use this                    |
 | POST      | `/api/v1/webhooks/{clientId}`                       | Webhook endpoint — Bearer token auth                                |
+| GET       | `/api/v1/ephemeral/artifacts/{token}`               | Download an artifact's raw bytes via a short-lived signed URL       |
 | POST      | `/api/v1/voice/{agentId}/speech`                    | TTS proxy (per-agent backend)                                       |
 | POST      | `/api/v1/voice/{agentId}/transcription`             | STT proxy (per-agent backend)                                       |
 | WebSocket | `/api/v1/voice/events`                              | Voice events stream (wake word + VAD)                               |
@@ -186,7 +187,7 @@ magec/
 |        | **Commands**               | CRUD: `/commands`, `/commands/{id}`                                                                                                                                                     |
 |        | **Flows**                  | CRUD: `/flows`, `/flows/{id}`                                                                                                                                                           |
 |        | **Secrets**                | CRUD: `/secrets`, `/secrets/{id}` (GET never returns value)                                                                                                                             |
-|        | **Settings**               | GET/PUT: `/settings` (global memory provider selection)                                                                                                                                 |
+|        | **Settings**               | GET/PUT: `/settings` (global memory provider selection + `temporaryDir` for transient on-disk files)                                                                                  |
 |        | **Conversations**          | `/conversations`, `/conversations/{id}`, `/conversations/clear`, `/conversations/stats`, `/conversations/{id}/summary`, `/conversations/{id}/pair`, `/conversations/{id}/reset-session` |
 |        | **Backup**                 | GET `/settings/backup`, POST `/settings/restore` (tar.gz of data/)                                                                                                                      |
 |        | **Voice**                  | GET `/voice/types` (registered voice providers with JSON Schemas)                                                                                                                       |
@@ -236,7 +237,7 @@ log:
 - **MCP headers/TLS**: `MCPServer` struct has `Headers map[string]string` and `Insecure bool`. `httpClientForMCP()` creates transport with optional `InsecureSkipVerify`
 - **Skill injection**: Skills are injected into the agent system prompt at build time. Instructions appended as `--- Skill: {name} ---`, reference file contents appended as `[Reference: {filename}]`. Files read from `data/skills/{skillId}/`
 - **Encryption key**: `server.encryptionKey` in config.yaml. Independent from `adminPassword`. Used to encrypt secrets at rest (AES-256-GCM, PBKDF2-derived)
-- **ContextGuard plugin**: Externalized to `adk-utils-go/plugin/contextguard` (v0.13.0). Builder API: `contextguard.New(registry)` + `guard.Add(agentID, llm, opts...)` + `guard.PluginConfig()`. Two strategies: `threshold` (token-based, auto-detect via CrushRegistry or manual `WithMaxTokens`) and `sliding_window` (turn-count via `WithSlidingWindow`). Each agent summarizes with its own LLM. Summary persisted in session state with `{agentName}` suffix keys. `CrushRegistry` fetches model metadata from Crush's provider.json with 6h background refresh
+- **ContextGuard plugin**: Externalized to `adk-utils-go/plugin/contextguard` (v0.15.2). Builder API: `contextguard.New(registry)` + `guard.Add(agentID, llm, opts...)` + `guard.PluginConfig()`. Two strategies: `threshold` (token-based, auto-detect via CrushRegistry or manual `WithMaxTokens`) and `sliding_window` (turn-count via `WithSlidingWindow`). Each agent summarizes with its own LLM. Summary persisted in session state with `{agentName}` suffix keys. `CrushRegistry` fetches model metadata from Crush's provider.json with 6h background refresh
 - **A2A protocol**: Agents/flows with `A2A.Enabled` get JSON-RPC endpoints via `a2a-go` + ADK `adka2a`. Agent cards auto-generated with capabilities and skills. SSE streaming for responses
 - **Dual-perspective conversation recording**: Middleware chains recorder twice: "admin" perspective (all events, before FlowResponseFilter) and "user" perspective (filtered, after). Each conversation has a `ParentID` linking the pair
 - **Store dual-copy pattern**: Store maintains `rawData` (unexpanded, with `${VAR}` refs) and `data` (env-expanded). API responses use raw data, runtime uses expanded. Secret values injected as env vars before expansion
@@ -245,7 +246,8 @@ log:
 - **InstructionProvider pattern**: Agents use `InstructionProvider` instead of static `Instruction` strings to bypass ADK's built-in `{variable}` substitution (which conflicts with curly braces in prompts, JSON examples, scripts, etc). Magec resolves its own `{{agent.output:key}}` pattern from session state inside the provider. Plain `{text}` in prompts is never touched
 - **Flow wrapAgent pattern**: Same agent can appear in multiple flow steps — `wrapAgent()` creates uniquely-named delegate agents to satisfy ADK's single-parent constraint
 - **Voice provider registry**: TTS/STT proxies dispatch to per-backend-type providers via `voice.Get(backend.Type)`. Same pattern as clients/memory — `init()` + blank imports. OpenAI provider handles `/v1/audio/speech` and `/v1/audio/transcriptions`. Gemini provider translates to `generateContent` with `speechConfig`/`inlineData`. `TTSRef.Config` and `BackendRef.Config` use typed structs (`TTSConfig`, `STTConfig`) with per-provider namespaces matching the `ClientConfig` pattern (e.g. `config.openai.speed`, `config.gemini.languageCode`). `GET /voice/types` returns JSON Schemas per provider. Store migration moves legacy `tts.speed` → `tts.config.openai.speed` and flat config fields → `tts.config.gemini.*`
-- **Input artifact offloading**: User-uploaded files smaller than `msgutil.DefaultInlineThreshold` (1 MiB) ride inline in the `/run_sse` body as `inlineData` parts. Larger files are persisted through the ADK `artifact.Service` and replaced in the prompt with a `MAGEC_ATTACHED_ARTIFACTS` block telling the model to call `load_artifact` on demand. Reuses the universal artifact toolset (decision #17). The service is injected per-client through `SetArtifactService` and sourced from `agentRouterHandler.ArtifactService()` so it tracks store rebuilds. Helpers in `server/clients/msgutil/attachments.go`: `ShouldInline`, `InlinePart`, `StoreAsArtifact`, `AttachedArtifactsBlock` — each client runs its own short loop over platform-specific attachment types.
+- **Input artifact offloading**: User-uploaded files are persisted through the ADK `artifact.Service` and replaced in the prompt with a `MAGEC_ATTACHED_ARTIFACTS` block telling the model to call `load_artifact` on demand. Reuses the universal artifact toolset (decision #17). The service is injected per-client through `SetArtifactService` and sourced from `agentRouterHandler.ArtifactService()` so it tracks store rebuilds. Helpers in `server/clients/msgutil/attachments.go`: `StoreAsArtifact`, `AttachedArtifactsBlock` — each client runs its own short loop over platform-specific attachment types.
+- **Artifact toolset**: universal via `base_toolset.go` (decision #17). Exposes `save_artifact`, `load_artifact`, `list_artifacts`, `export_artifact` and `get_artifact_url`. `load_artifact` injects the artifact as a native multimodal `*genai.Part` via `ProcessRequest` rather than serialising base64 (decision #25). `export_artifact` writes raw bytes to disk under `Store.ResolveTemporaryDir()` and returns the absolute path so non-artifact-aware tools running in the same container can pick the file up (decision #26). `get_artifact_url` mints a short-lived HMAC-signed URL under `/api/v1/ephemeral/artifacts/{token}` so consumers in other processes/containers can fetch the artifact's raw bytes over HTTP without sharing volumes (decision #27); the tool stays unregistered when `server.encryptionKey` is unset. `Store.ResolveTemporaryDir()` is the single fallback point for `Settings.TemporaryDir` → `os.TempDir()`; nobody else may compute that fallback.
 
 ### Design Philosophy
 
@@ -266,7 +268,7 @@ log:
 - **Tailwind v4**: `@tailwindcss/vite` plugin, `@theme` directive for custom colors
 - **11 active tabs**: backends, memory, mcps, agents, flows, commands, skills, clients, secrets, conversations, settings
 - **Keyboard shortcuts**: `n` (new entity), `r` (refresh), `Cmd+K` (search palette)
-- **Settings view**: Global memory provider selection + backup/restore (tar.gz)
+- **Settings view**: Runtime (`temporaryDir` for transient files used by tools like `export_artifact`) + backup/restore (tar.gz). Memory provider selection lives in the global settings struct but is not yet exposed in the UI.
 
 ### Frontend Conventions (voice-ui)
 
@@ -318,7 +320,7 @@ GPU section commented out by default. Users who want cloud providers create diff
 
 - `google.golang.org/adk` — Agent Development Kit (v1.0.0)
 - `google.golang.org/genai` — Google GenAI SDK (v1.40.0)
-- `github.com/achetronic/adk-utils-go` — ADK utilities (v0.13.0): providers, session, memory tools, ContextGuard plugin, Langfuse plugin, artifact filesystem service
+- `github.com/achetronic/adk-utils-go` — ADK utilities (v0.15.2): providers, session, memory tools, ContextGuard plugin, Langfuse plugin, artifact filesystem service
 - `github.com/a2aproject/a2a-go` — A2A protocol library (v0.3.10)
 - `github.com/modelcontextprotocol/go-sdk` — MCP client (v1.4.1)
 - `github.com/gorilla/mux` — HTTP router (v1.8.1)
@@ -354,10 +356,11 @@ GPU section commented out by default. Users who want cloud providers create diff
 13. **Git branch is `master`**, not `main`. All raw GitHub URLs use `master`.
 14. **Go 1.25+, Node 22+, Hugo v0.155+**.
 15. **A2A agent card endpoints bypass client auth**: `.well-known/agent-card.json` paths are exempted from `ClientAuth` middleware so external agents can discover cards.
-16. **ContextGuard `safeSplitIndex`**: When splitting conversation history for summarization, the split point is adjusted to avoid orphaning Anthropic `tool_result` blocks.
-17. **Store env var expansion**: All store fields support `${VAR}` syntax. Secrets are injected as env vars (`os.Setenv`) before the store is expanded, so secrets can be referenced in backend URLs, bot tokens, etc.
-18. **Voice API routes always registered**: STT/TTS proxy endpoints are available regardless of Voice UI toggle, since Telegram/Discord/Slack clients need them.
-19. **ADK REST API accepts both camelCase and snake_case**: The `SnakeCaseNormalize` middleware converts snake_case keys recursively before ADK sees the request. This applies only to `/run` and `/run_sse` — the only ADK endpoints with multi-word JSON body fields. Session create/get/delete use single-word body fields (`state`, `events`) or path parameters only.
+16. **Ephemeral artifact URLs bypass client auth**: `/api/v1/ephemeral/*` paths are exempted from `ClientAuth` because the HMAC-SHA256 signed token in the URL is the credential. Tokens are minted by the `get_artifact_url` tool and verified server-side with `server.encryptionKey`. See decision #27.
+17. **ContextGuard `safeSplitIndex`**: When splitting conversation history for summarization, the split point is adjusted to avoid orphaning Anthropic `tool_result` blocks.
+18. **Store env var expansion**: All store fields support `${VAR}` syntax. Secrets are injected as env vars (`os.Setenv`) before the store is expanded, so secrets can be referenced in backend URLs, bot tokens, etc.
+19. **Voice API routes always registered**: STT/TTS proxy endpoints are available regardless of Voice UI toggle, since Telegram/Discord/Slack clients need them.
+20. **ADK REST API accepts both camelCase and snake_case**: The `SnakeCaseNormalize` middleware converts snake_case keys recursively before ADK sees the request. This applies only to `/run` and `/run_sse` — the only ADK endpoints with multi-word JSON body fields. Session create/get/delete use single-word body fields (`state`, `events`) or path parameters only.
 
 ## Testing
 

@@ -55,9 +55,9 @@ type Client struct {
 	showToolsMu sync.RWMutex
 	showTools   bool
 
-	// artifacts is optional: when set, files larger than
-	// msgutil.DefaultInlineThreshold are persisted here instead of being
-	// inlined in the /run_sse request. Set via SetArtifactService before Start.
+	// artifacts is optional: when set, user attachments
+	// are persisted here instead of being dropped.
+	// Set via SetArtifactService before Start.
 	artifacts artifact.Service
 }
 
@@ -268,20 +268,18 @@ func (c *Client) handleTextMessage(s *discordgo.Session, m *discordgo.MessageCre
 
 	artifactsBefore := c.listArtifacts(agentID, userIDStr, sessionID)
 
-	// Apply the inline-vs-artifact policy to attached files (see
-	// decision #24 in .agents/DECISIONS.md).
-	var inlineDataParts []map[string]interface{}
+	// Persist attached files as session artifacts so the LLM can call
+	// load_artifact on demand. See decision #24 in .agents/DECISIONS.md.
 	var artifactLines []string
 	bgCtx := context.Background()
 	for _, f := range c.collectNonAudioAttachments(m) {
-		if msgutil.ShouldInline(len(f.Data)) || c.artifacts == nil {
-			inlineDataParts = append(inlineDataParts, msgutil.InlinePart(f.MIMEType, f.Data))
+		if c.artifacts == nil {
+			c.logger.Warn("Artifact service not available, dropping attachment", "file", f.Name)
 			continue
 		}
 		line, err := msgutil.StoreAsArtifact(bgCtx, c.artifacts, agentID, userIDStr, sessionID, f.Name, f.MIMEType, f.Data)
 		if err != nil {
-			c.logger.Warn("Falling back to inline after artifact save failed", "file", f.Name, "error", err)
-			inlineDataParts = append(inlineDataParts, msgutil.InlinePart(f.MIMEType, f.Data))
+			c.logger.Warn("Failed to save artifact, dropping attachment", "file", f.Name, "error", err)
 			continue
 		}
 		artifactLines = append(artifactLines, line)
@@ -296,7 +294,7 @@ func (c *Client) handleTextMessage(s *discordgo.Session, m *discordgo.MessageCre
 	toolCount := 0
 	var toolCounterMsgID string
 
-	err := c.callAgentSSE(m, targetID, agentID, sessionID, inputText, inlineDataParts, func(evt msgutil.SSEEvent) {
+	err := c.callAgentSSE(m, targetID, agentID, sessionID, inputText, func(evt msgutil.SSEEvent) {
 		if evt.FinishReason != "" {
 			lastFinishReason = evt.FinishReason
 		}
@@ -431,7 +429,7 @@ func (c *Client) handleVoice(s *discordgo.Session, m *discordgo.MessageCreate) {
 	toolCount := 0
 	var toolCounterMsgID string
 
-	err = c.callAgentSSE(m, targetID, agentID, sessionID, voiceInput, nil, func(evt msgutil.SSEEvent) {
+	err = c.callAgentSSE(m, targetID, agentID, sessionID, voiceInput, func(evt msgutil.SSEEvent) {
 		if evt.FinishReason != "" {
 			lastFinishReason = evt.FinishReason
 		}
@@ -765,7 +763,7 @@ func (c *Client) collectNonAudioAttachments(m *discordgo.MessageCreate) []downlo
 	return out
 }
 
-func (c *Client) callAgentSSE(m *discordgo.MessageCreate, targetID, agentID, sessionID, message string, inlineDataParts []map[string]interface{}, handler func(msgutil.SSEEvent)) error {
+func (c *Client) callAgentSSE(m *discordgo.MessageCreate, targetID, agentID, sessionID, message string, handler func(msgutil.SSEEvent)) error {
 	if err := c.ensureSession(agentID, "default_user", sessionID); err != nil {
 		c.logger.Warn("Failed to ensure session, continuing anyway", "error", err)
 	}
@@ -774,9 +772,6 @@ func (c *Client) callAgentSSE(m *discordgo.MessageCreate, targetID, agentID, ses
 
 	parts := []interface{}{
 		map[string]string{"text": fullMessage},
-	}
-	for _, p := range inlineDataParts {
-		parts = append(parts, p)
 	}
 
 	reqBody := map[string]interface{}{

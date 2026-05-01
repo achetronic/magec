@@ -52,6 +52,7 @@ import (
 	toolsmemory "github.com/achetronic/adk-utils-go/tools/memory"
 
 	"github.com/achetronic/magec/server/config"
+	toolsartifacts "github.com/achetronic/magec/server/agent/tools/artifacts"
 	"github.com/achetronic/magec/server/store"
 )
 
@@ -76,8 +77,10 @@ When a user shares preferences or important information, proactively save it to 
 const artifactInstruction = `
 You have access to artifact tools for creating and managing files:
 - Use 'save_artifact' to save code, documents, data files, or any content that should be delivered as a downloadable file. Provide a filename (e.g. "report.md", "main.py", "data.csv"), the content, and optionally a mime_type. For binary content, set is_base64=true and provide base64-encoded data.
-- Use 'load_artifact' to retrieve a previously saved artifact by name.
+- Use 'load_artifact' to read a previously saved artifact, or to access a file the user attached in an earlier message (these are listed in the MAGEC_ATTACHED_ARTIFACTS block). After calling it, the artifact contents arrive on the next turn as a native multimodal attachment that you can read directly — you do NOT need to decode any base64 yourself.
 - Use 'list_artifacts' to see all artifacts in the current session.
+- Use 'export_artifact' when you need to write an artifact's bytes to a file on the local filesystem so other tools can read it. The tool returns the absolute path of the resulting file; pass that path to whatever filesystem-aware tool needs it.
+- Use 'get_artifact_url' when the consumer of the artifact runs in a different process or container and cannot reach the local filesystem (for example, a remote tool that fetches files over HTTP). The tool returns a short-lived signed URL that serves the artifact's raw bytes without authentication; pass that URL to the consumer.
 
 IMPORTANT: When generating code files, long documents, configuration files, scripts, or any substantial structured content, ALWAYS use save_artifact instead of pasting it in the chat. The artifact will be delivered to the user as a downloadable file automatically.`
 
@@ -96,7 +99,16 @@ type Service struct {
 // routes requests to the right agent based on the appName in the request body.
 // Any FlowDefinitions are translated into ADK workflow agents and registered
 // alongside the regular agents.
-func New(ctx context.Context, agents []store.AgentDefinition, backends []store.BackendDefinition, memoryProviders []store.MemoryProvider, mcpServers []store.MCPServer, skills []store.Skill, flows []store.FlowDefinition, settings store.Settings, registry contextguard.ModelRegistry) (*Service, error) {
+//
+// tempDirProvider returns the directory used by tools that need a transient
+// filesystem location (export_artifact, etc.). The caller is the single
+// source of truth for that path — agent.New does not perform any fallback.
+//
+// artifactURLBuilder mints short-lived signed URLs for artifacts (consumed
+// by the get_artifact_url tool). May be nil; when nil the tool is not
+// registered, so deployments that have not configured the signing secret do
+// not advertise a capability that always fails.
+func New(ctx context.Context, agents []store.AgentDefinition, backends []store.BackendDefinition, memoryProviders []store.MemoryProvider, mcpServers []store.MCPServer, skills []store.Skill, flows []store.FlowDefinition, settings store.Settings, registry contextguard.ModelRegistry, tempDirProvider func() string, artifactURLBuilder toolsartifacts.ArtifactURLBuilder) (*Service, error) {
 	if len(agents) == 0 {
 		return nil, fmt.Errorf("no agents defined")
 	}
@@ -138,7 +150,7 @@ func New(ctx context.Context, agents []store.AgentDefinition, backends []store.B
 		return nil, fmt.Errorf("artifact service: %w", err)
 	}
 
-	baseTset, err := newBaseToolset()
+	baseTset, err := newBaseToolset(tempDirProvider, artifactURLBuilder)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create base toolset: %w", err)
 	}

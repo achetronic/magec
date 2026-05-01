@@ -3190,6 +3190,9 @@ const docTemplate = `{
                 "clientName": {
                     "type": "string"
                 },
+                "closed": {
+                    "type": "boolean"
+                },
                 "endedAt": {
                     "type": "string"
                 },
@@ -3479,6 +3482,10 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "sessionProvider": {
+                    "type": "string"
+                },
+                "temporaryDir": {
+                    "description": "TemporaryDir is the absolute path used by tools and subsystems that need\nto write transient files visible to other on-disk consumers (filesystem\nMCPs, shell tools, etc.). When empty, callers must fall back to the OS\ntemporary directory via Store.ResolveTemporaryDir, which is the only\nplace that performs that fallback.",
                     "type": "string"
                 }
             }

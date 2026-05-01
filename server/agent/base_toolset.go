@@ -17,8 +17,15 @@ type baseToolset struct {
 }
 
 // newBaseToolset creates a new baseToolset containing the artifact tools.
-func newBaseToolset() (*baseToolset, error) {
-	artifactTs, err := toolsartifacts.NewToolset()
+//
+// tempDirProvider returns the absolute path that artifact-export uses for
+// transient files. The caller is responsible for resolving it (typically via
+// Store.ResolveTemporaryDir, the single source of truth for that location).
+//
+// urlBuilder mints ephemeral signed URLs for artifacts. May be nil; when nil
+// the get_artifact_url tool is not registered.
+func newBaseToolset(tempDirProvider func() string, urlBuilder toolsartifacts.ArtifactURLBuilder) (*baseToolset, error) {
+	artifactTs, err := toolsartifacts.NewToolset(tempDirProvider, urlBuilder)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create artifact toolset: %w", err)
 	}

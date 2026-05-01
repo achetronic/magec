@@ -553,17 +553,14 @@ This responsibility lives in **one place only**: the `ConversationRecorder` midd
 
 ---
 
-## 24. Large user attachments are persisted as session artifacts instead of inlined
+## 24. User attachments are always persisted as session artifacts instead of inlined
 
 **Date**: 2026-04-19
 **Status**: Implemented
 
-When a user attaches files to a chat message (Telegram photos/documents, Slack file uploads, Discord attachments), the client embeds them inline in the `/run_sse` request body as `inlineData` parts. Large files — a 20MB PDF, a multi-megabyte screenshot — burn context tokens even when the model does not need to read them, and sometimes overflow the backend's request size limit.
+Previously, when a user attached files to a chat message (Telegram photos/documents, Slack file uploads, Discord attachments), the client embedded them inline in the `/run_sse` request body as `inlineData` parts. Large files — a 20MB PDF, a multi-megabyte screenshot — burn context tokens even when the model does not need to read them, and sometimes overflow the backend's request size limit. A size threshold split the logic, but it proved insufficient as even small PDFs could exhaust the context window.
 
-**Decision**: A size threshold (`msgutil.DefaultInlineThreshold = 1 MiB`) splits the flow:
-
-- Files **at or below** the threshold go inline — fast path, one request, no tool calls needed.
-- Files **above** the threshold are persisted via the ADK `artifact.Service` with a deterministic per-message filename (`{messageID}_{originalName}`). The prompt is annotated with a `MAGEC_ATTACHED_ARTIFACTS` HTML-comment block listing each file's name, MIME type and human size, with instructions telling the LLM to call `load_artifact` on demand.
+**Decision**: All files are now persisted via the ADK `artifact.Service` with a deterministic per-message filename (`{messageID}_{originalName}`). The prompt is annotated with a `MAGEC_ATTACHED_ARTIFACTS` HTML-comment block listing each file's name, MIME type and human size, with instructions telling the LLM to call `load_artifact` on demand.
 
 The artifact toolset (`save_artifact`/`load_artifact`/`list_artifacts`) is already universal (decision #17), so no tool wiring changes were needed. The artifact service is plumbed into each client through `SetArtifactService(artifact.Service)` and sourced from `agentRouterHandler.ArtifactService()`, which refreshes on every store rebuild.
 
@@ -571,27 +568,118 @@ The artifact toolset (`save_artifact`/`load_artifact`/`list_artifacts`) is alrea
 
 Rather than a single `PrepareAttachments(...)` function with many parameters and a fat return struct, the helpers are broken into one-job primitives in `server/clients/msgutil/attachments.go`:
 
-- `ShouldInline(sizeBytes int) bool` — threshold check.
-- `InlinePart(mimeType string, data []byte) map[string]interface{}` — builds the ADK inlineData map.
 - `StoreAsArtifact(ctx, svc, appName, userID, sessionID, filename, mimeType, data) (descriptor, error)` — persists via `artifact.Service.Save` and returns a single descriptor line.
 - `AttachedArtifactsBlock(lines []string) string` — wraps lines in the `MAGEC_ATTACHED_ARTIFACTS` HTML-comment block; returns `""` on empty input so callers can concatenate unconditionally.
 
 Each client keeps its own short loop iterating over platform-specific attachment types (`msg.Photo/Document/...`, `ev.Message.Files`, `m.Attachments`). That asymmetry is inherent to each platform — hiding it behind a generic "prepare everything" call would leak platform details back into the helper API.
 
-**Fallback**: when `artifacts` is `nil` (no agents configured yet, or the feature is explicitly disabled), every file is inlined regardless of size. This keeps the clients functional during the window between startup and the first agent rebuild.
+**Fallback**: when `artifacts` is `nil` (no agents configured yet, or the feature is explicitly disabled), the files are dropped with a warning. This ensures safety.
 
-**Graceful degradation**: if `StoreAsArtifact` fails (disk error, service down), the client logs a warning and falls back to inline for that file. The user message is still delivered.
+**Graceful degradation**: if `StoreAsArtifact` fails (disk error, service down), the client logs a warning and drops the file — the text part of the user message is still delivered.
 
 **Rationale**:
 
-- Token budget: large binaries are almost always checkpoint data the model consults occasionally, not content it needs in every turn.
+- Token budget: binary files or text blobs are almost always checkpoint data the model consults occasionally, not content it needs in every turn.
 - Backend compatibility: OpenAI, Anthropic and Gemini all reject requests above their respective body caps. Artifact offloading keeps the path uniform regardless of provider.
 - Reuses decision #17 universal artifact toolset — no new tools or wiring.
 
 **Do not**:
 
-- Raise `DefaultInlineThreshold` beyond what the smallest supported backend accepts comfortably. Keep the policy uniform across providers.
-- Use per-provider thresholds. If a provider rejects a given `inlineData`, the adapter fails loudly (decision #18) and the user sees it — that is the right feedback loop.
+- Reintroduce an inline path or size thresholds. All attachments should flow through the artifact system to protect the context window.
 - Replace the single-purpose helpers with a fat `PrepareAttachments` returning a multi-field struct. The current shape is DRY where it matters (the ADK wire format, the prompt block, the save call) without coupling the three platform-specific loops.
 
 **Files**: `server/clients/msgutil/attachments.go` (helpers + tests), `server/agent/agent.go` (`ArtifactService()` getter), `server/main.go` (router plumbing, `clientManager.artifactService()`), `server/clients/telegram/bot.go`, `server/clients/slack/bot.go`, `server/clients/discord/bot.go`.
+
+---
+
+## 25. `load_artifact` injects content via RequestProcessor, not as JSON base64
+
+**Date**: 2026-04-30
+**Status**: Implemented
+
+The previous `load_artifact` tool returned binary artifact contents as base64 strings inside a `LoadResult` JSON struct. That value travelled through ADK's standard FunctionResponse path, meaning the LLM saw a wall of base64 text it could not interpret. For PDFs and images this defeated the entire artifact-offloading design (decision #24): the user attached a PDF, the model called `load_artifact` to read it, and instead of getting a multimodal attachment it got megabytes of opaque text that exploded the context window.
+
+**Decision**: `load_artifact` is no longer a plain `functiontool`. It implements ADK's `tool.Tool` interface manually plus the duck-typed `toolinternal.RequestProcessor` interface (matched at runtime via `t.(RequestProcessor)` in ADK's flow):
+
+- `Run(ctx, args)` returns only metadata (`{success, name, message}`). It does NOT load the file. This prevents binary content from leaking into the FunctionResponse.
+- `ProcessRequest(ctx, req)` runs on the next LLM turn. It detects the prior `load_artifact` FunctionResponse, calls `ctx.Artifacts().Load(name)`, and appends a fresh user-role `*genai.Content` with the original `*genai.Part` (text or `InlineData`) into `req.Contents`.
+
+The provider adapters (`adk-utils-go/genai/{openai,anthropic,gemini}`) then translate that Part into their native multimodal format (FileParam / Base64PDFSource / inlineData). The model reads the file as a real attachment, never as base64 text.
+
+`save_artifact` and `list_artifacts` remain plain function tools — they only deal with metadata, no binary payload to deliver.
+
+**Why not use ADK's official `loadartifactstool`**: the official tool batches multiple artifacts per call and prepends a global "you have artifacts X, Y, Z, you must load them before answering" instruction every turn via `utils.AppendInstructions`. Magec already manages attachment hints itself through the `MAGEC_ATTACHED_ARTIFACTS` block in the user prompt (decision #24), and surfaces saved artifacts through client diffing. The official tool would duplicate that logic and pollute the system instructions on every request even when no artifacts exist. Our single-file `load_artifact` mirrors the same RequestProcessor mechanism but stays scoped to one explicit call at a time.
+
+**Do not**:
+
+- Reintroduce a JSON path that returns artifact bytes as base64 to the model. The whole point of artifact offloading is to keep binaries out of context until the model decides to read them, and even then to deliver them through the multimodal channel.
+- Wrap binary payloads in custom JSON structs from any future tool. If a tool needs to deliver binary or multimodal content to the LLM, it must follow this same pattern: lightweight metadata in `Run`, real `*genai.Part` injection in `ProcessRequest`.
+- Depend on ADK's `internal/toolinternal` package directly. The `RequestProcessor` interface is matched structurally at runtime; declaring the method with the right signature is enough.
+
+**Files**: `server/agent/tools/artifacts/toolset.go` (loadArtifactTool), `server/agent/agent.go` (`artifactInstruction` rewording), `server/clients/msgutil/attachments.go` (`AttachedArtifactsBlock` rewording).
+
+---
+
+## 26. `export_artifact` bridges artifacts and the local filesystem; `Store.ResolveTemporaryDir` is the single source of truth
+
+**Date**: 2026-05-01
+**Status**: Implemented
+
+Artifacts live in their own world: `data/artifacts/{appName}/{userID}/{sessionID}/{fileName}/{version}.json`, with binary payloads encoded as base64 inside JSON. That layout is invisible to any external tool that reads from the filesystem — a parser, a shell utility, an MCP server pointed at a workdir. There was no clean way for the model to hand an artifact off to such a tool.
+
+**Decision**: a new function tool, `export_artifact`, decodes an artifact through `ctx.Artifacts().Load(name)`, writes the raw bytes (or the UTF-8 text for text artifacts) to a fresh file under a single, centrally-configured directory, and returns the absolute path. From that point on, any other tool reading from disk can pick the file up. The model only learns about an absolute path; it never proposes the destination directory.
+
+**Single resolution point**: the directory is owned by `Store.ResolveTemporaryDir()`. That method is the **only** place where the fallback `Settings.TemporaryDir → os.TempDir()` is performed. Any future tool or subsystem that needs a transient on-disk location must call this method; nobody else may read `Settings.TemporaryDir` directly nor recompute the fallback elsewhere. `Settings.TemporaryDir` is exposed in the Admin UI Settings → Runtime section so the operator can pin the directory to whatever path their filesystem-aware tools (MCP servers, shells, scripts) are allowed to read from.
+
+**Decoupling**: the tool does not reach into the store. `agent.New` accepts a `tempDirProvider func() string` parameter, the caller (`main.go` `agentRouterHandler.rebuild`) wires `dataStore.ResolveTemporaryDir` into it, and the closure flows down to the artifact toolset constructor. Each `export_artifact` call invokes the provider, so changes to `Settings.TemporaryDir` take effect on the next call without rebuilding the toolset (the agent rebuild on store change still happens for other reasons, but isn't required to refresh this path).
+
+**Filename collisions**: `os.CreateTemp(dir, stem+"-*"+ext)` injects a random suffix between the original stem and extension (e.g. `report-1234567890.pdf`). Two parallel exports of the same artifact never collide and downstream tools can still infer the format from the extension.
+
+**Description policy**: the tool description deliberately makes no mention of any specific MCP server or filesystem integration. It says only "writes the artifact's bytes to a file on disk and returns the absolute path so other tools can read it". Whether the operator has wired a filesystem MCP, a shell tool, or none at all is orthogonal to the tool's contract.
+
+**Do not**:
+
+- Do not duplicate the `TemporaryDir → os.TempDir()` fallback anywhere outside `Store.ResolveTemporaryDir`. Any caller that reads `Settings.TemporaryDir` directly is a bug.
+- Do not let the model pass a destination path to `export_artifact`. The argument set is intentionally `{name}` only; the tool decides the directory and filename. Allowing a path opens up traversal and surprises ("where did my file end up?").
+- Do not couple the artifact toolset to the Store. The `tempDirProvider` closure pattern keeps the tool ignorant of any storage concern.
+- Do not reference specific external integrations (MCP filesystem, shell, etc.) in the tool's `Description`. The tool must read as a generic capability so that deployments without those integrations still see a coherent contract.
+- Do not add cleanup logic for the temp directory inside Magec. When `TemporaryDir` is unset, the OS handles `os.TempDir()` cleanup. When it's set to a custom path, the operator owns retention.
+
+**Files**: `server/store/types.go` (`Settings.TemporaryDir`), `server/store/store.go` (`ResolveTemporaryDir`), `server/agent/tools/artifacts/toolset.go` (`exportArtifact` + `tempDirProvider` plumbing), `server/agent/base_toolset.go`, `server/agent/agent.go` (`tempDirProvider` parameter, `artifactInstruction` updated), `server/main.go` (provider wired from `dataStore.ResolveTemporaryDir`), `frontend/admin-ui/src/views/settings/RuntimeSection.vue`, `frontend/admin-ui/src/views/settings/SettingsView.vue`.
+
+---
+
+## 27. Ephemeral signed URLs for artifacts (`/api/v1/ephemeral/artifacts/{token}`)
+
+**Date**: 2026-05-01
+**Status**: Implemented
+
+`export_artifact` (decision #26) bridges the artifact world and the local filesystem when the consumer runs in the same container. That assumption breaks the moment a consumer lives in a sidecar (filesystem MCP server, shell tool runner, anything that fetches files over HTTP). Sharing volumes between containers is environment-specific and unfriendly to k8s deployments without RWX storage; we wanted a transport that works whenever there is just network connectivity between the consumer and Magec.
+
+**Decision**: a new endpoint `GET /api/v1/ephemeral/artifacts/{token}` serves an artifact's raw bytes when called with a valid token, with no other authentication. The token is a JWT-shaped, HMAC-SHA256-signed envelope that carries the full descriptor of the artifact (`appName`, `userID`, `sessionID`, `name`) plus an absolute Unix expiration. The companion tool `get_artifact_url` mints those URLs from the model's session context.
+
+**Namespace**: `/api/v1/ephemeral/...`. Reserved for any future resource that becomes accessible through a signed, short-lived URL (e.g. signed conversation exports, temporary skill-package downloads). This namespace name describes the **observable property** (the URL caducates) rather than the mechanism (HMAC signing), so it stays meaningful if we add other expiration drivers later (single-use, quota, revocation).
+
+**Token shape**: `base64url(payload).base64url(hmac_sha256(payload, secret))`. JWT-like but stripped of algorithm negotiation; HMAC-SHA256 is the only supported algorithm and is not encoded inside the token. This keeps the verifier trivial and removes the alg-confusion class of vulnerabilities. Implementation lives in `server/ephemeral/`.
+
+**TTL**: 1 hour, hardcoded (`ephemeralArtifactURLTTL`). One hour comfortably absorbs slow downstream consumers (HTTP retries, multi-step model reasoning, cold MCP startup) without leaving signed URLs alive long enough to matter if they leak. Not configurable until a concrete deployment asks for it (KISS).
+
+**Signing secret**: `server.encryptionKey` from `config.yaml`. Reused on purpose: it is already a long-lived, persisted secret with operator semantics ("encrypt secrets at rest"), and the ephemeral-URL HMAC uses it the same way (sign payloads at rest in the URL). Tokens minted before a magec restart keep working as long as `encryptionKey` is unchanged. When `encryptionKey` is empty, the endpoint returns 503 and the `get_artifact_url` tool is **not registered** at all, instead of being advertised and always failing.
+
+**Endpoint placement**: user API (port 8080), top-level under `/api/v1/`. Bypasses `ClientAuth` for the same reason `/api/v1/webhooks/*` does: the URL itself is the credential. Listed alongside webhooks in the bypass list of `middleware/middleware.go`.
+
+**Decoupling**: the `artifact_toolset` does not read configuration. `agent.New` accepts an `artifactURLBuilder toolsartifacts.ArtifactURLBuilder` parameter. `main.go` builds the closure from `cfg.Server.EncryptionKey` + `getA2APublicURL(cfg)` and stores it on `agentRouterHandler` so it survives store rebuilds. The toolset only ever sees a closure that takes an `ArtifactURLRequest` (app/user/session/name/mime) and returns `{URL, ExpiresAt}`. `app/user/session` are sourced from `tool.Context` so the model cannot mint URLs for foreign sessions.
+
+**Endpoint behaviour**: serves binary artifacts as raw bytes with `Content-Type` taken from `inlineData.MIMEType` (defaulting to `application/octet-stream`). Text artifacts come back as `text/plain; charset=utf-8`. Both responses set `Content-Disposition: attachment; filename="..."` so `curl -O` and `wget` pick a sensible local name. Response statuses: 200 success, 401 invalid/expired token, 404 missing/malformed token or artifact-not-found, 503 secret unconfigured, 410 if the artifact exists but has empty content.
+
+**Public URL**: reuses `getA2APublicURL(cfg)`. Operators that already configured `server.publicURL` for A2A get ephemeral URLs for free. The same hostname must be reachable from any consumer that calls `get_artifact_url`'s URL — keeping a single public URL instead of two avoids the "internal vs external URL" rabbit hole until somebody actually needs it.
+
+**Do not**:
+
+- Do not reintroduce algorithm negotiation in the token (no JWT `alg` field). HMAC-SHA256 is fixed.
+- Do not let the model pass `appName`, `userID` or `sessionID` to the tool. They come from `tool.Context` exclusively. Allowing them as arguments would let an agent mint URLs for foreign sessions if a wrong client token were reused elsewhere.
+- Do not silently fall back to a generated-in-memory secret when `encryptionKey` is unset. Restarting magec would invalidate every minted URL silently; refusing to mint URLs is louder and clearer.
+- Do not reuse `Settings.TemporaryDir` for ephemeral URLs. The two features serve different topologies (local fs vs HTTP); collapsing them obscures the choice the model has to make.
+- Do not paste the bearer token of a client into an ephemeral URL pipeline as a workaround. The whole point of `/api/v1/ephemeral/` is that the URL is self-authenticating; mixing client tokens reintroduces the auth coupling we wanted to avoid.
+
+**Files**: `server/ephemeral/ephemeral.go` + tests (Sign/Verify primitives), `server/main.go` (`newEphemeralArtifactHandler`, `newArtifactURLBuilder`, `ephemeralArtifactURLTTL`, mux registration, `agentRouterHandler.artifactURLBuilder` field), `server/middleware/middleware.go` (ClientAuth bypass), `server/agent/tools/artifacts/toolset.go` (`get_artifact_url` tool, `ArtifactURLBuilder` injection), `server/agent/agent.go` (parameter wiring + `artifactInstruction` updated), `server/agent/base_toolset.go`, `server/api/user/handlers.go` (`EphemeralArtifact` swagger stub).
