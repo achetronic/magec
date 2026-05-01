@@ -31,21 +31,58 @@ import (
 // source of truth for that location). The provider is invoked on every call,
 // so changes to Settings.TemporaryDir take effect on the next invocation
 // without recreating the toolset.
+//
+// urlBuilder follows the same decoupling principle for ephemeral artifact
+// URLs: the toolset builds an ArtifactURLRequest from session context and
+// hands it off; the closure (wired in main.go) decides the signing secret,
+// the public hostname and the expiration window. The toolset never reads
+// configuration directly. When urlBuilder returns an error, get_artifact_url
+// surfaces it to the LLM as a structured failure.
 type Toolset struct {
 	tools           []tool.Tool
 	tempDirProvider func() string
+	urlBuilder      ArtifactURLBuilder
 }
 
-// NewToolset initializes the save/load/list/export artifact tools.
+// ArtifactURLRequest is the descriptor handed to ArtifactURLBuilder. Tools
+// gather it from tool.Context and the artifact metadata, the builder turns
+// it into a fully-qualified URL.
+type ArtifactURLRequest struct {
+	AppName   string
+	UserID    string
+	SessionID string
+	Name      string
+	MIMEType  string
+}
+
+// ArtifactURLResult is what the builder returns. URL is the fully-qualified
+// link, ExpiresAt is the absolute Unix timestamp at which it stops working.
+type ArtifactURLResult struct {
+	URL       string
+	ExpiresAt int64
+}
+
+// ArtifactURLBuilder is the closure injected into the toolset to produce
+// ephemeral artifact URLs. Returning an error means the builder cannot
+// produce a URL right now (e.g. signing secret not configured); the tool
+// surfaces that to the LLM with a clear message.
+type ArtifactURLBuilder func(req ArtifactURLRequest) (ArtifactURLResult, error)
+
+// NewToolset initializes the save/load/list/export/url artifact tools.
 //
 // tempDirProvider returns the absolute directory where export_artifact writes
 // transient files. Callers must guarantee a non-empty path; export_artifact
 // does not perform any fallback of its own.
-func NewToolset(tempDirProvider func() string) (*Toolset, error) {
+//
+// urlBuilder is optional: when nil, get_artifact_url is not registered. This
+// lets deployments that intentionally disable signed URLs (for example,
+// because they have not configured a signing secret) skip the tool entirely
+// instead of advertising a capability that always fails.
+func NewToolset(tempDirProvider func() string, urlBuilder ArtifactURLBuilder) (*Toolset, error) {
 	if tempDirProvider == nil {
 		return nil, fmt.Errorf("tempDirProvider is required")
 	}
-	ts := &Toolset{tempDirProvider: tempDirProvider}
+	ts := &Toolset{tempDirProvider: tempDirProvider, urlBuilder: urlBuilder}
 
 	saveTool, err := functiontool.New(
 		functiontool.Config{
@@ -88,6 +125,23 @@ func NewToolset(tempDirProvider func() string) (*Toolset, error) {
 	}
 
 	ts.tools = []tool.Tool{saveTool, &loadArtifactTool{}, listTool, exportTool}
+
+	if urlBuilder != nil {
+		urlTool, err := functiontool.New(
+			functiontool.Config{
+				Name: "get_artifact_url",
+				Description: "Issue a short-lived, signed download URL for an artifact. " +
+					"Use this when you need to hand an artifact off to another tool that fetches files over HTTP (e.g. when the consumer runs in a different process or container and cannot reach the local filesystem). " +
+					"The URL serves the artifact's raw bytes with the correct MIME type, requires no authentication header, and stops working after a server-defined expiration. " +
+					"Returns the URL, the absolute expiration timestamp, and the MIME type.",
+			},
+			ts.getArtifactURL,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create get_artifact_url tool: %w", err)
+		}
+		ts.tools = append(ts.tools, urlTool)
+	}
 	return ts, nil
 }
 
@@ -420,6 +474,74 @@ func packSelf(req *model.LLMRequest, t *loadArtifactTool) error {
 		FunctionDeclarations: []*genai.FunctionDeclaration{decl},
 	})
 	return nil
+}
+
+// URLArgs are the inputs to get_artifact_url.
+type URLArgs struct {
+	Name string `json:"name"`
+}
+
+// URLResult is what the model receives after a successful URL build.
+type URLResult struct {
+	Success   bool   `json:"success"`
+	URL       string `json:"url,omitempty"`
+	ExpiresAt int64  `json:"expires_at,omitempty"`
+	MIMEType  string `json:"mime_type,omitempty"`
+	Message   string `json:"message"`
+}
+
+// getArtifactURL produces a short-lived, signed download URL for an
+// artifact. It loads the artifact first to confirm it exists and to capture
+// its MIME type, then asks the configured ArtifactURLBuilder to mint the
+// URL. App, user and session IDs are sourced from tool.Context so the
+// caller never has to pass them in (and cannot pass a foreign session by
+// mistake).
+//
+// Like the rest of the toolset, user-facing failures come back as
+// URLResult{Success:false, Message:...}; real Go errors are reserved for
+// impossible states.
+func (ts *Toolset) getArtifactURL(ctx tool.Context, args URLArgs) (URLResult, error) {
+	if args.Name == "" {
+		return URLResult{Success: false, Message: "name is required"}, nil
+	}
+	if ts.urlBuilder == nil {
+		return URLResult{Success: false, Message: "ephemeral URLs are not enabled on this server"}, nil
+	}
+
+	resp, err := ctx.Artifacts().Load(ctx, args.Name)
+	if err != nil {
+		return URLResult{Success: false, Message: fmt.Sprintf("artifact %q not found: %v", args.Name, err)}, nil
+	}
+	if resp == nil || resp.Part == nil {
+		return URLResult{Success: false, Message: fmt.Sprintf("artifact %q has no content", args.Name)}, nil
+	}
+
+	mime := "application/octet-stream"
+	switch {
+	case resp.Part.InlineData != nil && resp.Part.InlineData.MIMEType != "":
+		mime = resp.Part.InlineData.MIMEType
+	case resp.Part.Text != "":
+		mime = "text/plain"
+	}
+
+	built, err := ts.urlBuilder(ArtifactURLRequest{
+		AppName:   ctx.AppName(),
+		UserID:    ctx.UserID(),
+		SessionID: ctx.SessionID(),
+		Name:      args.Name,
+		MIMEType:  mime,
+	})
+	if err != nil {
+		return URLResult{Success: false, Message: fmt.Sprintf("failed to build URL: %v", err)}, nil
+	}
+
+	return URLResult{
+		Success:   true,
+		URL:       built.URL,
+		ExpiresAt: built.ExpiresAt,
+		MIMEType:  mime,
+		Message:   fmt.Sprintf("Ephemeral URL for %q ready (expires at unix %d).", args.Name, built.ExpiresAt),
+	}, nil
 }
 
 var _ tool.Toolset = (*Toolset)(nil)

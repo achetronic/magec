@@ -25,6 +25,7 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -33,6 +34,7 @@ import (
 	"github.com/achetronic/adk-utils-go/plugin/contextguard"
 	mageca2a "github.com/achetronic/magec/server/a2a"
 	"github.com/achetronic/magec/server/agent"
+	toolsartifacts "github.com/achetronic/magec/server/agent/tools/artifacts"
 	"github.com/achetronic/magec/server/api/admin"
 	user "github.com/achetronic/magec/server/api/user"
 	"github.com/achetronic/magec/server/clients"
@@ -42,6 +44,7 @@ import (
 	"github.com/achetronic/magec/server/clients/telegram"
 	"github.com/achetronic/magec/server/clients/webhook"
 	"github.com/achetronic/magec/server/config"
+	"github.com/achetronic/magec/server/ephemeral"
 	"github.com/achetronic/magec/server/frontend"
 	"github.com/achetronic/magec/server/logging"
 	"github.com/achetronic/magec/server/middleware"
@@ -103,7 +106,12 @@ func main() {
 	a2aHandler := mageca2a.NewHandler(getA2APublicURL(cfg))
 
 	// Swappable agent router
-	agentRouter := &agentRouterHandler{adminHandler: adminHandler, a2aHandler: a2aHandler, cwRegistry: cwRegistry}
+	agentRouter := &agentRouterHandler{
+		adminHandler:       adminHandler,
+		a2aHandler:         a2aHandler,
+		cwRegistry:         cwRegistry,
+		artifactURLBuilder: newArtifactURLBuilder(cfg),
+	}
 	agentRouter.rebuild(ctx, dataStore)
 
 	// Executor and User Server setup
@@ -149,6 +157,45 @@ func getA2APublicURL(cfg *config.Config) string {
 		return fmt.Sprintf("http://localhost:%d", cfg.Server.Port)
 	}
 	return cfg.Server.PublicURL
+}
+
+// ephemeralArtifactURLTTL bounds how long an ephemeral artifact download URL
+// stays valid. One hour is generous enough to cover slow downstream consumers
+// (retries, multi-step model reasoning) without leaving signed URLs alive
+// long enough to matter if they leak. Hardcoded on purpose: there is no
+// known operational reason to vary this per deployment, so we keep the
+// surface area small.
+const ephemeralArtifactURLTTL = 1 * time.Hour
+
+// newArtifactURLBuilder constructs the closure passed to the artifact
+// toolset. The closure mints signed URLs for the get_artifact_url tool. It
+// returns nil when server.encryptionKey is not configured: without a signing
+// secret we cannot mint or verify tokens, so the tool stays unregistered
+// rather than advertising a capability that always fails.
+func newArtifactURLBuilder(cfg *config.Config) toolsartifacts.ArtifactURLBuilder {
+	secret := cfg.Server.EncryptionKey
+	if secret == "" {
+		slog.Warn("Ephemeral artifact URLs disabled: server.encryptionKey is not set")
+		return nil
+	}
+	publicURL := strings.TrimRight(getA2APublicURL(cfg), "/")
+	return func(req toolsartifacts.ArtifactURLRequest) (toolsartifacts.ArtifactURLResult, error) {
+		exp := time.Now().Add(ephemeralArtifactURLTTL).Unix()
+		token, err := ephemeral.SignArtifact(ephemeral.ArtifactPayload{
+			AppName:   req.AppName,
+			UserID:    req.UserID,
+			SessionID: req.SessionID,
+			Name:      req.Name,
+			ExpiresAt: exp,
+		}, secret)
+		if err != nil {
+			return toolsartifacts.ArtifactURLResult{}, err
+		}
+		return toolsartifacts.ArtifactURLResult{
+			URL:       publicURL + "/api/v1/ephemeral/artifacts/" + token,
+			ExpiresAt: exp,
+		}, nil
+	}
 }
 
 // startAdminServer configures and starts the HTTP server that serves the admin API
@@ -216,6 +263,10 @@ func startUserServer(
 	httpMux.Handle("/api/v1/agent/", middleware.SnakeCaseNormalize(userRecorded))
 	httpMux.Handle("/api/v1/voice/", newVoiceHandler(dataStore, agentRouter))
 	httpMux.HandleFunc("/api/v1/a2a/", a2aHandler.ServeA2A)
+	httpMux.Handle("/api/v1/ephemeral/artifacts/", newEphemeralArtifactHandler(
+		func() string { return cfg.Server.EncryptionKey },
+		agentRouter.ArtifactService,
+	))
 
 	userAPI := user.New(dataStore)
 	httpMux.HandleFunc("/api/v1/health", userAPI.Health)
@@ -432,6 +483,86 @@ func newVoiceHandler(dataStore *store.Store, agentRouter *agentRouterHandler) ht
 	})
 }
 
+// newEphemeralArtifactHandler builds the handler for
+// GET /api/v1/ephemeral/artifacts/{token}.
+//
+// The token is the only credential: it carries the full descriptor of the
+// artifact to load (app, user, session, name, expiration) HMAC-signed with
+// the configured signing secret. This endpoint is bypassed by ClientAuth
+// because the signature itself is the authorisation, mirroring how
+// /api/v1/webhooks/* runs its own auth.
+//
+// signingSecret returns the secret used to verify tokens. It must be
+// non-empty for the endpoint to operate; when it is empty the operator has
+// not configured server.encryptionKey and the endpoint refuses every request
+// with a clear message instead of guessing.
+//
+// artifactSvc returns the live ADK artifact.Service, which may swap on every
+// store rebuild. We resolve it on each request to avoid holding a stale
+// reference after a rebuild.
+func newEphemeralArtifactHandler(signingSecret func() string, artifactSvc func() artifact.Service) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		token := strings.TrimPrefix(r.URL.Path, "/api/v1/ephemeral/artifacts/")
+		if token == "" || strings.Contains(token, "/") {
+			http.Error(w, `{"error":"missing or malformed token"}`, http.StatusNotFound)
+			return
+		}
+
+		secret := signingSecret()
+		if secret == "" {
+			slog.Warn("Ephemeral artifact request rejected: no signing secret (server.encryptionKey)")
+			http.Error(w, `{"error":"ephemeral URLs disabled: server.encryptionKey is not configured"}`, http.StatusServiceUnavailable)
+			return
+		}
+
+		payload, err := ephemeral.VerifyArtifact(token, secret)
+		if err != nil {
+			slog.Debug("Ephemeral artifact token rejected", "error", err)
+			http.Error(w, `{"error":"invalid or expired token"}`, http.StatusUnauthorized)
+			return
+		}
+
+		svc := artifactSvc()
+		if svc == nil {
+			http.Error(w, `{"error":"artifact service not available"}`, http.StatusServiceUnavailable)
+			return
+		}
+
+		resp, err := svc.Load(r.Context(), &artifact.LoadRequest{
+			AppName:   payload.AppName,
+			UserID:    payload.UserID,
+			SessionID: payload.SessionID,
+			FileName:  payload.Name,
+		})
+		if err != nil || resp == nil || resp.Part == nil {
+			http.Error(w, `{"error":"artifact not found"}`, http.StatusNotFound)
+			return
+		}
+
+		switch {
+		case resp.Part.InlineData != nil:
+			mime := resp.Part.InlineData.MIMEType
+			if mime == "" {
+				mime = "application/octet-stream"
+			}
+			w.Header().Set("Content-Type", mime)
+			w.Header().Set("Content-Length", strconv.Itoa(len(resp.Part.InlineData.Data)))
+			w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename=%q`, payload.Name))
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write(resp.Part.InlineData.Data)
+		case resp.Part.Text != "":
+			body := []byte(resp.Part.Text)
+			w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+			w.Header().Set("Content-Length", strconv.Itoa(len(body)))
+			w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename=%q`, payload.Name))
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write(body)
+		default:
+			http.Error(w, `{"error":"artifact has no content"}`, http.StatusGone)
+		}
+	})
+}
+
 // serveSpeechProxy forwards a TTS request to the backend configured for the agent.
 // It reads only "input" and "response_format" from the client body, injects
 // model/voice/speed from the agent's store config, and dispatches to the voice
@@ -549,6 +680,11 @@ type agentRouterHandler struct {
 	// cwRegistry is passed through to agent.New so the ContextGuard plugin
 	// can look up each model's context window at runtime.
 	cwRegistry *contextguard.CrushRegistry
+	// artifactURLBuilder mints ephemeral signed download URLs for artifacts.
+	// Built once at startup with cfg + EncryptionKey + publicURL; nil when
+	// no signing secret is configured (the get_artifact_url tool stays
+	// unregistered in that case).
+	artifactURLBuilder toolsartifacts.ArtifactURLBuilder
 }
 
 // ArtifactService returns the ADK artifact.Service currently wired, or nil
@@ -582,7 +718,7 @@ func (h *agentRouterHandler) rebuild(ctx context.Context, dataStore *store.Store
 	var agentHandler http.Handler
 	var artifactSvc artifact.Service
 	if len(storeData.Agents) > 0 {
-		svc, err := agent.New(ctx, storeData.Agents, storeData.Backends, storeData.MemoryProviders, storeData.MCPServers, storeData.Skills, storeData.Flows, storeData.Settings, h.cwRegistry, dataStore.ResolveTemporaryDir)
+		svc, err := agent.New(ctx, storeData.Agents, storeData.Backends, storeData.MemoryProviders, storeData.MCPServers, storeData.Skills, storeData.Flows, storeData.Settings, h.cwRegistry, dataStore.ResolveTemporaryDir, h.artifactURLBuilder)
 		if err != nil {
 			slog.Warn("Failed to initialize agents", "error", err)
 		} else {

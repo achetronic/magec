@@ -204,3 +204,19 @@ type WebhookResponse struct {
 // @Security     BearerAuth
 // @Router       /webhooks/{id} [post]
 func (h *Handler) Webhook(w http.ResponseWriter, r *http.Request) {}
+
+// EphemeralArtifact serves an artifact's raw bytes when called with a valid
+// signed token issued by the get_artifact_url tool.
+// @Summary      Download an artifact via signed URL
+// @Description  Streams the raw bytes of a session artifact when the supplied token is a non-expired HMAC-SHA256 signature minted by the `get_artifact_url` tool. The token is the only credential: this endpoint bypasses client Bearer authentication. Binary artifacts are served with their original MIME type (defaulting to application/octet-stream); text artifacts come back as text/plain. Both responses set Content-Disposition so curl/wget pick a sensible local filename. The endpoint returns 503 when the server has no signing secret configured (server.encryptionKey unset), 401 for invalid or expired tokens, 404 when the artifact does not exist, and 410 when the artifact exists but has empty content.
+// @Tags         ephemeral
+// @Produce      application/octet-stream
+// @Produce      text/plain
+// @Param        token  path      string  true  "Signed token issued by get_artifact_url"
+// @Success      200    {file}    binary  "Artifact bytes"
+// @Failure      401    {object}  ErrorResponse
+// @Failure      404    {object}  ErrorResponse
+// @Failure      410    {object}  ErrorResponse
+// @Failure      503    {object}  ErrorResponse
+// @Router       /ephemeral/artifacts/{token} [get]
+func (h *Handler) EphemeralArtifact(w http.ResponseWriter, r *http.Request) {}

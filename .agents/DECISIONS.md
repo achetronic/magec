@@ -646,3 +646,40 @@ Artifacts live in their own world: `data/artifacts/{appName}/{userID}/{sessionID
 - Do not add cleanup logic for the temp directory inside Magec. When `TemporaryDir` is unset, the OS handles `os.TempDir()` cleanup. When it's set to a custom path, the operator owns retention.
 
 **Files**: `server/store/types.go` (`Settings.TemporaryDir`), `server/store/store.go` (`ResolveTemporaryDir`), `server/agent/tools/artifacts/toolset.go` (`exportArtifact` + `tempDirProvider` plumbing), `server/agent/base_toolset.go`, `server/agent/agent.go` (`tempDirProvider` parameter, `artifactInstruction` updated), `server/main.go` (provider wired from `dataStore.ResolveTemporaryDir`), `frontend/admin-ui/src/views/settings/RuntimeSection.vue`, `frontend/admin-ui/src/views/settings/SettingsView.vue`.
+
+---
+
+## 27. Ephemeral signed URLs for artifacts (`/api/v1/ephemeral/artifacts/{token}`)
+
+**Date**: 2026-05-01
+**Status**: Implemented
+
+`export_artifact` (decision #26) bridges the artifact world and the local filesystem when the consumer runs in the same container. That assumption breaks the moment a consumer lives in a sidecar (filesystem MCP server, shell tool runner, anything that fetches files over HTTP). Sharing volumes between containers is environment-specific and unfriendly to k8s deployments without RWX storage; we wanted a transport that works whenever there is just network connectivity between the consumer and Magec.
+
+**Decision**: a new endpoint `GET /api/v1/ephemeral/artifacts/{token}` serves an artifact's raw bytes when called with a valid token, with no other authentication. The token is a JWT-shaped, HMAC-SHA256-signed envelope that carries the full descriptor of the artifact (`appName`, `userID`, `sessionID`, `name`) plus an absolute Unix expiration. The companion tool `get_artifact_url` mints those URLs from the model's session context.
+
+**Namespace**: `/api/v1/ephemeral/...`. Reserved for any future resource that becomes accessible through a signed, short-lived URL (e.g. signed conversation exports, temporary skill-package downloads). This namespace name describes the **observable property** (the URL caducates) rather than the mechanism (HMAC signing), so it stays meaningful if we add other expiration drivers later (single-use, quota, revocation).
+
+**Token shape**: `base64url(payload).base64url(hmac_sha256(payload, secret))`. JWT-like but stripped of algorithm negotiation; HMAC-SHA256 is the only supported algorithm and is not encoded inside the token. This keeps the verifier trivial and removes the alg-confusion class of vulnerabilities. Implementation lives in `server/ephemeral/`.
+
+**TTL**: 1 hour, hardcoded (`ephemeralArtifactURLTTL`). One hour comfortably absorbs slow downstream consumers (HTTP retries, multi-step model reasoning, cold MCP startup) without leaving signed URLs alive long enough to matter if they leak. Not configurable until a concrete deployment asks for it (KISS).
+
+**Signing secret**: `server.encryptionKey` from `config.yaml`. Reused on purpose: it is already a long-lived, persisted secret with operator semantics ("encrypt secrets at rest"), and the ephemeral-URL HMAC uses it the same way (sign payloads at rest in the URL). Tokens minted before a magec restart keep working as long as `encryptionKey` is unchanged. When `encryptionKey` is empty, the endpoint returns 503 and the `get_artifact_url` tool is **not registered** at all, instead of being advertised and always failing.
+
+**Endpoint placement**: user API (port 8080), top-level under `/api/v1/`. Bypasses `ClientAuth` for the same reason `/api/v1/webhooks/*` does: the URL itself is the credential. Listed alongside webhooks in the bypass list of `middleware/middleware.go`.
+
+**Decoupling**: the `artifact_toolset` does not read configuration. `agent.New` accepts an `artifactURLBuilder toolsartifacts.ArtifactURLBuilder` parameter. `main.go` builds the closure from `cfg.Server.EncryptionKey` + `getA2APublicURL(cfg)` and stores it on `agentRouterHandler` so it survives store rebuilds. The toolset only ever sees a closure that takes an `ArtifactURLRequest` (app/user/session/name/mime) and returns `{URL, ExpiresAt}`. `app/user/session` are sourced from `tool.Context` so the model cannot mint URLs for foreign sessions.
+
+**Endpoint behaviour**: serves binary artifacts as raw bytes with `Content-Type` taken from `inlineData.MIMEType` (defaulting to `application/octet-stream`). Text artifacts come back as `text/plain; charset=utf-8`. Both responses set `Content-Disposition: attachment; filename="..."` so `curl -O` and `wget` pick a sensible local name. Response statuses: 200 success, 401 invalid/expired token, 404 missing/malformed token or artifact-not-found, 503 secret unconfigured, 410 if the artifact exists but has empty content.
+
+**Public URL**: reuses `getA2APublicURL(cfg)`. Operators that already configured `server.publicURL` for A2A get ephemeral URLs for free. The same hostname must be reachable from any consumer that calls `get_artifact_url`'s URL — keeping a single public URL instead of two avoids the "internal vs external URL" rabbit hole until somebody actually needs it.
+
+**Do not**:
+
+- Do not reintroduce algorithm negotiation in the token (no JWT `alg` field). HMAC-SHA256 is fixed.
+- Do not let the model pass `appName`, `userID` or `sessionID` to the tool. They come from `tool.Context` exclusively. Allowing them as arguments would let an agent mint URLs for foreign sessions if a wrong client token were reused elsewhere.
+- Do not silently fall back to a generated-in-memory secret when `encryptionKey` is unset. Restarting magec would invalidate every minted URL silently; refusing to mint URLs is louder and clearer.
+- Do not reuse `Settings.TemporaryDir` for ephemeral URLs. The two features serve different topologies (local fs vs HTTP); collapsing them obscures the choice the model has to make.
+- Do not paste the bearer token of a client into an ephemeral URL pipeline as a workaround. The whole point of `/api/v1/ephemeral/` is that the URL is self-authenticating; mixing client tokens reintroduces the auth coupling we wanted to avoid.
+
+**Files**: `server/ephemeral/ephemeral.go` + tests (Sign/Verify primitives), `server/main.go` (`newEphemeralArtifactHandler`, `newArtifactURLBuilder`, `ephemeralArtifactURLTTL`, mux registration, `agentRouterHandler.artifactURLBuilder` field), `server/middleware/middleware.go` (ClientAuth bypass), `server/agent/tools/artifacts/toolset.go` (`get_artifact_url` tool, `ArtifactURLBuilder` injection), `server/agent/agent.go` (parameter wiring + `artifactInstruction` updated), `server/agent/base_toolset.go`.
