@@ -82,16 +82,14 @@
     <div class="flow-container-header flex items-center gap-2 px-3 py-1.5 cursor-grab active:cursor-grabbing" :class="headerClass">
       <span class="text-[10px] font-bold uppercase tracking-wider select-none" :class="labelClass">{{ typeLabel }}</span>
 
-      <template v-if="step.type === 'loop'">
-        <button @click.stop="editIterations" @mousedown.stop
-          class="text-[9px] px-1.5 py-0.5 rounded font-semibold hover:brightness-125 transition-all" :class="badgeClass">
-          ×{{ step.maxIterations || '∞' }}
-        </button>
-      </template>
-
       <div class="flex-1" />
 
       <div class="flex items-center gap-0.5" @mousedown.stop>
+        <button v-if="step.type === 'loop'" @click.stop="openLoopConfig" @mousedown.stop
+          class="text-[9px] px-2 py-0.5 rounded font-semibold uppercase tracking-wider hover:brightness-125 transition-all" :class="badgeClass"
+          title="Configure loop mode (max iterations, exit strategy)">
+          Mode
+        </button>
         <button @click.stop="cycleType"
           class="text-[9px] px-1.5 py-0.5 rounded hover:bg-white/10 transition-colors select-none" :class="labelClass" title="Cycle type">
           ↻
@@ -156,14 +154,16 @@
       <svg class="w-3 h-3 text-lava-400/50" viewBox="0 0 24 24" fill="none" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
       </svg>
-      <span class="text-[9px] text-lava-400/50 italic select-none">repeats {{ step.maxIterations ? `${step.maxIterations}×` : '∞' }}</span>
+      <span class="text-[9px] text-lava-400/50 italic select-none">{{ loopFooterText }}</span>
     </div>
+    <LoopConfigDialog v-if="step.type === 'loop'" ref="loopDialogRef" @save="onLoopConfigSave" />
   </div>
 </template>
 
 <script setup>
 import { computed, ref, watch, onMounted, onBeforeUnmount } from 'vue'
 import draggable from 'vuedraggable'
+import LoopConfigDialog from './LoopConfigDialog.vue'
 
 const props = defineProps({
   step:       { type: Object,  required: true },
@@ -389,13 +389,39 @@ const TYPE_ORDER = ['sequential', 'parallel', 'loop']
 
 function cycleType() {
   const next = TYPE_ORDER[(TYPE_ORDER.indexOf(props.step.type) + 1) % TYPE_ORDER.length]
-  emit('update', { ...props.step, type: next, ...(next === 'loop' && !props.step.maxIterations ? { maxIterations: 3 } : {}) })
+  // When leaving the loop type, drop loop-only fields so the saved JSON
+  // stays clean and the admin API does not reject the step for carrying
+  // exitLoop / exitWhen on a non-loop node.
+  const next_step = { ...props.step, type: next }
+  if (next === 'loop' && !next_step.maxIterations) next_step.maxIterations = 3
+  if (next !== 'loop') {
+    delete next_step.maxIterations
+    delete next_step.exitLoop
+    delete next_step.exitWhen
+  }
+  emit('update', next_step)
 }
 
-function editIterations() {
-  const val = prompt('Max iterations (0 = infinite):', props.step.maxIterations || 0)
-  if (val !== null) emit('update', { ...props.step, maxIterations: parseInt(val) || 0 })
+const loopDialogRef = ref(null)
+
+function openLoopConfig() {
+  loopDialogRef.value?.open(props.step)
 }
+
+function onLoopConfigSave(payload) {
+  // payload comes already shaped (maxIterations + exitLoop + exitWhen),
+  // with mutually-exclusive fields cleared by the dialog. Spreading it
+  // last guarantees we do not leak stale exitLoop/exitWhen values onto
+  // the node.
+  emit('update', { ...props.step, ...payload })
+}
+
+const loopFooterText = computed(() => {
+  const cap = props.step.maxIterations ? `up to ${props.step.maxIterations}×` : 'unbounded'
+  if (props.step.exitLoop) return `${cap}, exits when an agent calls exit_loop`
+  if (props.step.exitWhen) return `${cap}, exits when ${props.step.exitWhen}`
+  return `${cap}`
+})
 </script>
 
 <style scoped>

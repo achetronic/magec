@@ -7,6 +7,7 @@ import (
 
 	"github.com/gorilla/mux"
 
+	"github.com/achetronic/magec/server/agent/flowexit"
 	"github.com/achetronic/magec/server/store"
 )
 
@@ -128,6 +129,17 @@ func (h *Handler) deleteFlow(w http.ResponseWriter, r *http.Request) {
 }
 
 func validateFlowStep(step *store.FlowStep) error {
+	// Loop-only fields must not appear elsewhere. Catch this before the
+	// type switch so the per-type branches stay focused.
+	if step.Type != store.FlowStepLoop {
+		if step.ExitLoop {
+			return fmt.Errorf("%s step: exitLoop is only valid on loop steps", step.Type)
+		}
+		if step.ExitWhen != "" {
+			return fmt.Errorf("%s step: exitWhen is only valid on loop steps", step.Type)
+		}
+	}
+
 	switch step.Type {
 	case store.FlowStepAgent:
 		if step.AgentID == "" {
@@ -145,6 +157,18 @@ func validateFlowStep(step *store.FlowStep) error {
 	case store.FlowStepLoop:
 		if len(step.Steps) == 0 {
 			return fmt.Errorf("loop step requires at least one child step")
+		}
+		// exitLoop and exitWhen are two ways to express the same intent
+		// (LLM-driven vs. state-driven exit). Combining them on the same
+		// loop is forbidden so the operator picks one model and the UI
+		// stays unambiguous; the runtime would technically tolerate both.
+		if step.ExitLoop && step.ExitWhen != "" {
+			return fmt.Errorf("loop step: exitLoop and exitWhen are mutually exclusive")
+		}
+		if step.ExitWhen != "" {
+			if _, err := flowexit.Compile(step.ExitWhen); err != nil {
+				return fmt.Errorf("loop step: %w", err)
+			}
 		}
 		for i := range step.Steps {
 			if err := validateFlowStep(&step.Steps[i]); err != nil {

@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
-<head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script>
+<head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Agentic Flows — Magec — Self-hosted Multi-Agent AI Platform</title>
@@ -194,12 +194,13 @@
   Loop
   <a class="heading-anchor" href="#loop" aria-label="Link to this section">#</a>
 </h3>
-<p>Repeats its children until one of two things happens:</p>
+<p>Repeats its children until one of three things happens:</p>
 <ol>
-<li>An agent calls the built-in <code>exit_loop</code> tool, signaling that the work is done</li>
-<li>The <code>maxIterations</code> limit is reached (safety net to prevent infinite loops)</li>
+<li>The <code>maxIterations</code> cap is reached — always active as a safety net against infinite loops.</li>
+<li>An agent inside the loop calls the built-in <code>exit_loop</code> tool. Available only when the loop&rsquo;s exit strategy is set to <strong>agent decides</strong>.</li>
+<li>A CEL expression on shared flow state evaluates to <code>true</code> after an iteration. Available only when the exit strategy is set to <strong>expression</strong>.</li>
 </ol>
-<p>Loops are powerful for iterative refinement — an agent drafts, a critic reviews, and the loop continues until the critic is satisfied.</p>
+<p>Click the loop&rsquo;s <code>×N</code> badge in the editor to pick the strategy. Loops are powerful for iterative refinement — an agent drafts, a critic reviews, and the loop continues until the critic is satisfied (LLM-driven), or until a quality score crosses a threshold (expression-driven).</p>
 <h2 id="nesting">
   Nesting
   <a class="heading-anchor" href="#nesting" aria-label="Link to this section">#</a>
@@ -246,6 +247,74 @@
 </blockquote>
 <p>This lets you build precise data pipelines. A &ldquo;researcher&rdquo; outputs structured findings, a &ldquo;writer&rdquo; references those findings in its prompt, a &ldquo;reviewer&rdquo; references both. Each agent sees exactly the context it needs.</p>
 <p>In parallel steps, all branches receive the same input. Their outputs are concatenated and passed to whatever comes next.</p>
+<h2 id="sharing-state-between-agents">
+  Sharing state between agents
+  <a class="heading-anchor" href="#sharing-state-between-agents" aria-label="Link to this section">#</a>
+</h2>
+<p>Output keys (above) cover the common case where one agent produces a value that another agent reads in its system prompt before its turn. For decisions taken <strong>during</strong> a turn — &ldquo;I just finished, signal that we&rsquo;re done&rdquo; or &ldquo;the score I just computed should trigger the loop to stop&rdquo; — agents inside a flow get two extra tools:</p>
+<ul>
+<li><strong><code>set_state(key, value)</code></strong> — record a value (string, number, boolean, list, or object) under a key. Other agents in the same flow can read it later in the same conversation.</li>
+<li><strong><code>get_state(key)</code></strong> — read a value previously stored by another agent (or by an earlier turn of the same agent). Returns <code>{found: true, value: ...}</code> or <code>{found: false}</code>.</li>
+</ul>
+<p>Keys are simple identifiers (<code>approved</code>, <code>score</code>, <code>pending_items</code>). State persists for the whole conversation, regardless of how many iterations the flow runs through. Use it for orchestration signals, not for bulky content — keep large outputs in artifacts.</p>
+<p>These tools are wired automatically into every agent that participates in a flow. Standalone agents (those not invoked through a flow) do not get them.</p>
+<h2 id="exiting-loops-early">
+  Exiting loops early
+  <a class="heading-anchor" href="#exiting-loops-early" aria-label="Link to this section">#</a>
+</h2>
+<p>A loop step can stop iterating before reaching <code>maxIterations</code> in two ways:</p>
+<h3 id="agent-decides-exit_loop">
+  Agent decides (<code>exit_loop</code>)
+  <a class="heading-anchor" href="#agent-decides-exit_loop" aria-label="Link to this section">#</a>
+</h3>
+<p>Set the loop&rsquo;s exit strategy to <strong>agent decides</strong> in the editor. Every agent in the loop&rsquo;s subtree (no matter how deep through nested sequentials or parallels) gets a third tool:</p>
+<ul>
+<li><strong><code>exit_loop()</code></strong> — terminates the loop. The current iteration completes — sibling agents that come after the caller still run — and then the loop exits.</li>
+</ul>
+<p>Use this when an agent is qualified to make a semantic judgement: &ldquo;the code review passes&rdquo;, &ldquo;the answer is good enough&rdquo;. The agent decides; the flow obeys.</p>
+<h3 id="expression-on-shared-state-exitwhen">
+  Expression on shared state (<code>exitWhen</code>)
+  <a class="heading-anchor" href="#expression-on-shared-state-exitwhen" aria-label="Link to this section">#</a>
+</h3>
+<p>Set the loop&rsquo;s exit strategy to <strong>expression</strong> and supply a CEL expression. After every iteration, Magec evaluates the expression against the shared flow state. When it returns <code>true</code>, the loop exits.</p>
+<pre tabindex="0"><code>state.approved == true
+state.score &gt; 0.8 &amp;&amp; state.attempts &lt; 5
+has(state.errors) &amp;&amp; size(state.errors) == 0
+</code></pre><p>Operators: <code>==</code> <code>!=</code> <code>&lt;</code> <code>&gt;</code> <code>&lt;=</code> <code>&gt;=</code> <code>&amp;&amp;</code> <code>||</code> <code>!</code>, plus <code>has()</code>, <code>size()</code>, <code>in</code>, <code>.contains()</code>. The expression must return a boolean.</p>
+<p>Use this when the trigger is a clean state condition that any agent in the loop can write through <code>set_state</code>. The agent does not need to know there is a loop around it; it just records facts.</p>
+<h3 id="choosing-between-them">
+  Choosing between them
+  <a class="heading-anchor" href="#choosing-between-them" aria-label="Link to this section">#</a>
+</h3>
+<table>
+  <thead>
+      <tr>
+          <th>Pattern</th>
+          <th>Use</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td><strong>Agent decides</strong></td>
+          <td>Subjective judgement — &ldquo;is the code clean enough?&rdquo;, &ldquo;did we answer the user&rsquo;s question?&rdquo;</td>
+      </tr>
+      <tr>
+          <td><strong>Expression</strong></td>
+          <td>Mechanical condition — &ldquo;is the score above 0.8?&rdquo;, &ldquo;are there zero errors left?&rdquo;</td>
+      </tr>
+      <tr>
+          <td><strong>Max iterations</strong></td>
+          <td>Safety net only — combined with one of the above to bound runaway loops</td>
+      </tr>
+  </tbody>
+</table>
+<p>The two strategies are mutually exclusive on the same loop step. <code>maxIterations</code> is always active as a hard cap on top of either strategy; a loop with <code>maxIterations: 0</code> and no other exit will run indefinitely.</p>
+<h3 id="iteration-boundary">
+  Iteration boundary
+  <a class="heading-anchor" href="#iteration-boundary" aria-label="Link to this section">#</a>
+</h3>
+<p>Both strategies fire <strong>at the end of an iteration</strong>, not mid-iteration. If <code>exit_loop</code> is called by the second of three sequential agents in a loop, the third still runs to completion before the loop exits. Likewise, <code>exitWhen</code> is evaluated only after the full subtree has run. This matches ADK&rsquo;s loopagent semantics and keeps the per-iteration unit of work coherent.</p>
+<p>If you need stop-immediate behaviour, restructure the flow so the decider is the last agent in the sequence — then &ldquo;end of iteration&rdquo; coincides with &ldquo;after the decider&rdquo;.</p>
 <h2 id="response-agents">
   Response agents
   <a class="heading-anchor" href="#response-agents" aria-label="Link to this section">#</a>

@@ -235,11 +235,25 @@ const (
 // ResponseAgent marks an agent node whose output should be included in the
 // final response when the flow is invoked via webhook/cron. If no agent in
 // the flow is marked, all agent outputs are concatenated (default behavior).
+//
+// Loop-only fields:
+//   - ExitLoop: when true, every agent in the loop's subtree (any depth)
+//     receives the exit_loop tool. The first agent that calls it terminates
+//     the loop after the current iteration completes.
+//   - ExitWhen: an optional CEL expression evaluated against the shared flow
+//     state at the end of every iteration. If it returns true, the loop
+//     terminates. The expression sees a `state` map containing only keys
+//     written through the set_state tool (the "flow:" namespace).
+//
+// ExitLoop and ExitWhen are mutually exclusive — the admin API rejects
+// flows that set both. They both stack with MaxIterations as a hard cap.
 type FlowStep struct {
 	Type          string     `json:"type"`
 	AgentID       string     `json:"agentId,omitempty"`
 	ResponseAgent bool       `json:"responseAgent,omitempty"`
 	MaxIterations uint       `json:"maxIterations,omitempty"`
+	ExitLoop      bool       `json:"exitLoop,omitempty"`
+	ExitWhen      string     `json:"exitWhen,omitempty"`
 	Steps         []FlowStep `json:"steps,omitempty"`
 }
 

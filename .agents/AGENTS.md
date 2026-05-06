@@ -34,9 +34,13 @@ magec/
 ├── server/                     # Go backend
 │   ├── main.go                 # HTTP server (:8080 user + :8081 admin), routing, middleware
 │   ├── agent/
-│   │   ├── agent.go            # Multi-agent ADK setup, MCP transport, memory tools, ContextGuard wiring
-│   │   ├── flow.go             # Flow→ADK workflow agent builder (sequential/parallel/loop)
-│   │   └── base_toolset.go     # Base toolset (currently empty, placeholder for future tools)
+│   │   ├── agent.go            # Multi-agent ADK setup, MCP transport, memory tools, ContextGuard wiring, BuildAgentInstance entry point
+│   │   ├── flow.go             # Flow→ADK workflow agent builder (sequential/parallel/loop), per-appearance instance builder, exit_loop wiring, exitWhen evaluator wiring
+│   │   ├── flowexit/           # CEL compiler + synthetic loop-exit evaluator agent (decision #28)
+│   │   ├── tools/
+│   │   │   ├── artifacts/      # save/load/list/export/url artifact tools (decision #17, #25, #26, #27)
+│   │   │   └── flowstate/      # set_state/get_state shared scratchpad (decision #28)
+│   │   └── base_toolset.go     # Base toolset (artifact tools by default, plus per-flow extras)
 │   ├── api/
 │   │   ├── admin/              # Admin REST API (CRUD for all resources)
 │   │   │   ├── handler.go      # Router + helpers
@@ -248,6 +252,7 @@ log:
 - **Voice provider registry**: TTS/STT proxies dispatch to per-backend-type providers via `voice.Get(backend.Type)`. Same pattern as clients/memory — `init()` + blank imports. OpenAI provider handles `/v1/audio/speech` and `/v1/audio/transcriptions`. Gemini provider translates to `generateContent` with `speechConfig`/`inlineData`. `TTSRef.Config` and `BackendRef.Config` use typed structs (`TTSConfig`, `STTConfig`) with per-provider namespaces matching the `ClientConfig` pattern (e.g. `config.openai.speed`, `config.gemini.languageCode`). `GET /voice/types` returns JSON Schemas per provider. Store migration moves legacy `tts.speed` → `tts.config.openai.speed` and flat config fields → `tts.config.gemini.*`
 - **Input artifact offloading**: User-uploaded files are persisted through the ADK `artifact.Service` and replaced in the prompt with a `MAGEC_ATTACHED_ARTIFACTS` block telling the model to call `load_artifact` on demand. Reuses the universal artifact toolset (decision #17). The service is injected per-client through `SetArtifactService` and sourced from `agentRouterHandler.ArtifactService()` so it tracks store rebuilds. Helpers in `server/clients/msgutil/attachments.go`: `StoreAsArtifact`, `AttachedArtifactsBlock` — each client runs its own short loop over platform-specific attachment types.
 - **Artifact toolset**: universal via `base_toolset.go` (decision #17). Exposes `save_artifact`, `load_artifact`, `list_artifacts`, `export_artifact` and `get_artifact_url`. `load_artifact` injects the artifact as a native multimodal `*genai.Part` via `ProcessRequest` rather than serialising base64 (decision #25). `export_artifact` writes raw bytes to disk under `Store.ResolveTemporaryDir()` and returns the absolute path so non-artifact-aware tools running in the same container can pick the file up (decision #26). `get_artifact_url` mints a short-lived HMAC-signed URL under `/api/v1/ephemeral/artifacts/{token}` so consumers in other processes/containers can fetch the artifact's raw bytes over HTTP without sharing volumes (decision #27); the tool stays unregistered when `server.encryptionKey` is unset. `Store.ResolveTemporaryDir()` is the single fallback point for `Settings.TemporaryDir` → `os.TempDir()`; nobody else may compute that fallback.
+- **Flow state and loop exit** (decision #28): agents inside a flow get `set_state(key, value)` and `get_state(key)` tools that read/write the shared `session.state` under the `flow:` prefix — keys are visible to every agent in the same flow during the same conversation. Loop steps can opt into one of two early-exit strategies (mutually exclusive): `ExitLoop:true` injects `exit_loop` from `google.golang.org/adk/tool/exitlooptool` into every agent in the loop's subtree (any depth), or `ExitWhen:"<CEL expression>"` appends a synthetic evaluator agent (`flowexit.NewExitWhenAgent`) as the last child of the loopagent, which emits `Escalate` when the expression evaluates to true. Both mechanisms fire at iteration boundaries — sibling agents within the same iteration still run to completion. CEL evaluation is via `github.com/google/cel-go`; runtime errors are treated as `false` and logged at warn level. Tools and instruction snippets are wired only when an agent runs as part of a flow (per-appearance ADK instances built by `flow.go`, never on the standalone catalogue copy).
 
 ### Design Philosophy
 

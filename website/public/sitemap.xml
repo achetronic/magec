@@ -2,68 +2,68 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
   xmlns:xhtml="http://www.w3.org/1999/xhtml">
   <url>
-    <loc>http://localhost:1313/docs/a2a/</loc>
+    <loc>https://magec.dev/docs/a2a/</loc>
   </url><url>
-    <loc>http://localhost:1313/docs/admin-password/</loc>
+    <loc>https://magec.dev/docs/admin-password/</loc>
   </url><url>
-    <loc>http://localhost:1313/docs/secrets-advanced/</loc>
+    <loc>https://magec.dev/docs/secrets-advanced/</loc>
   </url><url>
-    <loc>http://localhost:1313/docs/flows/</loc>
+    <loc>https://magec.dev/docs/flows/</loc>
   </url><url>
-    <loc>http://localhost:1313/docs/agents/</loc>
+    <loc>https://magec.dev/docs/agents/</loc>
   </url><url>
-    <loc>http://localhost:1313/docs/backends/</loc>
+    <loc>https://magec.dev/docs/backends/</loc>
   </url><url>
-    <loc>http://localhost:1313/docs/api/</loc>
+    <loc>https://magec.dev/docs/api/</loc>
   </url><url>
-    <loc>http://localhost:1313/docs/install-binary/</loc>
+    <loc>https://magec.dev/docs/install-binary/</loc>
   </url><url>
-    <loc>http://localhost:1313/categories/</loc>
+    <loc>https://magec.dev/categories/</loc>
   </url><url>
-    <loc>http://localhost:1313/docs/clients/</loc>
+    <loc>https://magec.dev/docs/clients/</loc>
   </url><url>
-    <loc>http://localhost:1313/docs/commands/</loc>
+    <loc>https://magec.dev/docs/commands/</loc>
   </url><url>
-    <loc>http://localhost:1313/docs/configuration/</loc>
+    <loc>https://magec.dev/docs/configuration/</loc>
   </url><url>
-    <loc>http://localhost:1313/docs/context-guard/</loc>
+    <loc>https://magec.dev/docs/context-guard/</loc>
   </url><url>
-    <loc>http://localhost:1313/docs/cron/</loc>
+    <loc>https://magec.dev/docs/cron/</loc>
   </url><url>
-    <loc>http://localhost:1313/docs/discord/</loc>
+    <loc>https://magec.dev/docs/discord/</loc>
   </url><url>
-    <loc>http://localhost:1313/docs/install-compose-local/</loc>
+    <loc>https://magec.dev/docs/install-compose-local/</loc>
   </url><url>
-    <loc>http://localhost:1313/docs/install-docker/</loc>
+    <loc>https://magec.dev/docs/install-docker/</loc>
   </url><url>
-    <loc>http://localhost:1313/docs/</loc>
+    <loc>https://magec.dev/docs/</loc>
   </url><url>
-    <loc>http://localhost:1313/docs/getting-started/</loc>
+    <loc>https://magec.dev/docs/getting-started/</loc>
   </url><url>
-    <loc>http://localhost:1313/</loc>
+    <loc>https://magec.dev/</loc>
   </url><url>
-    <loc>http://localhost:1313/docs/mcp/</loc>
+    <loc>https://magec.dev/docs/mcp/</loc>
   </url><url>
-    <loc>http://localhost:1313/docs/memory/</loc>
+    <loc>https://magec.dev/docs/memory/</loc>
   </url><url>
-    <loc>http://localhost:1313/docs/screenshots/</loc>
+    <loc>https://magec.dev/docs/screenshots/</loc>
   </url><url>
-    <loc>http://localhost:1313/docs/secrets/</loc>
+    <loc>https://magec.dev/docs/secrets/</loc>
   </url><url>
-    <loc>http://localhost:1313/docs/skills/</loc>
+    <loc>https://magec.dev/docs/skills/</loc>
   </url><url>
-    <loc>http://localhost:1313/docs/skills-vs-agents/</loc>
+    <loc>https://magec.dev/docs/skills-vs-agents/</loc>
   </url><url>
-    <loc>http://localhost:1313/docs/slack/</loc>
+    <loc>https://magec.dev/docs/slack/</loc>
   </url><url>
-    <loc>http://localhost:1313/tags/</loc>
+    <loc>https://magec.dev/tags/</loc>
   </url><url>
-    <loc>http://localhost:1313/docs/telegram/</loc>
+    <loc>https://magec.dev/docs/telegram/</loc>
   </url><url>
-    <loc>http://localhost:1313/docs/voice-system/</loc>
+    <loc>https://magec.dev/docs/voice-system/</loc>
   </url><url>
-    <loc>http://localhost:1313/docs/voice-ui/</loc>
+    <loc>https://magec.dev/docs/voice-ui/</loc>
   </url><url>
-    <loc>http://localhost:1313/docs/webhooks/</loc>
+    <loc>https://magec.dev/docs/webhooks/</loc>
   </url>
 </urlset>

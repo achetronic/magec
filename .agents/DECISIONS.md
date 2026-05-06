@@ -683,3 +683,67 @@ Artifacts live in their own world: `data/artifacts/{appName}/{userID}/{sessionID
 - Do not paste the bearer token of a client into an ephemeral URL pipeline as a workaround. The whole point of `/api/v1/ephemeral/` is that the URL is self-authenticating; mixing client tokens reintroduces the auth coupling we wanted to avoid.
 
 **Files**: `server/ephemeral/ephemeral.go` + tests (Sign/Verify primitives), `server/main.go` (`newEphemeralArtifactHandler`, `newArtifactURLBuilder`, `ephemeralArtifactURLTTL`, mux registration, `agentRouterHandler.artifactURLBuilder` field), `server/middleware/middleware.go` (ClientAuth bypass), `server/agent/tools/artifacts/toolset.go` (`get_artifact_url` tool, `ArtifactURLBuilder` injection), `server/agent/agent.go` (parameter wiring + `artifactInstruction` updated), `server/agent/base_toolset.go`, `server/api/user/handlers.go` (`EphemeralArtifact` swagger stub).
+
+---
+
+## 28. Flow-shared state and loop exit control (issue #36)
+
+**Date**: 2026-05-04
+**Status**: Implemented
+
+Agents inside a flow used to be "fire and forget" — they ran in the order the flow declared them, with no way for an agent to read what an earlier sibling produced (other than the system-prompt-only `{{agent.output:key}}` substitution, decision #19), and no way to influence the surrounding loop. This decision adds three capabilities, all scoped strictly to agents that participate in a flow.
+
+### Shared state via the `flow:` prefix on session.state
+
+`set_state(key, value)` and `get_state(key)` are wired into every agent that runs inside any flow (sequential, parallel, loop, nested). Both tools route through `tool.Context.State()`, which writes to the current event's `StateDelta` and through to `session.Service`. Keys are stored under the `flow:` prefix internally; the LLM sees plain keys.
+
+Why session.state and not a parallel "Properties" namespace: ADK already propagates `session.state` synchronously between sub-agents in workflow agents (`runner.AppendEvent` applies `Actions.StateDelta` after every event, before the next sub-agent reads). Adding a parallel store would duplicate the mechanism. The prefix isolates flow-shared keys from ContextGuard's summary keys and from `outputKey` writes.
+
+Why scope-restricted: standalone agents (those reachable directly by ID, not through a flow) get no state tools. They have no peers to share with; the tools would be noise in their catalogue.
+
+### LLM-driven loop exit (`exit_loop`)
+
+When a loop step has `exitLoop: true`, every agent in the loop's subtree (any depth, propagated through nested sequentials/parallels) receives ADK's native `exit_loop` tool from `google.golang.org/adk/tool/exitlooptool`. Calling it sets `event.Actions.Escalate=true`, which the surrounding `loopagent` already honours. The current iteration completes — ADK's `sequentialagent` and `parallelagent` ignore Escalate, only `loopagent` reacts — and the loop terminates before the next iteration.
+
+### State-driven loop exit (`exitWhen`)
+
+When a loop step has a non-empty `exitWhen` string, the flow builder appends a synthetic evaluator agent as the last child of the `loopagent`. After every iteration the evaluator reads the `flow:` subset of session state, evaluates the operator-supplied CEL expression, and emits an `Escalate` event when the expression returns true. Standard ADK loop semantics handle the actual termination.
+
+CEL was picked over a hand-rolled DSL because it is the de-facto Google evaluation language (Kubernetes `ValidatingAdmissionPolicies`, IAM, Envoy), explicitly designed for compile-once / evaluate-many pipelines, thread-safe, type-aware enough to reject expressions that don't return bool, and expressive without inviting Turing-complete computation. Cost: 6 direct dependencies (Google + ANTLR), ~3MB binary.
+
+The `state` variable exposed to CEL is a `map<string, dyn>` populated from session state; each session-state key under the `flow:` prefix appears as `state.<key>` in the expression. CEL runtime errors (missing key, type mismatch) are treated as `false` rather than aborting the conversation; `MaxIterations` remains the hard safety cap.
+
+### Mutual exclusion in admin API and UI
+
+`exitLoop` and `exitWhen` are mutually exclusive on the same loop step. The runtime would tolerate both, but two ways to express the same intent confuse operators. The admin API rejects flows that set both with a 400; the UI radio-button enforces one strategy at a time.
+
+### Iteration-boundary semantics
+
+Both exit mechanisms fire at the **end of an iteration**, not mid-iteration. If `exit_loop` is called by an agent in the middle of a sequential, the rest of the sequential still runs to completion before the loop terminates. This matches ADK's loopagent behaviour and keeps each iteration a coherent unit. Operators who need stop-immediate behaviour can restructure the flow so the decider is the last agent in the sequence.
+
+### Per-appearance agent instances inside flows
+
+To inject scope-dependent tools (state always, `exit_loop` conditionally) without polluting the standalone agent catalogue, `flow.go` builds a fresh ADK agent instance per appearance via `BuildAgentInstance` rather than reusing pre-built agents from a shared map. The standalone catalogue still holds one instance per `AgentDefinition` for direct invocation. Flow-as-step composition (a flow that references another flow as one of its leaves) keeps the previous behaviour — the referenced flow agent is reused via `wrapAgent`.
+
+### Do not
+
+- Do not add the state/exit_loop tools to standalone agents. They should appear only when the agent runs as part of a flow.
+- Do not introduce a parallel "Properties" namespace separate from session.state. The prefix is enough; duplicating ADK's storage layer is a maintenance trap.
+- Do not allow `exitLoop` / `exitWhen` on non-loop steps. Reject in the admin API.
+- Do not let a CEL runtime error abort the conversation. Treat as `false` and log warn; `MaxIterations` is the safety net.
+- Do not extend the CEL environment with extra variables beyond `state` without revisiting decision #28. Adding more variables broadens the attack/confusion surface.
+- Do not let the model pick the `flow:` prefix or write to other tier prefixes (`app:`, `user:`, `temp:`). The toolset enforces the prefix; the key validator rejects colons.
+- Do not implement mid-iteration exit (cancel siblings of the caller). It contradicts ADK's loop semantics and opens a cancellation rabbit hole on parallel branches.
+
+**Files**:
+
+- `server/agent/tools/flowstate/toolset.go` + tests — `set_state`/`get_state`.
+- `server/agent/flowexit/compiler.go`, `evaluator.go` + tests — CEL compilation + synthetic evaluator agent.
+- `server/agent/agent.go` — `BuildAgentInstance` (renamed from `buildSingleAgent`, now exported and accepting extras), `flowStateInstruction` and `exitLoopInstruction` constants, wiring in `New`.
+- `server/agent/flow.go` — `FlowBuildDeps` carrying tool singletons, per-appearance instance build, `insideLoopWithExitLoop` propagation, evaluator agent appended to loops with `exitWhen`.
+- `server/store/types.go` — `FlowStep.ExitLoop`, `FlowStep.ExitWhen`.
+- `server/api/admin/flows.go` + tests — validation: exclusion, CEL compile, non-loop rejection.
+- `frontend/admin-ui/src/views/flows/LoopConfigDialog.vue` — dialog with three exit strategies.
+- `frontend/admin-ui/src/views/flows/FlowBlock.vue` — badge with strategy hint, dialog wiring, type-cycle cleans loop-only fields.
+- `frontend/admin-ui/src/views/flows/FlowDialog.vue` — help text covering state and loop exit.
+- `website/content/docs/flows.md` — public docs: state tools, loop exit strategies, iteration-boundary semantics.

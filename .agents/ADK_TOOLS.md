@@ -6,7 +6,7 @@ Reference for all tools shipped with `google.golang.org/adk` (evaluated at v0.4.
 
 | Package             | Tool Name                 | Type        | Used in Magec                      | Description                                                                   |
 | ------------------- | ------------------------- | ----------- | ---------------------------------- | ----------------------------------------------------------------------------- |
-| `exitlooptool`      | `exit_loop`               | Tool        | Yes (loop escalate)                | Sets `Escalate=true` to break out of a `loopagent`                            |
+| `exitlooptool`      | `exit_loop`               | Tool        | Yes (loop escalate)                | Sets `Escalate=true` to break out of a `loopagent`. Wired by the flow builder when a loop step has `ExitLoop:true` (decision #28)                            |
 | `functiontool`      | _(factory)_               | Constructor | Yes (indirectly)                   | Creates tools from Go functions. Used by `adk-utils-go` for memory tools      |
 | `mcptoolset`        | _(toolset)_               | Toolset     | Yes                                | Wraps MCP servers as ADK toolsets                                             |
 | `agenttool`         | `{agent.Name()}`          | Tool        | Not yet                            | Calls another agent as a tool (creates runner + session internally)           |
@@ -24,9 +24,10 @@ Reference for all tools shipped with `google.golang.org/adk` (evaluated at v0.4.
 
 Sets `ctx.Actions().Escalate = true` and `SkipSummarization = true`. The `loopagent` checks this flag after each sub-agent iteration and exits when true.
 
-- **When to use**: Only inside loops with escalate enabled
-- **How it works**: Injected as a tool into agents that participate in a loop with `exitLoop: true`
-- **Not a base tool**: Contextual to loop containers only
+- **When to use**: Inside a flow's loop step where the operator selected the "Agent decides" exit strategy (`ExitLoop:true`)
+- **How it works**: `flow.go` injects it into every agent in the loop's subtree (any depth) via `BuildAgentInstanceParams.ExtraTools`; the singleton tool instance is shared across the whole tree
+- **Not in the standalone catalogue**: standalone agents never get it; it would be noise outside a flow
+- **Companion**: when the operator picks "Expression" instead, `flowexit.NewExitWhenAgent` provides an equivalent state-driven exit without involving the LLM
 
 ```go
 import "google.golang.org/adk/tool/exitlooptool"
