@@ -82,7 +82,10 @@ func (e *Executor) RunClient(ctx context.Context, cl store.ClientDefinition, pas
 	for _, agentID := range cl.AllowedAgents {
 		var responseFilter []string
 		if flow, ok := e.store.GetFlow(agentID); ok {
-			responseFilter = flow.ResponseAgentIDs()
+			// Synthetic ADK names, not AgentDefinition IDs — flow.go
+			// builds per-appearance instances and labels them with the
+			// flow ID + tree path. See decision #28.
+			responseFilter = flow.ResponseAgentNames()
 		}
 		result, err := e.callAgent(ctx, agentID, prompt, cl.Token, responseFilter)
 		if err != nil {

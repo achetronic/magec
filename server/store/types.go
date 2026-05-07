@@ -1,6 +1,10 @@
 package store
 
-import "github.com/google/uuid"
+import (
+	"fmt"
+
+	"github.com/google/uuid"
+)
 
 // generateID returns a new random UUID v4 string (e.g. "550e8400-e29b-41d4-a716-446655440000").
 func generateID() string {
@@ -265,6 +269,24 @@ func (f *FlowDefinition) ResponseAgentIDs() []string {
 	return ids
 }
 
+// ResponseAgentNames walks the flow tree and returns the synthetic ADK
+// agent names assigned to every leaf marked with ResponseAgent. The naming
+// scheme matches the one used by server/agent/flow.go when it builds a
+// fresh ADK instance per appearance: the root step is named after the
+// flow ID, and every nested step appends "_<path>" with positional
+// indices joined by "_". This pairing is what lets the FlowResponseFilter
+// match event.Author values produced by ADK against the operator's
+// declarative response-agent toggles.
+//
+// Keep this method in lockstep with buildStep / buildChildren in
+// server/agent/flow.go. If the naming convention there changes, this
+// function must change too.
+func (f *FlowDefinition) ResponseAgentNames() []string {
+	var names []string
+	collectResponseAgentNames(&f.Root, f.ID, "", &names)
+	return names
+}
+
 func collectResponseAgents(step *FlowStep, ids *[]string) {
 	if step.Type == FlowStepAgent {
 		if step.AgentID != "" && step.ResponseAgent {
@@ -273,6 +295,26 @@ func collectResponseAgents(step *FlowStep, ids *[]string) {
 	}
 	for i := range step.Steps {
 		collectResponseAgents(&step.Steps[i], ids)
+	}
+}
+
+func collectResponseAgentNames(step *FlowStep, flowID, path string, names *[]string) {
+	stepName := flowID
+	if path != "" {
+		stepName = flowID + "_" + path
+	}
+	if step.Type == FlowStepAgent {
+		if step.AgentID != "" && step.ResponseAgent {
+			*names = append(*names, stepName)
+		}
+		return
+	}
+	for i := range step.Steps {
+		childPath := fmt.Sprintf("%d", i)
+		if path != "" {
+			childPath = path + "_" + fmt.Sprintf("%d", i)
+		}
+		collectResponseAgentNames(&step.Steps[i], flowID, childPath, names)
 	}
 }
 

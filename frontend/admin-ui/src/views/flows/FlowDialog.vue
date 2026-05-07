@@ -115,6 +115,8 @@ function cleanStep(step) {
     clean.steps = (step.steps || []).map(cleanStep)
     if (step.type === 'loop') {
       clean.maxIterations = step.maxIterations || 0
+      if (step.exitLoop) clean.exitLoop = true
+      if (step.exitWhen) clean.exitWhen = step.exitWhen
     }
   }
   return clean
