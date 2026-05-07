@@ -110,7 +110,7 @@ Skill instructions and reference file contents are injected into the agent syste
 | GET/PUT/DELETE | `/clients/{id}`                  | Get / Update / Delete                             |
 | POST           | `/clients/{id}/regenerate-token` | Regenerate auth token                             |
 
-Client types: `direct`, `telegram`, `slack`, `cron`, `webhook`. See [CLIENT_DESIGN.md](CLIENT_DESIGN.md).
+Client types: `direct`, `telegram`, `discord`, `slack`, `cron`, `webhook`. See [CLIENT_DESIGN.md](CLIENT_DESIGN.md).
 
 ### Commands
 
@@ -135,9 +135,19 @@ Client types: `direct`, `telegram`, `slack`, `cron`, `webhook`. See [CLIENT_DESI
 
 ### Settings
 
-| Method  | Path        | Description                                                      |
-| ------- | ----------- | ---------------------------------------------------------------- |
-| GET/PUT | `/settings` | Get / Update global settings (sessionProvider, longTermProvider) |
+| Method  | Path        | Description                                                                              |
+| ------- | ----------- | ---------------------------------------------------------------------------------------- |
+| GET/PUT | `/settings` | Get / Update global settings (`sessionProvider`, `longTermProvider`, `temporaryDir`)     |
+
+`temporaryDir` is the on-disk path used by tools that hand artifacts off to other filesystem-aware tools (`export_artifact`, see decision #26). Falls back to `os.TempDir()` via `Store.ResolveTemporaryDir()` when unset.
+
+### Voice
+
+| Method | Path           | Description                                                |
+| ------ | -------------- | ---------------------------------------------------------- |
+| GET    | `/voice/types` | Registered voice providers with TTS/STT JSON Schemas       |
+
+Same registry pattern as `/clients/types` and `/memory/types`. Decision #21.
 
 ### Conversations
 
@@ -187,13 +197,11 @@ The backup archive contains `store.json`, `conversations.json`, and `skills/{id}
 
 ## Migration Chain (on store load)
 
-All idempotent:
+All idempotent. Run on the raw JSON before unmarshal in `server/store/store.go`:
 
-1. `devices → clients` (legacy)
-2. `cronJobs → triggers` (legacy)
-3. `triggers → clients` (cron/webhook types)
-4. `device → direct` (type rename)
-5. `migrateIDs` (UUID v4 generation)
+1. `migrateTTSConfig` — moves legacy `tts.speed` into `tts.config.openai.speed` and flat Gemini fields into `tts.config.gemini.*` (introduced with the voice provider registry, decision #21).
+
+Legacy chains (`devices → clients`, `cronJobs → triggers`, `triggers → clients`, `device → direct`, `migrateIDs`) lived in earlier versions and have been removed once their target installations had migrated.
 
 ## Future Work
 

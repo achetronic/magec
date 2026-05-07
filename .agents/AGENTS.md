@@ -385,3 +385,16 @@ make dev                # Build and run
 - [Parakeet](https://github.com/achetronic/parakeet)
 - [openai-edge-tts](https://github.com/travisvn/openai-edge-tts)
 - [hass-mcp](https://github.com/achetronic/hass-mcp)
+
+## Sibling docs in `.agents/`
+
+- `DECISIONS.md` — numbered architecture decisions. Read before changing anything load-bearing.
+- `DOCS_STYLE.md` — writing rules for `website/content/docs/`. Read before touching public docs.
+- `ADK_TOOLS.md` — reference of every ADK tool, what it does, and which Magec uses.
+- `MULTI_AGENT_ADMIN_API.md` — Admin API surface (endpoints, store entities, persistence).
+- `CLIENT_DESIGN.md` — client provider registry, JSON Schema validation, per-platform configs.
+- `DISCORD_CLIENT.md`, `SLACK_CLIENT.md` — platform-specific client deep dives.
+- `ADMIN_UI_DESIGN_SYSTEM.md` — UI rulebook for the Admin frontend (Cards, Badges, spacing).
+- `ENTITY_COLORS.md` — canonical color-to-entity mapping used across Admin and Voice UIs.
+- `RELEASE_NOTES_TEMPLATE.md` — format for changelog entries.
+- `TODO.md` — short-term roadmap and recently-shipped log.
