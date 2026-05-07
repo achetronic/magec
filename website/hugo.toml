@@ -193,10 +193,15 @@ theme = 'magec'
     url = '/docs/skills-vs-agents/'
     weight = 4
   [[menu.docs]]
+    name = 'Flow Control'
+    parent = 'reference'
+    url = '/docs/flow-control/'
+    weight = 5
+  [[menu.docs]]
     name = 'Screenshots'
     parent = 'reference'
     url = '/docs/screenshots/'
-    weight = 5
+    weight = 6
 
 [outputs]
   home = ['HTML']
