@@ -432,11 +432,23 @@ section { padding: 6rem 0; }
 }
 .docs-sidebar__link {
   display: block; font-size: .8125rem; color: var(--arena-400);
-  padding: .4rem 1rem; border-radius: 8px; border-left: 2px solid transparent;
+  padding: .4rem 1rem .4rem 1.5rem; border-radius: 8px;
+  position: relative;
   transition: all .15s;
 }
 .docs-sidebar__link:hover { color: var(--arena-200); background: rgba(61,61,68,.2); }
-.docs-sidebar__link--active { color: var(--sol-400); border-left-color: var(--sol-500); background: rgba(245,158,11,.06); }
+.docs-sidebar__link--active { color: var(--sol-400); background: rgba(245,158,11,.06); }
+.docs-sidebar__link--active::before {
+  content: "";
+  position: absolute;
+  left: .55rem;
+  top: 50%;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--sol-500);
+  transform: translateY(-50%);
+}
 
 .docs-content { padding: 1.5rem 0 6rem; max-width: 760px; }
 .docs-content h1 { font-size: 2rem; font-weight: 800; letter-spacing: -.03em; margin-bottom: 1rem; }
