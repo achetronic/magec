@@ -2,7 +2,15 @@
 
 ## Recently Completed
 
-### This branch (`feature/always-artifacts`, 2026-04-30)
+### This branch (`feature/flow-state`, 2026-05-04)
+
+- **Flow-shared state** — agents inside any flow get `set_state(key, value)` and `get_state(key)` tools backed by `session.state` under the `flow:` prefix. Standalone agents do not get them. Implemented in `server/agent/tools/flowstate/`. Decision #28.
+- **LLM-driven loop exit** — loop steps gained an `ExitLoop` flag. When set, every agent in the loop's subtree (any depth, propagated through nested sequentials/parallels) receives ADK's native `exit_loop` tool. The current iteration completes before the loop terminates (matches ADK's loopagent semantics). Decision #28.
+- **Expression-driven loop exit (`ExitWhen`)** — loop steps gained a CEL expression evaluated against the shared flow state after every iteration. New `server/agent/flowexit/` package with `Compile` (called both by admin validation and at flow build time) and `NewExitWhenAgent` (synthetic evaluator agent appended as the last child of the loopagent, emits `Escalate` when the expression is true). New direct dep: `github.com/google/cel-go`. Decision #28.
+- **`BuildAgentInstance` refactor** — `buildSingleAgent` was renamed and exported, signature converted to a `BuildAgentInstanceParams` struct. `flow.go` now builds a fresh ADK instance per agent appearance via `BuildAgentInstance`, allowing scope-dependent toolsets/instructions without polluting the standalone catalogue. `wrapAgent` is kept only for flow-as-step composition.
+- **Loop config dialog (admin UI)** — replaced the `prompt()`-based max iterations input with `LoopConfigDialog.vue` exposing the three exit strategies (max only / agent decides / expression). `FlowBlock` badge now shows the chosen strategy alongside the iteration count.
+
+### Earlier branch (`feature/always-artifacts`, 2026-04-30)
 
 - **Always-artifact attachments** — removed the inline-vs-artifact size threshold; `msgutil.ShouldInline` and `msgutil.InlinePart` are gone. Every user upload (Telegram/Slack/Discord) flows through `msgutil.StoreAsArtifact` + `AttachedArtifactsBlock`. Decision #24 rewritten.
 - **`load_artifact` via RequestProcessor** — replaced the old `functiontool` that returned base64 in JSON (which corrupted the model's view and burned context) with a manual `tool.Tool` implementing `RequestProcessor`. It mutates the existing `FunctionResponse` Content rather than appending a new one, preserving the "1 session event = 1 req.Contents entry" invariant ContextGuard relies on. Decision #25.

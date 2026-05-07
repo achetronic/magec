@@ -42,6 +42,10 @@
             </svg>
             <span>Each agent has a <span class="text-green-400 font-semibold">response</span> toggle. Only agents with this active will be included in the flow output. If none are marked, all agent outputs are returned.</span>
           </div>
+          <div class="pt-1 border-t border-piedra-700/30 space-y-1">
+            <p>Agents inside a flow can read and write a shared <span class="text-arena-300 font-semibold">state</span> map with <code class="text-arena-300">set_state(key, value)</code> and <code class="text-arena-300">get_state(key)</code>. State persists for the duration of the conversation and is visible to every agent in the same flow.</p>
+            <p>Loop steps always honour a <span class="text-lava-400">max iterations</span> cap. On top of that, you can add an optional early exit: an agent calls <code class="text-arena-300">exit_loop</code>, or a CEL expression on the shared state evaluates to true. Click the loop's <span class="text-arena-300 font-semibold">Mode</span> button to configure.</p>
+          </div>
         </div>
       </details>
     </div>
@@ -111,6 +115,8 @@ function cleanStep(step) {
     clean.steps = (step.steps || []).map(cleanStep)
     if (step.type === 'loop') {
       clean.maxIterations = step.maxIterations || 0
+      if (step.exitLoop) clean.exitLoop = true
+      if (step.exitWhen) clean.exitWhen = step.exitWhen
     }
   }
   return clean

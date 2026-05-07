@@ -280,7 +280,7 @@ title: "Magec — Self-hosted Multi-Agent AI Platform"
       <div class="client-card"><div><div class="client-card__name">Cron</div><div class="client-card__status client-card__status--ready">✓ Available</div><p class="client-card__desc">Scheduled tasks. Daily summaries, periodic checks, automated maintenance. Standard cron syntax plus shorthands like @daily.</p></div></div>
       <div class="client-card"><div><div class="client-card__name">REST API</div><div class="client-card__status client-card__status--ready">✓ Available</div><p class="client-card__desc">Full API with Swagger docs on both ports. Build any custom integration you can imagine.</p></div></div>
       <div class="client-card"><div><div class="client-card__name">Slack</div><div class="client-card__status client-card__status--ready">✓ Available</div><p class="client-card__desc">Socket Mode — no public URL needed. DMs and @mentions in channels. Per-channel agent switching.</p></div></div>
-      <div class="client-card"><div><div class="client-card__name">Discord</div><div class="client-card__status client-card__status--soon">Coming soon</div><p class="client-card__desc">On the way.</p></div></div>
+      <div class="client-card"><div><div class="client-card__name">Discord</div><div class="client-card__status client-card__status--ready">✓ Available</div><p class="client-card__desc">Gateway WebSocket — no public URL needed. DMs, @mentions, voice messages, reactions, and commands.</p></div></div>
     </div>
   </div>
 </section>

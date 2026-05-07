@@ -40,6 +40,7 @@ import (
 	"google.golang.org/adk/server/adkrest"
 	"google.golang.org/adk/session"
 	"google.golang.org/adk/tool"
+	"google.golang.org/adk/tool/exitlooptool"
 	"google.golang.org/adk/tool/mcptoolset"
 	"google.golang.org/genai"
 
@@ -53,6 +54,7 @@ import (
 
 	"github.com/achetronic/magec/server/config"
 	toolsartifacts "github.com/achetronic/magec/server/agent/tools/artifacts"
+	toolsflowstate "github.com/achetronic/magec/server/agent/tools/flowstate"
 	"github.com/achetronic/magec/server/store"
 )
 
@@ -83,6 +85,16 @@ You have access to artifact tools for creating and managing files:
 - Use 'get_artifact_url' when the consumer of the artifact runs in a different process or container and cannot reach the local filesystem (for example, a remote tool that fetches files over HTTP). The tool returns a short-lived signed URL that serves the artifact's raw bytes without authentication; pass that URL to the consumer.
 
 IMPORTANT: When generating code files, long documents, configuration files, scripts, or any substantial structured content, ALWAYS use save_artifact instead of pasting it in the chat. The artifact will be delivered to the user as a downloadable file automatically.`
+
+const flowStateInstruction = `
+You are running inside a multi-agent workflow. You have shared state tools available to coordinate with the other agents in this flow:
+- Use 'set_state' to record a value (string, number, boolean, list, or object) under a key. Other agents in the same workflow can read it later in the same conversation.
+- Use 'get_state' to read a value previously stored by another agent (or by an earlier turn of yours). It returns {found: true, value: ...} when present and {found: false} when absent.
+
+Use shared state for orchestration signals (e.g. an approval flag, a quality score, a list of pending items), not for bulky content — keep large outputs in artifacts.`
+
+const exitLoopInstruction = `
+You are inside a loop step. When you decide the work is complete and the loop should not iterate again, call the 'exit_loop' tool. Do not call it on the first iteration unless the work is genuinely done. The current iteration always finishes before the loop terminates, so other agents in this iteration may still produce output after your call.`
 
 // Service wraps the ADK REST handler that serves all configured agents.
 // Incoming requests are routed to the correct agent by the appName field.
@@ -156,18 +168,28 @@ func New(ctx context.Context, agents []store.AgentDefinition, backends []store.B
 	}
 
 	adkAgentMap := make(map[string]agent.Agent, len(agents)+len(flows))
+	agentDefMap := make(map[string]store.AgentDefinition, len(agents))
 	llmMap := make(map[string]model.LLM, len(agents))
 	var rootAgent agent.Agent
 	var otherAgents []agent.Agent
 
 	// Build ADK agents
 	for i, agentDef := range agents {
-		adkAgent, llmModel, err := buildSingleAgent(ctx, agentDef, backendMap, mcpServerMap, skillMap, memorySvc, baseTset)
+		adkAgent, llmModel, err := BuildAgentInstance(BuildAgentInstanceParams{
+			Ctx:          ctx,
+			AgentDef:     agentDef,
+			BackendMap:   backendMap,
+			MCPServerMap: mcpServerMap,
+			SkillMap:     skillMap,
+			MemorySvc:    memorySvc,
+			BaseToolset:  baseTset,
+		})
 		if err != nil {
 			return nil, fmt.Errorf("agent %q: %w", agentDef.ID, err)
 		}
 		llmMap[agentDef.ID] = llmModel
 		adkAgentMap[agentDef.ID] = adkAgent
+		agentDefMap[agentDef.ID] = agentDef
 
 		if i == 0 {
 			rootAgent = adkAgent
@@ -177,15 +199,39 @@ func New(ctx context.Context, agents []store.AgentDefinition, backends []store.B
 		slog.Info("Agent initialized", "id", agentDef.ID, "name", agentDef.Name)
 	}
 
+	flowStateToolset, err := toolsflowstate.NewToolset()
+	if err != nil {
+		return nil, fmt.Errorf("failed to create flow_state toolset: %w", err)
+	}
+
+	exitLoopTool, err := exitlooptool.New()
+	if err != nil {
+		return nil, fmt.Errorf("failed to create exit_loop tool: %w", err)
+	}
+
+	flowDeps := FlowBuildDeps{
+		Ctx:              ctx,
+		AgentDefs:        agentDefMap,
+		FlowAgents:       make(map[string]agent.Agent, len(flows)),
+		BackendMap:       backendMap,
+		MCPServerMap:     mcpServerMap,
+		SkillMap:         skillMap,
+		MemorySvc:        memorySvc,
+		BaseToolset:      baseTset,
+		FlowStateToolset: flowStateToolset,
+		ExitLoopTool:     exitLoopTool,
+	}
+
 	// Build flows
 	for _, flow := range flows {
-		flowAgent, err := BuildFlowAgent(flow, adkAgentMap)
+		flowAgent, err := BuildFlowAgent(flow, flowDeps)
 		if err != nil {
 			slog.Warn("Failed to build flow", "flow", flow.Name, "error", err)
 			continue
 		}
 		otherAgents = append(otherAgents, flowAgent)
 		adkAgentMap[flow.ID] = flowAgent
+		flowDeps.FlowAgents[flow.ID] = flowAgent
 		slog.Info("Flow initialized", "id", flow.ID, "name", flow.Name)
 	}
 
@@ -280,42 +326,91 @@ func sortFlowsTopologically(flows []store.FlowDefinition) ([]store.FlowDefinitio
 	return sorted, nil
 }
 
-// buildSingleAgent constructs an individual ADK agent instance from its definition.
-// It resolves the associated LLM backend, assembles its toolsets (MCPs, skills, memory),
-// and builds its persona/instruction context.
-func buildSingleAgent(
-	ctx context.Context,
-	agentDef store.AgentDefinition,
-	backendMap map[string]store.BackendDefinition,
-	mcpServerMap map[string]store.MCPServer,
-	skillMap map[string]store.Skill,
-	memorySvc memory.Service,
-	baseTset tool.Toolset,
-) (agent.Agent, model.LLM, error) {
-	llmBackend, ok := backendMap[agentDef.LLM.Backend]
+// BuildAgentInstanceParams bundles the inputs to BuildAgentInstance. Using a
+// struct keeps the call site readable as the parameter list grew (per-flow
+// extra toolsets, custom instance names) and lets the flow builder add
+// scope-dependent extras without rippling signature changes through the
+// caller.
+type BuildAgentInstanceParams struct {
+	Ctx          context.Context
+	AgentDef     store.AgentDefinition
+	BackendMap   map[string]store.BackendDefinition
+	MCPServerMap map[string]store.MCPServer
+	SkillMap     map[string]store.Skill
+	MemorySvc    memory.Service
+	BaseToolset  tool.Toolset
+	// InstanceName is the ADK agent name to register. Defaults to AgentDef.ID
+	// for the standalone catalogue copy. Flow builders pass a flow-scoped
+	// unique name so the same logical agent can appear multiple times across
+	// the workflow tree without violating ADK's single-parent constraint.
+	InstanceName string
+	// ExtraToolsets are additional toolsets injected on top of BaseToolset.
+	// The flow builder uses this to wire flow-only capabilities (shared state
+	// tools, exit_loop) without altering the standalone tool catalogue. May
+	// be nil; passed through as-is.
+	ExtraToolsets []tool.Toolset
+	// ExtraTools is a flat list of individual tools wrapped into a single
+	// throw-away toolset and appended after ExtraToolsets. Used for scope-
+	// specific singletons such as exit_loop, which only makes sense inside a
+	// loop-with-exitLoop subtree. May be nil.
+	ExtraTools []tool.Tool
+	// IncludeFlowStateInstruction appends the flow_state usage paragraph to
+	// the agent instruction. Set by the flow builder for every agent inside
+	// a flow so the model knows it can call set_state and get_state.
+	IncludeFlowStateInstruction bool
+	// IncludeExitLoopInstruction appends the exit_loop usage paragraph. Set
+	// only for agents that descend from a loop step with ExitLoop enabled.
+	IncludeExitLoopInstruction bool
+}
+
+// BuildAgentInstance constructs an individual ADK agent instance from its
+// definition. It resolves the associated LLM backend, assembles its toolsets
+// (MCPs, skills, memory, base, plus any flow-scoped extras), and builds its
+// persona/instruction context.
+//
+// This function is callable from outside the package because flow.go invokes
+// it once per agent appearance inside a flow tree, with extra toolsets that
+// only apply to that specific appearance.
+func BuildAgentInstance(p BuildAgentInstanceParams) (agent.Agent, model.LLM, error) {
+	llmBackend, ok := p.BackendMap[p.AgentDef.LLM.Backend]
 	if !ok {
-		return nil, nil, fmt.Errorf("LLM backend %q not found", agentDef.LLM.Backend)
+		return nil, nil, fmt.Errorf("LLM backend %q not found", p.AgentDef.LLM.Backend)
 	}
-	llmModel, err := createLLM(ctx, llmBackend, agentDef.LLM)
+	llmModel, err := createLLM(p.Ctx, llmBackend, p.AgentDef.LLM)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create LLM: %w", err)
 	}
 
-	toolsets, err := buildToolsets(agentDef, mcpServerMap, memorySvc)
+	toolsets, err := buildToolsets(p.AgentDef, p.MCPServerMap, p.MemorySvc)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to build toolsets: %w", err)
 	}
-	toolsets = append(toolsets, baseTset)
+	toolsets = append(toolsets, p.BaseToolset)
+	toolsets = append(toolsets, p.ExtraToolsets...)
+	if len(p.ExtraTools) > 0 {
+		toolsets = append(toolsets, &flatToolset{tools: p.ExtraTools})
+	}
 
-	instruction := buildInstruction(agentDef, mcpServerMap, skillMap, filepath.Join("data", "skills"), memorySvc)
+	instruction := buildInstruction(p.AgentDef, p.MCPServerMap, p.SkillMap, filepath.Join("data", "skills"), p.MemorySvc)
+	if p.IncludeFlowStateInstruction {
+		instruction += flowStateInstruction
+	}
+	if p.IncludeExitLoopInstruction {
+		instruction += exitLoopInstruction
+	}
+
+	name := p.InstanceName
+	if name == "" {
+		name = p.AgentDef.ID
+	}
 
 	agentCfg := llmagent.Config{
-		Name:                agentDef.ID,
+		Name:                name,
 		Model:               llmModel,
-		Description:         agentDef.Name,
+		Description:         p.AgentDef.Name,
 		InstructionProvider: makeInstructionProvider(instruction),
 		Toolsets:            toolsets,
-		OutputKey:           agentDef.OutputKey,
+		OutputKey:           p.AgentDef.OutputKey,
 	}
 
 	adkAgent, err := llmagent.New(agentCfg)
@@ -324,6 +419,20 @@ func buildSingleAgent(
 	}
 
 	return adkAgent, llmModel, nil
+}
+
+// flatToolset is a minimal tool.Toolset adaptor that exposes a fixed list
+// of pre-built tools. We use it inside BuildAgentInstance to fold one-off
+// tools (e.g. exit_loop wired contextually by the flow builder) into the
+// toolset list without forcing every caller to invent a stateful toolset.
+type flatToolset struct {
+	tools []tool.Tool
+}
+
+func (f *flatToolset) Name() string { return "flow_extra_tools" }
+
+func (f *flatToolset) Tools(_ agent.ReadonlyContext) ([]tool.Tool, error) {
+	return f.tools, nil
 }
 
 // buildContextGuardConfig generates the ContextGuard plugin configuration

@@ -3334,6 +3334,12 @@ const docTemplate = `{
                 "agentId": {
                     "type": "string"
                 },
+                "exitLoop": {
+                    "type": "boolean"
+                },
+                "exitWhen": {
+                    "type": "string"
+                },
                 "maxIterations": {
                     "type": "integer"
                 },

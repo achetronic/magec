@@ -139,15 +139,22 @@ func FlowResponseFilter(next http.Handler, dataStore *store.Store) http.Handler 
 			return
 		}
 
-		responseIDs := flow.ResponseAgentIDs()
-		if len(responseIDs) == 0 {
+		// We match event.Author against the ADK agent name that flow.go
+		// assigned to each leaf instance, NOT against the AgentDefinition
+		// IDs the operator wrote in the flow tree. The two used to coincide
+		// before flows started building per-appearance instances; they no
+		// longer do (decision #28). ResponseAgentNames computes the synthetic
+		// names with the same recipe flow.go uses so the filter and the
+		// runtime agree.
+		responseNames := flow.ResponseAgentNames()
+		if len(responseNames) == 0 {
 			next.ServeHTTP(w, r)
 			return
 		}
 
-		allowedSet := make(map[string]bool, len(responseIDs))
-		for _, id := range responseIDs {
-			allowedSet[id] = true
+		allowedSet := make(map[string]bool, len(responseNames))
+		for _, name := range responseNames {
+			allowedSet[name] = true
 		}
 
 		switch {

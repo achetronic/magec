@@ -256,11 +256,7 @@ type Provider interface {
 
 ### Config Validation
 
-`ValidateConfig(providerType, configBlock)` walks the JSON Schema recursively:
-
-- Checks `required` fields exist in the data
-- Validates `properties` types
-- For `oneOf`: uses `matchOneOf()` to find the matching branch by comparing `const` values against actual data, then validates that branch's requirements
+`ValidateConfig(providerType, configBlock)` looks up the provider in the registry and delegates to `server/schema.Validate`, which is a thin wrapper around `google/jsonschema-go`. The library handles `required`, `oneOf`, `const`, type checks, `if/then/else`, defaults and the rest of draft-07 / 2020-12. See decision #3 in DECISIONS.md — manual helpers like `matchOneOf` were removed in favour of full delegation to the library.
 
 ### Admin API Endpoint
 
@@ -418,7 +414,8 @@ Base path: `/api/v1/admin`
 
 ## Key Decisions
 
-- **`allowedAgents[0]` is the default agent** — no separate `defaultAgent` field
+- **`defaultAgent` is persisted on the client** — chat clients (Telegram, Slack, Discord) write the active agent there when the user runs the `!agent` command. Initial value falls back to `allowedAgents[0]`. Lives on `ClientDefinition` and on the platform configs that need per-thread state.
+- **`threadHistoryLimit` per chat client** — caps how much history is replayed when reconstructing thread context. Defaults to a sensible number when unset.
 - **JSON Schema replaces FieldSpec** — full OpenAPI JSON Schema per type with extensions for UI rendering
 - **`oneOf` for exclusive config** — webhook's passthrough XOR commandId enforced at schema level
 - **Client token for webhook auth** — no separate `secret` field. One auth mechanism everywhere
@@ -431,19 +428,13 @@ Base path: `/api/v1/admin`
 
 ## Migration Chain
 
-On `loadFromDisk()`, these migrations run in order (all idempotent):
+On `loadFromDisk()`, the only currently-active migration is `migrateTTSConfig` (decision #21): it moves legacy `tts.speed` into `tts.config.openai.speed` and flat Gemini fields into `tts.config.gemini.*`. Idempotent.
 
-1. `devices → clients` — Legacy Device entities become type `direct` clients
-2. `cronJobs → triggers` — Legacy CronJob becomes Command + Trigger
-3. `triggers → clients` — Trigger entities become cron/webhook client types with own tokens
-4. `device → direct` — Client type `device` renamed to `direct`
-5. `migrateIDs` — Generates UUID v4 for any entity missing one
+Older migrations (`devices → clients`, `cronJobs → triggers`, `triggers → clients`, `device → direct`, `migrateIDs`) shipped in earlier versions and were removed once their target installations had migrated. New migrations append to the same chain.
 
 ## Future (out of scope)
 
-- ~~**Discord provider**~~ ✅ — Implemented. See `server/clients/discord/`
 - **WhatsApp provider** — `server/clients/whatsapp/`
-- **Memory provider migration to JSON Schema** — `server/memory/` still uses FieldSpec
 - **Enrollment** — `open` / `closed` / `approval` modes for user self-registration
 
 ## Multimodal File Support (implemented)

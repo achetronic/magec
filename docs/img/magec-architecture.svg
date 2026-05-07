@@ -1,0 +1,218 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1800 1100" style="background-color: #121214; font-family: 'Inter', system-ui, sans-serif;">
+  <defs>
+    <!-- Background Dots -->
+    <pattern id="dots" x="0" y="0" width="30" height="30" patternUnits="userSpaceOnUse">
+      <circle cx="1.5" cy="1.5" r="1" fill="#2a2a2f"/>
+    </pattern>
+
+    <!-- Magec Logo Gradient -->
+    <linearGradient id="lavaGradient" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#f59e0b"/>
+      <stop offset="100%" stop-color="#f87171"/>
+    </linearGradient>
+
+    <!-- Google Gradient for ADK -->
+    <linearGradient id="google-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#4285F4" />
+      <stop offset="33%" stop-color="#EA4335" />
+      <stop offset="66%" stop-color="#FBBC05" />
+      <stop offset="100%" stop-color="#34A853" />
+    </linearGradient>
+
+    <!-- Glows -->
+    <filter id="glow-engine" x="-15%" y="-15%" width="130%" height="130%">
+      <feGaussianBlur stdDeviation="16" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+    <filter id="glow-adk-border" x="-10%" y="-10%" width="120%" height="120%">
+      <feGaussianBlur stdDeviation="6" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+
+    <!-- Markers -->
+    <marker id="arrow-lava" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#f87171" />
+    </marker>
+    <marker id="arrow-teal" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#2dd4bf" />
+    </marker>
+    <marker id="arrow-arena" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#a8a29e" />
+    </marker>
+  </defs>
+
+  <!-- Base Background -->
+  <rect width="1800" height="1100" fill="#121214" />
+  <rect width="1800" height="1100" fill="url(#dots)" opacity="0.6"/>
+
+  <!-- ==================== HEADER / LOGO ==================== -->
+  <g transform="translate(80, 80) scale(0.85)">
+    <circle cx="32" cy="32" r="26" fill="url(#lavaGradient)"/>
+    <circle cx="20" cy="24" r="2" fill="white" opacity="0.9"/>
+    <circle cx="26" cy="18" r="1.5" fill="white" opacity="0.7"/>
+    <circle cx="40" cy="22" r="1.8" fill="white" opacity="0.8"/>
+    <circle cx="46" cy="30" r="1.2" fill="white" opacity="0.6"/>
+    <circle cx="38" cy="38" r="2" fill="white" opacity="0.75"/>
+    <circle cx="24" cy="40" r="1.4" fill="white" opacity="0.65"/>
+    <circle cx="32" cy="28" r="1" fill="white" opacity="0.8"/>
+    <circle cx="18" cy="34" r="1.3" fill="white" opacity="0.5"/>
+    <circle cx="44" cy="42" r="1.6" fill="white" opacity="0.55"/>
+    <circle cx="30" cy="46" r="1.2" fill="white" opacity="0.6"/>
+    <circle cx="36" cy="16" r="1" fill="white" opacity="0.7"/>
+    <circle cx="22" cy="30" r="0.8" fill="white" opacity="0.5"/>
+  </g>
+  <text x="165" y="118" fill="#f5f5f4" font-size="38" font-weight="600">Magec</text>
+  <text x="295" y="118" fill="#78716c" font-size="38" font-weight="400">Architecture</text>
+
+  <!-- ==================== CONNECTION LINES ==================== -->
+
+  <!-- Clients to User API -->
+  <path d="M 350 400 C 400 400, 400 500, 445 500" fill="none" stroke="#f87171" stroke-width="2.5" stroke-opacity="0.6" marker-end="url(#arrow-lava)"/>
+  <path d="M 350 500 L 445 500" fill="none" stroke="#f87171" stroke-width="2.5" stroke-opacity="0.6" marker-end="url(#arrow-lava)"/>
+  <path d="M 350 600 C 400 600, 400 500, 445 500" fill="none" stroke="#f87171" stroke-width="2.5" stroke-opacity="0.6" marker-end="url(#arrow-lava)"/>
+  
+  <rect x="360" y="486" width="80" height="28" fill="#121214" rx="6"/>
+  <text x="400" y="505" fill="#f87171" font-size="13" font-weight="500" text-anchor="middle">WS / REST</text>
+
+  <!-- User API to ADK -->
+  <path d="M 630 500 L 730 500" fill="none" stroke="#2dd4bf" stroke-width="3" stroke-opacity="0.8" marker-end="url(#arrow-teal)"/>
+  <rect x="645" y="486" width="70" height="28" fill="#121214" rx="6"/>
+  <text x="680" y="505" fill="#2dd4bf" font-size="13" font-weight="600" text-anchor="middle">Invoke</text>
+
+  <!-- Admin UI to Admin API -->
+  <path d="M 1440 640 L 1440 545" fill="none" stroke="#a8a29e" stroke-width="3" stroke-opacity="0.8" marker-end="url(#arrow-arena)"/>
+  <rect x="1370" y="575" width="140" height="28" fill="#121214" rx="6"/>
+  <text x="1440" y="594" fill="#a8a29e" font-size="13" font-weight="500" text-anchor="middle">Visual Plumbing</text>
+
+  <!-- Store to Admin API -->
+  <path d="M 1440 410 L 1440 455" fill="none" stroke="#a8a29e" stroke-width="2.5" stroke-dasharray="6,6" marker-end="url(#arrow-arena)"/>
+  
+  <!-- Admin API to ADK -->
+  <path d="M 1300 500 L 1070 500" fill="none" stroke="#a8a29e" stroke-width="3" stroke-dasharray="8,6" marker-end="url(#arrow-arena)"/>
+  <rect x="1135" y="486" width="100" height="28" fill="#121214" rx="6"/>
+  <text x="1185" y="505" fill="#e7e5e4" font-size="13" font-weight="600" text-anchor="middle">Configures</text>
+
+  <!-- ==================== LEFT COLUMN: CLIENTS ==================== -->
+  <text x="250" y="330" fill="#78716c" font-size="14" font-weight="600" text-anchor="middle" letter-spacing="2" uppercase="true">Runtime Clients</text>
+
+  <!-- Voice UI -->
+  <g transform="translate(150, 370)">
+    <rect width="200" height="60" rx="12" fill="rgba(248, 113, 113, 0.1)" stroke="#f87171" stroke-opacity="0.4" stroke-width="2"/>
+    <text x="100" y="28" fill="#f87171" font-size="16" font-weight="600" text-anchor="middle">Voice UI</text>
+    <text x="100" y="46" fill="#fca5a5" font-size="12" font-weight="400" text-anchor="middle">PWA</text>
+  </g>
+
+  <!-- Chat Clients -->
+  <g transform="translate(150, 470)">
+    <rect width="200" height="60" rx="12" fill="rgba(248, 113, 113, 0.1)" stroke="#f87171" stroke-opacity="0.4" stroke-width="2"/>
+    <text x="100" y="28" fill="#f87171" font-size="16" font-weight="600" text-anchor="middle">Chat Clients</text>
+    <text x="100" y="46" fill="#fca5a5" font-size="12" font-weight="400" text-anchor="middle">Telegram, Slack, Discord</text>
+  </g>
+
+  <!-- Automation -->
+  <g transform="translate(150, 570)">
+    <rect width="200" height="60" rx="12" fill="rgba(248, 113, 113, 0.1)" stroke="#f87171" stroke-opacity="0.4" stroke-width="2"/>
+    <text x="100" y="28" fill="#f87171" font-size="16" font-weight="600" text-anchor="middle">Automation</text>
+    <text x="100" y="46" fill="#fca5a5" font-size="12" font-weight="400" text-anchor="middle">Cron, Webhooks</text>
+  </g>
+
+
+  <!-- ==================== MID-LEFT: USER API ==================== -->
+  
+  <g transform="translate(450, 460)">
+    <rect width="180" height="80" rx="14" fill="rgba(45, 212, 191, 0.1)" stroke="#2dd4bf" stroke-opacity="0.5" stroke-width="2.5"/>
+    <text x="90" y="35" fill="#2dd4bf" font-size="18" font-weight="600" text-anchor="middle">User API</text>
+    <text x="90" y="58" fill="#99f6e4" font-size="12" font-weight="400" text-anchor="middle">REST &amp; A2A Protocol</text>
+  </g>
+
+
+  <!-- ==================== CENTER: ENGINE ==================== -->
+  <text x="900" y="350" fill="#78716c" font-size="14" font-weight="600" text-anchor="middle" letter-spacing="2" uppercase="true">The Engine</text>
+
+  <g transform="translate(740, 380)">
+    <!-- Engine Background Box (Subtle) -->
+    <rect width="320" height="480" rx="20" fill="#1a1a1d" stroke="#3d3d44" stroke-width="2"/>
+    
+    <!-- ADK-Utils (Implementations Box) - DRAWN FIRST TO BE IN BACKGROUND -->
+    <path d="M 0 240 L 320 240 L 320 460 Q 320 480 300 480 L 20 480 Q 0 480 0 460 Z" fill="#212125" stroke="#3d3d44" stroke-width="2"/>
+    
+    <text x="160" y="285" fill="#e7e5e4" font-size="16" font-weight="600" text-anchor="middle">adk-utils-go</text>
+    <text x="160" y="310" fill="#78716c" font-size="12" font-weight="400" text-anchor="middle">Provides Concrete Implementations</text>
+
+    <!-- Feature List -->
+    <g transform="translate(55, 350)">
+      <!-- LLMs -->
+      <circle cx="0" cy="-4" r="4.5" fill="#fbbf24"/>
+      <text x="18" y="1" fill="#d1d5db" font-size="14" font-weight="500">OpenAI &amp; Anthropic Clients</text>
+      <!-- Memory -->
+      <circle cx="0" cy="28" r="4.5" fill="#4ade80"/>
+      <text x="18" y="33" fill="#d1d5db" font-size="14" font-weight="500">Redis &amp; Postgres Memory</text>
+      <!-- Context Guard -->
+      <circle cx="0" cy="60" r="4.5" fill="#38bcd8"/>
+      <text x="18" y="65" fill="#d1d5db" font-size="14" font-weight="500">Context Compaction Guard</text>
+      <!-- Artifacts -->
+      <circle cx="0" cy="92" r="4.5" fill="#fb7185"/>
+      <text x="18" y="97" fill="#d1d5db" font-size="14" font-weight="500">Filesystem Artifacts</text>
+    </g>
+
+    <!-- Glowing ADK Core Box - DRAWN SECOND TO OVERLAP -->
+    <path d="M 0 20 Q 0 0 20 0 L 300 0 Q 320 0 320 20 L 320 240 L 0 240 Z" fill="#121214" stroke="url(#google-grad)" stroke-width="5" filter="url(#glow-adk-border)"/>
+    <path d="M 0 20 Q 0 0 20 0 L 300 0 Q 320 0 320 20 L 320 240 L 0 240 Z" fill="#121214" stroke="url(#google-grad)" stroke-width="4"/>
+    
+    <!-- Clean White ADK Text -->
+    <text x="160" y="115" fill="#f5f5f4" font-size="56" font-weight="900" text-anchor="middle" letter-spacing="3">ADK</text>
+    <text x="160" y="155" fill="#a8a29e" font-size="14" font-weight="500" text-anchor="middle">Core Interfaces &amp; Orchestration</text>
+  </g>
+
+
+  <!-- ==================== RIGHT COLUMN: MGMT & CONFIG ==================== -->
+  <text x="1440" y="90" fill="#78716c" font-size="14" font-weight="600" text-anchor="middle" letter-spacing="2" uppercase="true">Management Plane</text>
+
+  <!-- Store Background -->
+  <rect x="1300" y="130" width="280" height="280" rx="16" fill="#1a1a1d" stroke="#3d3d44" stroke-width="2" stroke-dasharray="6,6"/>
+  <text x="1440" y="165" fill="#a8a29e" font-size="14" font-weight="500" text-anchor="middle">Configuration Store</text>
+
+  <!-- Entities Grid -->
+  <!-- Col 1 -->
+  <g transform="translate(1315, 190)">
+    <rect width="120" height="44" rx="10" fill="rgba(251, 191, 36, 0.1)" stroke="#fbbf24" stroke-opacity="0.4" stroke-width="2"/>
+    <text x="60" y="27" fill="#fbbf24" font-size="13" font-weight="500" text-anchor="middle">Agents</text>
+  </g>
+  <g transform="translate(1315, 250)">
+    <rect width="120" height="44" rx="10" fill="rgba(192, 132, 252, 0.1)" stroke="#c084fc" stroke-opacity="0.4" stroke-width="2"/>
+    <text x="60" y="27" fill="#c084fc" font-size="13" font-weight="500" text-anchor="middle">Backends</text>
+  </g>
+  <g transform="translate(1315, 310)">
+    <rect width="120" height="44" rx="10" fill="rgba(34, 211, 238, 0.1)" stroke="#22d3ee" stroke-opacity="0.4" stroke-width="2"/>
+    <text x="60" y="27" fill="#22d3ee" font-size="13" font-weight="500" text-anchor="middle">Skills</text>
+  </g>
+  
+  <!-- Col 2 -->
+  <g transform="translate(1445, 190)">
+    <rect width="120" height="44" rx="10" fill="rgba(251, 113, 133, 0.1)" stroke="#fb7185" stroke-opacity="0.4" stroke-width="2"/>
+    <text x="60" y="27" fill="#fb7185" font-size="13" font-weight="500" text-anchor="middle">Flows</text>
+  </g>
+  <g transform="translate(1445, 250)">
+    <rect width="120" height="44" rx="10" fill="rgba(74, 222, 128, 0.1)" stroke="#4ade80" stroke-opacity="0.4" stroke-width="2"/>
+    <text x="60" y="27" fill="#4ade80" font-size="13" font-weight="500" text-anchor="middle">Memory</text>
+  </g>
+  <g transform="translate(1445, 310)">
+    <rect width="120" height="44" rx="10" fill="rgba(56, 188, 216, 0.1)" stroke="#38bcd8" stroke-opacity="0.4" stroke-width="2"/>
+    <text x="60" y="27" fill="#38bcd8" font-size="13" font-weight="500" text-anchor="middle">MCP Servers</text>
+  </g>
+
+  <!-- Admin API -->
+  <g transform="translate(1300, 460)">
+    <rect width="280" height="80" rx="14" fill="rgba(168, 162, 158, 0.15)" stroke="#a8a29e" stroke-opacity="0.6" stroke-width="2.5"/>
+    <text x="140" y="35" fill="#e7e5e4" font-size="18" font-weight="600" text-anchor="middle">Admin API</text>
+    <text x="140" y="58" fill="#a8a29e" font-size="13" font-weight="400" text-anchor="middle">BuildAgentInstance()</text>
+  </g>
+
+  <!-- Admin UI -->
+  <g transform="translate(1300, 640)">
+    <rect width="280" height="80" rx="14" fill="rgba(168, 162, 158, 0.1)" stroke="#a8a29e" stroke-opacity="0.4" stroke-width="2.5"/>
+    <text x="140" y="35" fill="#a8a29e" font-size="18" font-weight="600" text-anchor="middle">Admin UI</text>
+    <text x="140" y="58" fill="#78716c" font-size="13" font-weight="400" text-anchor="middle">Visual Flow Builder / Config</text>
+  </g>
+
+</svg>
