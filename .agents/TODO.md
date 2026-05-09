@@ -9,7 +9,9 @@
 - **Single upload endpoint (`POST /skills/upload`)** — accepts a SKILL.md or a `.zip`/`.tar.gz` package; `?replace=true` overwrites an existing skill that owns the same slug while preserving its store ID so agent links stay valid. Replaces the old `/skills`, `/skills/{id}`, `/skills/{id}/references`, `/skills/{id}/package` admin endpoints.
 - **Read-only Skill viewer (admin UI)** — `SkillViewDialog.vue` opens on card click, renders frontmatter (license, compatibility, allowed-tools, custom metadata), instructions as Markdown, and lists every resource grouped by `references/assets/scripts`. Includes a Download button that streams the on-disk package as `tar.gz` for backups or magec-to-magec copies.
 - **Upload-only Skill modal** — `SkillDialog.vue` no longer has Manual/Package toggle, Name/Description/Instructions fields, or a per-file uploader. One dropzone, one button.
-- **Legacy migrator** — `agent/tools/skills.MigrateLegacySkills` runs from `store.loadFromDisk` for every legacy skill in `store.json` (those still carrying `instructions`/`references`). Generates a SKILL.md from the legacy fields, moves files into `references/`, rewrites the store entry, and is idempotent on re-runs. **TODO(v0.X)**: remove after a couple of releases (see Low Priority).
+- **Legacy stores → breaking change, no migrator** — pre-decision-#29 stores are flagged at load time by `store.detectBrokenSkills`. Each broken skill (entry with fields outside `{id, slug}`) gets one WARN-level log on startup with id/reason/action and is filtered out of every `*Store` accessor (`ListSkills`, `GetSkill`, `GetSkillBySlug`, `ListRawSkills`, `GetRawSkill`). The admin UI doesn't see them, the agent build path doesn't link them, and the upload handler can re-create the same slug as a clean skill. The legacy entry stays in `store.json` until the operator removes it by hand and re-uploads. No auto-migration, no on-disk repair: an earlier compat layer rotted silently and produced corrupted SKILL.md files.
+- **Tolerant frontmatter parsing** — admin GET (`hydrateSkill`) uses a permissive YAML decode so non-canonical frontmatter keys (`version:`, `author:`, `tags:`) don't blank the viewer; runtime uses `agent/tools/skills.TolerantSource` so the agent toolset stays alive when ADK's strict `KnownFields(true)` parser would have rejected the SKILL.md outright.
+- **Magec-flavoured markdown renderer** — `frontend/admin-ui/src/lib/markdown.js` + `.magec-markdown` block in `style.css`. Custom `marked` renderer + tiny regex syntax highlighter for YAML/JSON/bash/Go/JS/TS/Python/Markdown. No external highlight library; visual choices documented inline.
 
 ### Earlier branch (`feature/flow-state`, 2026-05-04)
 
@@ -265,12 +267,6 @@ ADK supports agents as tools — orchestrator decides at runtime which specialis
 ### Remove `migrateTTSConfig` Store Migration
 
 Introduced in v0.18.0. By v0.20.0 all installations will have migrated. Remove from `server/store/store.go`.
-
----
-
-### Remove skills filesystem migrator
-
-Introduced in this branch (`feature/lazy-load-skills`) to translate the legacy in-store `Instructions`/`References` fields into the on-disk `data/skills/{slug}/SKILL.md` layout (decision #29). After at least two releases on the new layout, every install will have migrated and the migrator is dead weight. Remove `agent/tools/skills.MigrateLegacySkills` plus the call from `server/store/store.go:loadFromDisk`. The package's other helpers (`AgentFS`, `ParsePackage`, `WritePackage`, slug helpers) stay.
 
 ---
 

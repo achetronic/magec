@@ -10,6 +10,7 @@ package skills
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"testing/fstest"
 )
@@ -69,7 +70,7 @@ func TestTolerantSource_HumanizerCase(t *testing.T) {
 	if err != nil {
 		t.Fatalf("LoadInstructions: %v", err)
 	}
-	if !contains(body, "# Humanizer") {
+	if !strings.Contains(body, "# Humanizer") {
 		t.Errorf("body missing heading: %q", body)
 	}
 }

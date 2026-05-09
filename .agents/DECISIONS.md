@@ -803,18 +803,59 @@ ADK's `skilltoolset` operates over a `skill.Source`. Magec uses `skill.NewFileSy
 
 This mirrors the universe of decisions #17 (artifacts toolset), #28 (flow-state toolset), etc.: **scope-restricted toolsets injected at build time**, no runtime negotiation.
 
-### Migration (temporary)
+### Breaking change — no migrator, no auto-repair
 
-`agent/tools/skills.MigrateLegacySkills` runs from `store.loadFromDisk` after `migrateTTSConfig`. For every legacy skill in `store.json` (those still carrying `instructions`/`references`):
+Pre-decision-#29 stores carried `Instructions` / `References[]` /
+`Name` / `Description` directly on each skill entry. The new shape
+keeps only `{ID, Slug}`. We deliberately do NOT ship a migrator
+that rewrites the legacy entries:
 
-1. Slugifies the `Name` (with collision suffixes when multiple legacy skills produce the same slug).
-2. Generates `data/skills/{slug}/SKILL.md` from the legacy `Name` + `Description` + `Instructions`.
-3. Moves every legacy file from `data/skills/{ID}/` to `data/skills/{slug}/references/` (the old UI only exposed a single bucket so all files inherit the `references/` kind).
-4. Rewrites the JSON entry to the new minimal shape and removes the legacy `data/skills/{ID}/` directory if empty.
+- **Auto-migration is the wrong default for skill content.** The
+  operator wrote those instructions; rebuilding them from
+  truncated/legacy fields gets us a SKILL.md the operator did not
+  author. Better that they re-upload the canonical package
+  themselves.
+- **A persistent compat layer rots silently.** The first iteration
+  did include one; it left half-written SKILL.md files with
+  stacked frontmatters and resources mis-routed under
+  `references/{references,assets,scripts}/...` because every
+  edge case it tried to handle was a new edge case it broke. Once
+  removed, every store stays clean by construction.
 
-The migrator is idempotent — already-migrated stores pass through untouched.
+**Detection at startup**: `store.detectBrokenSkills` walks the raw
+`store.json` bytes and flags every skill entry that carries fields
+outside `{id, slug}`. Each flagged ID is logged once at WARN level
+on load with a clear instruction:
 
-**TODO(v0.X)**: remove the migrator after at least two releases. Tracked in `.agents/TODO.md` under "Low Priority".
+```
+WARN skill in legacy format and will be ignored — re-upload through the admin UI
+   id=abc-123
+   reason="legacy fields present: instructions, name, references"
+   action="remove the entry from data/store.json and re-upload the skill via Skills → Upload Skill"
+```
+
+**Runtime behaviour**: every Skill accessor on `*Store`
+(`ListSkills`, `GetSkill`, `GetSkillBySlug`, `ListRawSkills`,
+`GetRawSkill`) silently filters broken IDs out. The admin UI
+therefore doesn't see them, the agent build path doesn't link
+them, and the upload handler can re-create the same slug as a
+clean skill (the broken entry no longer claims it). The legacy
+entry stays in `store.json` until the operator removes it by
+hand — we never overwrite the file behind the operator's back.
+
+**Operator playbook**:
+
+1. Read the WARN log to find the affected skill IDs.
+2. Edit `data/store.json` and delete each flagged entry from the
+   `"skills": [...]` array.
+3. Open the admin UI → Skills → Upload Skill, drop a SKILL.md or
+   `.zip`/`.tar.gz` package built against the
+   [Agent Skills specification](https://agentskills.io/specification).
+4. Re-link the skill on every agent that previously used it
+   (the link is by ID, so a fresh upload gets a fresh ID).
+
+This playbook is the entire migration path. There is no fallback,
+no automatic conversion, no "try harder" repair pass.
 
 ### Do not
 
@@ -823,19 +864,22 @@ The migrator is idempotent — already-migrated stores pass through untouched.
 - Add ad-hoc endpoints for individual file uploads or single-field edits. Upload-only via `/skills/upload` keeps the admin API and the operator's mental model aligned.
 - Bypass the per-agent `AgentFS` whitelist. The whole agent → skill scoping invariant lives there; if a future feature needs to expand scope (e.g. expose every skill to a "super-agent"), it should pass an explicit allow-all list, not skip the wrapper.
 - Use a custom `skill.Source` adapter just to bridge a different on-disk layout. ADK's `FileSystemSource` plus our `AgentFS` is the entire bridge — keep it that way.
+- Reintroduce a migrator or auto-repair pass for legacy stores. Decided against during the first cut: a compat layer rotted silently and produced corrupted on-disk packages. The breaking-change path (detect + log + filter) is the contract, full stop.
 
 **Files**:
 
 - `server/store/types.go` — `Skill{ID, Slug}` (legacy fields removed).
-- `server/store/store.go` — Skill CRUD, `SkillsDir()`, `SkillDir(slug)`, migrator wiring.
+- `server/store/store.go` — Skill CRUD, `SkillsDir()`, `SkillDir(slug)`, `detectBrokenSkills`, broken-skill filter on every accessor.
+- `server/store/skills_broken_test.go` — detection + accessor-filter tests.
 - `server/agent/tools/skills/agentfs.go` + tests — per-agent fs.FS whitelist wrapper.
 - `server/agent/tools/skills/package.go` + tests — `ParsePackage`, `WritePackage`, `PackageAsTarGz`, slug helpers.
-- `server/agent/tools/skills/migrate.go` + tests — legacy → new layout migrator.
+- `server/agent/tools/skills/tolerant.go` + tests — permissive `skill.Source` wrapper that survives non-canonical frontmatter keys (`version:`, `author:`, …).
 - `server/agent/agent.go` — `buildSkillToolset`, `BuildAgentInstanceParams.SkillSlugs`/`SkillsDir`, removal of inline skill injection in `buildInstruction`.
 - `server/agent/flow.go` — propagates `SkillSlugs`/`SkillsDir` through `FlowBuildDeps`.
-- `server/api/admin/skills.go` — upload-only handlers, hydrated GET shape.
+- `server/api/admin/skills.go` — upload-only handlers, hydrated GET shape with permissive frontmatter parser.
 - `server/api/admin/handler.go` — new route table.
 - `frontend/admin-ui/src/views/skills/SkillDialog.vue` — upload-only modal with replace toggle.
 - `frontend/admin-ui/src/views/skills/SkillViewDialog.vue` — read-only viewer (frontmatter, instructions, resources, download).
 - `frontend/admin-ui/src/views/skills/SkillsList.vue` — opens viewer on click, upload from header button.
 - `frontend/admin-ui/src/lib/api/skills.js` — upload/get/list/delete/download.
+- `frontend/admin-ui/src/lib/markdown.js` + style.css `.magec-markdown` block — Magec-flavoured markdown renderer for skill instructions.
