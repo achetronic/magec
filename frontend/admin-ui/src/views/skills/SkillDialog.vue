@@ -1,13 +1,30 @@
 <template>
   <AppDialog ref="dialogRef" title="Upload Skill" size="lg">
     <div class="space-y-4">
-      <p class="text-xs text-arena-400">
-        Upload a <span class="text-cyan-400">SKILL.md</span> with valid YAML frontmatter, or a
-        <span class="text-cyan-400">.zip</span> / <span class="text-cyan-400">.tar.gz</span> package
-        containing <code class="text-arena-300">SKILL.md</code> at the root plus optional
-        <code class="text-arena-300">references/</code>, <code class="text-arena-300">assets/</code>
-        and <code class="text-arena-300">scripts/</code> sub-directories.
-      </p>
+      <!-- The viewer is opinionated by upstream contract: ADK's
+           skilltoolset only accepts the layout from the Agent Skills
+           specification (SKILL.md at root + references/, assets/,
+           scripts/ subtrees). We surface that to the operator before
+           the dropzone instead of letting them upload something we'd
+           reject with a 400, and link the spec so the choice is
+           informed rather than guessed. -->
+      <!-- Inline intro: title-weight first line tells the operator
+           what to drop, sub-line points at the spec they need to
+           follow. No card / box — the modal itself is the canvas. -->
+      <div class="space-y-1">
+        <p class="text-[13px] text-arena-200 leading-6">
+          Drop a <code class="px-1 py-0.5 rounded bg-piedra-800 text-arena-200 font-mono text-[11px]">SKILL.md</code>
+          or a packaged skill
+          (<code class="px-1 py-0.5 rounded bg-piedra-800 text-arena-200 font-mono text-[11px]">.zip</code>
+          / <code class="px-1 py-0.5 rounded bg-piedra-800 text-arena-200 font-mono text-[11px]">.tar.gz</code>).
+        </p>
+        <p class="text-[11px] text-arena-500 leading-6">
+          Skills must follow the
+          <a href="https://agentskills.io/specification"
+             target="_blank" rel="noopener"
+             class="text-sol-400 hover:text-sol-300 underline underline-offset-2 decoration-sol-400/40 hover:decoration-sol-300">official Agent Skills specification</a>.
+        </p>
+      </div>
 
       <div
         @dragover.prevent="dragOver = true"
@@ -16,16 +33,16 @@
         @click="fileInput?.click()"
         class="flex flex-col items-center justify-center gap-3 py-12 border-2 border-dashed rounded-xl cursor-pointer transition-colors"
         :class="dragOver
-          ? 'border-cyan-500/50 bg-cyan-500/5'
+          ? 'border-sol-400/50 bg-sol-500/5'
           : 'border-piedra-700/40 hover:border-piedra-600 bg-piedra-800/30'"
       >
         <template v-if="!file">
           <Icon name="upload" size="lg" class="text-arena-500" />
-          <p class="text-xs text-arena-400">Drop a file here or <span class="text-cyan-400 underline">browse</span></p>
+          <p class="text-xs text-arena-400">Drop a file here or <span class="text-sol-400 underline">browse</span></p>
           <p class="text-[10px] text-arena-600">SKILL.md, .zip, .tar.gz</p>
         </template>
         <template v-else>
-          <Icon name="command" size="lg" class="text-cyan-400" />
+          <Icon name="command" size="lg" class="text-sol-400" />
           <p class="text-xs text-arena-200 font-medium">{{ file.name }}</p>
           <p class="text-[10px] text-arena-500">{{ formatSize(file.size) }}</p>
           <button type="button" @click.stop="clearFile" class="text-[10px] text-lava-400 hover:text-lava-300 transition-colors">Remove</button>
@@ -42,7 +59,7 @@
 
       <div v-if="file" class="border border-piedra-700/40 rounded-xl px-4 py-3 space-y-2">
         <label class="flex items-center gap-2 text-[11px] text-arena-300">
-          <input type="checkbox" v-model="replace" class="accent-cyan-500" />
+          <input type="checkbox" v-model="replace" class="accent-sol-500" />
           Replace if a skill with this slug already exists
         </label>
         <p class="text-[10px] text-arena-500">
