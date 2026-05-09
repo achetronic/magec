@@ -2,7 +2,16 @@
 
 ## Recently Completed
 
-### This branch (`feature/flow-state`, 2026-05-04)
+### This branch (`feature/lazy-load-skills`, 2026-05-09)
+
+- **Skills as on-disk packages** — skills now live at `data/skills/{slug}/SKILL.md` with optional `references/`, `assets/`, `scripts/` sub-trees. Store keeps only `{id, slug}`; everything else (frontmatter, instructions, resources) is read live from disk. Inline injection into system prompts is gone. Decision #29.
+- **Per-agent `skilltoolset`** — adopted `google.golang.org/adk/tool/skilltoolset` (v1.2.0). Each agent gets its own `skilltoolset` rooted at `data/skills/` but filtered through `agent/tools/skills.AgentFS`, an `fs.FS` wrapper that whitelists only the slugs linked to the agent. Agents with no linked skills get no toolset at all.
+- **Single upload endpoint (`POST /skills/upload`)** — accepts a SKILL.md or a `.zip`/`.tar.gz` package; `?replace=true` overwrites an existing skill that owns the same slug while preserving its store ID so agent links stay valid. Replaces the old `/skills`, `/skills/{id}`, `/skills/{id}/references`, `/skills/{id}/package` admin endpoints.
+- **Read-only Skill viewer (admin UI)** — `SkillViewDialog.vue` opens on card click, renders frontmatter (license, compatibility, allowed-tools, custom metadata), instructions as Markdown, and lists every resource grouped by `references/assets/scripts`. Includes a Download button that streams the on-disk package as `tar.gz` for backups or magec-to-magec copies.
+- **Upload-only Skill modal** — `SkillDialog.vue` no longer has Manual/Package toggle, Name/Description/Instructions fields, or a per-file uploader. One dropzone, one button.
+- **Legacy migrator** — `agent/tools/skills.MigrateLegacySkills` runs from `store.loadFromDisk` for every legacy skill in `store.json` (those still carrying `instructions`/`references`). Generates a SKILL.md from the legacy fields, moves files into `references/`, rewrites the store entry, and is idempotent on re-runs. **TODO(v0.X)**: remove after a couple of releases (see Low Priority).
+
+### Earlier branch (`feature/flow-state`, 2026-05-04)
 
 - **Flow-shared state** — agents inside any flow get `set_state(key, value)` and `get_state(key)` tools backed by `session.state` under the `flow:` prefix. Standalone agents do not get them. Implemented in `server/agent/tools/flowstate/`. Decision #28.
 - **LLM-driven loop exit** — loop steps gained an `ExitLoop` flag. When set, every agent in the loop's subtree (any depth, propagated through nested sequentials/parallels) receives ADK's native `exit_loop` tool. The current iteration completes before the loop terminates (matches ADK's loopagent semantics). Decision #28.
@@ -105,24 +114,6 @@ See `.agents/ADK_TOOLS.md` for protocol details.
 ---
 
 ## Medium Priority
-
-### Adopt ADK's `tool/skilltoolset` for Skills
-
-**Status**: Available since ADK v1.2.0, not adopted.
-
-Magec currently injects the full content of every linked Skill into the agent's system prompt at build time (instructions appended as `--- Skill: {name} ---`, references inlined as `[Reference: {filename}]`). Works but inflates the prompt and burns context every turn, even when the model wouldn't have used the Skill.
-
-ADK upstream now ships `tool/skilltoolset` with three tools (`list_skills`, `load_skill`, `load_skill_resource`). The model sees a short list of available Skills and calls `load_skill` only when one is relevant; instructions arrive as a function-call result instead of fixed prompt content.
-
-**Implications**:
-
-- Smaller, more dynamic system prompts.
-- Need a `skill.Source` adapter over `data/skills/` (today's directory layout already mostly matches: `SKILL.md` + `references/`; would need to reshape the metadata).
-- UX shift: "plug-and-play in prompt" → "LLM decides to load". Behaviour difference worth piloting on a few agents before rolling broadly.
-
-**Files**: `server/agent/agent.go` (`buildInstruction` / Skills loop), new adapter under `server/agent/tools/` or similar, `frontend/admin-ui/src/views/skills/` for any UI changes.
-
----
 
 ### Use `artifact.Service.GetArtifactVersion` for richer metadata
 
@@ -274,6 +265,12 @@ ADK supports agents as tools — orchestrator decides at runtime which specialis
 ### Remove `migrateTTSConfig` Store Migration
 
 Introduced in v0.18.0. By v0.20.0 all installations will have migrated. Remove from `server/store/store.go`.
+
+---
+
+### Remove skills filesystem migrator
+
+Introduced in this branch (`feature/lazy-load-skills`) to translate the legacy in-store `Instructions`/`References` fields into the on-disk `data/skills/{slug}/SKILL.md` layout (decision #29). After at least two releases on the new layout, every install will have migrated and the migrator is dead weight. Remove `agent/tools/skills.MigrateLegacySkills` plus the call from `server/store/store.go:loadFromDisk`. The package's other helpers (`AgentFS`, `ParsePackage`, `WritePackage`, slug helpers) stay.
 
 ---
 

@@ -1,43 +1,96 @@
+// Copyright 2025 Alby Hernández
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+
 package admin
 
 import (
-	"archive/tar"
-	"archive/zip"
 	"bytes"
-	"compress/gzip"
-	"encoding/json"
+	"context"
+	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"net/http"
 	"os"
 	"path/filepath"
+	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/gorilla/mux"
+	"gopkg.in/yaml.v3"
 
+	skillsmod "github.com/achetronic/magec/server/agent/tools/skills"
 	"github.com/achetronic/magec/server/store"
 )
 
-// listSkills returns all skills.
+// SkillView is the shape returned by the admin API for a single skill.
+// All fields except `id` and `slug` are read live from disk so the API
+// never serves stale metadata after an out-of-band edit.
+//
+// `name` and `description` are the frontmatter values (NOT a store
+// override — decision #29 keeps the store at {id, slug} only). Other
+// frontmatter fields are surfaced verbatim through the `frontmatter`
+// map so the UI can render whatever the operator put in the SKILL.md
+// — including non-canonical keys (`version`, `author`, etc.) that
+// ADK's strict `KnownFields` parser would otherwise reject. We use a
+// permissive YAML decode here so a single unrecognised key cannot
+// blank out the whole viewer.
+type SkillView struct {
+	ID           string         `json:"id"`
+	Slug         string         `json:"slug"`
+	Name         string         `json:"name"`
+	Description  string         `json:"description"`
+	Instructions string         `json:"instructions"`
+	Frontmatter  map[string]any `json:"frontmatter"`
+	Resources    []SkillResource `json:"resources"`
+}
+
+// SkillResource is one file uploaded under the skill's references/,
+// assets/ or scripts/ subtree. Path is the full relative path under
+// the skill directory so the UI can preserve nested layouts.
+type SkillResource struct {
+	Kind string `json:"kind"`
+	Path string `json:"path"`
+	Size int64  `json:"size"`
+}
+
+// listSkills returns every skill known to the store, hydrated with the
+// data parsed from each SKILL.md. Skills whose on-disk package has
+// gone missing are reported with empty frontmatter so the operator can
+// still see the orphan record and delete it.
+//
 // @Summary      List skills
-// @Description  Returns all configured skills
+// @Description  Returns all configured skills with their on-disk metadata
 // @Tags         skills
 // @Produce      json
-// @Success      200  {array}  store.Skill
+// @Success      200  {array}  SkillView
 // @Security     AdminAuth
 // @Router       /skills [get]
 func (h *Handler) listSkills(w http.ResponseWriter, r *http.Request) {
 	skills := h.store.ListRawSkills()
-	writeJSON(w, http.StatusOK, skills)
+	root := h.store.SkillsDir()
+	out := make([]SkillView, 0, len(skills))
+	for _, sk := range skills {
+		out = append(out, hydrateSkill(sk, root))
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Slug < out[j].Slug })
+	writeJSON(w, http.StatusOK, out)
 }
 
-// getSkill returns a single skill by ID.
+// getSkill returns a single skill view.
+//
 // @Summary      Get skill
-// @Description  Returns a skill by its unique ID
+// @Description  Returns a skill with its on-disk frontmatter, instructions and resources
 // @Tags         skills
 // @Produce      json
 // @Param        id    path      string  true  "Skill ID"
-// @Success      200   {object}  store.Skill
+// @Success      200   {object}  SkillView
 // @Failure      404   {object}  ErrorResponse
 // @Security     AdminAuth
 // @Router       /skills/{id} [get]
@@ -48,81 +101,107 @@ func (h *Handler) getSkill(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "skill not found")
 		return
 	}
-	writeJSON(w, http.StatusOK, sk)
+	writeJSON(w, http.StatusOK, hydrateSkill(sk, h.store.SkillsDir()))
 }
 
-// createSkill creates a new skill.
-// @Summary      Create skill
-// @Description  Creates a new skill with instructions and optional references
+// uploadSkill is the single entry point for both creating a new skill
+// and replacing an existing one. The accepted formats are documented
+// in skillsmod.ParsePackage. Validation errors are surfaced verbatim
+// so the operator can fix the SKILL.md / archive without guessing.
+//
+// Conflict resolution: the SKILL.md frontmatter `name` becomes the
+// on-disk slug, which must be unique. If a skill with the same slug
+// already exists, the request fails with 409 unless `?replace=true`
+// is set, in which case the existing skill's directory is overwritten
+// and its store ID is preserved (so agent links remain valid).
+//
+// @Summary      Upload a skill
+// @Description  Creates or replaces a skill from a SKILL.md or a .zip/.tar.gz package
 // @Tags         skills
-// @Accept       json
+// @Accept       multipart/form-data
 // @Produce      json
-// @Param        body  body      store.Skill  true  "Skill definition"
-// @Success      201   {object}  store.Skill
-// @Failure      400   {object}  ErrorResponse
-// @Failure      409   {object}  ErrorResponse
+// @Param        file     formData  file   true  "SKILL.md, .zip or .tar.gz"
+// @Param        replace  query     bool   false "Overwrite if a skill with the same slug already exists"
+// @Success      200      {object}  SkillView
+// @Success      201      {object}  SkillView
+// @Failure      400      {object}  ErrorResponse
+// @Failure      409      {object}  ErrorResponse
 // @Security     AdminAuth
-// @Router       /skills [post]
-func (h *Handler) createSkill(w http.ResponseWriter, r *http.Request) {
-	var sk store.Skill
-	if err := json.NewDecoder(r.Body).Decode(&sk); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid JSON: "+err.Error())
+// @Router       /skills/upload [post]
+func (h *Handler) uploadSkill(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseMultipartForm(50 << 20); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid multipart form: "+err.Error())
 		return
 	}
-	if sk.Name == "" {
-		writeError(w, http.StatusBadRequest, "name is required")
-		return
-	}
-	if sk.Instructions == "" {
-		writeError(w, http.StatusBadRequest, "instructions are required")
-		return
-	}
-	sk.References = nil
-	created, err := h.store.CreateSkill(sk)
+	file, header, err := r.FormFile("file")
 	if err != nil {
-		writeError(w, http.StatusConflict, err.Error())
+		writeError(w, http.StatusBadRequest, "file is required")
 		return
 	}
-	writeJSON(w, http.StatusCreated, created)
+	defer file.Close()
+
+	body, err := io.ReadAll(io.LimitReader(file, 50<<20))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "failed to read upload: "+err.Error())
+		return
+	}
+
+	pkg, err := skillsmod.ParsePackage(header.Filename, body)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	slug := pkg.Frontmatter.Name
+	replace, _ := strconv.ParseBool(r.URL.Query().Get("replace"))
+	existing, slugTaken := h.store.GetSkillBySlug(slug)
+
+	if slugTaken && !replace {
+		writeJSON(w, http.StatusConflict, map[string]any{
+			"error":      fmt.Sprintf("a skill with slug %q already exists", slug),
+			"existingId": existing.ID,
+			"slug":       slug,
+		})
+		return
+	}
+
+	root := h.store.SkillsDir()
+	if err := os.MkdirAll(root, 0o755); err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to create skills directory: "+err.Error())
+		return
+	}
+	if err := skillsmod.WritePackage(root, slug, pkg); err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to write skill package: "+err.Error())
+		return
+	}
+
+	var saved store.Skill
+	status := http.StatusCreated
+	if slugTaken {
+		// Replace path: keep the same store ID so existing agent
+		// links keep working. The on-disk directory has already been
+		// rewritten above.
+		if err := h.store.UpdateSkill(existing.ID, store.Skill{ID: existing.ID, Slug: slug}); err != nil {
+			writeError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		saved = store.Skill{ID: existing.ID, Slug: slug}
+		status = http.StatusOK
+	} else {
+		saved, err = h.store.CreateSkill(store.Skill{Slug: slug})
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+	}
+
+	writeJSON(w, status, hydrateSkill(saved, root))
 }
 
-// updateSkill updates an existing skill.
-// @Summary      Update skill
-// @Description  Updates a skill by ID
-// @Tags         skills
-// @Accept       json
-// @Produce      json
-// @Param        id    path      string       true  "Skill ID"
-// @Param        body  body      store.Skill  true  "Skill definition"
-// @Success      200   {object}  store.Skill
-// @Failure      400   {object}  ErrorResponse
-// @Failure      404   {object}  ErrorResponse
-// @Security     AdminAuth
-// @Router       /skills/{id} [put]
-func (h *Handler) updateSkill(w http.ResponseWriter, r *http.Request) {
-	id := mux.Vars(r)["id"]
-	var sk store.Skill
-	if err := json.NewDecoder(r.Body).Decode(&sk); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid JSON: "+err.Error())
-		return
-	}
-	existing, ok := h.store.GetRawSkill(id)
-	if !ok {
-		writeError(w, http.StatusNotFound, "skill not found")
-		return
-	}
-	sk.References = existing.References
-	if err := h.store.UpdateSkill(id, sk); err != nil {
-		writeError(w, http.StatusNotFound, err.Error())
-		return
-	}
-	updated, _ := h.store.GetRawSkill(id)
-	writeJSON(w, http.StatusOK, updated)
-}
-
-// deleteSkill deletes a skill.
+// deleteSkill removes the store record and the on-disk package.
+//
 // @Summary      Delete skill
-// @Description  Deletes a skill by ID
+// @Description  Deletes a skill and its on-disk package
 // @Tags         skills
 // @Param        id  path  string  true  "Skill ID"
 // @Success      204
@@ -138,373 +217,162 @@ func (h *Handler) deleteSkill(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// uploadSkillReference uploads a file as a skill reference.
-// @Summary      Upload skill reference
-// @Description  Uploads a file and registers it as a reference for the skill
+// downloadSkill streams the skill's directory as a tar.gz so operators
+// can back it up or copy it between magec instances. Re-uploading the
+// produced archive via /skills/upload?replace=true reconstructs the
+// same skill verbatim.
+//
+// @Summary      Download skill package
+// @Description  Streams the skill's on-disk directory as a tar.gz archive
 // @Tags         skills
-// @Accept       multipart/form-data
-// @Produce      json
-// @Param        id    path      string  true  "Skill ID"
-// @Param        file  formData  file    true  "Reference file"
-// @Success      201   {object}  store.SkillReference
-// @Failure      400   {object}  ErrorResponse
-// @Failure      404   {object}  ErrorResponse
-// @Failure      409   {object}  ErrorResponse
-// @Security     AdminAuth
-// @Router       /skills/{id}/references [post]
-func (h *Handler) uploadSkillReference(w http.ResponseWriter, r *http.Request) {
-	id := mux.Vars(r)["id"]
-
-	if _, ok := h.store.GetSkill(id); !ok {
-		writeError(w, http.StatusNotFound, "skill not found")
-		return
-	}
-
-	r.ParseMultipartForm(10 << 20) // 10 MB limit
-	file, header, err := r.FormFile("file")
-	if err != nil {
-		writeError(w, http.StatusBadRequest, "file is required")
-		return
-	}
-	defer file.Close()
-
-	filename := filepath.Base(header.Filename)
-	if filename == "" || filename == "." {
-		writeError(w, http.StatusBadRequest, "invalid filename")
-		return
-	}
-	if strings.Contains(filename, "..") {
-		writeError(w, http.StatusBadRequest, "invalid filename")
-		return
-	}
-
-	dir := h.store.SkillDir(id)
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		writeError(w, http.StatusInternalServerError, fmt.Sprintf("failed to create directory: %v", err))
-		return
-	}
-
-	dst, err := os.Create(filepath.Join(dir, filename))
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, fmt.Sprintf("failed to create file: %v", err))
-		return
-	}
-	defer dst.Close()
-
-	written, err := io.Copy(dst, file)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, fmt.Sprintf("failed to write file: %v", err))
-		return
-	}
-
-	ref := store.SkillReference{
-		Filename: filename,
-		Size:     written,
-	}
-
-	if err := h.store.AddSkillReference(id, ref); err != nil {
-		os.Remove(filepath.Join(dir, filename))
-		if strings.Contains(err.Error(), "already exists") {
-			writeError(w, http.StatusConflict, err.Error())
-		} else {
-			writeError(w, http.StatusNotFound, err.Error())
-		}
-		return
-	}
-
-	writeJSON(w, http.StatusCreated, ref)
-}
-
-// downloadSkillReference serves a skill reference file.
-// @Summary      Download skill reference
-// @Description  Downloads a reference file from a skill
-// @Tags         skills
-// @Produce      octet-stream
-// @Param        id        path  string  true  "Skill ID"
-// @Param        filename  path  string  true  "Reference filename"
+// @Produce      application/gzip
+// @Param        id  path  string  true  "Skill ID"
 // @Success      200
 // @Failure      404  {object}  ErrorResponse
 // @Security     AdminAuth
-// @Router       /skills/{id}/references/{filename} [get]
-func (h *Handler) downloadSkillReference(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	id := vars["id"]
-	filename := vars["filename"]
-
-	if _, ok := h.store.GetSkill(id); !ok {
-		writeError(w, http.StatusNotFound, "skill not found")
-		return
-	}
-
-	if strings.Contains(filename, "..") || strings.Contains(filename, "/") {
-		writeError(w, http.StatusBadRequest, "invalid filename")
-		return
-	}
-
-	path := filepath.Join(h.store.SkillDir(id), filename)
-	if _, err := os.Stat(path); os.IsNotExist(err) {
-		writeError(w, http.StatusNotFound, "reference file not found")
-		return
-	}
-
-	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", filename))
-	http.ServeFile(w, r, path)
-}
-
-// deleteSkillReference deletes a skill reference file.
-// @Summary      Delete skill reference
-// @Description  Removes a reference file from a skill
-// @Tags         skills
-// @Param        id        path  string  true  "Skill ID"
-// @Param        filename  path  string  true  "Reference filename"
-// @Success      204
-// @Failure      404  {object}  ErrorResponse
-// @Security     AdminAuth
-// @Router       /skills/{id}/references/{filename} [delete]
-func (h *Handler) deleteSkillReference(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	id := vars["id"]
-	filename := vars["filename"]
-
-	if strings.Contains(filename, "..") || strings.Contains(filename, "/") {
-		writeError(w, http.StatusBadRequest, "invalid filename")
-		return
-	}
-
-	if err := h.store.RemoveSkillReference(id, filename); err != nil {
-		writeError(w, http.StatusNotFound, err.Error())
-		return
-	}
-
-	path := filepath.Join(h.store.SkillDir(id), filename)
-	os.Remove(path)
-
-	w.WriteHeader(http.StatusNoContent)
-}
-
-// uploadSkillPackage extracts a ZIP or tar.gz archive into a skill's directory.
-// SKILL.md is required; its content populates the instructions field.
-// If the SKILL.md has valid YAML frontmatter, name and description are extracted.
-// All other files are registered as references.
-// @Summary      Upload skill package
-// @Description  Uploads a ZIP or tar.gz archive containing a SKILL.md and optional reference files
-// @Tags         skills
-// @Accept       multipart/form-data
-// @Produce      json
-// @Param        id    path      string  true  "Skill ID"
-// @Param        file  formData  file    true  "Package archive (ZIP or tar.gz)"
-// @Success      200   {object}  store.Skill
-// @Failure      400   {object}  ErrorResponse
-// @Failure      404   {object}  ErrorResponse
-// @Security     AdminAuth
-// @Router       /skills/{id}/package [post]
-func (h *Handler) uploadSkillPackage(w http.ResponseWriter, r *http.Request) {
+// @Router       /skills/{id}/download [get]
+func (h *Handler) downloadSkill(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
-
-	if _, ok := h.store.GetSkill(id); !ok {
+	sk, ok := h.store.GetRawSkill(id)
+	if !ok {
 		writeError(w, http.StatusNotFound, "skill not found")
 		return
 	}
-
-	r.ParseMultipartForm(50 << 20) // 50 MB limit
-	file, header, err := r.FormFile("file")
+	tgz, err := skillsmod.PackageAsTarGz(h.store.SkillsDir(), sk.Slug)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, "file is required")
+		if errors.Is(err, fs.ErrNotExist) {
+			writeError(w, http.StatusNotFound, "skill package not found on disk")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "failed to package skill: "+err.Error())
 		return
 	}
-	defer file.Close()
+	w.Header().Set("Content-Type", "application/gzip")
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", sk.Slug+".tar.gz"))
+	_, _ = w.Write(tgz)
+}
 
-	buf, err := io.ReadAll(io.LimitReader(file, 50<<20))
-	if err != nil {
-		writeError(w, http.StatusBadRequest, "failed to read file: "+err.Error())
-		return
+// hydrateSkill reads the on-disk SKILL.md and resource tree for a
+// stored skill and returns the full SkillView. When the on-disk
+// package is missing or unreadable the view still contains the bare
+// {id, slug} so the UI can show an "orphan" entry the operator can
+// delete; the missing data is left at zero values.
+//
+// Frontmatter parsing is intentionally PERMISSIVE: ADK's own parser
+// uses `KnownFields(true)` and rejects any extra key, but real-world
+// SKILL.md files in the wild routinely carry `version`, `author`,
+// `tags`, etc. We can't make those skills disappear from the admin
+// UI just because of a stricter spec — so we decode the YAML as
+// `map[string]any` here. Runtime (the agent's skilltoolset) uses a
+// separate, equally-tolerant wrapper so a misnamed key cannot break
+// agent rebuild either.
+func hydrateSkill(sk store.Skill, root string) SkillView {
+	v := SkillView{
+		ID:        sk.ID,
+		Slug:      sk.Slug,
+		Resources: []SkillResource{},
+	}
+	if sk.Slug == "" || root == "" {
+		return v
 	}
 
-	var files map[string][]byte
-	name := strings.ToLower(header.Filename)
-	switch {
-	case strings.HasSuffix(name, ".zip"):
-		files, err = extractZip(buf)
-	case strings.HasSuffix(name, ".tar.gz") || strings.HasSuffix(name, ".tgz"):
-		files, err = extractTarGz(buf)
+	skillDir := filepath.Join(root, sk.Slug)
+	body, err := os.ReadFile(filepath.Join(skillDir, "SKILL.md"))
+	if err == nil {
+		if fm, instructions, ok := parseFrontmatterPermissive(body); ok {
+			v.Frontmatter = fm
+			if name, _ := fm["name"].(string); name != "" {
+				v.Name = name
+			}
+			v.Description = stringFromAny(fm["description"])
+			v.Instructions = instructions
+		}
+	}
+
+	v.Resources = walkResources(context.Background(), skillDir)
+	return v
+}
+
+// parseFrontmatterPermissive splits a SKILL.md into its YAML
+// frontmatter (decoded as a map) and the markdown body that follows
+// the closing delimiter. Unknown fields are kept; YAML decode errors
+// or a missing closing delimiter cause the whole frontmatter to be
+// dropped (the body is still returned so the UI shows the
+// instructions even when the metadata is malformed).
+func parseFrontmatterPermissive(raw []byte) (map[string]any, string, bool) {
+	trimmed := bytes.TrimLeft(raw, " \t\r\n")
+	if !bytes.HasPrefix(trimmed, []byte("---\n")) && !bytes.HasPrefix(trimmed, []byte("---\r\n")) {
+		return nil, string(raw), false
+	}
+	// Locate the closing "---\n" line.
+	rest := trimmed[len("---\n"):]
+	closeIdx := bytes.Index(rest, []byte("\n---\n"))
+	if closeIdx < 0 {
+		closeIdx = bytes.Index(rest, []byte("\n---\r\n"))
+	}
+	if closeIdx < 0 {
+		return nil, string(raw), false
+	}
+	yamlBlock := rest[:closeIdx]
+	body := rest[closeIdx:]
+	// Skip the trailing "\n---\n" (or \r\n variant).
+	if i := bytes.Index(body, []byte("\n---\n")); i == 0 {
+		body = body[len("\n---\n"):]
+	} else if i := bytes.Index(body, []byte("\n---\r\n")); i == 0 {
+		body = body[len("\n---\r\n"):]
+	}
+
+	fm := map[string]any{}
+	if err := yaml.Unmarshal(yamlBlock, &fm); err != nil {
+		return nil, string(body), false
+	}
+	return fm, string(body), true
+}
+
+// stringFromAny coerces map values to a clean string. Multi-line YAML
+// scalars (`description: >\n  ...`) come back from the decoder with a
+// trailing newline; trim it so the UI does not render visual
+// whitespace.
+func stringFromAny(v any) string {
+	if v == nil {
+		return ""
+	}
+	switch x := v.(type) {
+	case string:
+		return strings.TrimSpace(x)
 	default:
-		writeError(w, http.StatusBadRequest, "unsupported format: use .zip or .tar.gz")
-		return
+		return strings.TrimSpace(fmt.Sprint(x))
 	}
-	if err != nil {
-		writeError(w, http.StatusBadRequest, "failed to extract archive: "+err.Error())
-		return
-	}
-
-	files = stripTopLevelDir(files)
-
-	skillMD, ok := files["SKILL.md"]
-	if !ok {
-		writeError(w, http.StatusBadRequest, "archive must contain a SKILL.md at the root")
-		return
-	}
-
-	dir := h.store.SkillDir(id)
-	os.RemoveAll(dir)
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to create directory: "+err.Error())
-		return
-	}
-
-	var refs []store.SkillReference
-	for relPath, content := range files {
-		if relPath == "SKILL.md" {
-			continue
-		}
-		target := filepath.Join(dir, relPath)
-		if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
-			writeError(w, http.StatusInternalServerError, "failed to create directory: "+err.Error())
-			return
-		}
-		if err := os.WriteFile(target, content, 0o644); err != nil {
-			writeError(w, http.StatusInternalServerError, "failed to write file: "+err.Error())
-			return
-		}
-		refs = append(refs, store.SkillReference{Filename: relPath, Size: int64(len(content))})
-	}
-
-	instructions := string(skillMD)
-	skillName, description := parseSkillFrontmatter(instructions)
-	if skillName == "" {
-		skillName = archiveBaseName(header.Filename)
-	}
-
-	sk := store.Skill{
-		Name:         skillName,
-		Description:  description,
-		Instructions: instructions,
-		References:   refs,
-	}
-	if err := h.store.UpdateSkill(id, sk); err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
-		return
-	}
-
-	updated, _ := h.store.GetRawSkill(id)
-	writeJSON(w, http.StatusOK, updated)
 }
 
-func extractZip(data []byte) (map[string][]byte, error) {
-	r, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
-	if err != nil {
-		return nil, err
-	}
-	files := make(map[string][]byte)
-	for _, f := range r.File {
-		clean := filepath.Clean(f.Name)
-		if strings.Contains(clean, "..") {
+// walkResources enumerates every regular file under the three allowed
+// resource sub-directories of a skill package, returning their relative
+// paths plus the kind they belong to. Anything outside those sub-trees
+// is intentionally invisible — ADK's skilltoolset would refuse to read
+// it anyway.
+func walkResources(_ context.Context, skillDir string) []SkillResource {
+	out := []SkillResource{}
+	for _, kind := range skillsmod.ResourceKinds {
+		base := filepath.Join(skillDir, kind)
+		if _, err := os.Stat(base); err != nil {
 			continue
 		}
-		if f.FileInfo().IsDir() {
-			continue
-		}
-		rc, err := f.Open()
-		if err != nil {
-			return nil, err
-		}
-		content, err := io.ReadAll(rc)
-		rc.Close()
-		if err != nil {
-			return nil, err
-		}
-		files[filepath.ToSlash(clean)] = content
+		_ = filepath.Walk(base, func(p string, info os.FileInfo, err error) error {
+			if err != nil || info.IsDir() {
+				return nil
+			}
+			rel, rerr := filepath.Rel(skillDir, p)
+			if rerr != nil {
+				return nil
+			}
+			out = append(out, SkillResource{
+				Kind: kind,
+				Path: filepath.ToSlash(rel),
+				Size: info.Size(),
+			})
+			return nil
+		})
 	}
-	return files, nil
-}
-
-func extractTarGz(data []byte) (map[string][]byte, error) {
-	gz, err := gzip.NewReader(bytes.NewReader(data))
-	if err != nil {
-		return nil, err
-	}
-	defer gz.Close()
-
-	tr := tar.NewReader(gz)
-	files := make(map[string][]byte)
-	for {
-		hdr, err := tr.Next()
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			return nil, err
-		}
-		clean := filepath.Clean(hdr.Name)
-		if strings.Contains(clean, "..") {
-			continue
-		}
-		if hdr.Typeflag != tar.TypeReg {
-			continue
-		}
-		content, err := io.ReadAll(tr)
-		if err != nil {
-			return nil, err
-		}
-		files[filepath.ToSlash(clean)] = content
-	}
-	return files, nil
-}
-
-func stripTopLevelDir(files map[string][]byte) map[string][]byte {
-	if len(files) == 0 {
-		return files
-	}
-	prefix := ""
-	for name := range files {
-		parts := strings.SplitN(name, "/", 2)
-		if len(parts) < 2 {
-			return files
-		}
-		if prefix == "" {
-			prefix = parts[0]
-		} else if parts[0] != prefix {
-			return files
-		}
-	}
-	stripped := make(map[string][]byte, len(files))
-	for name, content := range files {
-		stripped[name[len(prefix)+1:]] = content
-	}
-	return stripped
-}
-
-func parseSkillFrontmatter(text string) (name, description string) {
-	trimmed := strings.TrimSpace(text)
-	if !strings.HasPrefix(trimmed, "---") {
-		return "", ""
-	}
-	after := strings.Index(trimmed[3:], "\n")
-	if after == -1 {
-		return "", ""
-	}
-	rest := trimmed[3+after+1:]
-	closing := strings.Index(rest, "\n---")
-	if closing == -1 {
-		return "", ""
-	}
-	block := rest[:closing]
-	for _, line := range strings.Split(block, "\n") {
-		line = strings.TrimSpace(line)
-		if strings.HasPrefix(line, "name:") {
-			name = strings.TrimSpace(line[5:])
-		} else if strings.HasPrefix(line, "description:") {
-			description = strings.TrimSpace(line[12:])
-		}
-	}
-	return name, description
-}
-
-func archiveBaseName(filename string) string {
-	base := filepath.Base(filename)
-	for _, ext := range []string{".tar.gz", ".tgz", ".zip"} {
-		if strings.HasSuffix(strings.ToLower(base), ext) {
-			return base[:len(base)-len(ext)]
-		}
-	}
-	return strings.TrimSuffix(base, filepath.Ext(base))
+	sort.Slice(out, func(i, j int) bool { return out[i].Path < out[j].Path })
+	return out
 }

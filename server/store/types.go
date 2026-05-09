@@ -197,22 +197,20 @@ type WebhookClientConfig struct {
 	CommandID   string `json:"commandId,omitempty" yaml:"commandId,omitempty"`
 }
 
-// SkillReference holds metadata for a file uploaded as a skill resource.
-// The actual file lives on disk at data/skills/{skillId}/{Filename}.
-type SkillReference struct {
-	Filename string `json:"filename" yaml:"filename"`
-	Size     int64  `json:"size" yaml:"size"`
-}
-
-// Skill represents a self-contained unit of functionality that an agent can use.
-// Inspired by ADK Skills (L1 metadata + L2 instructions + L3 resources).
-// Skills are defined globally and linked to agents by ID.
+// Skill is the persistent identity of an Agent Skill. The store keeps the
+// minimum needed to resolve cross-references (agents → skills via ID) and to
+// locate the on-disk package (slug → directory). Everything else
+// (name/description/instructions/resources) lives on disk as a real ADK
+// SKILL.md package under data/skills/{slug}/, the layout consumed by ADK's
+// skilltoolset (decision #29).
+//
+// Slug is the on-disk directory name and must match the SKILL.md
+// frontmatter `name` field — that's an ADK invariant. The slug is fixed at
+// upload time; renames go through the upload endpoint, which rewrites the
+// frontmatter and renames the directory atomically.
 type Skill struct {
-	ID           string           `json:"id" yaml:"id"`
-	Name         string           `json:"name" yaml:"name"`
-	Description  string           `json:"description,omitempty" yaml:"description,omitempty"`
-	Instructions string           `json:"instructions" yaml:"instructions"`
-	References   []SkillReference `json:"references,omitempty" yaml:"references,omitempty"`
+	ID   string `json:"id" yaml:"id"`
+	Slug string `json:"slug" yaml:"slug"`
 }
 
 // Command represents a reusable prompt that can be invoked against an agent

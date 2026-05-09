@@ -53,7 +53,13 @@ type FlowBuildDeps struct {
 	FlowAgents       map[string]adkagent.Agent
 	BackendMap       map[string]store.BackendDefinition
 	MCPServerMap     map[string]store.MCPServer
-	SkillMap         map[string]store.Skill
+	// SkillSlugs maps skill ID -> on-disk slug. Forwarded verbatim
+	// to BuildAgentInstance so per-flow agent instances build their
+	// own skilltoolset filtered by the agent's whitelist.
+	SkillSlugs       map[string]string
+	// SkillsDir is the absolute path to data/skills/. Empty disables
+	// skill loading for every agent in the flow.
+	SkillsDir        string
 	MemorySvc        memory.Service
 	BaseToolset      tool.Toolset
 	FlowStateToolset tool.Toolset
@@ -96,7 +102,8 @@ func buildStep(flowID string, step *store.FlowStep, deps FlowBuildDeps, path str
 				AgentDef:                    def,
 				BackendMap:                  deps.BackendMap,
 				MCPServerMap:                deps.MCPServerMap,
-				SkillMap:                    deps.SkillMap,
+				SkillSlugs:                  deps.SkillSlugs,
+				SkillsDir:                   deps.SkillsDir,
 				MemorySvc:                   deps.MemorySvc,
 				BaseToolset:                 deps.BaseToolset,
 				InstanceName:                stepName,

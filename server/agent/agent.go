@@ -42,6 +42,7 @@ import (
 	"google.golang.org/adk/tool"
 	"google.golang.org/adk/tool/exitlooptool"
 	"google.golang.org/adk/tool/mcptoolset"
+	"google.golang.org/adk/tool/skilltoolset"
 	"google.golang.org/genai"
 
 	artifactfs "github.com/achetronic/adk-utils-go/artifact/filesystem"
@@ -55,6 +56,7 @@ import (
 	"github.com/achetronic/magec/server/config"
 	toolsartifacts "github.com/achetronic/magec/server/agent/tools/artifacts"
 	toolsflowstate "github.com/achetronic/magec/server/agent/tools/flowstate"
+	toolsskills "github.com/achetronic/magec/server/agent/tools/skills"
 	"github.com/achetronic/magec/server/store"
 )
 
@@ -116,11 +118,16 @@ type Service struct {
 // filesystem location (export_artifact, etc.). The caller is the single
 // source of truth for that path — agent.New does not perform any fallback.
 //
+// skillsDir is the absolute path to the directory that holds every
+// skill package (one sub-directory per slug). Agents with non-empty
+// AgentDefinition.Skills get a per-agent skilltoolset rooted at that
+// directory; pass "" to disable skill loading entirely.
+//
 // artifactURLBuilder mints short-lived signed URLs for artifacts (consumed
 // by the get_artifact_url tool). May be nil; when nil the tool is not
 // registered, so deployments that have not configured the signing secret do
 // not advertise a capability that always fails.
-func New(ctx context.Context, agents []store.AgentDefinition, backends []store.BackendDefinition, memoryProviders []store.MemoryProvider, mcpServers []store.MCPServer, skills []store.Skill, flows []store.FlowDefinition, settings store.Settings, registry contextguard.ModelRegistry, tempDirProvider func() string, artifactURLBuilder toolsartifacts.ArtifactURLBuilder) (*Service, error) {
+func New(ctx context.Context, agents []store.AgentDefinition, backends []store.BackendDefinition, memoryProviders []store.MemoryProvider, mcpServers []store.MCPServer, skills []store.Skill, flows []store.FlowDefinition, settings store.Settings, registry contextguard.ModelRegistry, tempDirProvider func() string, skillsDir string, artifactURLBuilder toolsartifacts.ArtifactURLBuilder) (*Service, error) {
 	if len(agents) == 0 {
 		return nil, fmt.Errorf("no agents defined")
 	}
@@ -140,9 +147,15 @@ func New(ctx context.Context, agents []store.AgentDefinition, backends []store.B
 		mcpServerMap[m.ID] = m
 	}
 
-	skillMap := make(map[string]store.Skill, len(skills))
+	// Skills are referenced by ID in the agent definition but loaded
+	// from disk by slug, so we only need an ID -> slug index. Any
+	// other skill metadata lives in SKILL.md and is read by the
+	// skilltoolset when the LLM calls list_skills/load_skill.
+	skillSlugIndex := make(map[string]string, len(skills))
 	for _, sk := range skills {
-		skillMap[sk.ID] = sk
+		if sk.Slug != "" {
+			skillSlugIndex[sk.ID] = sk.Slug
+		}
 	}
 
 	sessionSvc, err := createSessionService(settings, memoryProviderMap)
@@ -180,7 +193,8 @@ func New(ctx context.Context, agents []store.AgentDefinition, backends []store.B
 			AgentDef:     agentDef,
 			BackendMap:   backendMap,
 			MCPServerMap: mcpServerMap,
-			SkillMap:     skillMap,
+			SkillSlugs:   skillSlugIndex,
+			SkillsDir:    skillsDir,
 			MemorySvc:    memorySvc,
 			BaseToolset:  baseTset,
 		})
@@ -215,7 +229,8 @@ func New(ctx context.Context, agents []store.AgentDefinition, backends []store.B
 		FlowAgents:       make(map[string]agent.Agent, len(flows)),
 		BackendMap:       backendMap,
 		MCPServerMap:     mcpServerMap,
-		SkillMap:         skillMap,
+		SkillSlugs:       skillSlugIndex,
+		SkillsDir:        skillsDir,
 		MemorySvc:        memorySvc,
 		BaseToolset:      baseTset,
 		FlowStateToolset: flowStateToolset,
@@ -336,9 +351,21 @@ type BuildAgentInstanceParams struct {
 	AgentDef     store.AgentDefinition
 	BackendMap   map[string]store.BackendDefinition
 	MCPServerMap map[string]store.MCPServer
-	SkillMap     map[string]store.Skill
-	MemorySvc    memory.Service
-	BaseToolset  tool.Toolset
+	// SkillSlugs maps every store-registered skill ID to its on-disk
+	// slug (= directory name under SkillsDir, also the SKILL.md
+	// frontmatter `name`). The agent builder uses it to translate
+	// AgentDef.Skills (a list of IDs) into the slug whitelist that
+	// scopes the per-agent skilltoolset to ADK's expected file layout.
+	SkillSlugs map[string]string
+	// SkillsDir is the absolute path that contains every skill
+	// package (typically Store.SkillsDir(), i.e. data/skills/). The
+	// builder feeds it through os.DirFS into ADK's filesystem source
+	// so the LLM only ever sees on-disk SKILL.md files — no JSON
+	// shadow copy in the store, no config drift between disk and
+	// admin API.
+	SkillsDir   string
+	MemorySvc   memory.Service
+	BaseToolset tool.Toolset
 	// InstanceName is the ADK agent name to register. Defaults to AgentDef.ID
 	// for the standalone catalogue copy. Flow builders pass a flow-scoped
 	// unique name so the same logical agent can appear multiple times across
@@ -386,12 +413,17 @@ func BuildAgentInstance(p BuildAgentInstanceParams) (agent.Agent, model.LLM, err
 		return nil, nil, fmt.Errorf("failed to build toolsets: %w", err)
 	}
 	toolsets = append(toolsets, p.BaseToolset)
+	if skillTs, err := buildSkillToolset(p.Ctx, p.AgentDef, p.SkillSlugs, p.SkillsDir); err != nil {
+		return nil, nil, fmt.Errorf("failed to build skill toolset: %w", err)
+	} else if skillTs != nil {
+		toolsets = append(toolsets, skillTs)
+	}
 	toolsets = append(toolsets, p.ExtraToolsets...)
 	if len(p.ExtraTools) > 0 {
 		toolsets = append(toolsets, &flatToolset{tools: p.ExtraTools})
 	}
 
-	instruction := buildInstruction(p.AgentDef, p.MCPServerMap, p.SkillMap, filepath.Join("data", "skills"), p.MemorySvc)
+	instruction := buildInstruction(p.AgentDef, p.MCPServerMap, p.MemorySvc)
 	if p.IncludeFlowStateInstruction {
 		instruction += flowStateInstruction
 	}
@@ -648,9 +680,54 @@ func createLLM(ctx context.Context, backend store.BackendDefinition, llmRef stor
 	}
 }
 
+// buildSkillToolset returns ADK's skilltoolset scoped to the agent's
+// linked skills, or nil when the agent has none. The toolset wraps
+// data/skills/ in a per-agent fs.FS that filters out every directory
+// not whitelisted by AgentDef.Skills, so list_skills/load_skill never
+// surface a skill the operator didn't enable for this agent.
+//
+// Skills are referenced by ID in the agent definition (UUIDs are stable
+// across renames, slugs are not), so we translate IDs to slugs through
+// the SkillSlugs map before building the whitelist. Unknown IDs are
+// skipped silently — the admin UI guarantees integrity, and a stale
+// reference is not worth aborting agent construction.
+func buildSkillToolset(ctx context.Context, agentDef store.AgentDefinition, slugIndex map[string]string, skillsDir string) (tool.Toolset, error) {
+	if len(agentDef.Skills) == 0 || skillsDir == "" {
+		return nil, nil
+	}
+	allowed := make([]string, 0, len(agentDef.Skills))
+	for _, id := range agentDef.Skills {
+		if slug, ok := slugIndex[id]; ok && slug != "" {
+			allowed = append(allowed, slug)
+		}
+	}
+	if len(allowed) == 0 {
+		return nil, nil
+	}
+
+	root := os.DirFS(skillsDir)
+	agentFS := toolsskills.NewAgentFS(root, allowed)
+	// Wrap the per-agent FS in a TolerantSource so SKILL.md files
+	// with extra non-canonical frontmatter keys (`version:`, `author:`
+	// …) don't blow up ListFrontmatters and abort the whole LLM
+	// request. Decision #29 requires the runtime to keep working
+	// even when individual skills don't strictly satisfy ADK's
+	// `KnownFields(true)` parser.
+	src := toolsskills.NewTolerantSource(agentFS)
+	ts, err := skilltoolset.New(ctx, skilltoolset.Config{
+		Source: src,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("create skilltoolset: %w", err)
+	}
+	return ts, nil
+}
+
 // buildToolsets assembles all tool providers for an agent: memory tools
 // (search/save) if the agent has long-term memory, plus any MCP server
-// toolsets referenced by name.
+// toolsets referenced by name. Skills are intentionally NOT included
+// here — they live in their own scope-aware toolset built by
+// buildSkillToolset and appended after the base toolset (decision #29).
 func buildToolsets(agentDef store.AgentDefinition, mcpServerMap map[string]store.MCPServer, memorySvc memory.Service) ([]tool.Toolset, error) {
 	var toolsets []tool.Toolset
 
@@ -759,10 +836,13 @@ func (t *headerTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	return t.base.RoundTrip(req)
 }
 
-// buildInstruction assembles the system prompt for an agent. It starts with
-// the agent's custom prompt (or a default), appends memory instructions if
-// long-term memory is enabled, and appends any MCP server system prompts, then skills.
-func buildInstruction(agentDef store.AgentDefinition, mcpServerMap map[string]store.MCPServer, skillMap map[string]store.Skill, skillsBaseDir string, memorySvc memory.Service) string {
+// buildInstruction assembles the system prompt for an agent. It starts
+// with the agent's custom prompt (or a default), appends memory and
+// artifact instructions, and finally appends every linked MCP server's
+// system prompt. Skills are NOT inlined here — they are exposed as
+// callable tools through the per-agent skilltoolset (decision #29) so
+// the LLM only loads the specific skill it needs, when it needs it.
+func buildInstruction(agentDef store.AgentDefinition, mcpServerMap map[string]store.MCPServer, memorySvc memory.Service) string {
 	instruction := baseInstruction
 	if agentDef.SystemPrompt != "" {
 		instruction = agentDef.SystemPrompt
@@ -777,22 +857,6 @@ func buildInstruction(agentDef store.AgentDefinition, mcpServerMap map[string]st
 	for _, mcpName := range agentDef.MCPServers {
 		if srv, ok := mcpServerMap[mcpName]; ok && srv.SystemPrompt != "" {
 			instruction += "\n\n" + srv.SystemPrompt
-		}
-	}
-
-	for _, skillID := range agentDef.Skills {
-		sk, ok := skillMap[skillID]
-		if !ok {
-			continue
-		}
-		instruction += "\n\n--- Skill: " + sk.Name + " ---\n" + sk.Instructions
-		for _, ref := range sk.References {
-			content, err := os.ReadFile(filepath.Join(skillsBaseDir, skillID, ref.Filename))
-			if err != nil {
-				slog.Warn("Failed to read skill reference", "skill", sk.Name, "file", ref.Filename, "error", err)
-				continue
-			}
-			instruction += "\n\n[Reference: " + ref.Filename + "]\n" + string(content)
 		}
 	}
 

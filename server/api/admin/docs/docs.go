@@ -2399,7 +2399,7 @@ const docTemplate = `{
                         "AdminAuth": []
                     }
                 ],
-                "description": "Returns all configured skills",
+                "description": "Returns all configured skills with their on-disk metadata",
                 "produces": [
                     "application/json"
                 ],
@@ -2413,21 +2413,23 @@ const docTemplate = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/store.Skill"
+                                "$ref": "#/definitions/admin.SkillView"
                             }
                         }
                     }
                 }
-            },
+            }
+        },
+        "/skills/upload": {
             "post": {
                 "security": [
                     {
                         "AdminAuth": []
                     }
                 ],
-                "description": "Creates a new skill with instructions and optional references",
+                "description": "Creates or replaces a skill from a SKILL.md or a .zip/.tar.gz package",
                 "consumes": [
-                    "application/json"
+                    "multipart/form-data"
                 ],
                 "produces": [
                     "application/json"
@@ -2435,23 +2437,33 @@ const docTemplate = `{
                 "tags": [
                     "skills"
                 ],
-                "summary": "Create skill",
+                "summary": "Upload a skill",
                 "parameters": [
                     {
-                        "description": "Skill definition",
-                        "name": "body",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/store.Skill"
-                        }
+                        "type": "file",
+                        "description": "SKILL.md, .zip or .tar.gz",
+                        "name": "file",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Overwrite if a skill with the same slug already exists",
+                        "name": "replace",
+                        "in": "query"
                     }
                 ],
                 "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/admin.SkillView"
+                        }
+                    },
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/store.Skill"
+                            "$ref": "#/definitions/admin.SkillView"
                         }
                     },
                     "400": {
@@ -2476,7 +2488,7 @@ const docTemplate = `{
                         "AdminAuth": []
                     }
                 ],
-                "description": "Returns a skill by its unique ID",
+                "description": "Returns a skill with its on-disk frontmatter, instructions and resources",
                 "produces": [
                     "application/json"
                 ],
@@ -2497,63 +2509,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/store.Skill"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/admin.ErrorResponse"
-                        }
-                    }
-                }
-            },
-            "put": {
-                "security": [
-                    {
-                        "AdminAuth": []
-                    }
-                ],
-                "description": "Updates a skill by ID",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "skills"
-                ],
-                "summary": "Update skill",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Skill ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "Skill definition",
-                        "name": "body",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/store.Skill"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/store.Skill"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/admin.ErrorResponse"
+                            "$ref": "#/definitions/admin.SkillView"
                         }
                     },
                     "404": {
@@ -2570,7 +2526,7 @@ const docTemplate = `{
                         "AdminAuth": []
                     }
                 ],
-                "description": "Deletes a skill by ID",
+                "description": "Deletes a skill and its on-disk package",
                 "tags": [
                     "skills"
                 ],
@@ -2597,151 +2553,26 @@ const docTemplate = `{
                 }
             }
         },
-        "/skills/{id}/package": {
-            "post": {
-                "security": [
-                    {
-                        "AdminAuth": []
-                    }
-                ],
-                "description": "Uploads a ZIP or tar.gz archive containing a SKILL.md and optional reference files",
-                "consumes": [
-                    "multipart/form-data"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "skills"
-                ],
-                "summary": "Upload skill package",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Skill ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "file",
-                        "description": "Package archive (ZIP or tar.gz)",
-                        "name": "file",
-                        "in": "formData",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/store.Skill"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/admin.ErrorResponse"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/admin.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/skills/{id}/references": {
-            "post": {
-                "security": [
-                    {
-                        "AdminAuth": []
-                    }
-                ],
-                "description": "Uploads a file and registers it as a reference for the skill",
-                "consumes": [
-                    "multipart/form-data"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "skills"
-                ],
-                "summary": "Upload skill reference",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Skill ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "file",
-                        "description": "Reference file",
-                        "name": "file",
-                        "in": "formData",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "201": {
-                        "description": "Created",
-                        "schema": {
-                            "$ref": "#/definitions/store.SkillReference"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/admin.ErrorResponse"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/admin.ErrorResponse"
-                        }
-                    },
-                    "409": {
-                        "description": "Conflict",
-                        "schema": {
-                            "$ref": "#/definitions/admin.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/skills/{id}/references/{filename}": {
+        "/skills/{id}/download": {
             "get": {
                 "security": [
                     {
                         "AdminAuth": []
                     }
                 ],
-                "description": "Downloads a reference file from a skill",
+                "description": "Streams the skill's on-disk directory as a tar.gz archive",
                 "produces": [
-                    "application/octet-stream"
+                    "application/gzip"
                 ],
                 "tags": [
                     "skills"
                 ],
-                "summary": "Download skill reference",
+                "summary": "Download skill package",
                 "parameters": [
                     {
                         "type": "string",
                         "description": "Skill ID",
                         "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Reference filename",
-                        "name": "filename",
                         "in": "path",
                         "required": true
                     }
@@ -2749,45 +2580,6 @@ const docTemplate = `{
                 "responses": {
                     "200": {
                         "description": "OK"
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/admin.ErrorResponse"
-                        }
-                    }
-                }
-            },
-            "delete": {
-                "security": [
-                    {
-                        "AdminAuth": []
-                    }
-                ],
-                "description": "Removes a reference file from a skill",
-                "tags": [
-                    "skills"
-                ],
-                "summary": "Delete skill reference",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Skill ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Reference filename",
-                        "name": "filename",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "204": {
-                        "description": "No Content"
                     },
                     "404": {
                         "description": "Not Found",
@@ -2941,6 +2733,49 @@ const docTemplate = `{
                 }
             }
         },
+        "admin.SkillResource": {
+            "type": "object",
+            "properties": {
+                "kind": {
+                    "type": "string"
+                },
+                "path": {
+                    "type": "string"
+                },
+                "size": {
+                    "type": "integer"
+                }
+            }
+        },
+        "admin.SkillView": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "frontmatter": {
+                    "$ref": "#/definitions/skill.Frontmatter"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "instructions": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "resources": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/admin.SkillResource"
+                    }
+                },
+                "slug": {
+                    "type": "string"
+                }
+            }
+        },
         "admin.VoiceProviderInfo": {
             "type": "object",
             "properties": {
@@ -2984,6 +2819,35 @@ const docTemplate = `{
         "memory.Schema": {
             "type": "object",
             "additionalProperties": true
+        },
+        "skill.Frontmatter": {
+            "type": "object",
+            "properties": {
+                "allowedTools": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "compatibility": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "license": {
+                    "type": "string"
+                },
+                "metadata": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
         },
         "store.A2AConfig": {
             "type": "object",
@@ -3493,40 +3357,6 @@ const docTemplate = `{
                 "temporaryDir": {
                     "description": "TemporaryDir is the absolute path used by tools and subsystems that need\nto write transient files visible to other on-disk consumers (filesystem\nMCPs, shell tools, etc.). When empty, callers must fall back to the OS\ntemporary directory via Store.ResolveTemporaryDir, which is the only\nplace that performs that fallback.",
                     "type": "string"
-                }
-            }
-        },
-        "store.Skill": {
-            "type": "object",
-            "properties": {
-                "description": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "instructions": {
-                    "type": "string"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "references": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/store.SkillReference"
-                    }
-                }
-            }
-        },
-        "store.SkillReference": {
-            "type": "object",
-            "properties": {
-                "filename": {
-                    "type": "string"
-                },
-                "size": {
-                    "type": "integer"
                 }
             }
         },

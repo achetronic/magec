@@ -5,10 +5,13 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"slices"
 	"sync"
+
+	skillsmigrate "github.com/achetronic/magec/server/agent/tools/skills"
 )
 
 // Store manages agent, backend, and MCP configurations with JSON persistence.
@@ -800,6 +803,13 @@ func (s *Store) DeleteFlow(id string) error {
 }
 
 // --- Skills ---
+//
+// Skills are tracked in the store with the bare minimum needed to keep
+// agent links stable across UI renames: an immutable UUID and the
+// on-disk slug (= directory name under data/skills/, also the SKILL.md
+// frontmatter `name`). Everything else (name, description, instructions,
+// resources) lives on disk inside data/skills/{slug}/ and is read at
+// admin-API GET time. See decision #29.
 
 func (s *Store) ListSkills() []Skill {
 	s.mu.RLock()
@@ -814,6 +824,20 @@ func (s *Store) GetSkill(id string) (Skill, bool) {
 	defer s.mu.RUnlock()
 	for _, sk := range s.data.Skills {
 		if sk.ID == id {
+			return sk, true
+		}
+	}
+	return Skill{}, false
+}
+
+// GetSkillBySlug returns the skill whose on-disk directory matches slug.
+// The admin upload handler uses it to detect re-uploads (same slug ->
+// existing skill) versus brand-new skills.
+func (s *Store) GetSkillBySlug(slug string) (Skill, bool) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	for _, sk := range s.data.Skills {
+		if sk.Slug == slug {
 			return sk, true
 		}
 	}
@@ -839,9 +863,21 @@ func (s *Store) GetRawSkill(id string) (Skill, bool) {
 	return Skill{}, false
 }
 
+// CreateSkill registers a new skill record. Slug must be unique and is
+// validated by the caller (the upload handler) — this method only
+// guarantees the in-memory invariant.
 func (s *Store) CreateSkill(sk Skill) (Skill, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
+	if sk.Slug == "" {
+		return Skill{}, fmt.Errorf("skill slug is required")
+	}
+	for _, existing := range s.data.Skills {
+		if existing.Slug == sk.Slug {
+			return Skill{}, fmt.Errorf("skill slug %q already exists", sk.Slug)
+		}
+	}
 
 	sk.ID = generateID()
 	s.data.Skills = append(s.data.Skills, expandStruct(sk))
@@ -849,10 +885,22 @@ func (s *Store) CreateSkill(sk Skill) (Skill, error) {
 	return sk, s.persist()
 }
 
+// UpdateSkill replaces the slug of an existing skill (keeping its ID).
+// The admin layer calls this after re-uploading a package whose
+// frontmatter `name` differs from the previous slug — it has already
+// renamed the directory on disk before calling.
 func (s *Store) UpdateSkill(id string, sk Skill) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	if sk.Slug == "" {
+		return fmt.Errorf("skill slug is required")
+	}
+	for _, existing := range s.data.Skills {
+		if existing.ID != id && existing.Slug == sk.Slug {
+			return fmt.Errorf("skill slug %q already in use", sk.Slug)
+		}
+	}
 	for i, existing := range s.data.Skills {
 		if existing.ID == id {
 			sk.ID = id
@@ -864,74 +912,43 @@ func (s *Store) UpdateSkill(id string, sk Skill) error {
 	return fmt.Errorf("skill %q not found", id)
 }
 
+// DeleteSkill removes the store record AND the on-disk directory that
+// backs it. Failure to remove the directory is logged but not returned
+// — the store record is the authoritative ledger and we don't want to
+// strand it on a transient filesystem error.
 func (s *Store) DeleteSkill(id string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	for i, existing := range s.data.Skills {
 		if existing.ID == id {
+			slug := existing.Slug
 			s.data.Skills = append(s.data.Skills[:i], s.data.Skills[i+1:]...)
 			s.rawData.Skills = append(s.rawData.Skills[:i], s.rawData.Skills[i+1:]...)
 			if err := s.persist(); err != nil {
 				return err
 			}
-			dir := s.SkillDir(id)
-			os.RemoveAll(dir)
+			if slug != "" {
+				_ = os.RemoveAll(s.SkillDir(slug))
+			}
 			return nil
 		}
 	}
 	return fmt.Errorf("skill %q not found", id)
 }
 
-// SkillDir returns the filesystem path for a skill's reference files.
-func (s *Store) SkillDir(skillID string) string {
-	base := filepath.Dir(s.filePath)
-	return filepath.Join(base, "skills", skillID)
+// SkillsDir returns the root directory that holds every skill package.
+// Callers typically wrap it with os.DirFS to feed ADK's skilltoolset.
+func (s *Store) SkillsDir() string {
+	return filepath.Join(filepath.Dir(s.filePath), "skills")
 }
 
-// AddSkillReference appends a reference entry to a skill's metadata.
-func (s *Store) AddSkillReference(skillID string, ref SkillReference) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	for i, existing := range s.data.Skills {
-		if existing.ID == skillID {
-			for _, r := range existing.References {
-				if r.Filename == ref.Filename {
-					return fmt.Errorf("reference %q already exists in skill %q", ref.Filename, skillID)
-				}
-			}
-			s.data.Skills[i].References = append(s.data.Skills[i].References, ref)
-			s.rawData.Skills[i].References = append(s.rawData.Skills[i].References, ref)
-			return s.persist()
-		}
-	}
-	return fmt.Errorf("skill %q not found", skillID)
-}
-
-// RemoveSkillReference removes a reference entry from a skill's metadata.
-func (s *Store) RemoveSkillReference(skillID, filename string) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	for i, existing := range s.data.Skills {
-		if existing.ID == skillID {
-			idx := -1
-			for j, r := range existing.References {
-				if r.Filename == filename {
-					idx = j
-					break
-				}
-			}
-			if idx == -1 {
-				return fmt.Errorf("reference %q not found in skill %q", filename, skillID)
-			}
-			s.data.Skills[i].References = append(existing.References[:idx], existing.References[idx+1:]...)
-			s.rawData.Skills[i].References = append(s.rawData.Skills[i].References[:idx], s.rawData.Skills[i].References[idx+1:]...)
-			return s.persist()
-		}
-	}
-	return fmt.Errorf("skill %q not found", skillID)
+// SkillDir returns the absolute on-disk directory for a single skill,
+// keyed by slug. The directory layout is the one ADK's skilltoolset
+// expects: SKILL.md at the root, optional references/, assets/,
+// scripts/ subtrees.
+func (s *Store) SkillDir(slug string) string {
+	return filepath.Join(s.SkillsDir(), slug)
 }
 
 // --- Commands ---
@@ -1187,6 +1204,28 @@ func (s *Store) loadFromDisk() error {
 	}
 
 	data = migrateTTSConfig(data)
+
+	// Skills migration (legacy in-store Instructions/References ->
+	// on-disk SKILL.md packages). Idempotent — re-runs against a
+	// migrated store are no-ops. See decision #29.
+	//
+	// TODO(v0.X): remove this migrator after a couple of releases.
+	// Tracked in .agents/TODO.md.
+	if migrated, err := skillsmigrate.MigrateLegacySkills(filepath.Dir(s.filePath), data); err != nil {
+		return fmt.Errorf("migrate legacy skills: %w", err)
+	} else {
+		data = migrated
+	}
+
+	// Repair skills written by an earlier buggy version of the
+	// migrator (stacked frontmatter + everything-in-references/).
+	// Idempotent: skills already in good shape are untouched. Runs
+	// every load so a downgrade-then-upgrade cycle still gets fixed.
+	//
+	// TODO(v0.X): remove together with MigrateLegacySkills.
+	if err := skillsmigrate.RepairBrokenSkills(filepath.Dir(s.filePath)); err != nil {
+		slog.Warn("skills repair: failed", "error", err)
+	}
 
 	var raw StoreData
 	if err := json.Unmarshal(data, &raw); err != nil {

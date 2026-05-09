@@ -79,6 +79,34 @@ definitions:
         example: sk-...
         type: string
     type: object
+  admin.SkillResource:
+    properties:
+      kind:
+        type: string
+      path:
+        type: string
+      size:
+        type: integer
+    type: object
+  admin.SkillView:
+    properties:
+      description:
+        type: string
+      frontmatter:
+        $ref: '#/definitions/skill.Frontmatter'
+      id:
+        type: string
+      instructions:
+        type: string
+      name:
+        type: string
+      resources:
+        items:
+          $ref: '#/definitions/admin.SkillResource'
+        type: array
+      slug:
+        type: string
+    type: object
   admin.VoiceProviderInfo:
     properties:
       displayName:
@@ -108,6 +136,25 @@ definitions:
     type: object
   memory.Schema:
     additionalProperties: true
+    type: object
+  skill.Frontmatter:
+    properties:
+      allowedTools:
+        items:
+          type: string
+        type: array
+      compatibility:
+        type: string
+      description:
+        type: string
+      license:
+        type: string
+      metadata:
+        additionalProperties:
+          type: string
+        type: object
+      name:
+        type: string
     type: object
   store.A2AConfig:
     properties:
@@ -448,28 +495,6 @@ definitions:
           temporary directory via Store.ResolveTemporaryDir, which is the only
           place that performs that fallback.
         type: string
-    type: object
-  store.Skill:
-    properties:
-      description:
-        type: string
-      id:
-        type: string
-      instructions:
-        type: string
-      name:
-        type: string
-      references:
-        items:
-          $ref: '#/definitions/store.SkillReference'
-        type: array
-    type: object
-  store.SkillReference:
-    properties:
-      filename:
-        type: string
-      size:
-        type: integer
     type: object
   store.SlackClientConfig:
     properties:
@@ -2068,7 +2093,7 @@ paths:
       - backup
   /skills:
     get:
-      description: Returns all configured skills
+      description: Returns all configured skills with their on-disk metadata
       produces:
       - application/json
       responses:
@@ -2076,47 +2101,16 @@ paths:
           description: OK
           schema:
             items:
-              $ref: '#/definitions/store.Skill'
+              $ref: '#/definitions/admin.SkillView'
             type: array
       security:
       - AdminAuth: []
       summary: List skills
       tags:
       - skills
-    post:
-      consumes:
-      - application/json
-      description: Creates a new skill with instructions and optional references
-      parameters:
-      - description: Skill definition
-        in: body
-        name: body
-        required: true
-        schema:
-          $ref: '#/definitions/store.Skill'
-      produces:
-      - application/json
-      responses:
-        "201":
-          description: Created
-          schema:
-            $ref: '#/definitions/store.Skill'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/admin.ErrorResponse'
-        "409":
-          description: Conflict
-          schema:
-            $ref: '#/definitions/admin.ErrorResponse'
-      security:
-      - AdminAuth: []
-      summary: Create skill
-      tags:
-      - skills
   /skills/{id}:
     delete:
-      description: Deletes a skill by ID
+      description: Deletes a skill and its on-disk package
       parameters:
       - description: Skill ID
         in: path
@@ -2136,7 +2130,8 @@ paths:
       tags:
       - skills
     get:
-      description: Returns a skill by its unique ID
+      description: Returns a skill with its on-disk frontmatter, instructions and
+        resources
       parameters:
       - description: Skill ID
         in: path
@@ -2149,7 +2144,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/store.Skill'
+            $ref: '#/definitions/admin.SkillView'
         "404":
           description: Not Found
           schema:
@@ -2159,108 +2154,57 @@ paths:
       summary: Get skill
       tags:
       - skills
-    put:
-      consumes:
-      - application/json
-      description: Updates a skill by ID
+  /skills/{id}/download:
+    get:
+      description: Streams the skill's on-disk directory as a tar.gz archive
       parameters:
       - description: Skill ID
         in: path
         name: id
         required: true
         type: string
-      - description: Skill definition
-        in: body
-        name: body
-        required: true
-        schema:
-          $ref: '#/definitions/store.Skill'
       produces:
-      - application/json
+      - application/gzip
       responses:
         "200":
           description: OK
-          schema:
-            $ref: '#/definitions/store.Skill'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/admin.ErrorResponse'
         "404":
           description: Not Found
           schema:
             $ref: '#/definitions/admin.ErrorResponse'
       security:
       - AdminAuth: []
-      summary: Update skill
+      summary: Download skill package
       tags:
       - skills
-  /skills/{id}/package:
+  /skills/upload:
     post:
       consumes:
       - multipart/form-data
-      description: Uploads a ZIP or tar.gz archive containing a SKILL.md and optional
-        reference files
+      description: Creates or replaces a skill from a SKILL.md or a .zip/.tar.gz package
       parameters:
-      - description: Skill ID
-        in: path
-        name: id
-        required: true
-        type: string
-      - description: Package archive (ZIP or tar.gz)
+      - description: SKILL.md, .zip or .tar.gz
         in: formData
         name: file
         required: true
         type: file
+      - description: Overwrite if a skill with the same slug already exists
+        in: query
+        name: replace
+        type: boolean
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/store.Skill'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/admin.ErrorResponse'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/admin.ErrorResponse'
-      security:
-      - AdminAuth: []
-      summary: Upload skill package
-      tags:
-      - skills
-  /skills/{id}/references:
-    post:
-      consumes:
-      - multipart/form-data
-      description: Uploads a file and registers it as a reference for the skill
-      parameters:
-      - description: Skill ID
-        in: path
-        name: id
-        required: true
-        type: string
-      - description: Reference file
-        in: formData
-        name: file
-        required: true
-        type: file
-      produces:
-      - application/json
-      responses:
+            $ref: '#/definitions/admin.SkillView'
         "201":
           description: Created
           schema:
-            $ref: '#/definitions/store.SkillReference'
+            $ref: '#/definitions/admin.SkillView'
         "400":
           description: Bad Request
-          schema:
-            $ref: '#/definitions/admin.ErrorResponse'
-        "404":
-          description: Not Found
           schema:
             $ref: '#/definitions/admin.ErrorResponse'
         "409":
@@ -2269,60 +2213,7 @@ paths:
             $ref: '#/definitions/admin.ErrorResponse'
       security:
       - AdminAuth: []
-      summary: Upload skill reference
-      tags:
-      - skills
-  /skills/{id}/references/{filename}:
-    delete:
-      description: Removes a reference file from a skill
-      parameters:
-      - description: Skill ID
-        in: path
-        name: id
-        required: true
-        type: string
-      - description: Reference filename
-        in: path
-        name: filename
-        required: true
-        type: string
-      responses:
-        "204":
-          description: No Content
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/admin.ErrorResponse'
-      security:
-      - AdminAuth: []
-      summary: Delete skill reference
-      tags:
-      - skills
-    get:
-      description: Downloads a reference file from a skill
-      parameters:
-      - description: Skill ID
-        in: path
-        name: id
-        required: true
-        type: string
-      - description: Reference filename
-        in: path
-        name: filename
-        required: true
-        type: string
-      produces:
-      - application/octet-stream
-      responses:
-        "200":
-          description: OK
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/admin.ErrorResponse'
-      security:
-      - AdminAuth: []
-      summary: Download skill reference
+      summary: Upload a skill
       tags:
       - skills
   /voice/types:
