@@ -1,59 +1,61 @@
 <template>
-  <AppDialog ref="dialogRef" :title="title" size="2xl">
+  <AppDialog ref="dialogRef" :title="title" size="xl">
     <div v-if="loading" class="text-center text-xs text-arena-500 py-12">Loading…</div>
     <div v-else-if="!skill" class="text-center text-xs text-arena-500 py-12">Skill unavailable.</div>
 
-    <!-- The viewer is structured as three vertical bands: hero (identity),
-         status strip (at-a-glance metrics), and a tabbed content area.
-         The bands sit directly on the dialog background — no nested
-         cards-inside-a-card — so the whole modal reads as a single
-         composed sheet, not a stack of fragments.
+    <!-- Visual hierarchy intent (read top-to-bottom):
+           PRIMARY   — skill name, description, instructions body.
+           SECONDARY — tab navigation, current section's content.
+           TERTIARY  — slug, identity chips, file paths, metadata.
+                       (read on demand, never grab attention.)
 
-         Cyan is the Skills accent (decision: ENTITY_COLORS.md). We use
-         it in three carefully chosen places: the hero icon ring, the
-         active tab pill, and the section labels' tiny accent dot. Any
-         more cyan would feel like screaming. -->
-    <div v-else class="space-y-5">
+         Concretely:
+           - one accent colour (cyan) and one only — used SOLELY for
+             the active tab indicator. Everything else is arena/piedra
+             greys. Removing the "cyan everywhere" temptation lets the
+             content itself do the talking.
+           - generous vertical rhythm (`space-y-7`) between bands; the
+             modal is meant to be read, not scanned in pieces.
+           - a single border-bottom under the hero gives a clean
+             horizon line; the tabs anchor below it without their own
+             background. -->
+    <div v-else class="space-y-7">
 
-      <!-- HERO -->
-      <header ref="heroAnchor" class="relative">
-        <div class="flex items-start gap-4">
-          <!-- Icon medallion. The double-ring (15% + 30%) gives depth
-               without saturating; same recipe Cards use for the entity
-               accent. -->
-          <div class="relative flex-shrink-0">
-            <div class="w-14 h-14 rounded-2xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center">
-              <Icon name="skill" size="xl" class="text-cyan-300" />
-            </div>
-            <div class="absolute inset-0 rounded-2xl ring-1 ring-cyan-500/10 pointer-events-none"></div>
+      <!-- HERO — name carries the weight; everything else is muted.
+           Identity chips (license, version, compatibility) are NOT
+           shown here. They're frontmatter metadata and live in the
+           Metadata tab; surfacing them in the header competes with
+           the title and gives every skill a different visual length
+           depending on how many tags its author wrote. -->
+      <header ref="heroAnchor" class="space-y-4">
+        <div class="flex items-center gap-4">
+          <!-- Neutral medallion. With license/version/compatibility
+               moved to the Metadata tab the title row is single-line,
+               so the medallion is sized to match a single line of
+               type rather than a stacked title+chips block. -->
+          <div class="w-9 h-9 rounded-lg bg-piedra-800/70 border border-piedra-700/50 flex items-center justify-center flex-shrink-0">
+            <Icon name="skill" size="sm" class="text-arena-400" />
           </div>
 
           <div class="min-w-0 flex-1">
-            <h2 class="text-xl font-semibold text-arena-100 truncate">{{ displayName }}</h2>
-            <p v-if="showSlug" class="text-[11px] text-arena-500 font-mono mt-0.5">{{ skill.slug }}</p>
-
-            <!-- Compatibility & license chips travel with the title —
-                 they are identity, not generic metadata. -->
-            <div v-if="identityChips.length" class="flex flex-wrap gap-1.5 mt-2">
-              <span
-                v-for="c in identityChips" :key="c.label + c.value"
-                class="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] rounded-md border"
-                :class="c.accent
-                  ? 'bg-cyan-500/10 border-cyan-500/25 text-cyan-300'
-                  : 'bg-piedra-800 border-piedra-700/50 text-arena-400'"
-              >
-                <span v-if="c.label" class="text-arena-600">{{ c.label }}</span>
-                <span class="font-medium">{{ c.value }}</span>
-              </span>
-            </div>
+            <!-- Title line. Slug rides along as a quiet appendix in
+                 the same row, separated by whitespace. Less vertical
+                 noise, easier to scan. -->
+            <h2 class="text-lg font-semibold text-arena-100 leading-tight">
+              <span class="break-words">{{ displayName }}</span>
+              <span v-if="showSlug" class="ml-2 text-[11px] font-mono font-normal text-arena-600">{{ skill.slug }}</span>
+            </h2>
           </div>
 
-          <!-- Quick action stays out of the title flow so the eye
-               always lands on the name first. -->
+          <!-- Sol (Magec yellow) download button. The viewer is read-
+               only; download is the ONLY action the operator can
+               take here, so it earns the brand accent. Solid amber
+               on piedra-950 text follows the primary-CTA recipe
+               from .agents/ADMIN_UI_DESIGN_SYSTEM.md. -->
           <button
             type="button"
             @click="downloadPackage"
-            class="flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-medium rounded-lg bg-piedra-800 hover:bg-piedra-700 border border-piedra-700/50 text-arena-300 hover:text-arena-100 transition-colors flex-shrink-0"
+            class="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium text-piedra-950 bg-sol-500 hover:bg-sol-600 rounded-lg transition-colors flex-shrink-0"
             title="Download as .tar.gz"
           >
             <Icon name="download" size="xs" />
@@ -61,58 +63,54 @@
           </button>
         </div>
 
-        <!-- Description gets its own band below the title row so long
-             paragraphs don't squish next to the icon medallion. The
-             whitespace-pre-line lets multi-line YAML descriptions
-             (folded scalars) read naturally. -->
-        <p v-if="skill.description" class="mt-4 text-sm text-arena-300 leading-relaxed whitespace-pre-line">
+        <!-- Description: the second-most-important text in the modal,
+             so it gets a real type size and generous leading. -->
+        <p v-if="skill.description" class="text-[13px] text-arena-300 leading-7 whitespace-pre-line">
           {{ skill.description }}
         </p>
       </header>
 
-      <!-- TABS — clickable section pills. They scroll with the rest
-           of the content (not sticky); a small "back to top" floating
-           button below appears when the header has scrolled out of
-           the viewport so the operator can jump back without losing
-           the tab they were on. -->
-      <div ref="tabsAnchor" class="flex items-center gap-1.5 border-b border-piedra-700/40">
+      <!-- TABS — minimal nav, no chip backgrounds, no count bubbles
+           when zero. Only the active tab gets a colour cue: a thin
+           sol-400 underline that echoes the brand accent already used
+           by the Download button above and by every primary CTA in
+           the admin UI. -->
+      <nav class="flex items-center gap-5 border-b border-piedra-800">
         <button
           v-for="tab in availableTabs" :key="tab.id"
           type="button"
           @click="activeTab = tab.id"
-          class="relative flex items-center gap-1.5 px-3 py-2 text-[11px] font-medium transition-colors"
+          class="relative -mb-px flex items-baseline gap-1.5 pb-2.5 text-[12px] font-medium transition-colors"
           :class="activeTab === tab.id
-            ? 'text-cyan-300'
+            ? 'text-arena-100'
             : 'text-arena-500 hover:text-arena-300'"
         >
-          <Icon :name="tab.icon" size="xs" />
           <span>{{ tab.label }}</span>
-          <span v-if="tab.count !== undefined && tab.count > 0"
-                class="ml-0.5 px-1.5 py-0 text-[9px] rounded-full"
-                :class="activeTab === tab.id
-                  ? 'bg-cyan-500/20 text-cyan-300'
-                  : 'bg-piedra-800 text-arena-500'">
-            {{ tab.count }}
-          </span>
+          <span
+            v-if="tab.count && tab.count > 0"
+            class="text-[10px] font-normal tabular-nums"
+            :class="activeTab === tab.id ? 'text-arena-400' : 'text-arena-600'"
+          >{{ tab.count }}</span>
           <span
             v-if="activeTab === tab.id"
-            class="absolute left-0 right-0 -bottom-px h-0.5 bg-cyan-400 rounded-full"
+            class="absolute left-0 right-0 -bottom-px h-px bg-sol-400 rounded-full"
           ></span>
         </button>
-      </div>
+      </nav>
 
-      <!-- TAB PANES -->
+      <!-- TAB PANES — every pane has the same outer rhythm; no
+           repeated section headers, no decorative dots. The content
+           itself defines its own structure. -->
 
-      <!-- Instructions: the main event. Markdown rendered with the
-           dedicated .magec-markdown stylesheet. A floating Copy button
-           sits over the panel so the operator can yank the SKILL.md
-           body without selecting it manually. -->
+      <!-- Instructions: the heavy lifter. The Copy button only
+           reveals on hover; it does not crowd the title or the
+           markdown surface. -->
       <section v-show="activeTab === 'instructions'" class="relative">
         <div v-if="renderedHtml" class="relative group/code">
           <button
             type="button"
             @click="copyInstructions"
-            class="absolute top-0 right-0 z-10 flex items-center gap-1 px-2 py-1 text-[10px] rounded-md bg-piedra-800/90 backdrop-blur-sm border border-piedra-700/60 text-arena-400 hover:text-arena-100 hover:bg-piedra-700 opacity-0 group-hover/code:opacity-100 transition-opacity"
+            class="absolute top-0 right-0 z-10 flex items-center gap-1 px-2 py-1 text-[10px] rounded-md text-arena-500 hover:text-arena-200 hover:bg-piedra-800 opacity-0 group-hover/code:opacity-100 transition-opacity"
             :title="copied ? 'Copied' : 'Copy SKILL.md instructions'"
           >
             <Icon name="copy" size="xs" />
@@ -123,52 +121,27 @@
         <EmptyTab v-else icon="skill" message="No instructions in SKILL.md." />
       </section>
 
-      <!-- Tools: pill grid. The lock icon doubles as a hint that these
-           are scoped permissions (granted by the SKILL.md frontmatter,
-           not by the agent). -->
-      <section v-show="activeTab === 'tools'">
-        <div v-if="allowedTools.length" class="flex flex-wrap gap-1.5">
-          <span
-            v-for="t in allowedTools" :key="t"
-            class="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-piedra-800/60 border border-piedra-700/50 hover:border-cyan-500/30 transition-colors"
-          >
-            <Icon name="key" size="xs" class="text-cyan-400/70" />
-            <span class="text-[11px] text-arena-200 font-mono">{{ t }}</span>
-          </span>
-        </div>
-        <EmptyTab v-else icon="key" message="This skill does not declare an allowed-tools list." />
-      </section>
-
-      <!-- Resources: grouped per kind with a small per-group header
-           (count + total size). Rows are visually layered (icon, path,
-           size) and use mono for paths since they're file system
-           identifiers, not prose. -->
-      <section v-show="activeTab === 'resources'" class="space-y-4">
+      <!-- Resources: each kind gets a quiet sub-header, then a list
+           of rows. No heavy borders, no per-row hover dance — just
+           legible rows with breathing room. -->
+      <section v-show="activeTab === 'resources'" class="space-y-6">
         <template v-if="resourceKinds.length">
           <div v-for="kind in resourceKinds" :key="kind">
-            <div class="flex items-baseline justify-between mb-2">
-              <h4 class="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-widest text-arena-400">
-                <span class="w-1 h-1 rounded-full bg-cyan-400/70"></span>
+            <div class="flex items-baseline justify-between mb-3">
+              <h4 class="text-[11px] text-arena-400">
                 {{ kindTitle(kind) }}
-                <span class="text-arena-600">·</span>
-                <span class="text-arena-500 normal-case tracking-normal">{{ groupedResources[kind].length }} {{ groupedResources[kind].length === 1 ? 'file' : 'files' }}</span>
+                <span class="text-arena-600 ml-1">{{ groupedResources[kind].length }}</span>
               </h4>
               <span class="text-[10px] text-arena-600 tabular-nums">{{ formatSize(groupTotalSize(kind)) }}</span>
             </div>
-            <ul class="space-y-1">
+            <ul class="divide-y divide-piedra-800/70">
               <li v-for="r in groupedResources[kind]" :key="r.path"
-                  class="flex items-center justify-between gap-3 px-3 py-2 rounded-lg border border-piedra-700/30 bg-piedra-800/30 hover:border-cyan-500/25 hover:bg-piedra-800/60 transition-colors group/file">
-                <div class="flex items-center gap-2.5 min-w-0">
-                  <div class="w-7 h-7 rounded-md flex items-center justify-center flex-shrink-0 bg-piedra-900 border border-piedra-700/50">
-                    <span class="text-[8px] font-bold uppercase tracking-tight text-arena-500 group-hover/file:text-cyan-300">
-                      {{ extOf(r.path) }}
-                    </span>
-                  </div>
-                  <div class="min-w-0">
-                    <p class="text-[11px] text-arena-200 font-mono truncate">{{ relPath(r) }}</p>
-                  </div>
+                  class="flex items-center justify-between gap-3 py-2.5">
+                <div class="flex items-center gap-3 min-w-0">
+                  <span class="text-[9px] font-mono uppercase text-arena-600 w-8 flex-shrink-0">{{ extOf(r.path) }}</span>
+                  <p class="text-[12px] text-arena-300 font-mono truncate">{{ relPath(r) }}</p>
                 </div>
-                <span class="text-[10px] text-arena-500 tabular-nums flex-shrink-0">{{ formatSize(r.size) }}</span>
+                <span class="text-[10px] text-arena-600 tabular-nums flex-shrink-0">{{ formatSize(r.size) }}</span>
               </li>
             </ul>
           </div>
@@ -176,54 +149,71 @@
         <EmptyTab v-else icon="upload" message="This skill does not bundle any references, assets or scripts." />
       </section>
 
-      <!-- Metadata: the catch-all surface for everything else in the
-           frontmatter (custom keys + the canonical metadata map). Two-
-           column dl layout. -->
+      <!-- Metadata: the whole frontmatter. Every key the operator
+           wrote in SKILL.md shows up here — scalar fields in a
+           two-column dl, list-shaped fields (allowed-tools, tags…)
+           rendered as inline chips, and the canonical `metadata`
+           map gets its own grouped block at the end so YAML maps
+           don't collapse into stringy noise. -->
       <section v-show="activeTab === 'metadata'">
-        <div v-if="metadataPairs.length || metadataMap.length" class="space-y-5">
-          <div v-if="metadataPairs.length">
-            <h4 class="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-widest text-arena-400 mb-2">
-              <span class="w-1 h-1 rounded-full bg-cyan-400/70"></span>
-              Frontmatter fields
-            </h4>
-            <dl class="grid grid-cols-1 sm:grid-cols-3 gap-x-4 gap-y-1 border border-piedra-700/30 rounded-lg p-3 bg-piedra-800/20">
-              <template v-for="p in metadataPairs" :key="p.key">
-                <dt class="sm:col-span-1 text-[10px] text-arena-500 font-mono uppercase tracking-wider self-center">{{ p.key }}</dt>
-                <dd class="sm:col-span-2 text-[11px] text-arena-200 break-words">{{ p.value }}</dd>
-              </template>
-            </dl>
+        <div v-if="hasAnyMetadata" class="space-y-6">
+          <!-- Scalar fields. license, compatibility, version, name,
+               description and any custom string the operator added. -->
+          <dl
+            v-if="metadataScalars.length"
+            class="grid grid-cols-1 sm:grid-cols-[180px_1fr] gap-x-6 gap-y-3"
+          >
+            <template v-for="p in metadataScalars" :key="p.key">
+              <dt class="text-[11px] text-arena-500 font-mono">{{ p.key }}</dt>
+              <dd class="text-[12px] text-arena-200 break-words leading-6">{{ p.value }}</dd>
+            </template>
+          </dl>
+
+          <!-- List-shaped fields (allowed-tools, tags…). One row per
+               key with the values laid out as muted chips. -->
+          <div v-if="metadataLists.length" class="space-y-4">
+            <div
+              v-for="entry in metadataLists" :key="entry.key"
+              class="grid grid-cols-1 sm:grid-cols-[180px_1fr] gap-x-6 gap-y-2 items-start"
+            >
+              <span class="text-[11px] text-arena-500 font-mono pt-0.5">{{ entry.key }}</span>
+              <div class="flex flex-wrap gap-1.5">
+                <span
+                  v-for="(item, idx) in entry.items" :key="entry.key + idx"
+                  class="inline-flex items-center px-2 py-0.5 rounded-md bg-piedra-800/70 text-[11px] text-arena-300 font-mono"
+                >{{ item }}</span>
+              </div>
+            </div>
           </div>
 
+          <!-- Canonical `metadata:` map (Agent Skills spec). Same
+               two-column layout but indented under a small title so
+               it reads as a sub-document. -->
           <div v-if="metadataMap.length">
-            <h4 class="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-widest text-arena-400 mb-2">
-              <span class="w-1 h-1 rounded-full bg-cyan-400/70"></span>
-              metadata
-            </h4>
-            <dl class="grid grid-cols-1 sm:grid-cols-3 gap-x-4 gap-y-1 border border-piedra-700/30 rounded-lg p-3 bg-piedra-800/20">
+            <h4 class="text-[10px] uppercase tracking-wider text-arena-500 mb-3">metadata</h4>
+            <dl class="grid grid-cols-1 sm:grid-cols-[180px_1fr] gap-x-6 gap-y-3 pl-3 border-l border-piedra-800">
               <template v-for="[k, v] in metadataMap" :key="k">
-                <dt class="sm:col-span-1 text-[10px] text-arena-500 font-mono uppercase tracking-wider self-center">{{ k }}</dt>
-                <dd class="sm:col-span-2 text-[11px] text-arena-200 break-words">{{ v }}</dd>
+                <dt class="text-[11px] text-arena-500 font-mono">{{ k }}</dt>
+                <dd class="text-[12px] text-arena-200 break-words leading-6">{{ v }}</dd>
               </template>
             </dl>
           </div>
         </div>
-        <EmptyTab v-else icon="command" message="No additional metadata declared in this SKILL.md." />
+        <EmptyTab v-else icon="command" message="No frontmatter fields declared in this SKILL.md." />
       </section>
 
       <!-- Back-to-top floating button. Sits at the end of the content
-           flow with `position: sticky; bottom: 1rem`, which glues it
-           to the bottom of the scroll viewport while still being part
-           of the document. We wrap it in a zero-height div with
-           pointer-events disabled so the button doesn't reserve
-           layout space (no awkward gap below the last section). The
-           button itself re-enables pointer events. Visibility is
-           bound to whether the hero header is in the scroll viewport
-           (IntersectionObserver, set up on dialog open). -->
-      <div class="sticky bottom-4 -mt-5 h-0 pointer-events-none flex justify-end">
+           flow with `position: sticky; bottom: 1rem`, glued to the
+           bottom of the scroll viewport. The wrapper has zero height
+           and disabled pointer events so it doesn't reserve layout
+           space; the button re-enables pointer events for itself.
+           Visibility is bound to the IntersectionObserver watching
+           the hero header. -->
+      <div class="sticky bottom-8 -mt-7 h-0 pointer-events-none flex justify-end">
         <button
           type="button"
           @click="scrollToTop"
-          class="pointer-events-auto flex items-center justify-center w-9 h-9 rounded-full bg-piedra-800/95 backdrop-blur-sm border border-piedra-700/60 text-arena-300 hover:text-cyan-300 hover:border-cyan-500/40 hover:bg-piedra-800 shadow-lg transition-all duration-150"
+          class="pointer-events-auto flex items-center justify-center w-9 h-9 rounded-full bg-piedra-800/95 backdrop-blur-sm border border-piedra-700/60 text-arena-400 hover:text-arena-100 hover:border-piedra-600 shadow-lg transition-all duration-150"
           :class="showBackToTop ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2 pointer-events-none'"
           :tabindex="showBackToTop ? 0 : -1"
           :aria-hidden="!showBackToTop"
@@ -260,7 +250,6 @@ const loading = ref(false)
 const activeTab = ref('instructions')
 const copied = ref(false)
 const heroAnchor = ref(null)
-const tabsAnchor = ref(null)
 const showBackToTop = ref(false)
 let heroObserver = null
 
@@ -281,25 +270,7 @@ const showSlug = computed(() => {
 const title = computed(() => displayName.value)
 const frontmatter = computed(() => skill.value?.frontmatter || {})
 
-// identityChips collects the few frontmatter fields that act as
-// identity markers (license, compatibility, version) so we can pin
-// them next to the title. We keep it small on purpose — the
-// Metadata tab carries the full picture.
-const identityChips = computed(() => {
-  const fm = frontmatter.value
-  const out = []
-  if (fm.license) out.push({ label: '', value: fm.license, accent: false })
-  if (fm.compatibility) out.push({ label: '', value: stringy(fm.compatibility), accent: true })
-  if (fm.version) out.push({ label: 'v', value: stringy(fm.version), accent: false })
-  return out
-})
-
-// --- Tabs / status ---------------------------------------------------------
-
-const allowedTools = computed(() => {
-  const arr = frontmatter.value['allowed-tools']
-  return Array.isArray(arr) ? arr.map((t) => String(t)) : []
-})
+// --- Tab content -----------------------------------------------------------
 
 const renderedHtml = computed(() => renderMarkdown(skill.value?.instructions))
 
@@ -322,35 +293,100 @@ const groupedResources = computed(() => {
 
 const totalResources = computed(() => (skill.value?.resources || []).length)
 
-// metadataPairs = top-level frontmatter entries that aren't already
-// consumed by another section. Lists/maps drop into `metadataMap`.
-const SECTION_OWNED_KEYS = new Set(['name', 'description', 'metadata', 'allowed-tools'])
-const HEADER_OWNED_KEYS = new Set(['license', 'compatibility', 'version'])
+// --- Metadata tab ----------------------------------------------------------
+//
+// The Metadata tab surfaces the FULL frontmatter the operator wrote
+// in SKILL.md. We split it into three buckets so the layout adapts to
+// each value's shape:
+//
+//   • metadataScalars — strings/numbers/booleans. Shown in a
+//     two-column dl. Includes license/version/compatibility (which
+//     used to be pinned near the title — now they live here, where
+//     the rest of the metadata lives, so every skill's header has
+//     the same visual length regardless of how decorated its
+//     frontmatter is).
+//   • metadataLists   — array fields like allowed-tools or tags.
+//     Each list gets its own row with the items rendered as muted
+//     mono chips.
+//   • metadataMap     — the canonical `metadata:` map from the
+//     Agent Skills spec, rendered as an indented sub-document so
+//     YAML maps don't squash into stringy noise.
+//
+// `name` and `description` are deliberately omitted — they're
+// already prominent in the hero header; repeating them here would
+// be noise.
 
-const metadataPairs = computed(() => {
+const HERO_OWNED_KEYS = new Set(['name', 'description'])
+const RESERVED_LIST_KEYS = new Set(['allowed-tools', 'tags'])
+
+const metadataScalars = computed(() => {
   const fm = frontmatter.value
   const out = []
   for (const [k, v] of Object.entries(fm)) {
-    if (SECTION_OWNED_KEYS.has(k)) continue
-    if (HEADER_OWNED_KEYS.has(k)) continue
+    if (HERO_OWNED_KEYS.has(k)) continue
+    if (k === 'metadata') continue
     if (v === null || v === undefined || v === '') continue
+    if (Array.isArray(v)) continue
     if (typeof v === 'object') continue
     out.push({ key: k, value: stringy(v) })
   }
-  return out.sort((a, b) => a.key.localeCompare(b.key))
+  return out.sort(metadataKeyOrder)
+})
+
+const metadataLists = computed(() => {
+  const fm = frontmatter.value
+  const out = []
+  for (const [k, v] of Object.entries(fm)) {
+    if (HERO_OWNED_KEYS.has(k)) continue
+    if (!Array.isArray(v) || v.length === 0) continue
+    out.push({ key: k, items: v.map((x) => stringy(x)) })
+  }
+  // Push canonical lists first (allowed-tools, tags), then anything
+  // else alphabetically — same intent as the scalar order helper.
+  return out.sort((a, b) => {
+    const ax = RESERVED_LIST_KEYS.has(a.key) ? 0 : 1
+    const bx = RESERVED_LIST_KEYS.has(b.key) ? 0 : 1
+    if (ax !== bx) return ax - bx
+    return a.key.localeCompare(b.key)
+  })
 })
 
 const metadataMap = computed(() => {
   const meta = frontmatter.value.metadata
-  if (!meta || typeof meta !== 'object') return []
-  return Object.entries(meta).sort(([a], [b]) => a.localeCompare(b)).map(([k, v]) => [k, stringy(v)])
+  if (!meta || typeof meta !== 'object' || Array.isArray(meta)) return []
+  return Object.entries(meta)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([k, v]) => [k, stringy(v)])
 })
 
+const hasAnyMetadata = computed(
+  () => metadataScalars.value.length + metadataLists.value.length + metadataMap.value.length > 0,
+)
+
+// metadataKeyOrder pushes the most-recognisable spec fields to the
+// top of the scalar list so license/compatibility/version sit
+// where the operator instinctively expects them, regardless of
+// alphabetical order.
+const PINNED_SCALAR_KEYS = ['license', 'compatibility', 'version']
+function metadataKeyOrder(a, b) {
+  const ai = PINNED_SCALAR_KEYS.indexOf(a.key)
+  const bi = PINNED_SCALAR_KEYS.indexOf(b.key)
+  if (ai !== -1 || bi !== -1) {
+    if (ai === -1) return 1
+    if (bi === -1) return -1
+    return ai - bi
+  }
+  return a.key.localeCompare(b.key)
+}
+
+const totalMetadataCount = computed(
+  () => metadataScalars.value.length + metadataLists.value.length + metadataMap.value.length,
+)
+
 const availableTabs = computed(() => [
-  { id: 'instructions', label: 'Instructions', icon: 'skill' },
-  { id: 'tools',        label: 'Tools',        icon: 'key',     count: allowedTools.value.length },
-  { id: 'resources',    label: 'Resources',    icon: 'upload',  count: totalResources.value },
-  { id: 'metadata',     label: 'Metadata',     icon: 'command', count: metadataPairs.value.length + metadataMap.value.length },
+  { id: 'instructions', label: 'Instructions' },
+  { id: 'resources',    label: 'Resources', count: totalResources.value },
+  { id: 'metadata',     label: 'Metadata',  count: totalMetadataCount.value },
 ])
 
 // --- Helpers ---------------------------------------------------------------
@@ -404,17 +440,21 @@ async function open(idOrSummary) {
   try {
     const id = typeof idOrSummary === 'string' ? idOrSummary : idOrSummary?.id
     skill.value = await skillsApi.get(id)
-    // Wait for the skill content to render before wiring the
-    // IntersectionObserver — heroAnchor.value is null while
-    // skill.value is null because the v-else renders nothing.
-    await nextTick()
-    setupHeroObserver()
   } catch (e) {
     toast.error(e.message)
     dialogRef.value?.close()
+    return
   } finally {
     loading.value = false
   }
+  // Set up the observer AFTER loading flips to false. While loading
+  // is true the v-if branch shows the placeholder and the v-else
+  // (which contains the hero header) is NOT in the DOM, so
+  // heroAnchor.value would be null. Two ticks of waiting guarantee
+  // the new template tree is committed before we query it.
+  await nextTick()
+  await nextTick()
+  setupHeroObserver()
 }
 
 function close() {
