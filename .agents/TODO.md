@@ -106,6 +106,51 @@ See `.agents/ADK_TOOLS.md` for protocol details.
 
 ## Medium Priority
 
+### Adopt ADK's `tool/skilltoolset` for Skills
+
+**Status**: Available since ADK v1.2.0, not adopted.
+
+Magec currently injects the full content of every linked Skill into the agent's system prompt at build time (instructions appended as `--- Skill: {name} ---`, references inlined as `[Reference: {filename}]`). Works but inflates the prompt and burns context every turn, even when the model wouldn't have used the Skill.
+
+ADK upstream now ships `tool/skilltoolset` with three tools (`list_skills`, `load_skill`, `load_skill_resource`). The model sees a short list of available Skills and calls `load_skill` only when one is relevant; instructions arrive as a function-call result instead of fixed prompt content.
+
+**Implications**:
+
+- Smaller, more dynamic system prompts.
+- Need a `skill.Source` adapter over `data/skills/` (today's directory layout already mostly matches: `SKILL.md` + `references/`; would need to reshape the metadata).
+- UX shift: "plug-and-play in prompt" → "LLM decides to load". Behaviour difference worth piloting on a few agents before rolling broadly.
+
+**Files**: `server/agent/agent.go` (`buildInstruction` / Skills loop), new adapter under `server/agent/tools/` or similar, `frontend/admin-ui/src/views/skills/` for any UI changes.
+
+---
+
+### Use `artifact.Service.GetArtifactVersion` for richer metadata
+
+**Status**: Available since ADK v1.1.0, not used.
+
+Today both `list_artifacts` and the ephemeral URL endpoint go through `Load(version)`, which decodes the full blob just to read metadata (mimetype, size, etc.). ADK now exposes `GetArtifactVersion` which returns metadata only.
+
+**Wins**:
+
+- `list_artifacts` could return `{name, version, mime, size, createdAt}` per item without touching bytes.
+- The ephemeral URL handler (`server/main.go:newEphemeralArtifactHandler`) could decide content-type and content-disposition without decoding the whole file twice.
+
+**Files**: `server/agent/tools/artifacts/toolset.go`, `server/main.go`.
+
+---
+
+### Evaluate `adka2a.RunnerProvider` for A2A handler
+
+**Status**: Available since ADK v1.2.0, not used.
+
+ADK v1.2.0 added `RunnerProvider` to `adka2a.ExecutorConfig` so callers can supply their own runner factory instead of letting `adka2a` build one from `RunnerConfig`. Could let us share runners across A2A invocations or hook into custom plugin chains without the executor wrapping things its own way.
+
+Worth evaluating whether it materially improves the rebuild path in `server/a2a/handler.go` or it's a marginal win we can skip. Spike, decide, write a short note in DECISIONS.md either way.
+
+**Files**: `server/a2a/handler.go`.
+
+---
+
 ### A2A FilePart → inline/artifact policy
 
 **Problem**: A2A messages carry three `Part` types: `TextPart`, `FilePart` (binary + MIME), and `DataPart` (structured JSON). The A2A handler in `server/a2a/handler.go` currently only extracts the `TextPart` and ignores files. Agent cards advertise `DefaultInputModes: ["text/plain"]`.
