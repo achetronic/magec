@@ -51,6 +51,13 @@ func (f *fakeArtifactService) Versions(_ context.Context, _ *artifact.VersionsRe
 	return &artifact.VersionsResponse{}, nil
 }
 
+// GetArtifactVersion satisfies the artifact.Service interface introduced
+// in ADK v1.1.0. The msgutil tests do not exercise it, so a zero-value
+// response is enough.
+func (f *fakeArtifactService) GetArtifactVersion(_ context.Context, _ *artifact.GetArtifactVersionRequest) (*artifact.GetArtifactVersionResponse, error) {
+	return &artifact.GetArtifactVersionResponse{}, nil
+}
+
 // ----- StoreAsArtifact -----
 
 func TestStoreAsArtifact_SavesAndReturnsDescriptor(t *testing.T) {

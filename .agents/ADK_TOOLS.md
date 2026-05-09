@@ -1,6 +1,6 @@
 # ADK Go Built-in Tools Reference
 
-Reference for all tools shipped with `google.golang.org/adk` (evaluated at v0.4.0, with `main`-only packages noted).
+Reference for all tools shipped with `google.golang.org/adk` (evaluated at v1.2.0).
 
 ## Tools Overview
 
@@ -15,8 +15,7 @@ Reference for all tools shipped with `google.golang.org/adk` (evaluated at v0.4.
 | `toolconfirmation`  | _(protocol)_              | Protocol    | Not yet                            | Human-in-the-Loop confirmation via `ctx.RequestConfirmation()`                |
 | `loadmemorytool`    | `load_memory`             | Tool        | Not yet (custom equivalent exists) | LLM-driven memory search. Official ADK version of `search_memory`             |
 | `preloadmemorytool` | `preload_memory`          | Tool (auto) | Not yet (custom equivalent exists) | Auto-injects relevant memories into system prompt before each LLM call        |
-
-> **Note**: `loadmemorytool` and `preloadmemorytool` are only on `main` branch, not yet in any release tag.
+| `skilltoolset`      | `list_skills` + `load_skill` + `load_skill_resource` | Toolset | Not yet (TODO entry) | Agent Skills loaded on demand instead of inlined in the system prompt. Released in ADK v1.2.0 |
 
 ## Detailed Descriptions
 
