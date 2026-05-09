@@ -34,6 +34,7 @@ package skills
 
 import (
 	"errors"
+	"io"
 	"io/fs"
 	"path"
 	"strings"
@@ -207,10 +208,13 @@ func (r *filteredRoot) Read([]byte) (int, error) {
 }
 func (r *filteredRoot) Close() error { return nil }
 
-// ReadDir implements fs.ReadDirFile. n<=0 returns all remaining entries;
-// n>0 returns up to n entries and io.EOF when exhausted. Following the
-// stdlib convention exactly avoids surprising the caller (ADK uses the
-// helper fs.ReadDir which always asks for everything in one call).
+// ReadDir implements fs.ReadDirFile. n<=0 returns all remaining entries
+// and a nil error; n>0 returns up to n remaining entries, signalling
+// io.EOF (with a nil slice) once the cursor has been exhausted. This
+// is the io/fs.ReadDirFile contract — ADK uses the high-level
+// fs.ReadDir helper which only ever asks for everything in one go,
+// but the EOF signalling is part of the interface and other consumers
+// rely on it.
 func (r *filteredRoot) ReadDir(n int) ([]fs.DirEntry, error) {
 	if r.cached == nil {
 		entries, err := r.fs.rootEntries()
@@ -223,6 +227,9 @@ func (r *filteredRoot) ReadDir(n int) ([]fs.DirEntry, error) {
 	if n <= 0 {
 		r.cursor = len(r.cached)
 		return remaining, nil
+	}
+	if len(remaining) == 0 {
+		return nil, io.EOF
 	}
 	if n > len(remaining) {
 		n = len(remaining)

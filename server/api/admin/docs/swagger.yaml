@@ -88,12 +88,24 @@ definitions:
       size:
         type: integer
     type: object
+  admin.SkillSummary:
+    properties:
+      description:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      slug:
+        type: string
+    type: object
   admin.SkillView:
     properties:
       description:
         type: string
       frontmatter:
-        $ref: '#/definitions/skill.Frontmatter'
+        additionalProperties: {}
+        type: object
       id:
         type: string
       instructions:
@@ -136,25 +148,6 @@ definitions:
     type: object
   memory.Schema:
     additionalProperties: true
-    type: object
-  skill.Frontmatter:
-    properties:
-      allowedTools:
-        items:
-          type: string
-        type: array
-      compatibility:
-        type: string
-      description:
-        type: string
-      license:
-        type: string
-      metadata:
-        additionalProperties:
-          type: string
-        type: object
-      name:
-        type: string
     type: object
   store.A2AConfig:
     properties:
@@ -2101,7 +2094,7 @@ paths:
           description: OK
           schema:
             items:
-              $ref: '#/definitions/admin.SkillView'
+              $ref: '#/definitions/admin.SkillSummary'
             type: array
       security:
       - AdminAuth: []

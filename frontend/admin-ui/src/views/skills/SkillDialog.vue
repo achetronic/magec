@@ -1,16 +1,13 @@
 <template>
   <AppDialog ref="dialogRef" title="Upload Skill" size="lg">
     <div class="space-y-4">
-      <!-- The viewer is opinionated by upstream contract: ADK's
-           skilltoolset only accepts the layout from the Agent Skills
-           specification (SKILL.md at root + references/, assets/,
-           scripts/ subtrees). We surface that to the operator before
-           the dropzone instead of letting them upload something we'd
-           reject with a 400, and link the spec so the choice is
-           informed rather than guessed. -->
       <!-- Inline intro: title-weight first line tells the operator
            what to drop, sub-line points at the spec they need to
-           follow. No card / box — the modal itself is the canvas. -->
+           follow. ADK's skilltoolset only accepts the layout from
+           the Agent Skills specification (SKILL.md at root +
+           references/, assets/, scripts/ subtrees), so we surface
+           that contract before the dropzone instead of letting the
+           operator upload something we'd reject with a 400. -->
       <div class="space-y-1">
         <p class="text-[13px] text-arena-200 leading-6">
           Drop a <code class="px-1 py-0.5 rounded bg-piedra-800 text-arena-200 font-mono text-[11px]">SKILL.md</code>

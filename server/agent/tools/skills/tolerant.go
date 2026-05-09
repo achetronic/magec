@@ -9,7 +9,6 @@
 package skills
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -108,12 +107,12 @@ func (s *TolerantSource) LoadFrontmatter(ctx context.Context, name string) (*adk
 	return fm, nil
 }
 
-// LoadInstructions reads bytes directly from disk through the inner
-// source. ADK's FileSystemSource only validates the frontmatter (to
-// confirm the directory name matches `frontmatter.name`) — when that
-// validation rejects an otherwise-fine SKILL.md because of extra
-// keys, we fall back to splitting the file ourselves and returning
-// the body verbatim.
+// LoadInstructions reads the SKILL.md body for a given skill. ADK's
+// FileSystemSource validates the frontmatter (and the dirname/name
+// invariant) before returning the body; when that validation rejects
+// an otherwise-fine SKILL.md because of extra keys, we fall back to
+// splitting the file ourselves and serving the body verbatim — the
+// LLM still gets to read the skill.
 func (s *TolerantSource) LoadInstructions(ctx context.Context, name string) (string, error) {
 	if body, err := s.inner.LoadInstructions(ctx, name); err == nil {
 		return body, nil
@@ -175,7 +174,7 @@ func (s *TolerantSource) readSkillBody(name string) (string, bool) {
 // expectedName is used to verify the dirname/frontmatter-name
 // invariant ADK relies on. We keep the original body verbatim.
 func tolerantParse(raw []byte, expectedName string) (*adkskill.Frontmatter, string, error) {
-	rawFM, body, ok := splitFrontmatter(raw)
+	rawFM, body, ok := SplitFrontmatter(raw)
 	if !ok {
 		return nil, "", fmt.Errorf("missing frontmatter delimiters")
 	}
@@ -218,8 +217,3 @@ func forceFrontmatterName(raw []byte, expected string) []byte {
 
 // Compile-time check: TolerantSource satisfies adkskill.Source.
 var _ adkskill.Source = (*TolerantSource)(nil)
-
-// (Avoid an "imported and not used" complaint when only some helpers
-// reference these packages — the compiler will tell us if anything
-// drifts.)
-var _ = bytes.NewReader

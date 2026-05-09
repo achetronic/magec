@@ -36,8 +36,9 @@ export const skillsApi = {
     return data
   },
 
-  // downloadUrl produces an authenticated URL for the tar.gz export.
-  // The caller is responsible for fetching with auth headers and
-  // triggering a browser download.
+  // downloadUrl returns the path of the tar.gz export endpoint. The
+  // caller fetches it with the admin Bearer header and triggers a
+  // browser download — the URL itself is NOT signed; access is
+  // gated by the standard admin auth middleware.
   downloadUrl: (id) => `${BASE}/skills/${id}/download`,
 }

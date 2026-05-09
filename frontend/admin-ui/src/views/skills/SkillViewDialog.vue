@@ -6,17 +6,17 @@
     <!-- Visual hierarchy intent (read top-to-bottom):
            PRIMARY   — skill name, description, instructions body.
            SECONDARY — tab navigation, current section's content.
-           TERTIARY  — slug, identity chips, file paths, metadata.
+           TERTIARY  — slug, file paths, metadata.
                        (read on demand, never grab attention.)
 
          Concretely:
-           - one accent colour (cyan) and one only — used SOLELY for
-             the active tab indicator. Everything else is arena/piedra
-             greys. Removing the "cyan everywhere" temptation lets the
-             content itself do the talking.
+           - one accent colour (sol, the Magec yellow) reserved for
+             the Download CTA and the active-tab underline. Everything
+             else is arena/piedra greys. The brand accent earns its
+             space; using it anywhere else cheapens it.
            - generous vertical rhythm (`space-y-7`) between bands; the
              modal is meant to be read, not scanned in pieces.
-           - a single border-bottom under the hero gives a clean
+           - a single border-bottom under the tab nav gives a clean
              horizon line; the tabs anchor below it without their own
              background. -->
     <div v-else class="space-y-7">
@@ -179,7 +179,7 @@
               <span class="text-[11px] text-arena-500 font-mono pt-0.5">{{ entry.key }}</span>
               <div class="flex flex-wrap gap-1.5">
                 <span
-                  v-for="(item, idx) in entry.items" :key="entry.key + idx"
+                  v-for="(item, idx) in entry.items" :key="`${entry.key}-${idx}`"
                   class="inline-flex items-center px-2 py-0.5 rounded-md bg-piedra-800/70 text-[11px] text-arena-300 font-mono"
                 >{{ item }}</span>
               </div>
@@ -235,7 +235,7 @@
 </template>
 
 <script setup>
-import { ref, computed, inject, onMounted, onBeforeUnmount, nextTick, watch } from 'vue'
+import { ref, computed, inject, onBeforeUnmount, nextTick, watch } from 'vue'
 import { renderMarkdown } from '../../lib/markdown.js'
 import { skillsApi } from '../../lib/api/index.js'
 import { getAuthHeaders } from '../../lib/auth.js'
@@ -531,11 +531,6 @@ function scrollToTop() {
 watch(skill, (val) => {
   if (val) nextTick(setupHeroObserver)
   else teardownHeroObserver()
-})
-
-onMounted(() => {
-  // No-op on mount; the observer is created on dialog open. Kept as
-  // an explicit hook so the lifecycle is obvious to the next reader.
 })
 
 onBeforeUnmount(teardownHeroObserver)

@@ -9,7 +9,6 @@
 package admin
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -23,15 +22,27 @@ import (
 	"strings"
 
 	"github.com/gorilla/mux"
-	"gopkg.in/yaml.v3"
 
 	skillsmod "github.com/achetronic/magec/server/agent/tools/skills"
 	"github.com/achetronic/magec/server/store"
 )
 
-// SkillView is the shape returned by the admin API for a single skill.
-// All fields except `id` and `slug` are read live from disk so the API
-// never serves stale metadata after an out-of-band edit.
+// SkillSummary is the shape returned by the list endpoint. It carries
+// only the fields the admin UI's card grid uses (id, slug, name,
+// description) so the GET /skills response stays cheap regardless of
+// how many skills the operator uploaded or how big each SKILL.md is.
+// The full SkillView (with instructions and resource walk) is only
+// hydrated by GET /skills/{id} when the operator opens the viewer.
+type SkillSummary struct {
+	ID          string `json:"id"`
+	Slug        string `json:"slug"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+}
+
+// SkillView is the shape returned by GET /skills/{id} for a single
+// skill. All fields except `id` and `slug` are read live from disk
+// so the API never serves stale metadata after an out-of-band edit.
 //
 // `name` and `description` are the frontmatter values (NOT a store
 // override — decision #29 keeps the store at {id, slug} only). Other
@@ -42,12 +53,12 @@ import (
 // permissive YAML decode here so a single unrecognised key cannot
 // blank out the whole viewer.
 type SkillView struct {
-	ID           string         `json:"id"`
-	Slug         string         `json:"slug"`
-	Name         string         `json:"name"`
-	Description  string         `json:"description"`
-	Instructions string         `json:"instructions"`
-	Frontmatter  map[string]any `json:"frontmatter"`
+	ID           string          `json:"id"`
+	Slug         string          `json:"slug"`
+	Name         string          `json:"name"`
+	Description  string          `json:"description"`
+	Instructions string          `json:"instructions"`
+	Frontmatter  map[string]any  `json:"frontmatter"`
 	Resources    []SkillResource `json:"resources"`
 }
 
@@ -60,24 +71,24 @@ type SkillResource struct {
 	Size int64  `json:"size"`
 }
 
-// listSkills returns every skill known to the store, hydrated with the
-// data parsed from each SKILL.md. Skills whose on-disk package has
-// gone missing are reported with empty frontmatter so the operator can
-// still see the orphan record and delete it.
+// listSkills returns every skill known to the store as a lightweight
+// summary (id, slug, name, description). Heavier fields — the
+// instructions body and the resource walk — only travel through
+// GET /skills/{id} where the viewer actually needs them.
 //
 // @Summary      List skills
 // @Description  Returns all configured skills with their on-disk metadata
 // @Tags         skills
 // @Produce      json
-// @Success      200  {array}  SkillView
+// @Success      200  {array}  SkillSummary
 // @Security     AdminAuth
 // @Router       /skills [get]
 func (h *Handler) listSkills(w http.ResponseWriter, r *http.Request) {
 	skills := h.store.ListRawSkills()
 	root := h.store.SkillsDir()
-	out := make([]SkillView, 0, len(skills))
+	out := make([]SkillSummary, 0, len(skills))
 	for _, sk := range skills {
-		out = append(out, hydrateSkill(sk, root))
+		out = append(out, hydrateSkillSummary(sk, root))
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Slug < out[j].Slug })
 	writeJSON(w, http.StatusOK, out)
@@ -252,6 +263,28 @@ func (h *Handler) downloadSkill(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write(tgz)
 }
 
+// hydrateSkillSummary is the cheap version of hydrateSkill used by
+// the list endpoint. It reads only the SKILL.md frontmatter
+// (skipping the body and the resource walk) so listing N skills
+// costs O(N) small reads instead of O(N) full directory scans.
+func hydrateSkillSummary(sk store.Skill, root string) SkillSummary {
+	out := SkillSummary{ID: sk.ID, Slug: sk.Slug}
+	if sk.Slug == "" || root == "" {
+		return out
+	}
+	body, err := os.ReadFile(filepath.Join(root, sk.Slug, "SKILL.md"))
+	if err != nil {
+		return out
+	}
+	if fm, _, ok := skillsmod.ParseFrontmatterPermissive(body); ok {
+		if name, _ := fm["name"].(string); name != "" {
+			out.Name = name
+		}
+		out.Description = stringFromAny(fm["description"])
+	}
+	return out
+}
+
 // hydrateSkill reads the on-disk SKILL.md and resource tree for a
 // stored skill and returns the full SkillView. When the on-disk
 // package is missing or unreadable the view still contains the bare
@@ -279,7 +312,7 @@ func hydrateSkill(sk store.Skill, root string) SkillView {
 	skillDir := filepath.Join(root, sk.Slug)
 	body, err := os.ReadFile(filepath.Join(skillDir, "SKILL.md"))
 	if err == nil {
-		if fm, instructions, ok := parseFrontmatterPermissive(body); ok {
+		if fm, instructions, ok := skillsmod.ParseFrontmatterPermissive(body); ok {
 			v.Frontmatter = fm
 			if name, _ := fm["name"].(string); name != "" {
 				v.Name = name
@@ -291,42 +324,6 @@ func hydrateSkill(sk store.Skill, root string) SkillView {
 
 	v.Resources = walkResources(context.Background(), skillDir)
 	return v
-}
-
-// parseFrontmatterPermissive splits a SKILL.md into its YAML
-// frontmatter (decoded as a map) and the markdown body that follows
-// the closing delimiter. Unknown fields are kept; YAML decode errors
-// or a missing closing delimiter cause the whole frontmatter to be
-// dropped (the body is still returned so the UI shows the
-// instructions even when the metadata is malformed).
-func parseFrontmatterPermissive(raw []byte) (map[string]any, string, bool) {
-	trimmed := bytes.TrimLeft(raw, " \t\r\n")
-	if !bytes.HasPrefix(trimmed, []byte("---\n")) && !bytes.HasPrefix(trimmed, []byte("---\r\n")) {
-		return nil, string(raw), false
-	}
-	// Locate the closing "---\n" line.
-	rest := trimmed[len("---\n"):]
-	closeIdx := bytes.Index(rest, []byte("\n---\n"))
-	if closeIdx < 0 {
-		closeIdx = bytes.Index(rest, []byte("\n---\r\n"))
-	}
-	if closeIdx < 0 {
-		return nil, string(raw), false
-	}
-	yamlBlock := rest[:closeIdx]
-	body := rest[closeIdx:]
-	// Skip the trailing "\n---\n" (or \r\n variant).
-	if i := bytes.Index(body, []byte("\n---\n")); i == 0 {
-		body = body[len("\n---\n"):]
-	} else if i := bytes.Index(body, []byte("\n---\r\n")); i == 0 {
-		body = body[len("\n---\r\n"):]
-	}
-
-	fm := map[string]any{}
-	if err := yaml.Unmarshal(yamlBlock, &fm); err != nil {
-		return nil, string(body), false
-	}
-	return fm, string(body), true
 }
 
 // stringFromAny coerces map values to a clean string. Multi-line YAML
@@ -357,8 +354,12 @@ func walkResources(_ context.Context, skillDir string) []SkillResource {
 		if _, err := os.Stat(base); err != nil {
 			continue
 		}
-		_ = filepath.Walk(base, func(p string, info os.FileInfo, err error) error {
-			if err != nil || info.IsDir() {
+		_ = filepath.WalkDir(base, func(p string, d fs.DirEntry, err error) error {
+			if err != nil || d.IsDir() {
+				return nil
+			}
+			info, ierr := d.Info()
+			if ierr != nil {
 				return nil
 			}
 			rel, rerr := filepath.Rel(skillDir, p)

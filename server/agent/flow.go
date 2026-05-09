@@ -48,15 +48,15 @@ import (
 // tool, conditionally injected only into agents that descend from a loop
 // step whose ExitLoop flag is true. Both are stateless and safe to share.
 type FlowBuildDeps struct {
-	Ctx              context.Context
-	AgentDefs        map[string]store.AgentDefinition
-	FlowAgents       map[string]adkagent.Agent
-	BackendMap       map[string]store.BackendDefinition
-	MCPServerMap     map[string]store.MCPServer
+	Ctx          context.Context
+	AgentDefs    map[string]store.AgentDefinition
+	FlowAgents   map[string]adkagent.Agent
+	BackendMap   map[string]store.BackendDefinition
+	MCPServerMap map[string]store.MCPServer
 	// SkillSlugs maps skill ID -> on-disk slug. Forwarded verbatim
 	// to BuildAgentInstance so per-flow agent instances build their
 	// own skilltoolset filtered by the agent's whitelist.
-	SkillSlugs       map[string]string
+	SkillSlugs map[string]string
 	// SkillsDir is the absolute path to data/skills/. Empty disables
 	// skill loading for every agent in the flow.
 	SkillsDir        string

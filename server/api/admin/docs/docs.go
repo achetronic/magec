@@ -2413,7 +2413,7 @@ const docTemplate = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/admin.SkillView"
+                                "$ref": "#/definitions/admin.SkillSummary"
                             }
                         }
                     }
@@ -2747,6 +2747,23 @@ const docTemplate = `{
                 }
             }
         },
+        "admin.SkillSummary": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "slug": {
+                    "type": "string"
+                }
+            }
+        },
         "admin.SkillView": {
             "type": "object",
             "properties": {
@@ -2754,7 +2771,8 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "frontmatter": {
-                    "$ref": "#/definitions/skill.Frontmatter"
+                    "type": "object",
+                    "additionalProperties": {}
                 },
                 "id": {
                     "type": "string"
@@ -2819,35 +2837,6 @@ const docTemplate = `{
         "memory.Schema": {
             "type": "object",
             "additionalProperties": true
-        },
-        "skill.Frontmatter": {
-            "type": "object",
-            "properties": {
-                "allowedTools": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
-                "compatibility": {
-                    "type": "string"
-                },
-                "description": {
-                    "type": "string"
-                },
-                "license": {
-                    "type": "string"
-                },
-                "metadata": {
-                    "type": "object",
-                    "additionalProperties": {
-                        "type": "string"
-                    }
-                },
-                "name": {
-                    "type": "string"
-                }
-            }
         },
         "store.A2AConfig": {
             "type": "object",

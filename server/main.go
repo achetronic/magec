@@ -718,7 +718,17 @@ func (h *agentRouterHandler) rebuild(ctx context.Context, dataStore *store.Store
 	var agentHandler http.Handler
 	var artifactSvc artifact.Service
 	if len(storeData.Agents) > 0 {
-		svc, err := agent.New(ctx, storeData.Agents, storeData.Backends, storeData.MemoryProviders, storeData.MCPServers, storeData.Skills, storeData.Flows, storeData.Settings, h.cwRegistry, dataStore.ResolveTemporaryDir, dataStore.SkillsDir(), h.artifactURLBuilder)
+		// dataStore.ListSkills() filters out skills whose store
+		// entry still carries pre-decision-#29 fields. Using the
+		// raw storeData.Skills slice here would let those broken
+		// entries leak into the per-agent skilltoolset wiring (an
+		// agent linked to a broken skill ID could still receive a
+		// stale slug from the slugIndex). The admin API, the
+		// Skill accessors and the agent runtime must all agree on
+		// the same view of "what is a real skill" — there's only
+		// one source of truth for that, and it's ListSkills.
+		skills := dataStore.ListSkills()
+		svc, err := agent.New(ctx, storeData.Agents, storeData.Backends, storeData.MemoryProviders, storeData.MCPServers, skills, storeData.Flows, storeData.Settings, h.cwRegistry, dataStore.ResolveTemporaryDir, dataStore.SkillsDir(), h.artifactURLBuilder)
 		if err != nil {
 			slog.Warn("Failed to initialize agents", "error", err)
 		} else {

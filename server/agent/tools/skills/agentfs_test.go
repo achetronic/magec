@@ -159,3 +159,43 @@ func equalStrings(a, b []string) bool {
 	}
 	return true
 }
+
+// TestAgentFS_ReadDirReturnsEOFWhenExhausted locks in the io.ReadDirFile
+// contract: with n>0, after the cursor has been exhausted, ReadDir
+// must signal io.EOF so callers can detect end-of-iteration.
+// Important because an earlier version returned (nil, nil), which
+// looks like "no entries this batch but maybe more later" and could
+// trip future consumers.
+func TestAgentFS_ReadDirReturnsEOFWhenExhausted(t *testing.T) {
+	a := NewAgentFS(fakeRoot(), []string{"alpha"})
+	f, err := a.Open(".")
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	defer f.Close()
+	rdr, ok := f.(interface {
+		ReadDir(int) ([]fs.DirEntry, error)
+	})
+	if !ok {
+		t.Fatalf("filteredRoot does not implement ReadDir(int)")
+	}
+	first, err := rdr.ReadDir(10)
+	if err != nil {
+		t.Fatalf("first ReadDir: %v", err)
+	}
+	if len(first) != 1 {
+		t.Fatalf("first batch len = %d", len(first))
+	}
+	// The underlying cursor is now at end. A subsequent positive-n
+	// call must return (nil, io.EOF).
+	second, err := rdr.ReadDir(10)
+	if err == nil {
+		t.Fatalf("expected io.EOF after exhaustion, got err=nil len=%d", len(second))
+	}
+	if !errors.Is(err, io.EOF) {
+		t.Fatalf("expected io.EOF, got %v", err)
+	}
+	if second != nil {
+		t.Errorf("expected nil entries on EOF, got %v", second)
+	}
+}

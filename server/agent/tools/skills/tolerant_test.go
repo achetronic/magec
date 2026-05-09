@@ -100,7 +100,7 @@ func TestTolerantSource_StrictPathStillWorks(t *testing.T) {
 // on here) rather than break the whole listing.
 func TestTolerantSource_DropsHopelesslyBrokenSkills(t *testing.T) {
 	root := fstest.MapFS{
-		"good/SKILL.md":  &fstest.MapFile{Data: []byte("---\nname: good\ndescription: ok\n---\nbody\n")},
+		"good/SKILL.md":   &fstest.MapFile{Data: []byte("---\nname: good\ndescription: ok\n---\nbody\n")},
 		"broken/SKILL.md": &fstest.MapFile{Data: []byte("not a valid frontmatter at all")},
 	}
 	src := NewTolerantSource(root)

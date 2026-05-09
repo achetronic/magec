@@ -53,10 +53,10 @@ import (
 	sessionredis "github.com/achetronic/adk-utils-go/session/redis"
 	toolsmemory "github.com/achetronic/adk-utils-go/tools/memory"
 
-	"github.com/achetronic/magec/server/config"
 	toolsartifacts "github.com/achetronic/magec/server/agent/tools/artifacts"
 	toolsflowstate "github.com/achetronic/magec/server/agent/tools/flowstate"
 	toolsskills "github.com/achetronic/magec/server/agent/tools/skills"
+	"github.com/achetronic/magec/server/config"
 	"github.com/achetronic/magec/server/store"
 )
 

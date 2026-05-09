@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"sync"
 )
 
@@ -1475,7 +1476,7 @@ func detectBrokenSkills(raw []byte) map[string]string {
 		}
 		if len(legacyKeys) > 0 {
 			slices.Sort(legacyKeys)
-			out[id] = "legacy fields present: " + joinKeys(legacyKeys)
+			out[id] = "legacy fields present: " + strings.Join(legacyKeys, ", ")
 		}
 	}
 	return out
@@ -1499,19 +1500,6 @@ func isEmptyJSONValue(v any) bool {
 	default:
 		return false
 	}
-}
-
-// joinKeys is a tiny helper local to the detector so we don't have
-// to depend on strings only for one comma-separated list.
-func joinKeys(keys []string) string {
-	out := ""
-	for i, k := range keys {
-		if i > 0 {
-			out += ", "
-		}
-		out += k
-	}
-	return out
 }
 
 // IsSkillBroken reports whether a skill ID was flagged as

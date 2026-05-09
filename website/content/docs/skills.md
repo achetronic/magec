@@ -2,9 +2,9 @@
 title: "Skills"
 ---
 
-Skills are reusable knowledge packs that you attach to agents. Think of them as "expertise modules" — a skill bundles instructions, references, assets and scripts that teach an agent how to handle a specific domain or task.
+Skills are reusable knowledge packs that you attach to agents. Each skill bundles instructions, references, assets and scripts that teach an agent how to handle a specific domain or task.
 
-Without skills, all of an agent's knowledge has to live in its system prompt. That works fine for simple agents, but as the prompt grows with product catalogs, coding standards, response templates and domain rules, it becomes impossible to manage. Skills break that knowledge into independent, reusable pieces that the model loads **only when it needs them**.
+Without skills, all of an agent's knowledge has to live in its system prompt. That works fine for simple agents. As the prompt grows with product catalogs, coding standards, response templates and domain rules, it becomes impossible to manage. Skills break that knowledge into independent, reusable pieces that the model loads only when it needs them.
 
 ## Lazy loading by design
 
@@ -18,7 +18,7 @@ This is implemented through ADK's [skilltoolset](https://google.github.io/adk-do
 | `load_skill` | Reads a specific skill's full instructions on demand. |
 | `load_skill_resource` | Reads one file from a skill's bundled resources. |
 
-Agents with no linked skills get **no** skill tools at all — there is nothing to load.
+Agents with no linked skills get no skill tools at all. There is nothing to load.
 
 ## On-disk format
 
@@ -32,7 +32,7 @@ data/skills/{slug}/
 └── scripts/            (optional)
 ```
 
-`{slug}` is the skill's unique on-disk identifier and **must** match the `name` field in the SKILL.md frontmatter (Magec validates this on upload).
+`{slug}` is the skill's unique on-disk identifier and **must** match the `name` field in the SKILL.md frontmatter. Magec validates this on upload.
 
 ### `SKILL.md` example
 
@@ -63,21 +63,21 @@ The `name` and `description` fields are required. Everything else is optional bu
 
 The three resource sub-directories serve different purposes:
 
-- `references/` — documentation, examples, schemas, anything the model might need to read while following the skill.
-- `assets/` — templates, prompts, configuration files used by the skill.
-- `scripts/` — executable scripts the skill expects to run via tools.
+- `references/` holds documentation, examples and schemas the model can read while following the skill.
+- `assets/` holds templates, prompts and configuration files the skill consumes.
+- `scripts/` holds executable scripts the skill expects to run via tools.
 
-Magec only enforces the directory names; the contents are up to you. Files can live at any depth — `references/api/v2/schema.json` is fine.
+Magec only enforces the directory names. The contents are up to you. Files can live at any depth, like `references/api/v2/schema.json`.
 
 ## Uploading a skill
 
 In the Admin UI, go to **Skills** and click **+ Upload Skill**. The dropzone accepts:
 
-- A standalone `SKILL.md` (with valid frontmatter) — useful for quick text-only skills.
+- A standalone `SKILL.md` with valid frontmatter, useful for quick text-only skills.
 - A `.zip` archive containing `SKILL.md` at the root plus optional resource sub-directories.
 - A `.tar.gz` / `.tgz` archive with the same layout.
 
-If the upload's frontmatter `name` matches an existing skill, the request fails with a clear conflict message. Tick **Replace** in the modal to overwrite the existing skill — its store ID is preserved so any agent linked to it stays linked.
+If the upload's frontmatter `name` matches an existing skill, the request fails with a clear conflict message. Tick **Replace** in the modal to overwrite the existing skill. Its store ID is preserved so any agent linked to it stays linked.
 
 The same single upload endpoint handles both creation and updates. There is no manual create form, no "edit" mode, and no per-file upload after the fact: skills are uploaded as packages, full stop. To change one file, edit the package on your machine and re-upload with **Replace** enabled.
 
@@ -87,7 +87,7 @@ Click any skill card to open its viewer. The viewer is read-only and shows:
 
 - The frontmatter (license, compatibility, allowed-tools, custom metadata).
 - The instructions body, rendered as Markdown.
-- Every resource grouped by `references / assets / scripts`, with relative paths and sizes.
+- Every resource grouped by `references` / `assets` / `scripts`, with relative paths and sizes.
 - A **Download package** button that streams the on-disk directory as a `.tar.gz`. Useful for backups, magec-to-magec transfers, or letting the operator review what is actually on disk.
 
 ## Linking skills to agents
@@ -99,7 +99,7 @@ After uploading a skill, enable it on each agent that should use it:
 3. Toggle on the skills you want this agent to be able to call.
 4. Save.
 
-The agent now sees the toggled skills in `list_skills` and can `load_skill` them on demand. Other agents are unaffected — every agent has its own skill whitelist.
+The agent now sees the toggled skills in `list_skills` and can `load_skill` them on demand. Other agents are unaffected. Every agent has its own skill whitelist.
 
 ## Hot-reload
 

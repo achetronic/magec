@@ -22,9 +22,10 @@
 //   - Heading anchors are stripped to keep the read-only viewer free
 //     of dangling links to nowhere.
 //
-// All output is sanitised by `marked` (no raw HTML by default) which
-// is sufficient for SKILL.md content authored by the operator. We
-// intentionally do NOT enable HTML pass-through.
+// All embedded HTML in the SKILL.md body is escaped to text via the
+// `html` and `tag` renderer overrides below. Marked v17 has no
+// built-in sanitiser; without these overrides, raw `<script>` tags in
+// a malicious SKILL.md would execute when v-html'd into the viewer.
 
 import { marked } from 'marked'
 
@@ -162,6 +163,21 @@ function highlight(code, lang) {
 // caller's options (every renderer is module-local here, but
 // future-proof).
 const renderer = new marked.Renderer()
+
+// HTML-token overrides: marked v17 no longer ships a `sanitize` option,
+// and by default raw `<script>`/`<img onerror=...>` tags inside the
+// markdown body pass through untouched. Skill bodies come from operator
+// uploads (and may include third-party SKILL.md packages downloaded
+// from elsewhere), so we treat any embedded HTML as text. The `html`
+// renderer fires for block-level HTML; the `tag` rule fires for inline
+// tags like `<span>` mid-paragraph. Both render escaped so the user
+// sees the raw markup, not its execution.
+renderer.html = function ({ text }) {
+  return escapeHtml(text)
+}
+renderer.tag = function ({ text }) {
+  return escapeHtml(text)
+}
 
 renderer.heading = function ({ tokens, depth }) {
   const text = this.parser.parseInline(tokens)

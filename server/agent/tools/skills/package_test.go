@@ -173,9 +173,9 @@ func TestWritePackageRoundTrip(t *testing.T) {
 		Frontmatter:  mustFrontmatter(t, []byte("---\nname: round\ndescription: trip\n---\n")),
 		Instructions: "the body\n",
 		Files: map[string][]byte{
-			"references/r.md":  []byte("ref"),
-			"assets/a.txt":     []byte("ass"),
-			"scripts/run.sh":   []byte("script"),
+			"references/r.md": []byte("ref"),
+			"assets/a.txt":    []byte("ass"),
+			"scripts/run.sh":  []byte("script"),
 		},
 	}
 	if err := WritePackage(dir, "round", pkg); err != nil {
@@ -268,4 +268,68 @@ func mustFrontmatter(t *testing.T, body []byte) *adkskill.Frontmatter {
 		t.Fatalf("parse frontmatter: %v", err)
 	}
 	return fm
+}
+
+// TestParseFrontmatterPermissive_KeepsExtraKeys covers the contract
+// the admin viewer relies on: a SKILL.md with non-canonical frontmatter
+// keys (`version:`, `author:`, `tags:`) parses cleanly and surfaces
+// every key, not just the ones ADK's strict struct knows about.
+func TestParseFrontmatterPermissive_KeepsExtraKeys(t *testing.T) {
+	body := []byte(`---
+name: foo
+description: hello
+version: 2.5.1
+author: Alby
+tags:
+  - rest
+  - api
+---
+the body
+`)
+	fm, instr, ok := ParseFrontmatterPermissive(body)
+	if !ok {
+		t.Fatalf("expected ok=true")
+	}
+	if instr != "the body\n" {
+		t.Errorf("instructions = %q", instr)
+	}
+	for _, want := range []string{"name", "description", "version", "author", "tags"} {
+		if _, present := fm[want]; !present {
+			t.Errorf("expected key %q in frontmatter, got keys=%v", want, mapKeys(fm))
+		}
+	}
+	if v, _ := fm["version"].(string); v != "2.5.1" {
+		t.Errorf("version = %q, want 2.5.1", v)
+	}
+	tags, ok := fm["tags"].([]any)
+	if !ok || len(tags) != 2 {
+		t.Errorf("tags = %v, want 2-element slice", fm["tags"])
+	}
+}
+
+// TestParseFrontmatterPermissive_NoFrontmatterReturnsRaw covers the
+// fallback contract: when the body has no `---\n...---\n` envelope at
+// all, the function returns ok=false but also returns the raw text as
+// the body so the UI can still render it. Without that, a malformed
+// SKILL.md would render as a blank viewer.
+func TestParseFrontmatterPermissive_NoFrontmatterReturnsRaw(t *testing.T) {
+	body := []byte("just some markdown, no frontmatter\n")
+	fm, instr, ok := ParseFrontmatterPermissive(body)
+	if ok {
+		t.Fatalf("expected ok=false on missing frontmatter")
+	}
+	if fm != nil {
+		t.Errorf("expected nil frontmatter, got %v", fm)
+	}
+	if instr != string(body) {
+		t.Errorf("body should round-trip when frontmatter is missing, got %q", instr)
+	}
+}
+
+func mapKeys(m map[string]any) []string {
+	out := make([]string, 0, len(m))
+	for k := range m {
+		out = append(out, k)
+	}
+	return out
 }

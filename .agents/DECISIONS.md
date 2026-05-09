@@ -799,7 +799,7 @@ There is intentionally no manual create/edit endpoint and no individual file upl
 
 ### Per-agent scope
 
-ADK's `skilltoolset` operates over a `skill.Source`. Magec uses `skill.NewFileSystemSource` directly — no custom adapter — but wraps the root `os.DirFS(data/skills)` with a per-agent filesystem `agent/tools/skills.AgentFS` that exposes only the slugs whitelisted by the agent's `Skills[]` IDs (translated to slugs via the store). Every `BuildAgentInstance` call constructs a fresh `skilltoolset` for its agent if `Skills[]` is non-empty; otherwise the toolset is omitted entirely so the agent does not see `list_skills`/`load_skill` at all.
+ADK's `skilltoolset` operates over a `skill.Source`. Magec uses ADK's `skill.NewFileSystemSource` directly — no custom parser, no custom format adapter — and wraps it in two thin layers. The outer one is `agent/tools/skills.AgentFS`, an `fs.FS` that filters `os.DirFS(data/skills)` down to the slug whitelist of the linked skills (so an agent only sees what the operator gave it). The inner one is `agent/tools/skills.TolerantSource`, which proxies `skill.Source` and falls back to a permissive frontmatter parse when ADK's strict `KnownFields(true)` validator rejects a SKILL.md because of non-canonical keys (`version:`, `author:`, `tags:`). Both layers are thin: Magec never owns the SKILL.md format, ADK does. Every `BuildAgentInstance` call constructs a fresh `skilltoolset` for its agent if `Skills[]` is non-empty; otherwise the toolset is omitted entirely so the agent does not see `list_skills`/`load_skill` at all.
 
 This mirrors the universe of decisions #17 (artifacts toolset), #28 (flow-state toolset), etc.: **scope-restricted toolsets injected at build time**, no runtime negotiation.
 

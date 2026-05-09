@@ -16,6 +16,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path"
 	"path/filepath"
@@ -141,7 +142,7 @@ func ParsePackage(filename string, body []byte) (*PackageInfo, error) {
 		return parseFromArchive(extractZip, body)
 	case strings.HasSuffix(lower, ".tar.gz"), strings.HasSuffix(lower, ".tgz"):
 		return parseFromArchive(extractTarGz, body)
-	case strings.HasSuffix(lower, ".md"), strings.HasSuffix(lower, ".markdown"), lower == "skill.md":
+	case strings.HasSuffix(lower, ".md"), strings.HasSuffix(lower, ".markdown"):
 		return parseStandaloneSKILL(body)
 	default:
 		return nil, fmt.Errorf("unsupported skill upload %q: expected SKILL.md, .zip or .tar.gz", filename)
@@ -213,7 +214,7 @@ func parseSkillTolerant(body []byte) (*adkskill.Frontmatter, string, error) {
 
 	// Fallback: hand-parse the raw frontmatter, strip extras, and
 	// rebuild a canonical SKILL.md the strict parser will accept.
-	rawFM, instructions, ok := splitFrontmatter(body)
+	rawFM, instructions, ok := SplitFrontmatter(body)
 	if !ok {
 		// No frontmatter at all — surface ADK's original error.
 		_, _, err := adkskill.ParseBytes(body)
@@ -228,11 +229,17 @@ func parseSkillTolerant(body []byte) (*adkskill.Frontmatter, string, error) {
 	return fm, instructions, nil
 }
 
-// splitFrontmatter slices a SKILL.md into (frontmatter YAML bytes,
+// SplitFrontmatter slices a SKILL.md into (frontmatter YAML bytes,
 // body string). Returns ok=false when the leading "---\n" delimiter
 // or the closing one is missing — the caller is expected to surface
 // the strict parser's original error in that case.
-func splitFrontmatter(body []byte) ([]byte, string, bool) {
+//
+// Exported because both the runtime tolerant source and the admin API
+// hydration path need to peek at the raw frontmatter without going
+// through ADK's strict KnownFields parser. Decision #29 keeps the
+// SKILL.md format owned by ADK; this helper is the single
+// frontmatter-locator both Magec call sites share.
+func SplitFrontmatter(body []byte) ([]byte, string, bool) {
 	trimmed := bytes.TrimLeft(body, " \t\r\n")
 	if !bytes.HasPrefix(trimmed, []byte("---\n")) && !bytes.HasPrefix(trimmed, []byte("---\r\n")) {
 		return nil, "", false
@@ -248,6 +255,26 @@ func splitFrontmatter(body []byte) ([]byte, string, bool) {
 		return rest[:i], string(rest[i+len("\n---\r\n"):]), true
 	}
 	return nil, "", false
+}
+
+// ParseFrontmatterPermissive splits a SKILL.md and decodes its
+// frontmatter as a permissive map[string]any so callers can surface
+// every operator-supplied key — including non-canonical ones
+// (`version`, `author`, `tags`) that ADK's strict parser would
+// reject. Returns ok=false when the frontmatter delimiters are
+// missing OR the YAML doesn't decode; the body string is still
+// returned in the YAML-decode-error case so the UI shows the prose
+// even when the metadata is malformed.
+func ParseFrontmatterPermissive(raw []byte) (map[string]any, string, bool) {
+	yamlBytes, body, ok := SplitFrontmatter(raw)
+	if !ok {
+		return nil, string(raw), false
+	}
+	fm := map[string]any{}
+	if err := yaml.Unmarshal(yamlBytes, &fm); err != nil {
+		return nil, body, false
+	}
+	return fm, body, true
 }
 
 // canonicalFrontmatterKeys is the set of fields ADK's Frontmatter
@@ -472,12 +499,16 @@ func PackageAsTarGz(dir, slug string) ([]byte, error) {
 	gz := gzip.NewWriter(&buf)
 	tw := tar.NewWriter(gz)
 
-	err := filepath.Walk(skillDir, func(p string, info os.FileInfo, err error) error {
+	err := filepath.WalkDir(skillDir, func(p string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
-		if info.IsDir() {
+		if d.IsDir() {
 			return nil
+		}
+		info, err := d.Info()
+		if err != nil {
+			return err
 		}
 		rel, err := filepath.Rel(skillDir, p)
 		if err != nil {
