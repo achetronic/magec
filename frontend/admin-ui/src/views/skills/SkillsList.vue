@@ -2,53 +2,50 @@
   <div class="space-y-4">
     <div class="flex items-center justify-between">
       <h2 class="text-sm font-semibold text-arena-200">Skills</h2>
-      <button @click="openDialog()" class="px-3 py-1.5 bg-sol-500 hover:bg-sol-600 text-piedra-950 text-xs font-medium rounded-lg transition-colors">
-        + New Skill
+      <button @click="openUpload()" class="px-3 py-1.5 bg-sol-500 hover:bg-sol-600 text-piedra-950 text-xs font-medium rounded-lg transition-colors">
+        + Upload Skill
       </button>
     </div>
 
     <SkeletonCard v-if="store.loading && !store.skills.length" />
 
-    <EmptyState v-else-if="!store.skills.length" title="No skills configured" subtitle="Create reusable skills that can be assigned to agents" icon="skill" color="cyan" actionLabel="+ New Skill" @action="openDialog()" />
+    <EmptyState v-else-if="!store.skills.length" title="No skills configured" subtitle="Upload a SKILL.md or a packaged skill (.zip / .tar.gz)" icon="skill" color="cyan" actionLabel="+ Upload Skill" @action="openUpload()" />
 
     <div v-else class="grid gap-3 grid-cols-1 sm:grid-cols-2">
-      <Card v-for="sk in store.skills" :key="sk.id" color="cyan">
+      <Card v-for="sk in store.skills" :key="sk.id" color="cyan" class="cursor-pointer" @click="openView(sk)">
         <div class="flex items-start justify-between gap-3 mb-2">
           <div class="flex items-center gap-3 min-w-0">
             <div class="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 bg-cyan-500/15">
               <Icon name="skill" size="md" class="text-cyan-400" />
             </div>
             <div class="min-w-0">
-              <h3 class="font-medium text-arena-100 text-sm">{{ cardData(sk).name }}</h3>
-              <p v-if="cardData(sk).description" class="text-[10px] text-arena-500 line-clamp-2">{{ cardData(sk).description }}</p>
+              <h3 class="font-medium text-arena-100 text-sm truncate">{{ displayName(sk) }}</h3>
+              <p v-if="showSlug(sk)" class="text-[10px] text-arena-500 font-mono truncate">{{ sk.slug }}</p>
             </div>
           </div>
           <div class="flex gap-0.5 flex-shrink-0">
-            <button @click="openDialog(sk)" class="p-1.5 hover:bg-piedra-800 rounded-lg" title="Edit">
-              <Icon name="edit" size="sm" class="text-arena-400" />
+            <button @click.stop="openView(sk)" class="p-1.5 hover:bg-piedra-800 rounded-lg" title="View">
+              <Icon name="eye" size="sm" class="text-arena-400" />
             </button>
-            <button @click="handleDelete(sk)" class="p-1.5 hover:bg-piedra-800 rounded-lg" title="Delete">
+            <button @click.stop="handleDelete(sk)" class="p-1.5 hover:bg-piedra-800 rounded-lg" title="Delete">
               <Icon name="trash" size="sm" class="text-arena-400 hover:text-lava-400" />
             </button>
           </div>
         </div>
-        <p v-if="!cardData(sk).canonical" class="text-[10px] text-arena-500 line-clamp-2 italic">"{{ sk.instructions }}"</p>
-        <div class="flex flex-wrap gap-1 mt-2">
-          <Badge v-if="sk.references && sk.references.length" variant="muted">
-            <span class="text-arena-500 mr-0.5">📁</span> {{ sk.references.length }} {{ sk.references.length === 1 ? 'file' : 'files' }}
-          </Badge>
-          <Badge v-for="b in cardData(sk).badges" :key="b" variant="muted">{{ b }}</Badge>
-        </div>
-        <div v-if="usedBy(sk.id).length" class="flex flex-wrap gap-1 mt-2">
+        <p v-if="sk.description" class="text-[10px] text-arena-400 mb-2 line-clamp-2">{{ sk.description }}</p>
+        <p v-else class="text-[10px] text-arena-600 italic mb-2">No description in SKILL.md frontmatter.</p>
+
+        <div v-if="usedBy(sk.id).length" class="flex flex-wrap gap-1">
           <Tooltip v-for="ref in usedBy(sk.id)" :key="ref.name" :text="ref.tooltip">
             <Badge variant="muted">{{ ref.name }}</Badge>
           </Tooltip>
         </div>
-        <p v-else class="text-[10px] text-arena-600 mt-2">Not linked to any agent</p>
+        <p v-else class="text-[10px] text-arena-600">Not linked to any agent</p>
       </Card>
     </div>
 
-    <SkillDialog ref="dialog" @saved="store.refresh()" />
+    <SkillDialog ref="uploadDialog" @saved="onSaved" />
+    <SkillViewDialog ref="viewDialog" />
   </div>
 </template>
 
@@ -56,7 +53,6 @@
 import { inject, ref, onMounted, onUnmounted } from 'vue'
 import { useDataStore } from '../../lib/stores/data.js'
 import { skillsApi } from '../../lib/api/index.js'
-import { skillCardData } from '../../lib/frontmatter.js'
 import Card from '../../components/Card.vue'
 import Badge from '../../components/Badge.vue'
 import Tooltip from '../../components/Tooltip.vue'
@@ -64,26 +60,44 @@ import Icon from '../../components/Icon.vue'
 import EmptyState from '../../components/EmptyState.vue'
 import SkeletonCard from '../../components/SkeletonCard.vue'
 import SkillDialog from './SkillDialog.vue'
+import SkillViewDialog from './SkillViewDialog.vue'
 
 const store = useDataStore()
-const dialog = ref(null)
+const uploadDialog = ref(null)
+const viewDialog = ref(null)
 const requestDelete = inject('requestDelete')
 const toast = inject('toast')
 const registerNew = inject('registerNew')
-onMounted(() => registerNew(() => openDialog()))
+onMounted(() => registerNew(() => openUpload()))
 onUnmounted(() => registerNew(null))
 
-const cardCache = new WeakMap()
-
-function cardData(sk) {
-  if (cardCache.has(sk)) return cardCache.get(sk)
-  const data = skillCardData(sk)
-  cardCache.set(sk, data)
-  return data
+function openUpload() {
+  uploadDialog.value?.open()
 }
 
-function openDialog(skill = null) {
-  dialog.value?.open(skill)
+// displayName picks the best human-readable label for a skill card.
+// Order of precedence: SKILL.md frontmatter `name`, then the on-disk
+// slug. We never show "no name available" because every skill must
+// at least have a slug.
+function displayName(sk) {
+  return (sk.name && sk.name.trim()) || sk.slug
+}
+
+// showSlug hides the slug-line when it would just repeat the visible
+// name. The slug is informational metadata; rendering it twice for
+// skills whose canonical name IS the slug (e.g. `humanizer`) is just
+// noise.
+function showSlug(sk) {
+  const name = (sk.name || '').trim().toLowerCase()
+  return !!sk.slug && name !== sk.slug.toLowerCase()
+}
+
+function openView(sk) {
+  viewDialog.value?.open(sk.id)
+}
+
+function onSaved() {
+  store.refresh()
 }
 
 function usedBy(id) {
@@ -99,7 +113,8 @@ function usedBy(id) {
 }
 
 function handleDelete(sk) {
-  requestDelete(`Delete skill "${sk.name}"? This cannot be undone.`, async () => {
+  const label = sk.name || sk.slug
+  requestDelete(`Delete skill "${label}"? This removes the on-disk package and cannot be undone.`, async () => {
     try {
       await skillsApi.delete(sk.id)
       await store.refresh()

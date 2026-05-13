@@ -105,16 +105,16 @@ func (h *Handler) buildRouter() *mux.Router {
 	r.HandleFunc("/commands/{id}", h.updateCommand).Methods("PUT")
 	r.HandleFunc("/commands/{id}", h.deleteCommand).Methods("DELETE")
 
-	// Skills
+	// Skills (decision #29). The store keeps only {id, slug}; the rest
+	// of each skill (frontmatter, instructions, resources) lives on
+	// disk under data/skills/{slug}/. The upload endpoint accepts a
+	// SKILL.md or a packaged archive — there is no manual create/edit
+	// path because ADK's skilltoolset is the authoritative consumer.
 	r.HandleFunc("/skills", h.listSkills).Methods("GET")
-	r.HandleFunc("/skills", h.createSkill).Methods("POST")
+	r.HandleFunc("/skills/upload", h.uploadSkill).Methods("POST")
 	r.HandleFunc("/skills/{id}", h.getSkill).Methods("GET")
-	r.HandleFunc("/skills/{id}", h.updateSkill).Methods("PUT")
 	r.HandleFunc("/skills/{id}", h.deleteSkill).Methods("DELETE")
-	r.HandleFunc("/skills/{id}/references", h.uploadSkillReference).Methods("POST")
-	r.HandleFunc("/skills/{id}/references/{filename}", h.downloadSkillReference).Methods("GET")
-	r.HandleFunc("/skills/{id}/references/{filename}", h.deleteSkillReference).Methods("DELETE")
-	r.HandleFunc("/skills/{id}/package", h.uploadSkillPackage).Methods("POST")
+	r.HandleFunc("/skills/{id}/download", h.downloadSkill).Methods("GET")
 
 	// Flows
 	r.HandleFunc("/flows", h.listFlows).Methods("GET")

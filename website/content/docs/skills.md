@@ -2,86 +2,120 @@
 title: "Skills"
 ---
 
-Skills are reusable knowledge packs that you attach to agents. Think of them as "expertise modules" — a skill contains instructions and reference files that teach an agent how to handle a specific domain or task.
+Skills are reusable knowledge packs that you attach to agents. Each skill bundles instructions, references, assets and scripts that teach an agent how to handle a specific domain or task.
 
-Without skills, all of an agent's knowledge lives in its system prompt. That works fine for simple agents, but as the prompt grows with product catalogs, coding standards, response templates, and domain-specific rules, it becomes impossible to manage. Skills let you break that knowledge into independent, reusable pieces.
+Without skills, all of an agent's knowledge has to live in its system prompt. That works fine for simple agents. As the prompt grows with product catalogs, coding standards, response templates and domain rules, it becomes impossible to manage. Skills break that knowledge into independent, reusable pieces that the model loads only when it needs them.
 
-## How skills work
+## Lazy loading by design
 
-A skill has three parts:
+A skill is **never** inlined into the system prompt. The agent sees a short summary of every skill linked to it (its name and description) and decides on its own when to call `load_skill` to read the full instructions, or `load_skill_resource` to pull in a specific file from the skill's bundled resources. Tokens are spent only on the skill the model actually uses.
 
-| Field | Description |
-|-------|-------------|
-| `name` | Display name — appears in agent skill toggles |
-| `description` | What this skill is for (your reference) |
-| `instructions` | The knowledge and rules the agent should follow when using this skill |
+This is implemented through ADK's [skilltoolset](https://google.github.io/adk-docs/tools/built-in-tools/#skill-toolset). Each agent gets three tools when at least one skill is linked to it:
 
-At runtime, when an agent with skills receives a message, Magec injects the skill instructions into the agent's context — right alongside the system prompt. The agent sees them as part of its knowledge and uses them naturally.
+| Tool | What it does |
+|------|--------------|
+| `list_skills` | Returns the names and descriptions of every skill linked to this agent. |
+| `load_skill` | Reads a specific skill's full instructions on demand. |
+| `load_skill_resource` | Reads one file from a skill's bundled resources. |
 
-### Reference files
+Agents with no linked skills get no skill tools at all. There is nothing to load.
 
-Skills can also carry **reference files** — documents, templates, schemas, catalogs, or any text file that the agent needs as context. These files are uploaded through the Admin UI and stored on the server. When the agent runs, Magec reads the file contents and includes them in the agent's context alongside the skill instructions.
+## On-disk format
 
-This is perfect for:
-- Product catalogs or price lists
-- API schemas or documentation
-- Response templates
-- Compliance rules or style guides
-- Any structured data the agent needs to reference
+A skill is a directory under `data/skills/{slug}/` with the following layout:
 
-Reference files are stored at `data/skills/{skillId}/` on the server. The store only tracks metadata (filename and size) — the actual content lives on disk, keeping the store lightweight.
+```
+data/skills/{slug}/
+├── SKILL.md            (required, with YAML frontmatter)
+├── references/         (optional, sub-directories OK)
+├── assets/             (optional)
+└── scripts/            (optional)
+```
 
-## Creating a skill
+`{slug}` is the skill's unique on-disk identifier and **must** match the `name` field in the SKILL.md frontmatter. Magec validates this on upload.
 
-In the Admin UI, go to **Skills** and click **New**.
+### `SKILL.md` example
 
-Write the **instructions** as if you were briefing a new team member on this specific area. Be direct and specific — the agent will follow these instructions literally.
+```markdown
+---
+name: returns-policy
+description: How to handle return requests in our store.
+license: MIT
+allowed-tools:
+  - search_orders
+  - cancel_order
+---
 
-**Example instructions:**
+You are responsible for return requests.
 
-- *"You are an expert on our return policy. Customers can return items within 30 days of purchase with a receipt. Electronics have a 15-day window. Opened software cannot be returned. Always be empathetic and offer alternatives when a return isn't possible."*
-- *"When writing TypeScript code, follow our style guide: use functional components, prefer `const` over `let`, always add return types to functions, use Zod for validation. See the attached style-guide.md for the full rules."*
+- Returns are accepted within 30 days of purchase.
+- Electronics have a 15-day window.
+- Opened software cannot be returned.
+- Always be empathetic; offer alternatives when a return is not possible.
 
-To add reference files, use the **drag & drop zone** in the References section. You can add files before saving — they'll be uploaded when you hit Save.
+When the customer mentions an order number, call `search_orders`. If the
+return is approved, call `cancel_order` with the result.
+```
 
-Each file in the list has a **download button** (to recover the original) and a **delete button** (to remove it from the skill).
+The `name` and `description` fields are required. Everything else is optional but supported (see the [Agent Skills specification](https://agentskills.io/specification#frontmatter) for the full list).
 
-## Connecting skills to agents
+### Resources, assets, scripts
 
-After creating a skill, enable it on specific agents:
+The three resource sub-directories serve different purposes:
 
-1. Open an agent in the Admin UI
-2. Expand the **Skills** section
-3. Toggle on the skills you want this agent to use
-4. Save
+- `references/` holds documentation, examples and schemas the model can read while following the skill.
+- `assets/` holds templates, prompts and configuration files the skill consumes.
+- `scripts/` holds executable scripts the skill expects to run via tools.
 
-Each agent can have different skills enabled. A "customer support" agent might have skills for returns, shipping, and product knowledge. A "developer assistant" might have skills for your coding standards and API documentation. You compose each agent's expertise by selecting which skills it gets.
+Magec only enforces the directory names. The contents are up to you. Files can live at any depth, like `references/api/v2/schema.json`.
 
-## Example skills
+## Uploading a skill
 
-| Skill | Instructions (summary) | References |
-|-------|----------------------|------------|
-| Return Policy | Rules for 30-day returns, electronics exceptions, empathy guidelines | `return-policy.pdf` |
-| Product Catalog | How to recommend products, upselling rules | `catalog-2025.csv`, `pricing.json` |
-| TypeScript Standards | Coding conventions, linting rules, preferred patterns | `style-guide.md`, `tsconfig.json` |
-| GDPR Compliance | Data handling rules, user rights, required disclaimers | `gdpr-checklist.md` |
-| Meeting Notes | Template for structuring meeting summaries | `template.md` |
+In the Admin UI, go to **Skills** and click **+ Upload Skill**. The dropzone accepts:
 
-## Skills vs. system prompt
+- A standalone `SKILL.md` with valid frontmatter, useful for quick text-only skills.
+- A `.zip` archive containing `SKILL.md` at the root plus optional resource sub-directories.
+- A `.tar.gz` / `.tgz` archive with the same layout.
 
-You might wonder: why not just put everything in the system prompt? You can — and for simple agents, that's perfectly fine. Skills become valuable when:
+If the upload's frontmatter `name` matches an existing skill, the request fails with a clear conflict message. Tick **Replace** in the modal to overwrite the existing skill. Its store ID is preserved so any agent linked to it stays linked.
 
-- **You reuse the same knowledge across multiple agents.** A product catalog skill can be shared by your support agent, your sales agent, and your FAQ bot. Update the catalog once, all agents see the change.
-- **Your agent's knowledge changes frequently.** Updating a skill (or replacing a reference file) is easier than editing a massive system prompt.
-- **You want to compose agents from building blocks.** Toggle skills on and off to quickly change what an agent knows, without touching the core system prompt.
-- **Your prompts are getting too long to manage.** Breaking a 2,000-word prompt into a focused system prompt + 3-4 skills is much easier to maintain.
+The same single upload endpoint handles both creation and updates. There is no manual create form, no "edit" mode, and no per-file upload after the fact: skills are uploaded as packages, full stop. To change one file, edit the package on your machine and re-upload with **Replace** enabled.
 
-The system prompt defines *who* the agent is. Skills define *what* it knows.
+## Reading a skill
 
-{{< callout type="info" >}}
-Skills are configured globally and then enabled per-agent — the same pattern as MCP Servers. Create a skill once, share it across as many agents as you want.
-{{< /callout >}}
+Click any skill card to open its viewer. The viewer is read-only and shows:
+
+- The frontmatter (license, compatibility, allowed-tools, custom metadata).
+- The instructions body, rendered as Markdown.
+- Every resource grouped by `references` / `assets` / `scripts`, with relative paths and sizes.
+- A **Download package** button that streams the on-disk directory as a `.tar.gz`. Useful for backups, magec-to-magec transfers, or letting the operator review what is actually on disk.
+
+## Linking skills to agents
+
+After uploading a skill, enable it on each agent that should use it:
+
+1. Open the agent in the Admin UI.
+2. Expand the **Skills** section.
+3. Toggle on the skills you want this agent to be able to call.
+4. Save.
+
+The agent now sees the toggled skills in `list_skills` and can `load_skill` them on demand. Other agents are unaffected. Every agent has its own skill whitelist.
 
 ## Hot-reload
 
-Changes to skills take effect on the next message. Edit instructions, upload new reference files, or toggle skills on different agents — save, and it's live. No restart needed.
+Re-uploading a skill (or deleting one) takes effect on the next agent message. No restart needed.
+
+## Why packages?
+
+Skills become valuable when:
+
+- **You reuse the same knowledge across multiple agents.** A product-catalog skill can be shared by a support agent, a sales agent and a FAQ bot. Update the package once, all agents see the change.
+- **Your agent's knowledge changes frequently.** Replacing a skill package is easier than editing a sprawling system prompt.
+- **You compose agents from building blocks.** Toggle skills on and off per agent without touching system prompts.
+- **You want a portable, versionable artefact.** A `.tar.gz` is something you can store in git, attach to a release, share with a colleague, or copy between magec instances.
+
+The system prompt defines *who* the agent is. Skills define *what* it can learn on demand.
+
+{{< callout type="info" >}}
+Skills are global. Upload once, link to as many agents as you want.
+{{< /callout >}}

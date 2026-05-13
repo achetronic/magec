@@ -5,9 +5,11 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"sync"
 )
 
@@ -25,6 +27,23 @@ type Store struct {
 	rawData       StoreData
 	filePath      string
 	encryptionKey string
+
+	// brokenSkillIDs holds the IDs of skills whose store.json
+	// entry carries fields outside the canonical {id, slug} shape
+	// (decision #29). Filled in at loadFromDisk time and consulted
+	// by the Skill accessors so a degraded skill is invisible to
+	// every downstream consumer (admin API, agent toolset wiring)
+	// until the operator re-uploads it.
+	//
+	// We do NOT auto-migrate, auto-repair, or hide the broken
+	// entries from disk: the operator gets a single Warn-level log
+	// per broken skill at startup with a clear instruction, edits
+	// store.json by hand, and re-uploads through the admin UI.
+	//
+	// The value is a short human reason (e.g. "legacy fields
+	// present: instructions, name, references") used in the
+	// startup log line.
+	brokenSkillIDs map[string]string
 
 	changeMu   sync.Mutex
 	changeSubs []chan struct{}
@@ -800,20 +819,71 @@ func (s *Store) DeleteFlow(id string) error {
 }
 
 // --- Skills ---
+//
+// Skills are tracked in the store with the bare minimum needed to keep
+// agent links stable across UI renames: an immutable UUID and the
+// on-disk slug (= directory name under data/skills/, also the SKILL.md
+// frontmatter `name`). Everything else (name, description, instructions,
+// resources) lives on disk inside data/skills/{slug}/ and is read at
+// admin-API GET time. See decision #29.
+//
+// Skills whose store.json entry still carries legacy fields
+// (`instructions`, `references`, `name`, `description`) are filtered
+// out of every read path here. They show up nowhere — not in the
+// admin UI list, not in the runtime agent toolset — until the
+// operator removes the legacy entry from store.json by hand and
+// re-uploads the skill via the admin UI. The startup log already
+// pinpointed the offending IDs by then.
+
+// skillIsBrokenLocked is a cheap predicate over the broken-skill
+// set populated by loadFromDisk. The caller must already hold s.mu
+// (read or write); we don't re-lock here to avoid lock churn in
+// tight loops like ListSkills.
+func (s *Store) skillIsBrokenLocked(id string) bool {
+	if s.brokenSkillIDs == nil {
+		return false
+	}
+	_, broken := s.brokenSkillIDs[id]
+	return broken
+}
 
 func (s *Store) ListSkills() []Skill {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	result := make([]Skill, len(s.data.Skills))
-	copy(result, s.data.Skills)
+	result := make([]Skill, 0, len(s.data.Skills))
+	for _, sk := range s.data.Skills {
+		if s.skillIsBrokenLocked(sk.ID) {
+			continue
+		}
+		result = append(result, sk)
+	}
 	return result
 }
 
 func (s *Store) GetSkill(id string) (Skill, bool) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
+	if s.skillIsBrokenLocked(id) {
+		return Skill{}, false
+	}
 	for _, sk := range s.data.Skills {
 		if sk.ID == id {
+			return sk, true
+		}
+	}
+	return Skill{}, false
+}
+
+// GetSkillBySlug returns the skill whose on-disk directory matches slug.
+// The admin upload handler uses it to detect re-uploads (same slug ->
+// existing skill) versus brand-new skills. Broken entries are hidden
+// here too — if the operator re-uploads a slug that collided with a
+// legacy entry, the upload behaves as a clean create.
+func (s *Store) GetSkillBySlug(slug string) (Skill, bool) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	for _, sk := range s.data.Skills {
+		if sk.Slug == slug && !s.skillIsBrokenLocked(sk.ID) {
 			return sk, true
 		}
 	}
@@ -823,14 +893,22 @@ func (s *Store) GetSkill(id string) (Skill, bool) {
 func (s *Store) ListRawSkills() []Skill {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	result := make([]Skill, len(s.rawData.Skills))
-	copy(result, s.rawData.Skills)
+	result := make([]Skill, 0, len(s.rawData.Skills))
+	for _, sk := range s.rawData.Skills {
+		if s.skillIsBrokenLocked(sk.ID) {
+			continue
+		}
+		result = append(result, sk)
+	}
 	return result
 }
 
 func (s *Store) GetRawSkill(id string) (Skill, bool) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
+	if s.skillIsBrokenLocked(id) {
+		return Skill{}, false
+	}
 	for _, sk := range s.rawData.Skills {
 		if sk.ID == id {
 			return sk, true
@@ -839,9 +917,21 @@ func (s *Store) GetRawSkill(id string) (Skill, bool) {
 	return Skill{}, false
 }
 
+// CreateSkill registers a new skill record. Slug must be unique and is
+// validated by the caller (the upload handler) — this method only
+// guarantees the in-memory invariant.
 func (s *Store) CreateSkill(sk Skill) (Skill, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
+	if sk.Slug == "" {
+		return Skill{}, fmt.Errorf("skill slug is required")
+	}
+	for _, existing := range s.data.Skills {
+		if existing.Slug == sk.Slug {
+			return Skill{}, fmt.Errorf("skill slug %q already exists", sk.Slug)
+		}
+	}
 
 	sk.ID = generateID()
 	s.data.Skills = append(s.data.Skills, expandStruct(sk))
@@ -849,10 +939,22 @@ func (s *Store) CreateSkill(sk Skill) (Skill, error) {
 	return sk, s.persist()
 }
 
+// UpdateSkill replaces the slug of an existing skill (keeping its ID).
+// The admin layer calls this after re-uploading a package whose
+// frontmatter `name` differs from the previous slug — it has already
+// renamed the directory on disk before calling.
 func (s *Store) UpdateSkill(id string, sk Skill) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	if sk.Slug == "" {
+		return fmt.Errorf("skill slug is required")
+	}
+	for _, existing := range s.data.Skills {
+		if existing.ID != id && existing.Slug == sk.Slug {
+			return fmt.Errorf("skill slug %q already in use", sk.Slug)
+		}
+	}
 	for i, existing := range s.data.Skills {
 		if existing.ID == id {
 			sk.ID = id
@@ -864,74 +966,43 @@ func (s *Store) UpdateSkill(id string, sk Skill) error {
 	return fmt.Errorf("skill %q not found", id)
 }
 
+// DeleteSkill removes the store record AND the on-disk directory that
+// backs it. Failure to remove the directory is logged but not returned
+// — the store record is the authoritative ledger and we don't want to
+// strand it on a transient filesystem error.
 func (s *Store) DeleteSkill(id string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	for i, existing := range s.data.Skills {
 		if existing.ID == id {
+			slug := existing.Slug
 			s.data.Skills = append(s.data.Skills[:i], s.data.Skills[i+1:]...)
 			s.rawData.Skills = append(s.rawData.Skills[:i], s.rawData.Skills[i+1:]...)
 			if err := s.persist(); err != nil {
 				return err
 			}
-			dir := s.SkillDir(id)
-			os.RemoveAll(dir)
+			if slug != "" {
+				_ = os.RemoveAll(s.SkillDir(slug))
+			}
 			return nil
 		}
 	}
 	return fmt.Errorf("skill %q not found", id)
 }
 
-// SkillDir returns the filesystem path for a skill's reference files.
-func (s *Store) SkillDir(skillID string) string {
-	base := filepath.Dir(s.filePath)
-	return filepath.Join(base, "skills", skillID)
+// SkillsDir returns the root directory that holds every skill package.
+// Callers typically wrap it with os.DirFS to feed ADK's skilltoolset.
+func (s *Store) SkillsDir() string {
+	return filepath.Join(filepath.Dir(s.filePath), "skills")
 }
 
-// AddSkillReference appends a reference entry to a skill's metadata.
-func (s *Store) AddSkillReference(skillID string, ref SkillReference) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	for i, existing := range s.data.Skills {
-		if existing.ID == skillID {
-			for _, r := range existing.References {
-				if r.Filename == ref.Filename {
-					return fmt.Errorf("reference %q already exists in skill %q", ref.Filename, skillID)
-				}
-			}
-			s.data.Skills[i].References = append(s.data.Skills[i].References, ref)
-			s.rawData.Skills[i].References = append(s.rawData.Skills[i].References, ref)
-			return s.persist()
-		}
-	}
-	return fmt.Errorf("skill %q not found", skillID)
-}
-
-// RemoveSkillReference removes a reference entry from a skill's metadata.
-func (s *Store) RemoveSkillReference(skillID, filename string) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	for i, existing := range s.data.Skills {
-		if existing.ID == skillID {
-			idx := -1
-			for j, r := range existing.References {
-				if r.Filename == filename {
-					idx = j
-					break
-				}
-			}
-			if idx == -1 {
-				return fmt.Errorf("reference %q not found in skill %q", filename, skillID)
-			}
-			s.data.Skills[i].References = append(existing.References[:idx], existing.References[idx+1:]...)
-			s.rawData.Skills[i].References = append(s.rawData.Skills[i].References[:idx], s.rawData.Skills[i].References[idx+1:]...)
-			return s.persist()
-		}
-	}
-	return fmt.Errorf("skill %q not found", skillID)
+// SkillDir returns the absolute on-disk directory for a single skill,
+// keyed by slug. The directory layout is the one ADK's skilltoolset
+// expects: SKILL.md at the root, optional references/, assets/,
+// scripts/ subtrees.
+func (s *Store) SkillDir(slug string) string {
+	return filepath.Join(s.SkillsDir(), slug)
 }
 
 // --- Commands ---
@@ -1188,6 +1259,20 @@ func (s *Store) loadFromDisk() error {
 
 	data = migrateTTSConfig(data)
 
+	// Detect skills whose store.json entry carries fields outside
+	// the canonical {id, slug} shape. We do not migrate them: the
+	// operator removes the legacy entry from store.json and re-
+	// uploads the skill through the admin UI (decision #29). The
+	// detection runs on the raw bytes so we can inspect the legacy
+	// fields before the strict struct unmarshal silently drops
+	// them.
+	s.brokenSkillIDs = detectBrokenSkills(data)
+	for id, reason := range s.brokenSkillIDs {
+		slog.Warn("skill in legacy format and will be ignored — re-upload through the admin UI",
+			"id", id, "reason", reason,
+			"action", "remove the entry from data/store.json and re-upload the skill via Skills → Upload Skill")
+	}
+
 	var raw StoreData
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return err
@@ -1335,4 +1420,94 @@ func migrateTTSConfig(data []byte) []byte {
 		return data
 	}
 	return out
+}
+
+// allowedSkillKeys is the canonical store-side shape of a skill
+// entry as of decision #29. Any other key inside an entry tells us
+// the operator is on the legacy format and the skill must be
+// quarantined until they re-upload it.
+var allowedSkillKeys = map[string]struct{}{
+	"id":   {},
+	"slug": {},
+}
+
+// detectBrokenSkills walks the raw store.json bytes BEFORE the
+// strict struct unmarshal and reports the IDs of any skill entry
+// that carries fields the new schema doesn't model. The returned
+// map is keyed by skill ID and the value is a short human reason
+// — both are surfaced through a single Warn-level log per broken
+// skill at startup so the operator knows exactly what to fix.
+//
+// We do this on raw bytes (not on the parsed StoreData) because
+// the JSON decoder silently drops unknown fields, so by the time
+// we have the struct we'd have lost the evidence that the entry
+// was legacy. Returns an empty (non-nil) map on success and a
+// nil-keyed empty map when the store has no skills section.
+func detectBrokenSkills(raw []byte) map[string]string {
+	out := map[string]string{}
+
+	var doc map[string]any
+	if err := json.Unmarshal(raw, &doc); err != nil {
+		return out
+	}
+	skillsAny, ok := doc["skills"].([]any)
+	if !ok {
+		return out
+	}
+
+	for _, item := range skillsAny {
+		entry, ok := item.(map[string]any)
+		if !ok {
+			continue
+		}
+		id, _ := entry["id"].(string)
+		if id == "" {
+			continue
+		}
+		var legacyKeys []string
+		for k, v := range entry {
+			if _, allowed := allowedSkillKeys[k]; allowed {
+				continue
+			}
+			if isEmptyJSONValue(v) {
+				continue
+			}
+			legacyKeys = append(legacyKeys, k)
+		}
+		if len(legacyKeys) > 0 {
+			slices.Sort(legacyKeys)
+			out[id] = "legacy fields present: " + strings.Join(legacyKeys, ", ")
+		}
+	}
+	return out
+}
+
+// isEmptyJSONValue treats nil, empty strings, empty arrays and
+// empty objects as "not really there" so a skill JSON-marshalled
+// with `omitempty` left behind doesn't trip the detector. The
+// detector should only fire on entries that carry actual legacy
+// data — instructions, references, descriptions etc.
+func isEmptyJSONValue(v any) bool {
+	switch x := v.(type) {
+	case nil:
+		return true
+	case string:
+		return x == ""
+	case []any:
+		return len(x) == 0
+	case map[string]any:
+		return len(x) == 0
+	default:
+		return false
+	}
+}
+
+// IsSkillBroken reports whether a skill ID was flagged as
+// degraded at load time. Used by the Skill accessors to filter
+// the list/get responses, and by tests.
+func (s *Store) IsSkillBroken(id string) bool {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	_, broken := s.brokenSkillIDs[id]
+	return broken
 }

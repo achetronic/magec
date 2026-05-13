@@ -747,3 +747,139 @@ To inject scope-dependent tools (state always, `exit_loop` conditionally) withou
 - `frontend/admin-ui/src/views/flows/FlowBlock.vue` — badge with strategy hint, dialog wiring, type-cycle cleans loop-only fields.
 - `frontend/admin-ui/src/views/flows/FlowDialog.vue` — help text covering state and loop exit.
 - `website/content/docs/flows.md` — public docs: state tools, loop exit strategies, iteration-boundary semantics.
+
+---
+
+## 29. Skills as on-disk packages backed by ADK skilltoolset
+
+**Date**: 2026-05-09
+**Status**: Implemented
+
+Skills used to be stored as JSON inside `data/store.json` (full `Instructions` body, plus a `References[]` index pointing at flat files under `data/skills/{id}/`). The agent builder concatenated every linked skill — instructions plus inlined reference files — into the agent's system prompt at build time. Two problems with that:
+
+- **Context bloat**: every linked skill burnt prompt tokens on every turn, even when the model would not have used the skill.
+- **Format drift**: Magec's storage shape was a Magec-specific dialect, while the rest of the ecosystem (ADK, Agent Skills spec, third-party skill packages) standardises on a `SKILL.md` file with YAML frontmatter and `references/`/`assets/`/`scripts/` sub-directories.
+
+**Decision**: align entirely with the upstream Agent Skills layout. Skills are real on-disk packages under `data/skills/{slug}/` and are exposed to agents through ADK's `tool/skilltoolset` rather than concatenated into the system prompt.
+
+### On-disk layout
+
+```
+data/skills/{slug}/
+├── SKILL.md            (YAML frontmatter + Markdown body)
+├── references/         (optional, sub-tree of any depth)
+├── assets/             (optional)
+└── scripts/            (optional)
+```
+
+`{slug}` matches the SKILL.md frontmatter `name`; ADK's `FileSystemSource` enforces that invariant, so the Magec admin layer must keep them in sync.
+
+### Store shape
+
+```go
+type Skill struct {
+    ID   string  // immutable UUID, used by AgentDefinition.Skills[]
+    Slug string  // on-disk directory == frontmatter.name
+}
+```
+
+That's it — **no name, description, instructions or references in the store**. Everything else is read live from disk on every admin GET. This eliminates the "did I update the store or the file?" class of bug at the cost of a tiny per-request read of `SKILL.md`.
+
+### Admin API: one upload endpoint, no manual edit
+
+| Method | Path | Hace |
+|---|---|---|
+| `GET`    | `/skills`             | List `{id, slug, name, description}` per skill, with `name`/`description` read from each SKILL.md frontmatter. |
+| `GET`    | `/skills/{id}`        | Full `SkillView`: frontmatter, instructions body, resources list (kind + relative path + size). |
+| `POST`   | `/skills/upload`      | Create or replace a skill from a SKILL.md or a `.zip`/`.tar.gz` package. `?replace=true` overwrites an existing skill that owns the same slug, preserving its store ID so agent links stay valid. Conflict without `replace` returns 409 with `{existingId, slug}`. |
+| `GET`    | `/skills/{id}/download` | Streams the on-disk directory as `tar.gz`. Re-uploading the produced archive via the same endpoint reconstructs the skill verbatim. |
+| `DELETE` | `/skills/{id}`        | Removes the store record and the directory. |
+
+There is intentionally no manual create/edit endpoint and no individual file upload to a live skill. The contract is **all-or-nothing**: upload a valid SKILL.md (with frontmatter ADK accepts) or a packaged archive, and that becomes the skill's content. Operators who want to tweak one file edit their package locally and re-upload with `replace=true`. That keeps the admin surface tiny and the on-disk truth uncontested.
+
+### Per-agent scope
+
+ADK's `skilltoolset` operates over a `skill.Source`. Magec uses ADK's `skill.NewFileSystemSource` directly — no custom parser, no custom format adapter — and wraps it in two thin layers. The outer one is `agent/tools/skills.AgentFS`, an `fs.FS` that filters `os.DirFS(data/skills)` down to the slug whitelist of the linked skills (so an agent only sees what the operator gave it). The inner one is `agent/tools/skills.TolerantSource`, which proxies `skill.Source` and falls back to a permissive frontmatter parse when ADK's strict `KnownFields(true)` validator rejects a SKILL.md because of non-canonical keys (`version:`, `author:`, `tags:`). Both layers are thin: Magec never owns the SKILL.md format, ADK does. Every `BuildAgentInstance` call constructs a fresh `skilltoolset` for its agent if `Skills[]` is non-empty; otherwise the toolset is omitted entirely so the agent does not see `list_skills`/`load_skill` at all.
+
+This mirrors the universe of decisions #17 (artifacts toolset), #28 (flow-state toolset), etc.: **scope-restricted toolsets injected at build time**, no runtime negotiation.
+
+### Breaking change — no migrator, no auto-repair
+
+Pre-decision-#29 stores carried `Instructions` / `References[]` /
+`Name` / `Description` directly on each skill entry. The new shape
+keeps only `{ID, Slug}`. We deliberately do NOT ship a migrator
+that rewrites the legacy entries:
+
+- **Auto-migration is the wrong default for skill content.** The
+  operator wrote those instructions; rebuilding them from
+  truncated/legacy fields gets us a SKILL.md the operator did not
+  author. Better that they re-upload the canonical package
+  themselves.
+- **A persistent compat layer rots silently.** The first iteration
+  did include one; it left half-written SKILL.md files with
+  stacked frontmatters and resources mis-routed under
+  `references/{references,assets,scripts}/...` because every
+  edge case it tried to handle was a new edge case it broke. Once
+  removed, every store stays clean by construction.
+
+**Detection at startup**: `store.detectBrokenSkills` walks the raw
+`store.json` bytes and flags every skill entry that carries fields
+outside `{id, slug}`. Each flagged ID is logged once at WARN level
+on load with a clear instruction:
+
+```
+WARN skill in legacy format and will be ignored — re-upload through the admin UI
+   id=abc-123
+   reason="legacy fields present: instructions, name, references"
+   action="remove the entry from data/store.json and re-upload the skill via Skills → Upload Skill"
+```
+
+**Runtime behaviour**: every Skill accessor on `*Store`
+(`ListSkills`, `GetSkill`, `GetSkillBySlug`, `ListRawSkills`,
+`GetRawSkill`) silently filters broken IDs out. The admin UI
+therefore doesn't see them, the agent build path doesn't link
+them, and the upload handler can re-create the same slug as a
+clean skill (the broken entry no longer claims it). The legacy
+entry stays in `store.json` until the operator removes it by
+hand — we never overwrite the file behind the operator's back.
+
+**Operator playbook**:
+
+1. Read the WARN log to find the affected skill IDs.
+2. Edit `data/store.json` and delete each flagged entry from the
+   `"skills": [...]` array.
+3. Open the admin UI → Skills → Upload Skill, drop a SKILL.md or
+   `.zip`/`.tar.gz` package built against the
+   [Agent Skills specification](https://agentskills.io/specification).
+4. Re-link the skill on every agent that previously used it
+   (the link is by ID, so a fresh upload gets a fresh ID).
+
+This playbook is the entire migration path. There is no fallback,
+no automatic conversion, no "try harder" repair pass.
+
+### Do not
+
+- Reintroduce `Name`, `Description`, `Instructions` or `References` to the in-store `Skill` struct. The on-disk SKILL.md is the authoritative source; anything else duplicates state and invites drift.
+- Inline skill content into the system prompt at agent build time (the old `--- Skill: ... ---` blocks). The skilltoolset is the contract — the LLM decides when to call `load_skill`.
+- Add ad-hoc endpoints for individual file uploads or single-field edits. Upload-only via `/skills/upload` keeps the admin API and the operator's mental model aligned.
+- Bypass the per-agent `AgentFS` whitelist. The whole agent → skill scoping invariant lives there; if a future feature needs to expand scope (e.g. expose every skill to a "super-agent"), it should pass an explicit allow-all list, not skip the wrapper.
+- Use a custom `skill.Source` adapter just to bridge a different on-disk layout. ADK's `FileSystemSource` plus our `AgentFS` is the entire bridge — keep it that way.
+- Reintroduce a migrator or auto-repair pass for legacy stores. Decided against during the first cut: a compat layer rotted silently and produced corrupted on-disk packages. The breaking-change path (detect + log + filter) is the contract, full stop.
+
+**Files**:
+
+- `server/store/types.go` — `Skill{ID, Slug}` (legacy fields removed).
+- `server/store/store.go` — Skill CRUD, `SkillsDir()`, `SkillDir(slug)`, `detectBrokenSkills`, broken-skill filter on every accessor.
+- `server/store/skills_broken_test.go` — detection + accessor-filter tests.
+- `server/agent/tools/skills/agentfs.go` + tests — per-agent fs.FS whitelist wrapper.
+- `server/agent/tools/skills/package.go` + tests — `ParsePackage`, `WritePackage`, `PackageAsTarGz`, slug helpers.
+- `server/agent/tools/skills/tolerant.go` + tests — permissive `skill.Source` wrapper that survives non-canonical frontmatter keys (`version:`, `author:`, …).
+- `server/agent/agent.go` — `buildSkillToolset`, `BuildAgentInstanceParams.SkillSlugs`/`SkillsDir`, removal of inline skill injection in `buildInstruction`.
+- `server/agent/flow.go` — propagates `SkillSlugs`/`SkillsDir` through `FlowBuildDeps`.
+- `server/api/admin/skills.go` — upload-only handlers, hydrated GET shape with permissive frontmatter parser.
+- `server/api/admin/handler.go` — new route table.
+- `frontend/admin-ui/src/views/skills/SkillDialog.vue` — upload-only modal with replace toggle.
+- `frontend/admin-ui/src/views/skills/SkillViewDialog.vue` — read-only viewer (frontmatter, instructions, resources, download).
+- `frontend/admin-ui/src/views/skills/SkillsList.vue` — opens viewer on click, upload from header button.
+- `frontend/admin-ui/src/lib/api/skills.js` — upload/get/list/delete/download.
+- `frontend/admin-ui/src/lib/markdown.js` + style.css `.magec-markdown` block — Magec-flavoured markdown renderer for skill instructions.

@@ -39,7 +39,8 @@ magec/
 │   │   ├── flowexit/           # CEL compiler + synthetic loop-exit evaluator agent (decision #28)
 │   │   ├── tools/
 │   │   │   ├── artifacts/      # save/load/list/export/url artifact tools (decision #17, #25, #26, #27)
-│   │   │   └── flowstate/      # set_state/get_state shared scratchpad (decision #28)
+│   │   │   ├── flowstate/      # set_state/get_state shared scratchpad (decision #28)
+│   │   │   └── skills/         # On-disk skill packages + per-agent FS whitelist + tolerant frontmatter source (decision #29)
 │   │   └── base_toolset.go     # Base toolset (artifact tools by default, plus per-flow extras)
 │   ├── api/
 │   │   ├── admin/              # Admin REST API (CRUD for all resources)
@@ -48,7 +49,7 @@ magec/
 │   │   │   ├── backends.go     # Backend CRUD
 │   │   │   ├── clients.go      # Client CRUD + /types (JSON Schema) + token regen
 │   │   │   ├── commands.go     # Command CRUD
-│   │   │   ├── skills.go       # Skill CRUD + reference file upload/download/delete
+│   │   │   ├── skills.go       # Skill upload (one endpoint) + GET hydrated from disk + tar.gz download (decision #29)
 │   │   │   ├── memory.go       # Memory provider CRUD + ping + /types
 │   │   │   ├── secrets.go      # Secrets CRUD (encrypted at rest)
 │   │   │   ├── settings.go     # Global settings (session/longterm provider)
@@ -185,7 +186,7 @@ magec/
 |        | **Backends**               | CRUD: `/backends`, `/backends/{id}`                                                                                                                                                     |
 |        | **Memory**                 | CRUD: `/memory`, `/memory/{id}`, `/memory/types`, `/memory/{id}/health`                                                                                                                 |
 |        | **MCP Servers**            | CRUD: `/mcps`, `/mcps/{id}`                                                                                                                                                             |
-|        | **Skills**                 | CRUD: `/skills`, `/skills/{id}` + references: `/skills/{id}/references`, `/skills/{id}/references/{filename}` + package: `/skills/{id}/package`                                         |
+|        | **Skills**                 | `/skills` (list) · `POST /skills/upload?replace=` (create or replace from SKILL.md / .zip / .tar.gz) · `/skills/{id}` (GET hydrated, DELETE) · `/skills/{id}/download` (tar.gz)                  |
 |        | **Agents**                 | CRUD: `/agents`, `/agents/{id}`, `/agents/{id}/mcps`, `/agents/{id}/mcps/{mcpId}`                                                                                                       |
 |        | **Clients**                | CRUD: `/clients`, `/clients/{id}`, `/clients/types`, `/clients/{id}/regenerate-token`                                                                                                   |
 |        | **Commands**               | CRUD: `/commands`, `/commands/{id}`                                                                                                                                                     |
@@ -239,7 +240,7 @@ log:
 - **Flow execution**: `FlowDefinition` recursive tree maps 1:1 to ADK workflow agents. `responseAgent` flag on `FlowStep` filters output
 - **Voice endpoints**: `/api/v1/voice/{agentId}/speech` and `/transcription` resolve backends dynamically per agent
 - **MCP headers/TLS**: `MCPServer` struct has `Headers map[string]string` and `Insecure bool`. `httpClientForMCP()` creates transport with optional `InsecureSkipVerify`
-- **Skill injection**: Skills are injected into the agent system prompt at build time. Instructions appended as `--- Skill: {name} ---`, reference file contents appended as `[Reference: {filename}]`. Files read from `data/skills/{skillId}/`
+- **Skills as on-disk packages (decision #29)**: each skill lives at `data/skills/{slug}/SKILL.md` with optional `references/`, `assets/`, `scripts/` sub-trees. The store keeps only `{id, slug}`; everything else is read live from disk on every admin GET. Per-agent toolset built via ADK's `tool/skilltoolset` over an `agent/tools/skills.AgentFS` wrapper that whitelists the slugs linked to the agent. Pre-#29 stores are NOT auto-migrated: `store.detectBrokenSkills` flags entries with legacy fields, logs one WARN per skill on startup, and the Skill accessors filter them out of every read path. The operator removes the legacy entry by hand and re-uploads the package via the admin UI. Non-canonical frontmatter keys (`version:`, `author:`) are tolerated at runtime via `agent/tools/skills.TolerantSource`.
 - **Encryption key**: `server.encryptionKey` in config.yaml. Independent from `adminPassword`. Used to encrypt secrets at rest (AES-256-GCM, PBKDF2-derived)
 - **ContextGuard plugin**: Externalized to `adk-utils-go/plugin/contextguard` (v0.16.0). Builder API: `contextguard.New(registry)` + `guard.Add(agentID, llm, opts...)` + `guard.PluginConfig()`. Two strategies: `threshold` (token-based, auto-detect via CrushRegistry or manual `WithMaxTokens`) and `sliding_window` (turn-count via `WithSlidingWindow`). Each agent summarizes with its own LLM. Summary persisted in session state with `{agentName}` suffix keys. `CrushRegistry` fetches model metadata from Crush's provider.json with 6h background refresh
 - **A2A protocol**: Agents/flows with `A2A.Enabled` get JSON-RPC endpoints via `a2a-go` + ADK `adka2a`. Agent cards auto-generated with capabilities and skills. SSE streaming for responses

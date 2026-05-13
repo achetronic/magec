@@ -104,3 +104,217 @@ input[type="number"]::-webkit-outer-spin-button {
 *::-webkit-scrollbar-thumb:hover {
   background-color: #52525b;
 }
+
+/* ===========================================================
+   .magec-markdown — Markdown renderer for SKILL.md (decision #29)
+   ===========================================================
+   The skills viewer uses lib/markdown.js with a custom marked
+   renderer that emits classes scoped under .magec-markdown.
+
+   Visual intent: CALM. The viewer's hierarchy already gives the
+   markdown body the most weight in the modal — it does NOT need
+   coloured headings or saturated inline accents to compete with
+   the title and tabs above. The job of these styles is to make
+   long-form text legible, not decorative.
+
+   Rules of restraint:
+     - Headings live in arena tones (no sol/cyan), getting smaller
+       and lighter as their level increases.
+     - Inline code and strong text stay on neutral piedra/arena;
+       the content carries meaning, not the colour.
+     - Code blocks anchor on piedra-950 with a single soft border.
+       The language badge is muted to match.
+     - Lists, quotes and tables share the same quiet vocabulary as
+       the rest of the admin UI — no decorative dots, no coloured
+       bars, no alternating-row stripes.
+     - Generous line-height (1.7) is the only "loud" choice; it's
+       what lets dense skill text breathe inside a modal.
+*/
+
+.magec-markdown {
+  color: var(--color-arena-300);
+  font-size: 0.8125rem;          /* 13px */
+  line-height: 1.75;
+  word-break: break-word;
+}
+
+.magec-markdown > *:first-child { margin-top: 0; }
+.magec-markdown > *:last-child  { margin-bottom: 0; }
+
+/* --- Headings — arena tones only, weight + size do the work --- */
+.magec-md-h {
+  color: var(--color-arena-100);
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  scroll-margin-top: 1rem;
+}
+.magec-md-h1 {
+  font-size: 1.15rem;
+  margin: 1.8rem 0 0.6rem;
+  color: var(--color-arena-100);
+}
+.magec-md-h2 {
+  font-size: 1rem;
+  margin: 1.5rem 0 0.5rem;
+  color: var(--color-arena-100);
+}
+.magec-md-h3 {
+  font-size: 0.875rem;
+  margin: 1.2rem 0 0.4rem;
+  color: var(--color-arena-200);
+  font-weight: 600;
+}
+.magec-md-h4,
+.magec-md-h5,
+.magec-md-h6 {
+  font-size: 0.78rem;
+  margin: 1rem 0 0.3rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-arena-400);
+  font-weight: 600;
+}
+
+/* --- Paragraphs / lists / blockquotes --- */
+.magec-md-p { margin: 0.85rem 0; }
+
+.magec-md-ul,
+.magec-md-ol {
+  margin: 0.85rem 0;
+  padding-left: 1.4rem;
+}
+.magec-md-ul { list-style: disc; }
+.magec-md-ol { list-style: decimal; }
+.magec-md-li {
+  margin: 0.35rem 0;
+  padding-left: 0.25rem;
+}
+.magec-md-li::marker {
+  color: var(--color-piedra-600);
+}
+
+.magec-md-quote {
+  margin: 1.1rem 0;
+  padding: 0.2rem 0 0.2rem 1rem;
+  border-left: 2px solid var(--color-piedra-700);
+  color: var(--color-arena-400);
+}
+.magec-md-quote .magec-md-p { margin: 0.45rem 0; }
+
+/* --- Inline emphasis --- */
+.magec-md-strong {
+  color: var(--color-arena-100);
+  font-weight: 600;
+}
+.magec-md-em {
+  color: var(--color-arena-300);
+  font-style: italic;
+}
+
+/* --- Inline code — neutral, no colour --- */
+.magec-md-icode {
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  font-size: 0.82em;
+  padding: 0.08em 0.4em;
+  border-radius: 0.3rem;
+  background: var(--color-piedra-800);
+  color: var(--color-arena-200);
+  white-space: nowrap;
+}
+
+/* --- Code blocks --- */
+.magec-md-pre {
+  position: relative;
+  margin: 1.1rem 0;
+  padding: 1rem 1.1rem;
+  background: var(--color-piedra-950);
+  border: 1px solid var(--color-piedra-800);
+  border-radius: 0.5rem;
+  overflow-x: auto;
+  font-size: 0.78rem;
+  line-height: 1.6;
+}
+.magec-md-pre .magec-md-code {
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  color: var(--color-arena-300);
+  background: transparent;
+  border: 0;
+  padding: 0;
+  display: block;
+  white-space: pre;
+}
+.magec-md-code-lang {
+  position: absolute;
+  top: 0.55rem;
+  right: 0.7rem;
+  font-size: 0.62rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-piedra-500);
+  background: transparent;
+  padding: 0;
+  border: 0;
+  user-select: none;
+}
+
+/* --- Syntax highlight tokens — toned down to match the calm body --- */
+.magec-tk-comment  { color: var(--color-piedra-500); font-style: italic; }
+.magec-tk-keyword  { color: #b794f4; }                 /* purple-300 (softer) */
+.magec-tk-string   { color: #fcd34d; }                 /* sol-300, only for strings */
+.magec-tk-number   { color: #fdba74; }                 /* orange-300 (softer) */
+.magec-tk-func     { color: var(--color-atlantico-300); }
+.magec-tk-builtin  { color: #86efac; }                 /* emerald-300 (softer) */
+.magec-tk-property { color: var(--color-arena-200); }  /* keys read as plain text */
+.magec-tk-symbol   { color: var(--color-arena-500); }
+
+/* --- Links --- */
+.magec-md-link {
+  color: var(--color-atlantico-300);
+  text-decoration: underline;
+  text-decoration-color: rgba(125, 211, 232, 0.3);
+  text-underline-offset: 2px;
+  transition: color 0.15s ease, text-decoration-color 0.15s ease;
+}
+.magec-md-link:hover {
+  color: var(--color-atlantico-400);
+  text-decoration-color: var(--color-atlantico-400);
+}
+
+/* --- Images --- */
+.magec-md-img {
+  max-width: 100%;
+  border-radius: 0.4rem;
+  border: 1px solid var(--color-piedra-800);
+  margin: 0.8rem 0;
+}
+
+/* --- Tables — minimal, no alternating rows --- */
+.magec-md-table-wrap {
+  margin: 1.1rem 0;
+  overflow-x: auto;
+}
+.magec-md-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.78rem;
+}
+.magec-md-th {
+  color: var(--color-arena-400);
+  text-align: left;
+  font-weight: 600;
+  padding: 0.6rem 0.5rem 0.5rem;
+  border-bottom: 1px solid var(--color-piedra-800);
+}
+.magec-md-td {
+  padding: 0.55rem 0.5rem;
+  border-bottom: 1px solid var(--color-piedra-850);
+  color: var(--color-arena-300);
+}
+
+/* --- Horizontal rule — just a thin line, no gradient flourishes --- */
+.magec-md-hr {
+  margin: 1.8rem 0;
+  border: 0;
+  height: 1px;
+  background: var(--color-piedra-800);
+}

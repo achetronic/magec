@@ -1,223 +1,143 @@
 <template>
-  <AppDialog ref="dialogRef" :title="isEdit ? 'Edit Skill' : 'New Skill'" size="lg" @save="save">
+  <AppDialog ref="dialogRef" title="Upload Skill" size="lg">
     <div class="space-y-4">
-      <SegmentedControl v-model="mode" :options="modeOptions" />
+      <!-- Inline intro: title-weight first line tells the operator
+           what to drop, sub-line points at the spec they need to
+           follow. ADK's skilltoolset only accepts the layout from
+           the Agent Skills specification (SKILL.md at root +
+           references/, assets/, scripts/ subtrees), so we surface
+           that contract before the dropzone instead of letting the
+           operator upload something we'd reject with a 400. -->
+      <div class="space-y-1">
+        <p class="text-[13px] text-arena-200 leading-6">
+          Drop a <code class="px-1 py-0.5 rounded bg-piedra-800 text-arena-200 font-mono text-[11px]">SKILL.md</code>
+          or a packaged skill
+          (<code class="px-1 py-0.5 rounded bg-piedra-800 text-arena-200 font-mono text-[11px]">.zip</code>
+          / <code class="px-1 py-0.5 rounded bg-piedra-800 text-arena-200 font-mono text-[11px]">.tar.gz</code>).
+        </p>
+        <p class="text-[11px] text-arena-500 leading-6">
+          Skills must follow the
+          <a href="https://agentskills.io/specification"
+             target="_blank" rel="noopener"
+             class="text-sol-400 hover:text-sol-300 underline underline-offset-2 decoration-sol-400/40 hover:decoration-sol-300">official Agent Skills specification</a>.
+        </p>
+      </div>
 
-      <template v-if="mode === 'manual'">
-        <div>
-          <FormLabel label="Name" :required="true" />
-          <FormInput v-model="form.name" placeholder="greeting-skill" :required="true" />
-        </div>
-        <div>
-          <FormLabel label="Description" />
-          <FormInput v-model="form.description" placeholder="What this skill does..." />
-        </div>
-        <div>
-          <FormLabel label="Instructions" :required="true" />
-          <textarea v-model="form.instructions" rows="6" class="w-full bg-piedra-800 border border-piedra-700 rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-sol-500 focus:border-sol-500 outline-none resize-y" placeholder="Step-by-step instructions for this skill..." required />
-        </div>
+      <div
+        @dragover.prevent="dragOver = true"
+        @dragleave.prevent="dragOver = false"
+        @drop.prevent="onDrop"
+        @click="fileInput?.click()"
+        class="flex flex-col items-center justify-center gap-3 py-12 border-2 border-dashed rounded-xl cursor-pointer transition-colors"
+        :class="dragOver
+          ? 'border-sol-400/50 bg-sol-500/5'
+          : 'border-piedra-700/40 hover:border-piedra-600 bg-piedra-800/30'"
+      >
+        <template v-if="!file">
+          <Icon name="upload" size="lg" class="text-arena-500" />
+          <p class="text-xs text-arena-400">Drop a file here or <span class="text-sol-400 underline">browse</span></p>
+          <p class="text-[10px] text-arena-600">SKILL.md, .zip, .tar.gz</p>
+        </template>
+        <template v-else>
+          <Icon name="command" size="lg" class="text-sol-400" />
+          <p class="text-xs text-arena-200 font-medium">{{ file.name }}</p>
+          <p class="text-[10px] text-arena-500">{{ formatSize(file.size) }}</p>
+          <button type="button" @click.stop="clearFile" class="text-[10px] text-lava-400 hover:text-lava-300 transition-colors">Remove</button>
+        </template>
+      </div>
+      <input ref="fileInput" type="file" accept=".md,.markdown,.zip,.tar.gz,.tgz" class="hidden" @change="onSelect" />
 
-        <details class="group border border-piedra-700/40 rounded-xl" open>
-          <summary class="flex items-center justify-between px-4 py-3 cursor-pointer select-none text-xs font-medium text-arena-400 hover:text-arena-300">
-            <span>References ({{ allFiles.length }})</span>
-            <Icon name="chevronDown" size="md" class="text-arena-500 transition-transform group-open:rotate-180" />
-          </summary>
-          <div class="px-4 pb-4 space-y-3">
-            <div
-              @dragover.prevent="dragOver = true"
-              @dragleave.prevent="dragOver = false"
-              @drop.prevent="onDrop"
-              @click="fileInput?.click()"
-              class="flex flex-col items-center justify-center gap-2 py-6 border-2 border-dashed rounded-xl cursor-pointer transition-colors"
-              :class="dragOver
-                ? 'border-cyan-500/50 bg-cyan-500/5'
-                : 'border-piedra-700/40 hover:border-piedra-600 bg-piedra-800/30'"
-            >
-              <Icon name="download" size="lg" class="text-arena-500" />
-              <p class="text-xs text-arena-400">Drop files here or <span class="text-cyan-400 underline">browse</span></p>
-              <p class="text-[10px] text-arena-600">Schemas, templates, documentation — any text file</p>
-            </div>
-            <input ref="fileInput" type="file" multiple class="hidden" @change="onFileSelect" />
+      <div v-if="errorMsg" class="border border-lava-500/40 bg-lava-500/5 rounded-lg px-3 py-2">
+        <p class="text-[11px] text-lava-300 whitespace-pre-line">{{ errorMsg }}</p>
+        <p v-if="conflict" class="text-[10px] text-arena-400 mt-2">
+          A skill with this slug already exists. Enable replace mode below to overwrite (existing agent links are preserved).
+        </p>
+      </div>
 
-            <div v-if="allFiles.length" class="space-y-1.5">
-              <div v-for="item in allFiles" :key="item.filename" class="flex items-center justify-between gap-3 px-3 py-2 bg-piedra-800/50 rounded-lg">
-                <div class="flex items-center gap-2.5 min-w-0">
-                  <Icon name="command" size="sm" class="text-cyan-400 flex-shrink-0" />
-                  <div class="min-w-0">
-                    <p class="text-xs font-medium text-arena-200 truncate">{{ item.filename }}</p>
-                    <p class="text-[10px] text-arena-500">{{ formatSize(item.size) }}</p>
-                  </div>
-                </div>
-                <div class="flex items-center gap-1 flex-shrink-0">
-                  <button v-if="item.saved" type="button" @click.stop="downloadFile(item)" class="p-1 hover:bg-piedra-700 rounded-lg transition-colors cursor-pointer" title="Download">
-                    <Icon name="download" size="sm" class="text-arena-500 hover:text-cyan-400" />
-                  </button>
-                  <button type="button" @click="removeFile(item)" class="p-1 hover:bg-piedra-700 rounded-lg transition-colors cursor-pointer" title="Remove">
-                    <Icon name="trash" size="sm" class="text-arena-500 hover:text-lava-400" />
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </details>
-      </template>
-
-      <template v-if="mode === 'package'">
-        <div
-          @dragover.prevent="pkgDragOver = true"
-          @dragleave.prevent="pkgDragOver = false"
-          @drop.prevent="onPackageDrop"
-          @click="pkgInput?.click()"
-          class="flex flex-col items-center justify-center gap-3 py-12 border-2 border-dashed rounded-xl cursor-pointer transition-colors"
-          :class="pkgDragOver
-            ? 'border-cyan-500/50 bg-cyan-500/5'
-            : 'border-piedra-700/40 hover:border-piedra-600 bg-piedra-800/30'"
-        >
-          <template v-if="!packageFile">
-            <Icon name="upload" size="lg" class="text-arena-500" />
-            <p class="text-xs text-arena-400">Drop <span class="text-cyan-400">.zip</span> or <span class="text-cyan-400">.tar.gz</span> here or <span class="text-cyan-400 underline">browse</span></p>
-            <p class="text-[10px] text-arena-600">Must contain a SKILL.md at the root</p>
-          </template>
-          <template v-else>
-            <Icon name="command" size="lg" class="text-cyan-400" />
-            <p class="text-xs text-arena-200 font-medium">{{ packageFile.name }}</p>
-            <p class="text-[10px] text-arena-500">{{ formatSize(packageFile.size) }}</p>
-            <button type="button" @click.stop="packageFile = null" class="text-[10px] text-lava-400 hover:text-lava-300 transition-colors">Remove</button>
-          </template>
-        </div>
-        <input ref="pkgInput" type="file" accept=".zip,.tar.gz,.tgz" class="hidden" @change="onPackageSelect" />
-      </template>
+      <div v-if="file" class="border border-piedra-700/40 rounded-xl px-4 py-3 space-y-2">
+        <label class="flex items-center gap-2 text-[11px] text-arena-300">
+          <input type="checkbox" v-model="replace" class="accent-sol-500" />
+          Replace if a skill with this slug already exists
+        </label>
+        <p class="text-[10px] text-arena-500">
+          When enabled, an upload whose <code>frontmatter.name</code> matches an existing skill replaces its package on disk while keeping the same store ID — agents that link to the skill stay linked.
+        </p>
+      </div>
     </div>
+    <template #footer>
+      <button type="button" @click="close" class="px-4 py-2 text-sm text-arena-400 hover:text-arena-200 hover:bg-piedra-800 rounded-lg transition-colors">
+        Cancel
+      </button>
+      <button type="button" :disabled="uploading" @click="save" class="px-4 py-2 bg-sol-500 hover:bg-sol-600 disabled:opacity-50 disabled:cursor-not-allowed text-piedra-950 text-sm font-medium rounded-lg transition-colors">
+        {{ uploading ? 'Uploading…' : (replace ? 'Upload (replace)' : 'Upload') }}
+      </button>
+    </template>
   </AppDialog>
 </template>
 
 <script setup>
-import { ref, computed, inject } from 'vue'
+import { ref, inject } from 'vue'
 import { skillsApi } from '../../lib/api/index.js'
-import { getAuthHeaders } from '../../lib/auth.js'
-import { useDataStore } from '../../lib/stores/data.js'
 import AppDialog from '../../components/AppDialog.vue'
-import FormInput from '../../components/FormInput.vue'
-import FormLabel from '../../components/FormLabel.vue'
 import Icon from '../../components/Icon.vue'
-import SegmentedControl from '../../components/SegmentedControl.vue'
 
 const emit = defineEmits(['saved'])
 const toast = inject('toast')
-const store = useDataStore()
 const dialogRef = ref(null)
-const editId = ref(null)
-const isEdit = ref(false)
 const fileInput = ref(null)
-const pkgInput = ref(null)
 const dragOver = ref(false)
-const pkgDragOver = ref(false)
-const mode = ref('manual')
-const modeOptions = [
-  { label: 'Manual', value: 'manual' },
-  { label: 'Package', value: 'package' },
-]
-const packageFile = ref(null)
+const file = ref(null)
+const replace = ref(false)
+const errorMsg = ref('')
+const conflict = ref(false)
+const uploading = ref(false)
 
-const savedRefs = ref([])
-const pendingFiles = ref([])
-
-const allFiles = computed(() => [
-  ...savedRefs.value.map(r => ({ ...r, saved: true })),
-  ...pendingFiles.value.map(f => ({ filename: f.name, size: f.size, saved: false })),
-])
-
-const form = ref({
-  name: '',
-  description: '',
-  instructions: '',
-})
-
-function open(skill = null) {
-  isEdit.value = !!skill
-  editId.value = skill?.id || null
-  mode.value = 'manual'
-  packageFile.value = null
-  form.value = {
-    name: skill?.name || '',
-    description: skill?.description || '',
-    instructions: skill?.instructions || '',
-  }
-  savedRefs.value = [...(skill?.references || [])]
-  pendingFiles.value = []
+function open() {
+  file.value = null
+  replace.value = false
+  errorMsg.value = ''
+  conflict.value = false
+  uploading.value = false
   dialogRef.value?.open()
 }
 
-function addFiles(files) {
-  for (const file of files) {
-    const exists = allFiles.value.some(r => r.filename === file.name)
-    if (exists) {
-      toast.error(`"${file.name}" already exists`)
-      continue
-    }
-    pendingFiles.value.push(file)
-  }
+function close() {
+  dialogRef.value?.close()
+}
+
+function clearFile() {
+  file.value = null
+  errorMsg.value = ''
+  conflict.value = false
 }
 
 function onDrop(e) {
   dragOver.value = false
-  addFiles([...(e.dataTransfer?.files || [])])
+  const f = e.dataTransfer?.files?.[0]
+  if (f) setFile(f)
 }
 
-function onFileSelect(e) {
-  addFiles([...(e.target.files || [])])
+function onSelect(e) {
+  const f = e.target.files?.[0]
+  if (f) setFile(f)
   e.target.value = ''
 }
 
-function onPackageDrop(e) {
-  pkgDragOver.value = false
-  const file = e.dataTransfer?.files?.[0]
-  if (file) setPackageFile(file)
-}
-
-function onPackageSelect(e) {
-  const file = e.target.files?.[0]
-  if (file) setPackageFile(file)
-  e.target.value = ''
-}
-
-function setPackageFile(file) {
-  const name = file.name.toLowerCase()
-  if (!name.endsWith('.zip') && !name.endsWith('.tar.gz') && !name.endsWith('.tgz')) {
-    toast.error('Only .zip and .tar.gz files are supported')
+function setFile(f) {
+  const lower = f.name.toLowerCase()
+  const ok =
+    lower.endsWith('.md') ||
+    lower.endsWith('.markdown') ||
+    lower.endsWith('.zip') ||
+    lower.endsWith('.tar.gz') ||
+    lower.endsWith('.tgz')
+  if (!ok) {
+    toast.error('Only SKILL.md, .zip and .tar.gz uploads are accepted')
     return
   }
-  packageFile.value = file
-}
-
-async function removeFile(item) {
-  if (item.saved) {
-    try {
-      await skillsApi.deleteReference(editId.value, item.filename)
-      savedRefs.value = savedRefs.value.filter(r => r.filename !== item.filename)
-    } catch (e) {
-      toast.error(e.message)
-      return
-    }
-  } else {
-    pendingFiles.value = pendingFiles.value.filter(f => f.name !== item.filename)
-  }
-}
-
-async function downloadFile(item) {
-  try {
-    const url = skillsApi.referenceUrl(editId.value, item.filename)
-    const res = await fetch(url, { headers: { ...getAuthHeaders() } })
-    if (!res.ok) throw new Error(`HTTP ${res.status}`)
-    const blob = await res.blob()
-    const a = document.createElement('a')
-    a.href = URL.createObjectURL(blob)
-    a.download = item.filename
-    a.click()
-    URL.revokeObjectURL(a.href)
-  } catch (e) {
-    toast.error(e.message)
-  }
+  file.value = f
+  errorMsg.value = ''
+  conflict.value = false
 }
 
 function formatSize(bytes) {
@@ -227,42 +147,29 @@ function formatSize(bytes) {
 }
 
 async function save() {
+  if (!file.value) {
+    errorMsg.value = 'Select a file first'
+    return
+  }
+  errorMsg.value = ''
+  conflict.value = false
+  uploading.value = true
   try {
-    if (mode.value === 'package') {
-      if (!packageFile.value) {
-        toast.error('Select a package file')
-        return
-      }
-      let skillId = editId.value
-      if (!isEdit.value) {
-        const created = await skillsApi.create({ name: packageFile.value.name.replace(/\.(zip|tar\.gz|tgz)$/i, ''), instructions: '(pending package upload)' })
-        skillId = created.id
-      }
-      await skillsApi.uploadPackage(skillId, packageFile.value)
-    } else {
-      const data = {
-        name: form.value.name.trim(),
-        description: form.value.description.trim(),
-        instructions: form.value.instructions.trim(),
-      }
-      let skillId = editId.value
-      if (isEdit.value) {
-        await skillsApi.update(skillId, data)
-      } else {
-        const created = await skillsApi.create(data)
-        skillId = created.id
-      }
-      for (const file of pendingFiles.value) {
-        await skillsApi.uploadReference(skillId, file)
-      }
-    }
-
+    await skillsApi.upload(file.value, { replace: replace.value })
     dialogRef.value?.close()
     emit('saved')
   } catch (e) {
-    toast.error(e.message)
+    if (e.status === 409) {
+      conflict.value = true
+      errorMsg.value = e.message
+    } else {
+      errorMsg.value = e.message
+    }
+  } finally {
+    uploading.value = false
   }
 }
 
 defineExpose({ open })
 </script>
+
