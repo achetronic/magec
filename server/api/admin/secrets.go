@@ -42,6 +42,14 @@ func secretResponse(s store.Secret) SecretResponse {
 	}
 }
 
+// SecretToResponse converts a stored secret to its public representation
+// (value is never exposed). Exported so external surfaces (e.g. the embedded
+// MCP server) can mirror admin's redaction policy without duplicating the
+// struct shape.
+func SecretToResponse(s store.Secret) SecretResponse {
+	return secretResponse(s)
+}
+
 // listSecrets returns all secrets (values are never exposed).
 // @Summary      List secrets
 // @Description  Returns all configured secrets without their values

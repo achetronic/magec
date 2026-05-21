@@ -13,7 +13,7 @@ func generateID() string {
 
 // AgentDefinition represents a single agent's full configuration in the store.
 type AgentDefinition struct {
-	ID            string              `json:"id" yaml:"id"`
+	ID            string              `json:"id,omitempty" yaml:"id"`
 	Name          string              `json:"name" yaml:"name"`
 	Description   string              `json:"description,omitempty" yaml:"description,omitempty"`
 	SystemPrompt  string              `json:"systemPrompt,omitempty" yaml:"systemPrompt,omitempty"`
@@ -36,7 +36,7 @@ type A2AConfig struct {
 
 // BackendDefinition represents a reusable AI backend.
 type BackendDefinition struct {
-	ID      string            `json:"id" yaml:"id"`
+	ID      string            `json:"id,omitempty" yaml:"id"`
 	Name    string            `json:"name" yaml:"name"`
 	Type    string            `json:"type" yaml:"type"`
 	URL     string            `json:"url,omitempty" yaml:"url,omitempty"`
@@ -105,7 +105,7 @@ type ContextGuardConfig struct {
 
 // MemoryProvider represents a reusable memory backend (Redis, Postgres, etc.).
 type MemoryProvider struct {
-	ID        string                 `json:"id" yaml:"id"`
+	ID        string                 `json:"id,omitempty" yaml:"id"`
 	Name      string                 `json:"name" yaml:"name"`
 	Type      string                 `json:"type" yaml:"type"`
 	Category  string                 `json:"category" yaml:"category"`
@@ -115,7 +115,7 @@ type MemoryProvider struct {
 
 // MCPServer represents an MCP server configuration.
 type MCPServer struct {
-	ID           string            `json:"id" yaml:"id"`
+	ID           string            `json:"id,omitempty" yaml:"id"`
 	Name         string            `json:"name" yaml:"name"`
 	Type         string            `json:"type,omitempty" yaml:"type,omitempty"`
 	Endpoint     string            `json:"endpoint,omitempty" yaml:"endpoint,omitempty"`
@@ -131,10 +131,10 @@ type MCPServer struct {
 // ClientDefinition represents an access point (voice-ui, Telegram, Discord, webhook, etc.).
 // Type determines what platform-specific config is expected inside Config.
 type ClientDefinition struct {
-	ID            string       `json:"id" yaml:"id"`
+	ID            string       `json:"id,omitempty" yaml:"id"`
 	Name          string       `json:"name" yaml:"name"`
 	Type          string       `json:"type" yaml:"type"`
-	Token         string       `json:"token" yaml:"token"`
+	Token         string       `json:"token,omitempty" yaml:"token"`
 	AllowedAgents []string     `json:"allowedAgents" yaml:"allowedAgents"`
 	Enabled       bool         `json:"enabled" yaml:"enabled"`
 	Config        ClientConfig `json:"config" yaml:"config"`
@@ -209,14 +209,14 @@ type WebhookClientConfig struct {
 // upload time; renames go through the upload endpoint, which rewrites the
 // frontmatter and renames the directory atomically.
 type Skill struct {
-	ID   string `json:"id" yaml:"id"`
+	ID   string `json:"id,omitempty" yaml:"id"`
 	Slug string `json:"slug" yaml:"slug"`
 }
 
 // Command represents a reusable prompt that can be invoked against an agent
 // via cron or webhook clients.
 type Command struct {
-	ID          string `json:"id" yaml:"id"`
+	ID          string `json:"id,omitempty" yaml:"id"`
 	Name        string `json:"name" yaml:"name"`
 	Description string `json:"description,omitempty" yaml:"description,omitempty"`
 	Prompt      string `json:"prompt" yaml:"prompt"`
@@ -355,7 +355,7 @@ func collectAgentIDs(step *FlowStep, seen map[string]bool, ids *[]string) {
 // FlowDefinition represents a multi-agent workflow stored as a recursive tree
 // of steps that maps directly to ADK workflow agents.
 type FlowDefinition struct {
-	ID          string     `json:"id" yaml:"id"`
+	ID          string     `json:"id,omitempty" yaml:"id"`
 	Name        string     `json:"name" yaml:"name"`
 	Description string     `json:"description,omitempty" yaml:"description,omitempty"`
 	Root        FlowStep   `json:"root" yaml:"root"`
@@ -379,7 +379,7 @@ type Settings struct {
 // The Key field is the environment variable name (e.g. OPENAI_API_KEY).
 // The Value is stored encrypted at rest when an admin password is configured.
 type Secret struct {
-	ID          string `json:"id" yaml:"id"`
+	ID          string `json:"id,omitempty" yaml:"id"`
 	Name        string `json:"name" yaml:"name"`
 	Key         string `json:"key" yaml:"key"`
 	Value       string `json:"value" yaml:"value"`

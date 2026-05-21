@@ -32,7 +32,7 @@ Self-hosted multi-agent AI platform with voice, visual workflows, and tool integ
 ```
 magec/
 ├── server/                     # Go backend
-│   ├── main.go                 # HTTP server (:8080 user + :8081 admin), routing, middleware
+│   ├── main.go                 # HTTP servers (:8080 user + :8081 admin + :8082 MCP optional), routing, middleware
 │   ├── agent/
 │   │   ├── agent.go            # Multi-agent ADK setup, MCP transport, memory tools, ContextGuard wiring, BuildAgentInstance entry point
 │   │   ├── flow.go             # Flow→ADK workflow agent builder (sequential/parallel/loop), per-appearance instance builder, exit_loop wiring, exitWhen evaluator wiring
@@ -58,6 +58,10 @@ magec/
 │   │   │   ├── backup.go       # Backup/restore (tar.gz of data/ directory)
 │   │   │   ├── voice.go        # Voice provider types endpoint
 │   │   │   └── docs/           # Generated swagger
+│   │   ├── mcp/                # Embedded MCP server (decision #30)
+│   │   │   ├── handler.go      # Handler container + StreamableHTTP handler + tool registration
+│   │   │   ├── server.go       # registerAll() per-resource group
+│   │   │   └── tools_*.go      # One file per resource: ~54 magec_* tools
 │   │   └── user/               # User-facing REST API
 │   │       ├── handlers.go     # Health, ClientInfo, Voice, Webhook, EphemeralArtifact swagger types
 │   │       ├── doc.go          # Swagger metadata
@@ -197,6 +201,10 @@ magec/
 |        | **Backup**                 | GET `/settings/backup`, POST `/settings/restore` (tar.gz of data/)                                                                                                                      |
 |        | **Voice**                  | GET `/voice/types` (registered voice providers with JSON Schemas)                                                                                                                       |
 
+### MCP Server (port 8082) — Embedded MCP Server
+
+Opt-in via `server.mcp.enabled: true` in `config.yaml`. Speaks Streamable HTTP at `/` and exposes the entire admin API as ~54 MCP tools (`magec_list_backends`, `magec_create_agent`, etc.). Reuses `server.adminPassword` as bearer token, validated with the same constant-time compare and per-IP rate limiter as `AdminAuth`. Tools call the data store directly — no HTTP roundtrip to the admin port. See `website/content/docs/admin-mcp-server.md` and decision #30.
+
 ## Configuration
 
 **Split model**:
@@ -212,6 +220,9 @@ server:
   # adminPassword: ""  # Admin API auth (Bearer token)
   # encryptionKey: ""  # Encrypt secrets at rest (AES-256-GCM, independent from adminPassword)
   # publicURL: ""       # Public URL for A2A agent cards (defaults to http://localhost:{port})
+  # mcp:                 # Embedded MCP server (decision #30)
+  #   enabled: false
+  #   port: 8082         # Streamable HTTP; reuses adminPassword for bearer auth
 
 voice:
   ui:

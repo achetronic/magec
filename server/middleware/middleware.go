@@ -150,6 +150,55 @@ func AdminAuth(next http.Handler, password string) http.Handler {
 	})
 }
 
+// BearerAuth protects an HTTP handler with `Authorization: Bearer <password>`
+// authentication. Used by surfaces that serve at the root path (no `/api/`
+// prefix), such as the embedded MCP server. Reuses the same constant-time
+// comparison and per-IP rate limiter as [AdminAuth].
+//
+// If password is empty, all requests pass through (open mode) and a warning
+// is the caller's responsibility.
+func BearerAuth(next http.Handler, password string) http.Handler {
+	if password == "" {
+		return next
+	}
+
+	rl := newRateLimiter(5, time.Minute)
+	go rl.cleanup(30 * time.Second)
+
+	passwordBytes := []byte(password)
+
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodOptions {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		ip := extractIP(r)
+		if !rl.allow(ip) {
+			w.Header().Set("Content-Type", "application/json")
+			w.Header().Set("Retry-After", "60")
+			http.Error(w, `{"error":"too many failed attempts, try again later"}`, http.StatusTooManyRequests)
+			return
+		}
+
+		token := extractBearerToken(r)
+		if token == "" {
+			w.Header().Set("Content-Type", "application/json")
+			http.Error(w, `{"error":"unauthorized"}`, http.StatusUnauthorized)
+			return
+		}
+
+		if subtle.ConstantTimeCompare([]byte(token), passwordBytes) != 1 {
+			rl.record(ip)
+			w.Header().Set("Content-Type", "application/json")
+			http.Error(w, `{"error":"unauthorized"}`, http.StatusUnauthorized)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
+}
+
 func extractBearerToken(r *http.Request) string {
 	auth := r.Header.Get("Authorization")
 	if strings.HasPrefix(auth, "Bearer ") {

@@ -883,3 +883,44 @@ no automatic conversion, no "try harder" repair pass.
 - `frontend/admin-ui/src/views/skills/SkillsList.vue` — opens viewer on click, upload from header button.
 - `frontend/admin-ui/src/lib/api/skills.js` — upload/get/list/delete/download.
 - `frontend/admin-ui/src/lib/markdown.js` + style.css `.magec-markdown` block — Magec-flavoured markdown renderer for skill instructions.
+
+---
+
+## 30. Embedded MCP server exposes the admin API as MCP tools
+
+**Date**: 2026-05-21
+**Status**: Implemented
+
+Magec ships an embedded MCP server on its own port (default `8082`, configurable via `server.mcp.port`) that exposes every admin API operation as an MCP tool. It uses Streamable HTTP transport (`github.com/modelcontextprotocol/go-sdk/mcp.NewStreamableHTTPHandler`, v1.4.1) and reuses `server.adminPassword` as the bearer token. The handler calls the same `*store.Store` methods admin REST handlers call — there is no HTTP roundtrip back to the admin port.
+
+**Reason**: An MCP client like Claude Code or mcp-cli should be able to manage a Magec instance the same way the admin UI does. Building this as a separate process would have required a second store reference or a duplicate REST client; reusing decision #6 ("Admin UI never accesses the User API") and going store-direct keeps the access pattern uniform and the dependency tree narrow.
+
+**Decisions inside this decision**:
+
+- **Separate port** instead of mounting under `/api/v1/mcp/` on the admin server. The SSE streams MCP uses need a longer write timeout (set to zero) than admin write paths (30s), and CLI clients prefer the root path. The two surfaces also have different rate-limit needs in the future.
+- **Typed `mcp.AddTool[In, Out]`** for every tool, not the raw `Server.AddTool`, so the SDK infers schemas from Go structs and validates inputs before the handler runs. The only exception is **flow tools**, which set explicit `*jsonschema.Schema{Type:"object"}` on InputSchema/OutputSchema because `store.FlowStep` is self-referential and the schema generator does not support cycles.
+- **Skills upload/download and backup/restore are not exposed**. Both stream binary archives (`.zip`/`.tar.gz`) and do not map cleanly to MCP tool inputs and outputs. Admin REST stays the source of truth for those operations.
+- **Secret values are redacted in MCP responses**, matching the admin REST policy via the shared `admin.SecretToResponse` helper.
+- **Validators are shared, not duplicated**. `admin.ValidateFlowStep` and `admin.ValidateClientConfig` are exported and reused inside MCP tool handlers so the same rules apply on both surfaces.
+- **New `middleware.BearerAuth`** (no `/api/` carve-out) wraps the MCP mux. It reuses the same constant-time compare and per-IP rate limiter as `AdminAuth`. Empty password keeps the server open with a startup warning, same as admin.
+
+**Do not**:
+
+- Wire the MCP server through the admin HTTP router. The data store is the only shared dependency; introducing a second HTTP hop would defeat decision #6.
+- Introduce a separate password (`server.mcp.token`). One credential keeps the admin and MCP surfaces in lockstep and is consistent with decision #12 (standard `Authorization: Bearer`).
+- Add MCP resources or prompts unless a concrete operator need appears. Tools-only keeps every spec-compliant CLI client compatible.
+- Expose binary endpoints (skill upload/download, backup/restore) as MCP tools. They stay on admin REST.
+
+**Files**:
+
+- `server/main.go` — `startMCPServer`, extended `startGracefulShutdown`.
+- `server/config/config.go` — `Server.MCP{Enabled bool, Port int}` plus default `8082`.
+- `server/middleware/middleware.go` — new `BearerAuth` middleware.
+- `server/api/admin/handler.go` — exported `SessionService()` and `Store()` accessors.
+- `server/api/admin/flows.go` — exported `ValidateFlowStep`.
+- `server/api/admin/clients.go` — exported `ValidateClientConfig`.
+- `server/api/admin/secrets.go` — exported `SecretToResponse`.
+- `server/api/mcp/*` — Handler, registration aggregator, one `tools_<resource>.go` per admin resource group, smoke + per-resource tests.
+- `website/content/docs/admin-mcp-server.md` — operator docs.
+- `website/hugo.toml` — sidebar entry under Core Concepts (weight 6).
+- `.agents/AGENTS.md`, `.agents/MULTI_AGENT_ADMIN_API.md` — short pointers to the new module.

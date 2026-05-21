@@ -46,6 +46,19 @@ func (h *Handler) SetSessionService(svc session.Service) {
 	h.sessionService = svc
 }
 
+// SessionService returns the configured ADK session service (may be nil if
+// the launcher has not been initialised). Used by external components that
+// need to operate on sessions directly, e.g. the embedded MCP server.
+func (h *Handler) SessionService() session.Service {
+	return h.sessionService
+}
+
+// Store returns the data store. Used by external components that need direct
+// access to the same store the admin handlers see.
+func (h *Handler) Store() *store.Store {
+	return h.store
+}
+
 // ServeHTTP implements http.Handler.
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	h.router.ServeHTTP(w, r)

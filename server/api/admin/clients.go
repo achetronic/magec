@@ -184,6 +184,13 @@ func (h *Handler) listClientTypes(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, types)
 }
 
+// ValidateClientConfig validates a client's type-specific config block against
+// the JSON schema registered by the client provider. Exported so the embedded
+// MCP server can reuse the same rules.
+func ValidateClientConfig(c store.ClientDefinition) error {
+	return validateClientConfig(c)
+}
+
 func validateClientConfig(c store.ClientDefinition) error {
 	raw, err := json.Marshal(c.Config)
 	if err != nil {
