@@ -10,7 +10,7 @@ This page covers the embedded server. For consuming external MCP servers (Home A
 
 The server runs alongside the user and admin HTTP servers, on its own port. It speaks Streamable HTTP, so every MCP client that follows the spec works without extra adapters.
 
-It exposes one tool per admin operation. Listing, getting, creating, updating and deleting works for every resource the admin REST API understands: backends, memory providers, MCP servers, agents, clients, commands, flows, secrets, settings, conversations, plus the type catalogues for clients, memory and voice providers.
+The tool catalogue is built at startup by reading the admin OpenAPI spec embedded in the binary. Each admin endpoint becomes one MCP tool. When new admin endpoints land, the next build picks them up automatically.
 
 ## Enabling it
 
@@ -30,7 +30,7 @@ server:
 The startup log shows a line like:
 
 ```
-INFO MCP server started addr=0.0.0.0:8082 url=http://0.0.0.0:8082 tools=61
+INFO MCP server started addr=0.0.0.0:8082 url=http://0.0.0.0:8082 tools=33
 ```
 
 ## Authentication
@@ -38,6 +38,8 @@ INFO MCP server started addr=0.0.0.0:8082 url=http://0.0.0.0:8082 tools=61
 The MCP server reuses `server.adminPassword`. Every request must carry the `Authorization: Bearer <adminPassword>` header. The check is constant-time and rate-limited per IP (5 failed attempts per minute), the same as the admin REST API.
 
 If `adminPassword` is empty, the MCP server still starts but logs a warning and accepts every request. Do not expose port 8082 outside your trust boundary in that mode.
+
+Internally the MCP layer forwards each tool call as an HTTP request back to the admin port on the loopback interface. Validation, secret redaction and conversation logging stay in the admin handlers and apply uniformly whether the caller is the admin UI, an HTTP client, or an MCP tool.
 
 ## Connecting from Claude Code
 
@@ -69,121 +71,25 @@ npx @wong2/mcp-cli streamable-http http://localhost:8082/ \
 
 ## Tool catalogue
 
-Tool names use the `magec_` prefix and snake_case.
-
-### Backends
-
-- `magec_list_backends`
-- `magec_get_backend`
-- `magec_create_backend`
-- `magec_update_backend`
-- `magec_delete_backend`
-
-### Memory providers
-
-- `magec_list_memory_providers`
-- `magec_get_memory_provider`
-- `magec_create_memory_provider`
-- `magec_update_memory_provider`
-- `magec_delete_memory_provider`
-- `magec_check_memory_health`
-- `magec_list_memory_types`
-
-### MCP servers (the ones agents consume)
-
-- `magec_list_mcp_servers`
-- `magec_get_mcp_server`
-- `magec_create_mcp_server`
-- `magec_update_mcp_server`
-- `magec_delete_mcp_server`
-
-### Agents
-
-- `magec_list_agents`
-- `magec_get_agent`
-- `magec_create_agent`
-- `magec_update_agent`
-- `magec_delete_agent`
-- `magec_list_agent_mcps`
-- `magec_link_agent_mcp`
-- `magec_unlink_agent_mcp`
-
-### Clients
-
-- `magec_list_clients`
-- `magec_get_client`
-- `magec_create_client`
-- `magec_update_client`
-- `magec_delete_client`
-- `magec_regenerate_client_token`
-- `magec_list_client_types`
-
-### Commands
-
-- `magec_list_commands`
-- `magec_get_command`
-- `magec_create_command`
-- `magec_update_command`
-- `magec_delete_command`
-
-### Flows
-
-- `magec_list_flows`
-- `magec_get_flow`
-- `magec_create_flow`
-- `magec_update_flow`
-- `magec_delete_flow`
-
-### Skills
-
-- `magec_list_skills`
-- `magec_get_skill`
-- `magec_delete_skill`
-
-### Settings
-
-- `magec_get_settings`
-- `magec_update_settings`
-
-### Secrets
-
-- `magec_list_secrets`
-- `magec_get_secret`
-- `magec_create_secret`
-- `magec_update_secret`
-- `magec_delete_secret`
-
-### Conversations
-
-- `magec_list_conversations`
-- `magec_get_conversation`
-- `magec_delete_conversation`
-- `magec_clear_conversations`
-- `magec_conversation_stats`
-- `magec_update_conversation_summary`
-- `magec_find_conversation_pair`
-- `magec_reset_conversation_session`
-
-### Voice
-
-- `magec_list_voice_types`
+Tool names use the `magec_` prefix and follow the pattern `<http_method>_<resource>` derived from the admin OpenAPI operation (for example `magec_post_agents`, `magec_delete_clients_id`, `magec_get_flows`). Run `tools/list` on the server for the live list — it always matches the admin REST surface in the running binary.
 
 ## What is not exposed
 
-Skill upload and download (one SKILL.md plus optional `references/`, `assets/`, `scripts/`) and the backup and restore endpoints stream binary archives. They do not map cleanly to MCP tool inputs and outputs, so they stay on the admin REST API. Use the admin UI or call `POST /api/v1/admin/skills/upload` and `GET /api/v1/admin/settings/backup` directly when you need them.
+Skill upload and download, plus the backup and restore endpoints, stream binary archives that do not map cleanly to MCP tool inputs and outputs. Those routes are filtered out at startup; use the admin UI or call `POST /api/v1/admin/skills/upload` and `GET /api/v1/admin/settings/backup` directly when you need them. The admin-UI helper endpoints (`/auth/check`, `/overview`) are also skipped because they are not operator actions.
 
 ## Security notes
 
-- Secret values are never returned by `magec_get_secret` or `magec_list_secrets`. The MCP server mirrors the admin REST behaviour: GET responses contain the metadata only. Use the create/update tools to write new values.
+- Secret values are never returned by the secrets endpoints. Admin REST already redacts them; the MCP server inherits that redaction because the tools are thin wrappers over the same handlers.
 - The MCP server has the same authority as the admin API. Treat the bearer token with the same care.
-- Running a Magec agent against the admin MCP creates a recursive surface: the agent can call destructive tools (`magec_delete_*`, `magec_clear_conversations`) against the very instance running it. Use sparingly.
+- Running a Magec agent against the admin MCP creates a recursive surface: the agent can call destructive tools against the very instance running it. Use sparingly.
 - Streamable HTTP allows server-sent events, so the MCP server's `WriteTimeout` is set to zero. The HTTP client manages cancellation through request context, which is what every spec-compliant MCP client does.
 
 ## Troubleshooting
 
 | Symptom | Likely cause |
 |--------|-------------|
-| `tools=0` at startup | Build is stale, restart the server |
+| `tools=0` at startup | Swagger spec missing or empty; rerun `make swagger` and rebuild |
 | 401 on every request | Wrong or missing bearer; verify `Authorization: Bearer ...` |
 | 429 with `Retry-After: 60` | Hit the 5-failed-attempts-per-minute rate limit; wait one minute |
 | 403 from a localhost client | DNS rebinding protection kicked in; make sure the client sends a `Host` header matching `localhost` or `127.0.0.1` |
+| `admin API returned 5xx` in a tool response | The admin REST API failed; check the admin server log for the underlying error |

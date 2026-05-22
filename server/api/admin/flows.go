@@ -128,12 +128,6 @@ func (h *Handler) deleteFlow(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// ValidateFlowStep recursively validates a flow step tree. Exported so other
-// admission paths (e.g. the embedded MCP server) can reuse the same rules.
-func ValidateFlowStep(step *store.FlowStep) error {
-	return validateFlowStep(step)
-}
-
 func validateFlowStep(step *store.FlowStep) error {
 	// Loop-only fields must not appear elsewhere. Catch this before the
 	// type switch so the per-type branches stay focused.

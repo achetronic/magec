@@ -102,7 +102,7 @@ func main() {
 
 	// Embedded MCP server (opt-in via server.mcp.enabled). Exposes the same
 	// admin surface as MCP tools over Streamable HTTP. See decision #30.
-	mcpServer, mcpCtx, mcpCancel := startMCPServer(cfg, dataStore, convoStore, adminHandler)
+	mcpServer, mcpCtx, mcpCancel := startMCPServer(cfg)
 
 	// cwRegistry provides LLM context window sizes
 	cwRegistry := contextguard.NewCrushRegistry()
@@ -243,7 +243,7 @@ func startAdminServer(cfg *config.Config, adminHandler *admin.Handler) (*http.Se
 // requests with the same bearer token used by the admin REST API
 // (server.adminPassword). Returns nil sentinel values when disabled so the
 // shutdown path stays linear.
-func startMCPServer(cfg *config.Config, dataStore *store.Store, convoStore *store.ConversationStore, adminHandler *admin.Handler) (*http.Server, context.Context, context.CancelFunc) {
+func startMCPServer(cfg *config.Config) (*http.Server, context.Context, context.CancelFunc) {
 	if !cfg.Server.MCP.Enabled {
 		return nil, nil, nil
 	}
@@ -252,7 +252,21 @@ func startMCPServer(cfg *config.Config, dataStore *store.Store, convoStore *stor
 		slog.Warn("MCP server enabled without server.adminPassword — admin tools are exposed without authentication")
 	}
 
-	mcpHandler := magecmcp.NewHandler(dataStore, convoStore, adminHandler)
+	adminHost := cfg.Server.Host
+	if adminHost == "0.0.0.0" || adminHost == "" {
+		// Talk to ourselves on the loopback interface even when the admin
+		// server is bound to all interfaces; avoids surprises if the public
+		// IP changes underneath us at runtime.
+		adminHost = "127.0.0.1"
+	}
+	mcpHandler, err := magecmcp.NewHandler(magecmcp.HandlerConfig{
+		AdminBaseURL:  fmt.Sprintf("http://%s:%d/api/v1/admin", adminHost, cfg.Server.AdminPort),
+		AdminPassword: cfg.Server.AdminPassword,
+	})
+	if err != nil {
+		slog.Error("MCP server failed to initialise", "error", err)
+		return nil, nil, nil
+	}
 
 	mcpMux := http.NewServeMux()
 	mcpMux.Handle("/", mcpHandler.HTTPHandler())
