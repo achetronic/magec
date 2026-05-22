@@ -30,7 +30,7 @@ server:
 The startup log shows a line like:
 
 ```
-INFO MCP server started addr=0.0.0.0:8082 url=http://0.0.0.0:8082 tools=54
+INFO MCP server started addr=0.0.0.0:8082 url=http://0.0.0.0:8082 tools=61
 ```
 
 ## Authentication
