@@ -108,25 +108,30 @@ theme = 'magec'
     url = '/docs/mcp/'
     weight = 5
   [[menu.docs]]
+    name = 'Admin MCP Server'
+    parent = 'core'
+    url = '/docs/admin-mcp-server/'
+    weight = 6
+  [[menu.docs]]
     name = 'Skills'
     parent = 'core'
     url = '/docs/skills/'
-    weight = 6
+    weight = 7
   [[menu.docs]]
     name = 'A2A Protocol'
     parent = 'core'
     url = '/docs/a2a/'
-    weight = 7
+    weight = 8
   [[menu.docs]]
     name = 'Secrets'
     parent = 'core'
     url = '/docs/secrets/'
-    weight = 8
+    weight = 9
   [[menu.docs]]
     name = 'Commands'
     parent = 'core'
     url = '/docs/commands/'
-    weight = 9
+    weight = 10
 
   [[menu.docs]]
     identifier = 'clients'

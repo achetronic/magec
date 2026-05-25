@@ -189,6 +189,10 @@ Same registry pattern as `/clients/types` and `/memory/types`. Decision #21.
 
 The backup archive contains `store.json`, `conversations.json`, and `skills/{id}/` files. On restore, the archive must contain a valid `store.json` at the root level. The current data directory is atomically swapped (rename) and both stores are reloaded in memory.
 
+## Embedded MCP Server
+
+The same admin surface is also exposed as MCP tools at `http://localhost:8082/` when `server.mcp.enabled: true`. Tools live in `server/api/mcp/`; they call `*store.Store` directly without going through the admin HTTP router (decision #30). Authentication reuses `server.adminPassword` as a bearer token. Skill upload/download and backup/restore are intentionally not exposed because they stream binary archives that do not map cleanly to MCP tool inputs. See `website/content/docs/admin-mcp-server.md` for the full tool catalogue and client setup.
+
 ## Persistence
 
 - Store persists to `data/store.json` on each write

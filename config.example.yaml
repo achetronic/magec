@@ -14,6 +14,10 @@ server:
   # encryptionKey: ${MAGEC_ENCRYPTION_KEY}  # Encrypt secrets (API keys) at rest
   # publicURL: https://magec.example.com    # External URL for A2A agent cards (defaults to http://localhost:{port})
 
+  # mcp:                                    # Embedded MCP server (opt-in)
+  #   enabled: false                         # When true, exposes the admin API as MCP tools
+  #   port: 8082                             # Streamable HTTP port; auth reuses adminPassword
+
 voice:
   ui:
     enabled: true # Enable/disable Voice UI (default: true)

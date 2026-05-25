@@ -36,6 +36,7 @@ import (
 	"github.com/achetronic/magec/server/agent"
 	toolsartifacts "github.com/achetronic/magec/server/agent/tools/artifacts"
 	"github.com/achetronic/magec/server/api/admin"
+	magecmcp "github.com/achetronic/magec/server/api/mcp"
 	user "github.com/achetronic/magec/server/api/user"
 	"github.com/achetronic/magec/server/clients"
 	"github.com/achetronic/magec/server/clients/cron"
@@ -99,6 +100,10 @@ func main() {
 
 	adminServer, adminCtx, adminCancel := startAdminServer(cfg, adminHandler)
 
+	// Embedded MCP server (opt-in via server.mcp.enabled). Exposes the same
+	// admin surface as MCP tools over Streamable HTTP. See decision #30.
+	mcpServer, mcpCtx, mcpCancel := startMCPServer(cfg)
+
 	// cwRegistry provides LLM context window sizes
 	cwRegistry := contextguard.NewCrushRegistry()
 
@@ -124,7 +129,7 @@ func main() {
 	cronScheduler, clientManager := startClients(ctx, cfg, dataStore, agentRouter, executor)
 
 	// Graceful shutdown
-	startGracefulShutdown(adminServer, adminCtx, adminCancel, userServer, userCtx, userCancel, cronScheduler, clientManager, voiceDetector)
+	startGracefulShutdown(adminServer, adminCtx, adminCancel, userServer, userCtx, userCancel, mcpServer, mcpCtx, mcpCancel, cronScheduler, clientManager, voiceDetector)
 }
 
 // initStores initializes the primary JSON file stores for application data
@@ -231,6 +236,67 @@ func startAdminServer(cfg *config.Config, adminHandler *admin.Handler) (*http.Se
 	}()
 
 	return adminServer, adminCtx, adminCancel
+}
+
+// startMCPServer starts the embedded MCP server when server.mcp.enabled is
+// true. The server speaks Streamable HTTP at the root path and authenticates
+// requests with the same bearer token used by the admin REST API
+// (server.adminPassword). Returns nil sentinel values when disabled so the
+// shutdown path stays linear.
+func startMCPServer(cfg *config.Config) (*http.Server, context.Context, context.CancelFunc) {
+	if !cfg.Server.MCP.Enabled {
+		return nil, nil, nil
+	}
+
+	if cfg.Server.AdminPassword == "" {
+		slog.Warn("MCP server enabled without server.adminPassword — admin tools are exposed without authentication")
+	}
+
+	adminHost := cfg.Server.Host
+	if adminHost == "0.0.0.0" || adminHost == "" {
+		// Talk to ourselves on the loopback interface even when the admin
+		// server is bound to all interfaces; avoids surprises if the public
+		// IP changes underneath us at runtime.
+		adminHost = "127.0.0.1"
+	}
+	mcpHandler, err := magecmcp.NewHandler(magecmcp.HandlerConfig{
+		AdminBaseURL:  fmt.Sprintf("http://%s:%d/api/v1/admin", adminHost, cfg.Server.AdminPort),
+		AdminPassword: cfg.Server.AdminPassword,
+	})
+	if err != nil {
+		slog.Error("MCP server failed to initialise", "error", err)
+		return nil, nil, nil
+	}
+
+	mcpMux := http.NewServeMux()
+	mcpMux.Handle("/", mcpHandler.HTTPHandler())
+
+	// The middleware stack mirrors the admin port (AccessLog → CORS →
+	// bearer) but writes are unbounded: MCP serves Streamable HTTP over
+	// long-lived SSE connections, which the admin's 30s WriteTimeout
+	// would tear down.
+	mcpAddr := fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.MCP.Port)
+	mcpServer := &http.Server{
+		Addr: mcpAddr,
+		Handler: middleware.AccessLog(
+			middleware.CORS(
+				middleware.BearerAuth(mcpMux, cfg.Server.AdminPassword),
+			),
+		),
+		ReadTimeout:  30 * time.Second,
+		WriteTimeout: 0,
+		IdleTimeout:  120 * time.Second,
+	}
+
+	mcpCtx, mcpCancel := context.WithCancel(context.Background())
+	go func() {
+		slog.Info("MCP server started", "addr", mcpAddr, "url", fmt.Sprintf("http://%s", mcpAddr), "tools", mcpHandler.ToolCount())
+		if err := mcpServer.ListenAndServe(); err != http.ErrServerClosed {
+			slog.Error("MCP server error", "error", err)
+		}
+	}()
+
+	return mcpServer, mcpCtx, mcpCancel
 }
 
 // startUserServer configures and starts the HTTP server for the user-facing
@@ -411,6 +477,7 @@ func startClients(ctx context.Context, cfg *config.Config, dataStore *store.Stor
 func startGracefulShutdown(
 	adminServer *http.Server, adminCtx context.Context, adminCancel context.CancelFunc,
 	userServer *http.Server, userCtx context.Context, userCancel context.CancelFunc,
+	mcpServer *http.Server, mcpCtx context.Context, mcpCancel context.CancelFunc,
 	cronScheduler *cron.Scheduler, cm *clientManager,
 	voiceDetector *voice.Detector,
 ) {
@@ -430,9 +497,20 @@ func startGracefulShutdown(
 
 	adminServer.Shutdown(shutdownCtx)
 	userServer.Shutdown(shutdownCtx)
+	if mcpServer != nil {
+		mcpServer.Shutdown(shutdownCtx)
+	}
 
 	adminCancel()
 	userCancel()
+	if mcpCancel != nil {
+		mcpCancel()
+	}
+	// adminCtx, userCtx, mcpCtx are kept in the signature so callers can wire
+	// observability hooks against them; nothing to do here.
+	_ = adminCtx
+	_ = userCtx
+	_ = mcpCtx
 }
 
 // newVoiceHandler creates a router for /api/v1/voice/{agentId}/{action} routes.

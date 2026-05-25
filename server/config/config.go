@@ -41,12 +41,21 @@ type Config struct {
 
 // Server holds network and runtime settings for the HTTP servers.
 type Server struct {
-	Host          string `yaml:"host"`
-	Port          int    `yaml:"port"`
-	AdminPort     int    `yaml:"adminPort"`
-	AdminPassword string `yaml:"adminPassword"`
-	EncryptionKey string `yaml:"encryptionKey"`
-	PublicURL     string `yaml:"publicURL"`
+	Host          string    `yaml:"host"`
+	Port          int       `yaml:"port"`
+	AdminPort     int       `yaml:"adminPort"`
+	AdminPassword string    `yaml:"adminPassword"`
+	EncryptionKey string    `yaml:"encryptionKey"`
+	PublicURL     string    `yaml:"publicURL"`
+	MCP           MCPServer `yaml:"mcp"`
+}
+
+// MCPServer configures the embedded MCP server that exposes the admin API as
+// MCP tools. Disabled by default. Auth reuses [Server.AdminPassword] via
+// bearer token.
+type MCPServer struct {
+	Enabled bool `yaml:"enabled"`
+	Port    int  `yaml:"port"`
 }
 
 // Voice holds voice-related configuration (UI, ONNX runtime, etc.).
@@ -120,6 +129,9 @@ func (c *Config) applyDefaults() {
 	}
 	if c.Server.AdminPort == 0 {
 		c.Server.AdminPort = 8081
+	}
+	if c.Server.MCP.Port == 0 {
+		c.Server.MCP.Port = 8082
 	}
 	if c.Log.Level == "" {
 		c.Log.Level = "info"

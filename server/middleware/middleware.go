@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"crypto/subtle"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"strings"
@@ -93,10 +94,7 @@ func AdminAuth(next http.Handler, password string) http.Handler {
 		return next
 	}
 
-	rl := newRateLimiter(5, time.Minute)
-	go rl.cleanup(30 * time.Second)
-
-	passwordBytes := []byte(password)
+	check := newPasswordCheck(password)
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodOptions {
@@ -104,50 +102,121 @@ func AdminAuth(next http.Handler, password string) http.Handler {
 			return
 		}
 
-		path := r.URL.Path
-
-		if !strings.HasPrefix(path, "/api/") {
+		// Static files served by the admin UI live outside /api/ and must
+		// pass through unauthenticated so the SPA can load before the user
+		// types the password.
+		if !strings.HasPrefix(r.URL.Path, "/api/") {
 			next.ServeHTTP(w, r)
 			return
 		}
 
-		if path == "/api/v1/admin/auth/check" {
-			token := extractBearerToken(r)
-			if token == "" || subtle.ConstantTimeCompare([]byte(token), passwordBytes) != 1 {
+		// /auth/check lets the admin UI validate a password without
+		// triggering the rate limiter — otherwise an interactive prompt
+		// would lock the user's IP out after a handful of typos.
+		if r.URL.Path == "/api/v1/admin/auth/check" {
+			if check.matches(r) {
 				w.Header().Set("Content-Type", "application/json")
-				http.Error(w, `{"error":"unauthorized"}`, http.StatusUnauthorized)
+				w.WriteHeader(http.StatusOK)
+				_, _ = w.Write([]byte(`{"ok":true}`))
 				return
 			}
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{"ok":true}`))
+			writeJSONError(w, http.StatusUnauthorized, "unauthorized")
 			return
 		}
 
-		ip := extractIP(r)
-		if !rl.allow(ip) {
-			w.Header().Set("Content-Type", "application/json")
-			w.Header().Set("Retry-After", "60")
-			http.Error(w, `{"error":"too many failed attempts, try again later"}`, http.StatusTooManyRequests)
+		if !check.allow(w, r) {
 			return
 		}
-
-		token := extractBearerToken(r)
-		if token == "" {
-			w.Header().Set("Content-Type", "application/json")
-			http.Error(w, `{"error":"unauthorized"}`, http.StatusUnauthorized)
-			return
-		}
-
-		if subtle.ConstantTimeCompare([]byte(token), passwordBytes) != 1 {
-			rl.record(ip)
-			w.Header().Set("Content-Type", "application/json")
-			http.Error(w, `{"error":"unauthorized"}`, http.StatusUnauthorized)
-			return
-		}
-
 		next.ServeHTTP(w, r)
 	})
+}
+
+// BearerAuth protects an HTTP handler with `Authorization: Bearer <password>`
+// authentication. Used by surfaces that serve at the root path (no `/api/`
+// prefix), such as the embedded MCP server. Shares the rate-limited bearer
+// check with [AdminAuth]; the only behavioural difference is that this
+// middleware does not carve out the SPA static-file and auth-check paths.
+//
+// If password is empty, all requests pass through (open mode) and emitting
+// a warning is the caller's responsibility.
+func BearerAuth(next http.Handler, password string) http.Handler {
+	if password == "" {
+		return next
+	}
+
+	check := newPasswordCheck(password)
+
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodOptions {
+			next.ServeHTTP(w, r)
+			return
+		}
+		if !check.allow(w, r) {
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+// passwordCheck is the shared state for the bearer-token middlewares:
+// the constant-time-comparable secret and the per-IP rate limiter that
+// throttles repeated bad attempts.
+type passwordCheck struct {
+	passwordBytes []byte
+	limiter       *rateLimiter
+}
+
+// newPasswordCheck returns a checker pre-wired with a 5-failure-per-minute
+// rate limiter. The cleanup goroutine runs for the lifetime of the process,
+// which is fine because middlewares are constructed once at startup.
+func newPasswordCheck(password string) *passwordCheck {
+	rl := newRateLimiter(5, time.Minute)
+	go rl.cleanup(30 * time.Second)
+	return &passwordCheck{
+		passwordBytes: []byte(password),
+		limiter:       rl,
+	}
+}
+
+// matches reports whether the request carries the expected bearer token.
+// It does not touch the rate limiter and never writes to the response;
+// callers use it for endpoints where validation must stay silent.
+func (c *passwordCheck) matches(r *http.Request) bool {
+	token := extractBearerToken(r)
+	if token == "" {
+		return false
+	}
+	return subtle.ConstantTimeCompare([]byte(token), c.passwordBytes) == 1
+}
+
+// allow runs the full rate-limited bearer check. When it returns true the
+// caller may serve the request; when it returns false the response has
+// already been written (401 or 429) and the caller must stop.
+func (c *passwordCheck) allow(w http.ResponseWriter, r *http.Request) bool {
+	ip := extractIP(r)
+	if !c.limiter.allow(ip) {
+		w.Header().Set("Retry-After", "60")
+		writeJSONError(w, http.StatusTooManyRequests, "too many failed attempts, try again later")
+		return false
+	}
+	token := extractBearerToken(r)
+	if token == "" {
+		writeJSONError(w, http.StatusUnauthorized, "unauthorized")
+		return false
+	}
+	if subtle.ConstantTimeCompare([]byte(token), c.passwordBytes) != 1 {
+		c.limiter.record(ip)
+		writeJSONError(w, http.StatusUnauthorized, "unauthorized")
+		return false
+	}
+	return true
+}
+
+// writeJSONError emits the canonical {"error":"..."} body that every other
+// middleware in this package returns on a hard failure.
+func writeJSONError(w http.ResponseWriter, status int, message string) {
+	w.Header().Set("Content-Type", "application/json")
+	http.Error(w, fmt.Sprintf(`{"error":%q}`, message), status)
 }
 
 func extractBearerToken(r *http.Request) string {

@@ -2,7 +2,11 @@
 
 ## Recently Completed
 
-### This branch (`feature/lazy-load-skills`, 2026-05-09)
+### This branch (`feature/admin-mcp-server`, 2026-05-21)
+
+- **Embedded admin MCP server** — new opt-in HTTP server on port 8082 (`server.mcp.enabled: true`) exposes the full admin API as ~54 MCP tools (`magec_list_backends`, `magec_create_agent`, etc.) over Streamable HTTP. Auth reuses `server.adminPassword` as a bearer token via the new `middleware.BearerAuth`. Tools call `*store.Store` directly — no HTTP roundtrip to the admin port. Skills upload/download and backup/restore stay on admin REST (binary streams don't map cleanly to tools). Decision #30. Files: `server/api/mcp/`, `server/main.go`, `server/config/config.go`, `server/middleware/middleware.go`, `website/content/docs/admin-mcp-server.md`, `website/hugo.toml`.
+
+### Earlier branch (`feature/lazy-load-skills`, 2026-05-09)
 
 - **Skills as on-disk packages** — skills now live at `data/skills/{slug}/SKILL.md` with optional `references/`, `assets/`, `scripts/` sub-trees. Store keeps only `{id, slug}`; everything else (frontmatter, instructions, resources) is read live from disk. Inline injection into system prompts is gone. Decision #29.
 - **Per-agent `skilltoolset`** — adopted `google.golang.org/adk/tool/skilltoolset` (v1.2.0). Each agent gets its own `skilltoolset` rooted at `data/skills/` but filtered through `agent/tools/skills.AgentFS`, an `fs.FS` wrapper that whitelists only the slugs linked to the agent. Agents with no linked skills get no toolset at all.
