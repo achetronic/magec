@@ -3,6 +3,7 @@ package mcp
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -13,10 +14,14 @@ import (
 	"github.com/achetronic/magec/server/middleware"
 )
 
-// newTestHandler builds an MCP handler that talks to a stub admin server,
-// so the unit suite never depends on a real magec instance. The stub records
-// every request it sees and replies with a canned payload — enough to assert
-// the dispatcher serialised arguments correctly and propagated the bearer.
+// initFrame is the minimal MCP initialise envelope used by HTTP-level tests
+// where we only care about the transport, not the protocol response.
+const initFrame = `{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"test","version":"0"}}}`
+
+// newTestHandler builds an MCP handler wired to a stub admin server, so the
+// unit suite never depends on a real magec instance. The stub records every
+// request it sees and replies with a canned payload — enough to assert the
+// dispatcher serialised arguments correctly and propagated the bearer.
 func newTestHandler(t *testing.T) (*Handler, *adminStub) {
 	t.Helper()
 	stub := newAdminStub()
@@ -33,10 +38,12 @@ func newTestHandler(t *testing.T) (*Handler, *adminStub) {
 	return h, stub
 }
 
-func TestSmoke_ToolsRegistered(t *testing.T) {
-	h, _ := newTestHandler(t)
+// connectInMemory spins up the MCP server over the in-memory transport and
+// returns an open client session. Centralised so individual tests don't
+// re-implement the four-line dance.
+func connectInMemory(t *testing.T, h *Handler) *sdk.ClientSession {
+	t.Helper()
 	ctx := context.Background()
-
 	serverT, clientT := sdk.NewInMemoryTransports()
 	if _, err := h.Server().Connect(ctx, serverT, nil); err != nil {
 		t.Fatalf("server connect: %v", err)
@@ -46,9 +53,15 @@ func TestSmoke_ToolsRegistered(t *testing.T) {
 	if err != nil {
 		t.Fatalf("client connect: %v", err)
 	}
-	defer sess.Close()
+	t.Cleanup(func() { _ = sess.Close() })
+	return sess
+}
 
-	res, err := sess.ListTools(ctx, nil)
+func TestSmoke_ToolsRegistered(t *testing.T) {
+	h, _ := newTestHandler(t)
+	sess := connectInMemory(t, h)
+
+	res, err := sess.ListTools(context.Background(), nil)
 	if err != nil {
 		t.Fatalf("list tools: %v", err)
 	}
@@ -58,8 +71,8 @@ func TestSmoke_ToolsRegistered(t *testing.T) {
 	if h.ToolCount() != len(res.Tools) {
 		t.Fatalf("tool count mismatch: ToolCount=%d ListTools=%d", h.ToolCount(), len(res.Tools))
 	}
-	// Spot-check a few that we expect to exist regardless of filter changes.
-	have := map[string]bool{}
+
+	have := make(map[string]bool, len(res.Tools))
 	for _, tool := range res.Tools {
 		have[tool.Name] = true
 		if !strings.HasPrefix(tool.Name, toolNamePrefix) {
@@ -75,23 +88,12 @@ func TestSmoke_ToolsRegistered(t *testing.T) {
 
 func TestDispatcher_ForwardsArgumentsAndBearer(t *testing.T) {
 	h, stub := newTestHandler(t)
-	ctx := context.Background()
-
-	serverT, clientT := sdk.NewInMemoryTransports()
-	if _, err := h.Server().Connect(ctx, serverT, nil); err != nil {
-		t.Fatalf("server connect: %v", err)
-	}
-	client := sdk.NewClient(&sdk.Implementation{Name: "test-client", Version: "0"}, nil)
-	sess, err := client.Connect(ctx, clientT, nil)
-	if err != nil {
-		t.Fatalf("client connect: %v", err)
-	}
-	defer sess.Close()
+	sess := connectInMemory(t, h)
 
 	stub.respond("POST", "/api/v1/admin/backends", http.StatusCreated,
 		`{"id":"abc","name":"OpenAI","type":"openai"}`)
 
-	res, err := sess.CallTool(ctx, &sdk.CallToolParams{
+	res, err := sess.CallTool(context.Background(), &sdk.CallToolParams{
 		Name: "magec_post_backends",
 		Arguments: map[string]any{
 			"name": "OpenAI",
@@ -104,14 +106,15 @@ func TestDispatcher_ForwardsArgumentsAndBearer(t *testing.T) {
 	if res.IsError {
 		t.Fatalf("tool returned error: %+v", res.Content)
 	}
-	if stub.lastAuth != "Bearer test-pwd" {
-		t.Errorf("bearer not forwarded; got %q", stub.lastAuth)
+
+	if got, want := stub.lastAuth, "Bearer test-pwd"; got != want {
+		t.Errorf("bearer not forwarded: got %q want %q", got, want)
 	}
-	if stub.lastMethod != "POST" {
-		t.Errorf("method: got %q, want POST", stub.lastMethod)
+	if got, want := stub.lastMethod, http.MethodPost; got != want {
+		t.Errorf("method: got %q want %q", got, want)
 	}
-	if stub.lastPath != "/api/v1/admin/backends" {
-		t.Errorf("path: got %q, want /api/v1/admin/backends", stub.lastPath)
+	if got, want := stub.lastPath, "/api/v1/admin/backends"; got != want {
+		t.Errorf("path: got %q want %q", got, want)
 	}
 	var body map[string]any
 	if err := json.Unmarshal(stub.lastBody, &body); err != nil {
@@ -127,18 +130,18 @@ func TestHTTP_BearerRequired(t *testing.T) {
 	srv := httptest.NewServer(middleware.BearerAuth(h.HTTPHandler(), "secret"))
 	defer srv.Close()
 
-	const initFrame = `{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"curl","version":"0"}}}`
-
+	// No bearer → 401.
 	resp, err := http.Post(srv.URL, "application/json", strings.NewReader(initFrame))
 	if err != nil {
 		t.Fatalf("POST: %v", err)
 	}
 	resp.Body.Close()
 	if resp.StatusCode != http.StatusUnauthorized {
-		t.Fatalf("no auth: got %d, want 401", resp.StatusCode)
+		t.Fatalf("no auth: got %d want 401", resp.StatusCode)
 	}
 
-	req, _ := http.NewRequest("POST", srv.URL, strings.NewReader(initFrame))
+	// Correct bearer → anything but 401.
+	req, _ := http.NewRequest(http.MethodPost, srv.URL, strings.NewReader(initFrame))
 	req.Header.Set("Authorization", "Bearer secret")
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json, text/event-stream")
@@ -152,8 +155,8 @@ func TestHTTP_BearerRequired(t *testing.T) {
 	}
 }
 
-// adminStub is a minimal HTTP server that records the request it received
-// and replies with whatever the test rigged.
+// adminStub is a tiny HTTP server that records the most recent request it
+// received and replies with whatever the test rigged via respond.
 type adminStub struct {
 	lastAuth   string
 	lastMethod string
@@ -180,21 +183,11 @@ func (s *adminStub) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	s.lastAuth = r.Header.Get("Authorization")
 	s.lastMethod = r.Method
 	s.lastPath = r.URL.Path
-	body := make([]byte, 0, 1024)
 	if r.Body != nil {
-		defer r.Body.Close()
-		buf := make([]byte, 4096)
-		for {
-			n, err := r.Body.Read(buf)
-			if n > 0 {
-				body = append(body, buf[:n]...)
-			}
-			if err != nil {
-				break
-			}
-		}
+		body, _ := io.ReadAll(r.Body)
+		_ = r.Body.Close()
+		s.lastBody = body
 	}
-	s.lastBody = body
 
 	resp, ok := s.responses[r.Method+" "+r.URL.Path]
 	if !ok {

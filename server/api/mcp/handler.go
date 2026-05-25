@@ -27,12 +27,17 @@ const swaggerInstanceName = "swagger"
 // servers at once.
 const toolNamePrefix = "magec_"
 
-// HandlerConfig wires the MCP handler to the admin REST API. AdminBaseURL is
-// the absolute base for the admin endpoints (host + /api/v1/admin), and
-// AdminPassword is forwarded as the bearer token used by AdminAuth so the
-// loopback request authenticates the same way an external client would.
+// HandlerConfig wires the MCP handler to the admin REST API.
 type HandlerConfig struct {
-	AdminBaseURL  string
+	// AdminBaseURL is the absolute base for the admin endpoints — typically
+	// "http://127.0.0.1:<adminPort>/api/v1/admin". Tool calls are issued
+	// against this base over the loopback interface.
+	AdminBaseURL string
+
+	// AdminPassword is forwarded as the Authorization bearer on every
+	// outgoing call so AdminAuth authenticates the loopback request the
+	// same way it would authenticate an external client. Empty when the
+	// admin server is running in open mode.
 	AdminPassword string
 }
 
@@ -110,31 +115,36 @@ func (h *Handler) Server() *sdk.Server { return h.server }
 func (h *Handler) ToolCount() int { return h.toolCount }
 
 // loadAdminSpec reads the admin swagger 2.0 document registered by swaggo,
-// converts it to OpenAPI 3.0, and lets openapi2tools do the heavy lifting
-// (ref resolution, example stripping, flexible numeric parameters).
+// converts it to OpenAPI 3.0 (the format openapi2tools speaks), and lets the
+// library do the heavy lifting: ref resolution, example stripping, flexible
+// numeric parameters.
 func loadAdminSpec() (*openapi.Spec, error) {
-	raw, err := swag.ReadDoc(swaggerInstanceName)
+	rawSwagger, err := swag.ReadDoc(swaggerInstanceName)
 	if err != nil {
 		return nil, fmt.Errorf("read swagger doc: %w", err)
 	}
-	var v2 openapi2.T
-	if err := json.Unmarshal([]byte(raw), &v2); err != nil {
+
+	var swaggerSpec openapi2.T
+	if err := json.Unmarshal([]byte(rawSwagger), &swaggerSpec); err != nil {
 		return nil, fmt.Errorf("unmarshal swagger 2.0: %w", err)
 	}
-	v3, err := openapi2conv.ToV3(&v2)
+
+	openAPISpec, err := openapi2conv.ToV3(&swaggerSpec)
 	if err != nil {
 		return nil, fmt.Errorf("convert swagger 2.0 to openapi 3.0: %w", err)
 	}
-	v3JSON, err := json.Marshal(v3)
+
+	openAPIBytes, err := json.Marshal(openAPISpec)
 	if err != nil {
 		return nil, fmt.Errorf("marshal openapi 3.0: %w", err)
 	}
+
 	loader := openapi.NewLoader(openapi.LoadOptions{
 		ResolveRefs:        true,
 		RemoveExamples:     true,
 		FlexibleParameters: true,
 	})
-	return loader.LoadBytes(v3JSON)
+	return loader.LoadBytes(openAPIBytes)
 }
 
 // defaultRouteFilters trims the admin surface down to the operations that

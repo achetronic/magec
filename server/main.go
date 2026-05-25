@@ -271,22 +271,19 @@ func startMCPServer(cfg *config.Config) (*http.Server, context.Context, context.
 	mcpMux := http.NewServeMux()
 	mcpMux.Handle("/", mcpHandler.HTTPHandler())
 
+	// The middleware stack mirrors the admin port (AccessLog → CORS →
+	// bearer) but writes are unbounded: MCP serves Streamable HTTP over
+	// long-lived SSE connections, which the admin's 30s WriteTimeout
+	// would tear down.
 	mcpAddr := fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.MCP.Port)
 	mcpServer := &http.Server{
 		Addr: mcpAddr,
-		// CORS is permissive (same as the admin port) so browsers can drive
-		// the MCP server. BearerAuth reuses the same rate-limited
-		// constant-time compare as AdminAuth, without the /api/ carve-out
-		// because MCP serves the root path.
 		Handler: middleware.AccessLog(
 			middleware.CORS(
 				middleware.BearerAuth(mcpMux, cfg.Server.AdminPassword),
 			),
 		),
-		ReadTimeout: 30 * time.Second,
-		// SSE streams may stay open longer than a typical admin request, so
-		// write timeout is left at zero. Per-request context cancellation
-		// keeps abandoned connections from leaking.
+		ReadTimeout:  30 * time.Second,
 		WriteTimeout: 0,
 		IdleTimeout:  120 * time.Second,
 	}
