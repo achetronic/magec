@@ -270,6 +270,13 @@ type FlowNode struct {
 	// is FlowNodeRouter.
 	Rules        []FlowRule `json:"rules,omitempty" yaml:"rules,omitempty"`
 	DefaultRoute string     `json:"defaultRoute,omitempty" yaml:"defaultRoute,omitempty"`
+
+	// X and Y are the node's position on the visual editor canvas. They are a
+	// layout hint for the admin UI only: the builder and validation ignore
+	// them, so a flow authored without an editor (or with them omitted) still
+	// runs. Persisted so the operator's arrangement survives a round-trip.
+	X float64 `json:"x,omitempty" yaml:"x,omitempty"`
+	Y float64 `json:"y,omitempty" yaml:"y,omitempty"`
 }
 
 // FlowEdge is a directed connection between two nodes. Route is only

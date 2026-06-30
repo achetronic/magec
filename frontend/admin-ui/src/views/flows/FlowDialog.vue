@@ -20,31 +20,29 @@
           <FormToggle v-model="form.a2aEnabled" />
         </div>
       </div>
-      <FlowCanvas
-        v-model="form.root"
-        :agents="store.agents"
-      />
+
+      <FlowCanvas v-model="form.graph" :agents="store.agents" />
+
       <details class="group text-arena-500">
         <summary class="text-[10px] font-medium cursor-pointer select-none hover:text-arena-300 transition-colors">
           How does the flow editor work?
         </summary>
         <div class="mt-2 text-[10px] leading-relaxed space-y-2 text-arena-500/80">
-          <p>Drag blocks from the left sidebar into the canvas to build your workflow.</p>
-          <div class="grid grid-cols-2 gap-x-4 gap-y-1.5">
-            <div><span class="text-atlantico-400 font-semibold">Sequential</span> — runs steps one after another, in order.</div>
-            <div><span class="text-sol-400 font-semibold">Parallel</span> — runs all steps at the same time.</div>
-            <div><span class="text-lava-400 font-semibold">Loop</span> — repeats its steps N times.</div>
-            <div><span class="text-sol-400 font-semibold">Agent</span> — an AI agent that processes input.</div>
+          <p>A flow is a <span class="text-arena-300 font-semibold">graph</span>: add nodes from the toolbar, then drag from a node's right port to another node's left port to connect them. Drag from <span class="text-rose-400 font-semibold">Start</span> to the node where execution begins.</p>
+          <div class="grid grid-cols-3 gap-x-4 gap-y-1.5">
+            <div><span class="text-sol-400 font-semibold">Agent</span> — an AI agent that processes input and produces output.</div>
+            <div><span class="text-atlantico-400 font-semibold">Router</span> — evaluates CEL rules in order and routes to one branch.</div>
+            <div><span class="text-purple-400 font-semibold">Join</span> — waits for all incoming branches, then forwards their combined output.</div>
           </div>
           <div class="flex items-start gap-1.5 pt-1 border-t border-piedra-700/30">
             <svg class="w-3.5 h-3.5 text-green-400 flex-shrink-0 mt-px" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
               <path stroke-linecap="round" stroke-linejoin="round" d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.087.16 2.185.283 3.293.369V21l4.076-4.076a1.526 1.526 0 0 1 1.037-.443 48.2 48.2 0 0 0 5.887-.512c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.4 48.4 0 0 0 12 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018Z" />
             </svg>
-            <span>Each agent has a <span class="text-green-400 font-semibold">response</span> toggle. Only agents with this active will be included in the flow output. If none are marked, all agent outputs are returned.</span>
+            <span>Each agent has a <span class="text-green-400 font-semibold">response</span> toggle. Only agents with this active are included in the flow output. If none are marked, all agent outputs are returned.</span>
           </div>
           <div class="pt-1 border-t border-piedra-700/30 space-y-1">
-            <p>Agents inside a flow can read and write a shared <span class="text-arena-300 font-semibold">state</span> map with <code class="text-arena-300">set_state(key, value)</code> and <code class="text-arena-300">get_state(key)</code>. State persists for the duration of the conversation and is visible to every agent in the same flow.</p>
-            <p>Loop steps always honour a <span class="text-lava-400">max iterations</span> cap. On top of that, you can add an optional early exit: an agent calls <code class="text-arena-300">exit_loop</code>, or a CEL expression on the shared state evaluates to true. Click the loop's <span class="text-arena-300 font-semibold">Mode</span> button to configure.</p>
+            <p>Agents in a flow share a <span class="text-arena-300 font-semibold">state</span> map via <code class="text-arena-300">set_state(key, value)</code> and <code class="text-arena-300">get_state(key)</code>. A <span class="text-atlantico-400 font-semibold">router</span>'s CEL rules read that state as <code class="text-arena-300">state.key</code> and the loop counter as <code class="text-arena-300">iterations</code>, e.g. <code class="text-arena-300">state.done || iterations >= 5</code>.</p>
+            <p>To build a <span class="text-atlantico-400 font-semibold">loop</span>, draw an edge from a router's route back to an earlier node; the other route leaves the loop.</p>
           </div>
         </div>
       </details>
@@ -53,7 +51,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, inject, computed } from 'vue'
+import { ref, reactive, inject } from 'vue'
 import { useDataStore } from '../../lib/stores/data.js'
 import { flowsApi } from '../../lib/api/index.js'
 import AppDialog from '../../components/AppDialog.vue'
@@ -72,7 +70,7 @@ const isEdit = ref(false)
 const form = reactive({
   name: '',
   description: '',
-  root: null,
+  graph: null,
   a2aEnabled: false,
 })
 
@@ -81,16 +79,23 @@ function open(flow = null) {
   editId.value = flow?.id || null
   form.name = flow?.name || ''
   form.description = flow?.description || ''
-  form.root = flow ? JSON.parse(JSON.stringify(flow.root)) : null
+  form.graph = flow
+    ? { entry: flow.entry || '', nodes: deepClone(flow.nodes || []), edges: deepClone(flow.edges || []) }
+    : { entry: '', nodes: [], edges: [] }
   form.a2aEnabled = flow?.a2a?.enabled || false
   dialogRef.value?.open()
 }
 
+function deepClone(v) { return JSON.parse(JSON.stringify(v)) }
+
 async function save() {
+  const g = form.graph || { entry: '', nodes: [], edges: [] }
   const data = {
     name: form.name.trim(),
     description: form.description.trim(),
-    root: cleanStep(form.root),
+    entry: g.entry,
+    nodes: (g.nodes || []).map(cleanNode),
+    edges: (g.edges || []).map(cleanEdge),
     a2a: form.a2aEnabled ? { enabled: true } : undefined,
   }
   try {
@@ -106,19 +111,24 @@ async function save() {
   }
 }
 
-function cleanStep(step) {
-  const clean = { type: step.type }
-  if (step.type === 'agent') {
-    clean.agentId = step.agentId
-    if (step.responseAgent) clean.responseAgent = true
-  } else {
-    clean.steps = (step.steps || []).map(cleanStep)
-    if (step.type === 'loop') {
-      clean.maxIterations = step.maxIterations || 0
-      if (step.exitLoop) clean.exitLoop = true
-      if (step.exitWhen) clean.exitWhen = step.exitWhen
-    }
+// cleanNode drops empty/irrelevant fields per node type so the saved JSON is tidy.
+function cleanNode(n) {
+  const clean = { id: n.id, type: n.type }
+  if (typeof n.x === 'number') clean.x = Math.round(n.x)
+  if (typeof n.y === 'number') clean.y = Math.round(n.y)
+  if (n.type === 'agent') {
+    clean.agentId = n.agentId || ''
+    if (n.responseAgent) clean.responseAgent = true
+  } else if (n.type === 'router') {
+    clean.rules = (n.rules || []).map(r => ({ when: r.when || '', route: r.route || '' }))
+    clean.defaultRoute = n.defaultRoute || ''
   }
+  return clean
+}
+
+function cleanEdge(e) {
+  const clean = { from: e.from, to: e.to }
+  if (e.route) clean.route = e.route
   return clean
 }
 
