@@ -15,8 +15,8 @@ import (
 	"strings"
 
 	"github.com/google/cel-go/cel"
-	adkagent "google.golang.org/adk/agent"
-	"google.golang.org/adk/session"
+	adkagent "google.golang.org/adk/v2/agent"
+	"google.golang.org/adk/v2/session"
 
 	toolsflowstate "github.com/achetronic/magec/server/agent/tools/flowstate"
 )
@@ -56,7 +56,7 @@ func NewExitWhenAgent(name string, prog cel.Program, expr string) (adkagent.Agen
 				if !EvaluateExitWhen(prog, expr, stateMap) {
 					return
 				}
-				ev := session.NewEvent(ctx.InvocationID())
+				ev := session.NewEvent(ctx, ctx.InvocationID())
 				ev.Author = name
 				ev.Actions.Escalate = true
 				_ = yield(ev, nil)

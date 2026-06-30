@@ -14,12 +14,8 @@ import (
 	"iter"
 	"testing"
 
-	"google.golang.org/adk/agent"
-	"google.golang.org/adk/memory"
-	"google.golang.org/adk/session"
-	"google.golang.org/adk/tool"
-	"google.golang.org/adk/tool/toolconfirmation"
-	"google.golang.org/genai"
+	"google.golang.org/adk/v2/agent"
+	"google.golang.org/adk/v2/session"
 )
 
 // fakeState is a tiny session.State implementation backed by a map. It
@@ -60,43 +56,30 @@ func (s *fakeState) All() iter.Seq2[string, any] {
 	}
 }
 
-// fakeToolContext is the smallest tool.Context that satisfies the
-// interfaces touched by the flowstate tools. Anything we do not exercise
-// stays nil — the tests fail loudly if we accidentally start using it.
+// fakeToolContext embeds agent.StrictContextMock so it stays compatible as the
+// unified context surface grows: only the methods the flowstate tools actually
+// touch (State, ReadonlyState, Actions) are overridden; everything else panics
+// loudly if a test accidentally starts using it.
 type fakeToolContext struct {
-	context.Context
+	agent.StrictContextMock
 	state   *fakeState
 	actions *session.EventActions
 }
 
 func newFakeToolContext() *fakeToolContext {
 	return &fakeToolContext{
-		Context: context.Background(),
-		state:   newFakeState(),
-		actions: &session.EventActions{StateDelta: map[string]any{}},
+		StrictContextMock: agent.NewStrictContextMock(context.Background()),
+		state:             newFakeState(),
+		actions:           &session.EventActions{StateDelta: map[string]any{}},
 	}
 }
 
 func (c *fakeToolContext) State() session.State                 { return c.state }
 func (c *fakeToolContext) ReadonlyState() session.ReadonlyState { return c.state }
 func (c *fakeToolContext) Actions() *session.EventActions       { return c.actions }
-func (c *fakeToolContext) Artifacts() agent.Artifacts           { return nil }
-func (c *fakeToolContext) FunctionCallID() string               { return "fc-1" }
-func (c *fakeToolContext) SearchMemory(context.Context, string) (*memory.SearchResponse, error) {
-	return nil, nil
-}
-func (c *fakeToolContext) AgentName() string                              { return "test-agent" }
-func (c *fakeToolContext) InvocationID() string                           { return "inv-1" }
-func (c *fakeToolContext) UserContent() *genai.Content                    { return nil }
-func (c *fakeToolContext) AppName() string                                { return "test-app" }
-func (c *fakeToolContext) Branch() string                                 { return "" }
-func (c *fakeToolContext) SessionID() string                              { return "sess-1" }
-func (c *fakeToolContext) UserID() string                                 { return "user-1" }
-func (c *fakeToolContext) ToolConfirmation() *toolconfirmation.ToolConfirmation { return nil }
-func (c *fakeToolContext) RequestConfirmation(string, any) error          { return nil }
 
-// Compile-time check that fakeToolContext implements tool.Context.
-var _ tool.Context = (*fakeToolContext)(nil)
+// Compile-time check that fakeToolContext implements the unified agent.Context.
+var _ agent.Context = (*fakeToolContext)(nil)
 
 func TestSetState_RoundTrip(t *testing.T) {
 	ctx := newFakeToolContext()

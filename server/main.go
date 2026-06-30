@@ -53,7 +53,7 @@ import (
 	"github.com/achetronic/magec/server/voice"
 
 	httpSwagger "github.com/swaggo/http-swagger/v2"
-	"google.golang.org/adk/artifact"
+	"google.golang.org/adk/v2/artifact"
 
 	_ "github.com/achetronic/magec/server/api/user/docs"
 

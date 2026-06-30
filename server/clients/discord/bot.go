@@ -16,7 +16,7 @@ import (
 	"time"
 
 	"github.com/bwmarrin/discordgo"
-	"google.golang.org/adk/artifact"
+	"google.golang.org/adk/v2/artifact"
 
 	"github.com/achetronic/magec/server/clients/msgutil"
 	"github.com/achetronic/magec/server/store"

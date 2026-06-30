@@ -6,10 +6,10 @@ import (
 	"os"
 	"path/filepath"
 
-	"google.golang.org/adk/agent"
-	"google.golang.org/adk/model"
-	"google.golang.org/adk/tool"
-	"google.golang.org/adk/tool/functiontool"
+	"google.golang.org/adk/v2/agent"
+	"google.golang.org/adk/v2/model"
+	"google.golang.org/adk/v2/tool"
+	"google.golang.org/adk/v2/tool/functiontool"
 	"google.golang.org/genai"
 )
 
@@ -168,7 +168,7 @@ type SaveResult struct {
 	Message string `json:"message"`
 }
 
-func (ts *Toolset) saveArtifact(ctx tool.Context, args SaveArgs) (SaveResult, error) {
+func (ts *Toolset) saveArtifact(ctx agent.Context, args SaveArgs) (SaveResult, error) {
 	if args.Name == "" {
 		return SaveResult{Success: false, Message: "name is required"}, nil
 	}
@@ -217,7 +217,7 @@ type ListResult struct {
 	Message   string   `json:"message"`
 }
 
-func (ts *Toolset) listArtifacts(ctx tool.Context, _ ListArgs) (ListResult, error) {
+func (ts *Toolset) listArtifacts(ctx agent.Context, _ ListArgs) (ListResult, error) {
 	resp, err := ctx.Artifacts().List(ctx)
 	if err != nil {
 		return ListResult{Success: false, Message: fmt.Sprintf("failed to list artifacts: %v", err)}, nil
@@ -255,7 +255,7 @@ type ExportResult struct {
 // All user-facing errors are returned as ExportResult{Success:false} so the
 // LLM gets a structured message rather than a tool failure event. Real Go
 // errors are reserved for impossible states (nil provider).
-func (ts *Toolset) exportArtifact(ctx tool.Context, args ExportArgs) (ExportResult, error) {
+func (ts *Toolset) exportArtifact(ctx agent.Context, args ExportArgs) (ExportResult, error) {
 	if args.Name == "" {
 		return ExportResult{Success: false, Message: "name is required"}, nil
 	}
@@ -368,7 +368,7 @@ func (t *loadArtifactTool) Declaration() *genai.FunctionDeclaration {
 // actual content. We deliberately do NOT load the artifact here because
 // returning binary data through a JSON FunctionResponse would force a
 // base64 round-trip that the LLM cannot meaningfully consume.
-func (t *loadArtifactTool) Run(ctx tool.Context, args any) (map[string]any, error) {
+func (t *loadArtifactTool) Run(ctx agent.Context, args any) (map[string]any, error) {
 	m, ok := args.(map[string]any)
 	if !ok {
 		return map[string]any{"success": false, "message": fmt.Sprintf("unexpected args type: %T", args)}, nil
@@ -407,7 +407,7 @@ func (t *loadArtifactTool) Run(ctx tool.Context, args any) (map[string]any, erro
 //     cloned Content keeps "1 session event = 1 req.Contents entry"
 //     invariant intact. The clone happens in ContentsRequestProcessor, so
 //     the persisted event is not affected.
-func (t *loadArtifactTool) ProcessRequest(ctx tool.Context, req *model.LLMRequest) error {
+func (t *loadArtifactTool) ProcessRequest(ctx agent.Context, req *model.LLMRequest) error {
 	if err := packSelf(req, t); err != nil {
 		return err
 	}
@@ -500,7 +500,7 @@ type URLResult struct {
 // Like the rest of the toolset, user-facing failures come back as
 // URLResult{Success:false, Message:...}; real Go errors are reserved for
 // impossible states.
-func (ts *Toolset) getArtifactURL(ctx tool.Context, args URLArgs) (URLResult, error) {
+func (ts *Toolset) getArtifactURL(ctx agent.Context, args URLArgs) (URLResult, error) {
 	if args.Name == "" {
 		return URLResult{Success: false, Message: "name is required"}, nil
 	}
