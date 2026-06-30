@@ -230,6 +230,12 @@ const (
 	// FlowNodeJoin is a fan-in barrier: it fires once after every declared
 	// predecessor has completed. Routing into a join node is forbidden.
 	FlowNodeJoin = "join"
+	// FlowNodeParallel runs a wrapped agent once per item of a list-typed
+	// input, concurrently, and aggregates the per-item outputs into a list.
+	FlowNodeParallel = "parallel"
+	// FlowNodeSubflow embeds another FlowDefinition as a single node (a nested
+	// workflow). Its terminal output becomes this node's output.
+	FlowNodeSubflow = "subflow"
 )
 
 // FlowStart is the reserved identifier for the graph entry sentinel. An edge
@@ -255,8 +261,9 @@ type FlowNode struct {
 	ID   string `json:"id" yaml:"id"`
 	Type string `json:"type" yaml:"type"`
 
-	// AgentID references an AgentDefinition or FlowDefinition by ID.
-	// Required when Type is FlowNodeAgent, ignored otherwise.
+	// AgentID references an AgentDefinition by ID. Required when Type is
+	// FlowNodeAgent (the agent to run) or FlowNodeParallel (the agent run once
+	// per list item). Ignored for other types.
 	AgentID string `json:"agentId,omitempty" yaml:"agentId,omitempty"`
 
 	// ResponseAgent marks an agent node whose output is included in the final
@@ -270,6 +277,14 @@ type FlowNode struct {
 	// is FlowNodeRouter.
 	Rules        []FlowRule `json:"rules,omitempty" yaml:"rules,omitempty"`
 	DefaultRoute string     `json:"defaultRoute,omitempty" yaml:"defaultRoute,omitempty"`
+
+	// MaxConcurrency caps how many items a parallel node processes at once.
+	// 0 means unlimited. Only meaningful when Type is FlowNodeParallel.
+	MaxConcurrency int `json:"maxConcurrency,omitempty" yaml:"maxConcurrency,omitempty"`
+
+	// FlowID references another FlowDefinition embedded as a nested workflow.
+	// Required when Type is FlowNodeSubflow, ignored otherwise.
+	FlowID string `json:"flowId,omitempty" yaml:"flowId,omitempty"`
 
 	// X and Y are the node's position on the visual editor canvas. They are a
 	// layout hint for the admin UI only: the builder and validation ignore
@@ -339,29 +354,39 @@ func (f *FlowDefinition) FirstAgentID() string {
 			continue
 		}
 		visited[id] = true
-		if n, ok := index[id]; ok && n.Type == FlowNodeAgent && n.AgentID != "" {
+		if n, ok := index[id]; ok && (n.Type == FlowNodeAgent || n.Type == FlowNodeParallel) && n.AgentID != "" {
 			return n.AgentID
 		}
 		queue = append(queue, successors[id]...)
 	}
 	for i := range f.Nodes {
-		if f.Nodes[i].Type == FlowNodeAgent && f.Nodes[i].AgentID != "" {
+		if (f.Nodes[i].Type == FlowNodeAgent || f.Nodes[i].Type == FlowNodeParallel) && f.Nodes[i].AgentID != "" {
 			return f.Nodes[i].AgentID
 		}
 	}
 	return ""
 }
 
-// AgentIDs returns all unique AgentDefinition IDs referenced by agent nodes.
-// Used by the topological sort to discover sub-flow dependencies.
+// AgentIDs returns all unique entity IDs this flow references: the AgentID of
+// agent and parallel nodes, plus the FlowID of subflow nodes. Used by the
+// topological sort to discover sub-flow dependencies (a referenced ID that
+// resolves to another flow), so it must include every cross-entity reference.
 func (f *FlowDefinition) AgentIDs() []string {
 	seen := map[string]bool{}
 	var ids []string
+	add := func(id string) {
+		if id != "" && !seen[id] {
+			seen[id] = true
+			ids = append(ids, id)
+		}
+	}
 	for i := range f.Nodes {
 		n := &f.Nodes[i]
-		if n.Type == FlowNodeAgent && n.AgentID != "" && !seen[n.AgentID] {
-			seen[n.AgentID] = true
-			ids = append(ids, n.AgentID)
+		switch n.Type {
+		case FlowNodeAgent, FlowNodeParallel:
+			add(n.AgentID)
+		case FlowNodeSubflow:
+			add(n.FlowID)
 		}
 	}
 	return ids

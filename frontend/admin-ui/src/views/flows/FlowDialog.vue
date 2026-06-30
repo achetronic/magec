@@ -21,7 +21,7 @@
         </div>
       </div>
 
-      <FlowCanvas v-model="form.graph" :agents="store.agents" />
+      <FlowCanvas v-model="form.graph" :agents="store.agents" :flows="availableSubflows" />
 
       <details class="group text-arena-500">
         <summary class="text-[10px] font-medium cursor-pointer select-none hover:text-arena-300 transition-colors">
@@ -51,7 +51,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, inject } from 'vue'
+import { ref, reactive, inject, computed } from 'vue'
 import { useDataStore } from '../../lib/stores/data.js'
 import { flowsApi } from '../../lib/api/index.js'
 import AppDialog from '../../components/AppDialog.vue'
@@ -66,6 +66,11 @@ const store = useDataStore()
 const dialogRef = ref(null)
 const editId = ref(null)
 const isEdit = ref(false)
+
+// Flows available as subflow targets: every flow except the one being edited
+// (a flow cannot embed itself). Deeper cycles are caught server-side by the
+// topological sort at build time.
+const availableSubflows = computed(() => (store.flows || []).filter(f => f.id !== editId.value))
 
 const form = reactive({
   name: '',
@@ -122,6 +127,11 @@ function cleanNode(n) {
   } else if (n.type === 'router') {
     clean.rules = (n.rules || []).map(r => ({ when: r.when || '', route: r.route || '' }))
     clean.defaultRoute = n.defaultRoute || ''
+  } else if (n.type === 'parallel') {
+    clean.agentId = n.agentId || ''
+    if (n.maxConcurrency) clean.maxConcurrency = n.maxConcurrency
+  } else if (n.type === 'subflow') {
+    clean.flowId = n.flowId || ''
   }
   return clean
 }

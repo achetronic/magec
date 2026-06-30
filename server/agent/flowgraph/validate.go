@@ -131,6 +131,17 @@ func validateNodes(d *store.FlowDefinition) error {
 			}
 		case store.FlowNodeJoin:
 			// No per-node fields; structural checks happen in validateJoins.
+		case store.FlowNodeParallel:
+			if n.AgentID == "" {
+				return fmt.Errorf("parallel node %q requires agentId (the agent run once per list item)", n.ID)
+			}
+			if n.MaxConcurrency < 0 {
+				return fmt.Errorf("parallel node %q has negative maxConcurrency", n.ID)
+			}
+		case store.FlowNodeSubflow:
+			if n.FlowID == "" {
+				return fmt.Errorf("subflow node %q requires flowId", n.ID)
+			}
 		default:
 			return fmt.Errorf("node %q has unknown type %q", n.ID, n.Type)
 		}

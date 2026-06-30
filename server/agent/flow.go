@@ -11,12 +11,10 @@ package agent
 import (
 	"context"
 	"fmt"
-	"iter"
 
 	adkagent "google.golang.org/adk/v2/agent"
 	"google.golang.org/adk/v2/agent/workflowagent"
 	"google.golang.org/adk/v2/memory"
-	"google.golang.org/adk/v2/session"
 	"google.golang.org/adk/v2/tool"
 	"google.golang.org/adk/v2/workflow"
 
@@ -28,10 +26,9 @@ import (
 // node, naming the instance after the node ID so the response filter can match
 // event.Author against the node IDs the operator declared.
 //
-// FlowAgents holds previously-built flow agents indexed by flow ID so an agent
-// node can reference another flow as its agent (flow-as-step composition). A
-// referenced flow agent is wrapped under the node's own ID before it becomes a
-// graph node.
+// FlowDefs holds every flow definition by ID so a subflow node can embed
+// another flow as a nested workflow (adk's WorkflowNode), built from that
+// flow's own edges.
 //
 // FlowStateToolset is the shared set_state/get_state toolset injected into
 // every agent node so agents in the same flow share a scratchpad. It is
@@ -39,7 +36,7 @@ import (
 type FlowBuildDeps struct {
 	Ctx          context.Context
 	AgentDefs    map[string]store.AgentDefinition
-	FlowAgents   map[string]adkagent.Agent
+	FlowDefs     map[string]store.FlowDefinition
 	BackendMap   map[string]store.BackendDefinition
 	MCPServerMap map[string]store.MCPServer
 	// SkillSlugs maps skill ID -> on-disk slug. Forwarded verbatim to
@@ -52,11 +49,24 @@ type FlowBuildDeps struct {
 	FlowStateToolset tool.Toolset
 }
 
-// BuildFlowAgent translates a FlowDefinition graph into an adk workflow agent.
-// It builds one workflow node per FlowNode, wires the operator's edges plus a
-// synthetic Start -> Entry edge, and returns the graph behind a workflowagent
+// BuildFlowAgent translates a FlowDefinition graph into an adk workflow agent
 // whose name is the flow ID (so the flow is addressable by ID, like an agent).
 func BuildFlowAgent(flow store.FlowDefinition, deps FlowBuildDeps) (adkagent.Agent, error) {
+	edges, err := buildEdges(flow, deps)
+	if err != nil {
+		return nil, err
+	}
+	return workflowagent.New(workflowagent.Config{
+		Name:        flow.ID,
+		Description: flow.Description,
+		Edges:       edges,
+	})
+}
+
+// buildEdges builds one workflow node per FlowNode and wires the operator's
+// edges plus a synthetic Start -> Entry edge. It is reused both for a top-level
+// flow agent and for a subflow embedded via WorkflowNode.
+func buildEdges(flow store.FlowDefinition, deps FlowBuildDeps) ([]workflow.Edge, error) {
 	nodeMap := make(map[string]workflow.Node, len(flow.Nodes))
 	for i := range flow.Nodes {
 		n := flow.Nodes[i]
@@ -91,12 +101,7 @@ func BuildFlowAgent(flow store.FlowDefinition, deps FlowBuildDeps) (adkagent.Age
 		}
 		edges = append(edges, edge)
 	}
-
-	return workflowagent.New(workflowagent.Config{
-		Name:        flow.ID,
-		Description: flow.Description,
-		Edges:       edges,
-	})
+	return edges, nil
 }
 
 // buildNode constructs the adk workflow node for a single FlowNode. The node
@@ -105,7 +110,7 @@ func BuildFlowAgent(flow store.FlowDefinition, deps FlowBuildDeps) (adkagent.Age
 func buildNode(n store.FlowNode, deps FlowBuildDeps) (workflow.Node, error) {
 	switch n.Type {
 	case store.FlowNodeAgent:
-		instance, err := buildAgentNodeAgent(n, deps)
+		instance, err := buildFlowScopedAgent(n.ID, n.AgentID, deps)
 		if err != nil {
 			return nil, err
 		}
@@ -117,59 +122,62 @@ func buildNode(n store.FlowNode, deps FlowBuildDeps) (workflow.Node, error) {
 	case store.FlowNodeJoin:
 		return workflow.NewJoinNode(n.ID), nil
 
+	case store.FlowNodeParallel:
+		// Wrap the agent in an AgentNode, then run it once per list item.
+		instance, err := buildFlowScopedAgent(n.ID, n.AgentID, deps)
+		if err != nil {
+			return nil, err
+		}
+		inner, err := workflow.NewAgentNode(instance, workflow.NodeConfig{})
+		if err != nil {
+			return nil, err
+		}
+		return workflow.NewParallelWorker(n.ID, inner, n.MaxConcurrency, workflow.NodeConfig{})
+
+	case store.FlowNodeSubflow:
+		sub, ok := deps.FlowDefs[n.FlowID]
+		if !ok {
+			return nil, fmt.Errorf("subflow node %q references unknown flow %q", n.ID, n.FlowID)
+		}
+		subEdges, err := buildEdges(sub, deps)
+		if err != nil {
+			return nil, fmt.Errorf("subflow node %q: %w", n.ID, err)
+		}
+		return workflow.NewWorkflowNode(n.ID, subEdges)
+
 	default:
 		return nil, fmt.Errorf("unknown node type %q", n.Type)
 	}
 }
 
-// buildAgentNodeAgent resolves an agent node's underlying adk agent, named
-// after the node ID. The AgentID either references an AgentDefinition (built
-// fresh as a flow-scoped instance) or another flow (reused, renamed to the
-// node ID so the graph node carries the operator's ID rather than the
-// sub-flow's).
-func buildAgentNodeAgent(n store.FlowNode, deps FlowBuildDeps) (adkagent.Agent, error) {
-	if def, ok := deps.AgentDefs[n.AgentID]; ok {
-		var extraToolsets []tool.Toolset
-		if deps.FlowStateToolset != nil {
-			extraToolsets = append(extraToolsets, deps.FlowStateToolset)
-		}
-		instance, _, err := BuildAgentInstance(BuildAgentInstanceParams{
-			Ctx:                         deps.Ctx,
-			AgentDef:                    def,
-			BackendMap:                  deps.BackendMap,
-			MCPServerMap:                deps.MCPServerMap,
-			SkillSlugs:                  deps.SkillSlugs,
-			SkillsDir:                   deps.SkillsDir,
-			MemorySvc:                   deps.MemorySvc,
-			BaseToolset:                 deps.BaseToolset,
-			InstanceName:                n.ID,
-			ExtraToolsets:               extraToolsets,
-			IncludeFlowStateInstruction: deps.FlowStateToolset != nil,
-		})
-		if err != nil {
-			return nil, err
-		}
-		return instance, nil
+// buildFlowScopedAgent builds a fresh adk agent instance for an AgentDefinition,
+// named after the graph node (so event.Author == node ID), with the shared
+// flow-state toolset injected. instanceName is the node ID; agentID is the
+// referenced AgentDefinition.
+func buildFlowScopedAgent(instanceName, agentID string, deps FlowBuildDeps) (adkagent.Agent, error) {
+	def, ok := deps.AgentDefs[agentID]
+	if !ok {
+		return nil, fmt.Errorf("agent %q referenced by node not found", agentID)
 	}
-
-	// Flow-as-node composition: the AgentID names another flow. Reuse its
-	// already-built agent, renamed to this node's ID so the graph node is
-	// addressable and matchable by the operator's ID.
-	if subFlow, ok := deps.FlowAgents[n.AgentID]; ok {
-		return renameAgent(n.ID, subFlow)
+	var extraToolsets []tool.Toolset
+	if deps.FlowStateToolset != nil {
+		extraToolsets = append(extraToolsets, deps.FlowStateToolset)
 	}
-	return nil, fmt.Errorf("agent %q referenced by node not found", n.AgentID)
-}
-
-// renameAgent returns an agent that delegates execution to the original but
-// reports the given name. Used so a sub-flow reused as a node carries the
-// node's ID instead of the sub-flow's own ID.
-func renameAgent(name string, delegate adkagent.Agent) (adkagent.Agent, error) {
-	return adkagent.New(adkagent.Config{
-		Name:        name,
-		Description: delegate.Description(),
-		Run: func(ctx adkagent.InvocationContext) iter.Seq2[*session.Event, error] {
-			return delegate.Run(ctx)
-		},
+	instance, _, err := BuildAgentInstance(BuildAgentInstanceParams{
+		Ctx:                         deps.Ctx,
+		AgentDef:                    def,
+		BackendMap:                  deps.BackendMap,
+		MCPServerMap:                deps.MCPServerMap,
+		SkillSlugs:                  deps.SkillSlugs,
+		SkillsDir:                   deps.SkillsDir,
+		MemorySvc:                   deps.MemorySvc,
+		BaseToolset:                 deps.BaseToolset,
+		InstanceName:                instanceName,
+		ExtraToolsets:               extraToolsets,
+		IncludeFlowStateInstruction: deps.FlowStateToolset != nil,
 	})
+	if err != nil {
+		return nil, err
+	}
+	return instance, nil
 }

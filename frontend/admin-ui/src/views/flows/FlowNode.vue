@@ -154,8 +154,86 @@
       </div>
 
       <!-- JOIN body -->
-      <div v-else class="px-3 py-2.5">
+      <div v-else-if="node.type === 'join'" class="px-3 py-2.5">
         <p class="text-[9px] text-arena-500 leading-snug">Waits for <span class="text-purple-300 font-medium">all</span> incoming branches, then forwards their combined output.</p>
+      </div>
+
+      <!-- PARALLEL body -->
+      <div v-else-if="node.type === 'parallel'" class="px-3 py-2.5 space-y-2">
+        <button
+          @pointerdown.stop @click.stop="pickerOpen = !pickerOpen"
+          class="w-full flex items-center gap-1.5 text-left text-xs font-medium outline-none cursor-pointer"
+          :class="node.agentId ? 'text-arena-100' : 'text-arena-500 italic'"
+        >
+          <span class="truncate flex-1">{{ agentName }}</span>
+          <svg class="w-3 h-3 flex-shrink-0 text-arena-500" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
+          </svg>
+        </button>
+        <div class="flex items-center gap-1.5">
+          <span class="text-[9px] text-arena-500">runs per list item, max</span>
+          <input
+            type="number" min="0"
+            :value="node.maxConcurrency || 0"
+            @input="$emit('update', { ...node, maxConcurrency: Math.max(0, parseInt($event.target.value) || 0) })"
+            @pointerdown.stop
+            class="w-12 bg-piedra-800 border border-piedra-700/50 rounded px-1.5 py-0.5 text-[10px] font-mono text-arena-200 outline-none focus:border-lava-500/50"
+          />
+          <span class="text-[9px] text-arena-600">(0 = unlimited)</span>
+        </div>
+
+        <Transition name="dropdown">
+          <div v-if="pickerOpen" class="absolute z-50 left-2 right-2 top-full mt-1 bg-piedra-800 border border-piedra-700/60 rounded-xl shadow-2xl overflow-hidden" @pointerdown.stop>
+            <div v-if="agents.length" class="py-1 max-h-44 overflow-y-auto">
+              <button
+                v-for="a in agents" :key="a.id"
+                @click.stop="pickAgent(a.id)"
+                class="w-full flex items-center gap-2.5 px-3 py-2 text-left transition-colors"
+                :class="a.id === node.agentId ? 'bg-lava-500/10' : 'hover:bg-piedra-700/60'"
+              >
+                <div class="min-w-0 flex-1">
+                  <div class="text-xs font-medium truncate" :class="a.id === node.agentId ? 'text-lava-300' : 'text-arena-100'">{{ a.name || a.id }}</div>
+                  <div v-if="a.description" class="text-[9px] text-arena-500 truncate">{{ a.description }}</div>
+                </div>
+              </button>
+            </div>
+            <div v-else class="px-3 py-4 text-[10px] text-arena-500 italic text-center">No agents available</div>
+          </div>
+        </Transition>
+      </div>
+
+      <!-- SUBFLOW body -->
+      <div v-else-if="node.type === 'subflow'" class="px-3 py-2.5 space-y-2">
+        <button
+          @pointerdown.stop @click.stop="pickerOpen = !pickerOpen"
+          class="w-full flex items-center gap-1.5 text-left text-xs font-medium outline-none cursor-pointer"
+          :class="node.flowId ? 'text-arena-100' : 'text-arena-500 italic'"
+        >
+          <span class="truncate flex-1">{{ flowName }}</span>
+          <svg class="w-3 h-3 flex-shrink-0 text-arena-500" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
+          </svg>
+        </button>
+        <p class="text-[9px] text-arena-500 leading-snug">Embeds another flow as a nested step.</p>
+
+        <Transition name="dropdown">
+          <div v-if="pickerOpen" class="absolute z-50 left-2 right-2 top-full mt-1 bg-piedra-800 border border-piedra-700/60 rounded-xl shadow-2xl overflow-hidden" @pointerdown.stop>
+            <div v-if="flows.length" class="py-1 max-h-44 overflow-y-auto">
+              <button
+                v-for="fl in flows" :key="fl.id"
+                @click.stop="pickFlow(fl.id)"
+                class="w-full flex items-center gap-2.5 px-3 py-2 text-left transition-colors"
+                :class="fl.id === node.flowId ? 'bg-rose-500/10' : 'hover:bg-piedra-700/60'"
+              >
+                <div class="min-w-0 flex-1">
+                  <div class="text-xs font-medium truncate" :class="fl.id === node.flowId ? 'text-rose-300' : 'text-arena-100'">{{ fl.name || fl.id }}</div>
+                  <div v-if="fl.description" class="text-[9px] text-arena-500 truncate">{{ fl.description }}</div>
+                </div>
+              </button>
+            </div>
+            <div v-else class="px-3 py-4 text-[10px] text-arena-500 italic text-center">No other flows available</div>
+          </div>
+        </Transition>
       </div>
     </div>
 
@@ -187,6 +265,7 @@ const NODE_W = 210
 const props = defineProps({
   node:              { type: Object, required: true },
   agents:            { type: Array, default: () => [] },
+  flows:             { type: Array, default: () => [] },
   isEntry:           { type: Boolean, default: false },
   selected:          { type: Boolean, default: false },
   connectingActive:  { type: Boolean, default: false },
@@ -208,6 +287,16 @@ const agentName = computed(() => {
 function pickAgent(id) {
   pickerOpen.value = false
   emit('update', { ...props.node, agentId: id })
+}
+
+// ── subflow ────────────────────────────────────────────────────────────────
+const flowName = computed(() => {
+  const fl = props.flows.find(f => f.id === props.node.flowId)
+  return fl?.name || props.node.flowId || 'Select flow...'
+})
+function pickFlow(id) {
+  pickerOpen.value = false
+  emit('update', { ...props.node, flowId: id })
 }
 
 // ── router rules ───────────────────────────────────────────────────────────
@@ -260,6 +349,28 @@ const TYPE = {
     iconBg: 'bg-purple-500/15',
     iconColor: 'text-purple-400',
     labelColor: 'text-purple-400',
+  },
+  parallel: {
+    label: 'Parallel',
+    icon: 'M4 6h16M4 12h16M4 18h16',
+    border: 'border-lava-500/30',
+    hoverBorder: 'hover:border-lava-500/60',
+    selectedRing: 'border-lava-500/70 ring-2 ring-lava-500/25',
+    headerBg: 'bg-lava-500/8',
+    iconBg: 'bg-lava-500/15',
+    iconColor: 'text-lava-400',
+    labelColor: 'text-lava-400',
+  },
+  subflow: {
+    label: 'Subflow',
+    icon: 'M9 4H5a1 1 0 00-1 1v4m0 6v4a1 1 0 001 1h4m6-16h4a1 1 0 011 1v4m0 6v4a1 1 0 01-1 1h-4M9 9h6v6H9z',
+    border: 'border-rose-500/30',
+    hoverBorder: 'hover:border-rose-500/60',
+    selectedRing: 'border-rose-500/70 ring-2 ring-rose-500/25',
+    headerBg: 'bg-rose-500/8',
+    iconBg: 'bg-rose-500/15',
+    iconColor: 'text-rose-400',
+    labelColor: 'text-rose-400',
   },
 }
 const cfg              = computed(() => TYPE[props.node.type] || TYPE.agent)

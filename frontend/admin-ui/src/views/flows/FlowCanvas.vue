@@ -86,6 +86,7 @@
         v-for="n in nodes" :key="n.id"
         :node="n"
         :agents="agents"
+        :flows="flows"
         :is-entry="n.id === entry"
         :selected="n.id === selectedNode"
         :connecting-active="connecting !== null"
@@ -129,6 +130,7 @@ const props = defineProps({
   // { entry: string, nodes: FlowNode[], edges: FlowEdge[] }
   modelValue: { type: Object, default: null },
   agents:     { type: Array, default: () => [] },
+  flows:      { type: Array, default: () => [] },
 })
 const emit = defineEmits(['update:modelValue'])
 
@@ -156,6 +158,12 @@ const nodeTypes = [
   { type: 'join', label: 'Join', title: 'Fan-in barrier: waits for all incoming branches',
     cls: 'border-purple-500/30 hover:border-purple-500/60', iconBg: 'bg-purple-500/15', iconColor: 'text-purple-400',
     icon: 'M7 4v5a5 5 0 005 5 5 5 0 005-5V4M12 14v6' },
+  { type: 'parallel', label: 'Parallel', title: 'Runs an agent once per item of a list input, concurrently',
+    cls: 'border-lava-500/30 hover:border-lava-500/60', iconBg: 'bg-lava-500/15', iconColor: 'text-lava-400',
+    icon: 'M4 6h16M4 12h16M4 18h16' },
+  { type: 'subflow', label: 'Subflow', title: 'Embed another flow as a nested workflow',
+    cls: 'border-rose-500/30 hover:border-rose-500/60', iconBg: 'bg-rose-500/15', iconColor: 'text-rose-400',
+    icon: 'M9 4H5a1 1 0 00-1 1v4m0 6v4a1 1 0 001 1h4m6-16h4a1 1 0 011 1v4m0 6v4a1 1 0 01-1 1h-4M9 9h6v6H9z' },
 ]
 
 let idCounter = 0
@@ -174,6 +182,8 @@ function addNode(type) {
   const cy = (rect.height / 2 - panY.value) / scale.value - 30
   const node = { id, type, x: Math.round(cx), y: Math.round(cy) }
   if (type === 'agent') node.agentId = ''
+  if (type === 'parallel') { node.agentId = ''; node.maxConcurrency = 0 }
+  if (type === 'subflow') node.flowId = ''
   if (type === 'router') { node.rules = [{ when: '', route: '' }]; node.defaultRoute = 'default' }
   const nextNodes = [...nodes.value, node]
   // First node added becomes the entry by default.

@@ -135,3 +135,22 @@ func TestAgentIDs_UniqueAcrossNodes(t *testing.T) {
 		t.Fatalf("got %v, want %v", got, want)
 	}
 }
+
+func TestAgentIDs_IncludesParallelAndSubflowRefs(t *testing.T) {
+	f := FlowDefinition{
+		ID:    "flow1",
+		Entry: "a",
+		Nodes: []FlowNode{
+			{ID: "a", Type: FlowNodeAgent, AgentID: "ag-a"},
+			{ID: "p", Type: FlowNodeParallel, AgentID: "ag-map"},
+			{ID: "s", Type: FlowNodeSubflow, FlowID: "other-flow"},
+			{ID: "j", Type: FlowNodeJoin},
+		},
+	}
+	got := f.AgentIDs()
+	sort.Strings(got)
+	want := []string{"ag-a", "ag-map", "other-flow"}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("got %v, want %v", got, want)
+	}
+}

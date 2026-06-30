@@ -325,3 +325,65 @@ func TestValidate_NoTerminalNode(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
+
+// parallelSubflowFlow exercises a parallel node and a subflow node in a valid
+// graph: START -> fanout(parallel) -> sub(subflow) -> done.
+func parallelSubflowFlow() *store.FlowDefinition {
+	return &store.FlowDefinition{
+		ID:    "f5",
+		Name:  "parsub",
+		Entry: "fanout",
+		Nodes: []store.FlowNode{
+			{ID: "fanout", Type: store.FlowNodeParallel, AgentID: "ag-map", MaxConcurrency: 4},
+			{ID: "sub", Type: store.FlowNodeSubflow, FlowID: "other-flow"},
+			{ID: "done", Type: store.FlowNodeAgent, AgentID: "ag-done", ResponseAgent: true},
+		},
+		Edges: []store.FlowEdge{
+			{From: "fanout", To: "sub"},
+			{From: "sub", To: "done"},
+		},
+	}
+}
+
+func TestValidate_AcceptsParallelAndSubflow(t *testing.T) {
+	if err := Validate(parallelSubflowFlow()); err != nil {
+		t.Fatalf("expected valid graph, got error: %v", err)
+	}
+}
+
+func TestValidate_ParallelAndSubflowRules(t *testing.T) {
+	cases := []struct {
+		name    string
+		mutate  func(*store.FlowDefinition)
+		wantSub string
+	}{
+		{
+			name:    "parallel without agentId",
+			mutate:  func(d *store.FlowDefinition) { d.Nodes[0].AgentID = "" },
+			wantSub: "parallel node \"fanout\" requires agentId",
+		},
+		{
+			name:    "parallel negative concurrency",
+			mutate:  func(d *store.FlowDefinition) { d.Nodes[0].MaxConcurrency = -1 },
+			wantSub: "negative maxConcurrency",
+		},
+		{
+			name:    "subflow without flowId",
+			mutate:  func(d *store.FlowDefinition) { d.Nodes[1].FlowID = "" },
+			wantSub: "subflow node \"sub\" requires flowId",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			def := parallelSubflowFlow()
+			tc.mutate(def)
+			err := Validate(def)
+			if err == nil {
+				t.Fatalf("expected error containing %q, got nil", tc.wantSub)
+			}
+			if !strings.Contains(err.Error(), tc.wantSub) {
+				t.Fatalf("error %q does not contain %q", err.Error(), tc.wantSub)
+			}
+		})
+	}
+}

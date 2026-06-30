@@ -214,10 +214,15 @@ func New(ctx context.Context, agents []store.AgentDefinition, backends []store.B
 		return nil, fmt.Errorf("failed to create flow_state toolset: %w", err)
 	}
 
+	flowDefMap := make(map[string]store.FlowDefinition, len(flows))
+	for _, f := range flows {
+		flowDefMap[f.ID] = f
+	}
+
 	flowDeps := FlowBuildDeps{
 		Ctx:              ctx,
 		AgentDefs:        agentDefMap,
-		FlowAgents:       make(map[string]agent.Agent, len(flows)),
+		FlowDefs:         flowDefMap,
 		BackendMap:       backendMap,
 		MCPServerMap:     mcpServerMap,
 		SkillSlugs:       skillSlugIndex,
@@ -236,7 +241,6 @@ func New(ctx context.Context, agents []store.AgentDefinition, backends []store.B
 		}
 		otherAgents = append(otherAgents, flowAgent)
 		adkAgentMap[flow.ID] = flowAgent
-		flowDeps.FlowAgents[flow.ID] = flowAgent
 		slog.Info("Flow initialized", "id", flow.ID, "name", flow.Name)
 	}
 

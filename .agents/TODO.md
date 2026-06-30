@@ -72,11 +72,40 @@ The Slack `extractInlineDataFromFiles` helper only runs in the DM path (`handleM
 
 ---
 
-### Improve Drag-and-Drop UX in Visual Flow Editor
+### Workflow graph: ToolNode (deferred)
 
-The visual flow editor's drag-and-drop already has placeholder, ghost, drop highlight, dead zones and vuedraggable reorder. Remaining polish items are subjective — define specific UX targets before working on this.
+The flow redesign (`feat/workflow-graph-redesign`) added agent, router, join,
+parallel and subflow nodes. adk-go v2 also offers `workflow.NewToolNode`, which
+runs an MCP tool **directly as a step** (deterministic, no LLM turn). It is
+deferred because Magec has **no static tool catalogue**: tools are discovered at
+runtime when an MCP server connects, the store only persists the server
+(endpoint/command), and `NewToolNode` requires a runnable `tool.Tool` with
+resolved input AND output schemas. So ToolNode needs a prerequisite feature:
 
-**Modify**: `frontend/admin-ui/src/views/flows/` (flow editor components)
+1. **MCP tool discovery** — an admin endpoint that connects to an MCP server
+   and lists its tools with their JSON schemas (name, description, input/output).
+2. **Editor tool picker** — a `tool` node whose reference is `{mcpServerId, toolName}`,
+   resolved + validated against discovery (not free-typed).
+3. **Builder** — resolve the chosen tool from the agent/flow's `mcptoolset` and
+   wrap it with `workflow.NewToolNode`.
+
+Until discovery exists, a tool node would be a free-typed `{server, name}` with
+no validation and bad UX — explicitly not worth doing half-way.
+
+**Modify**: `server/store/types.go`, `server/agent/flow.go`, `server/api/admin/mcps.go` (+ new discovery handler), `frontend/admin-ui/src/views/flows/`.
+
+---
+
+### Workflow graph: remaining debt
+
+- **Seeds** — `data/seeds/examples.json` and `data/store.json` still hold flows
+  in the old tree format (`root`/`steps`). They must be re-authored as graphs
+  (`entry`/`nodes`/`edges`) or emptied; a tree-format flow fails to build.
+- **Swagger** — `make swagger` to regenerate the admin API docs after the
+  `FlowDefinition` shape change.
+- **HITL pause/resume** — adk v2's `NewRequestInputEvent` + `NodeConfig.RerunOnResume`
+  let a node pause for human input mid-flow (distinct from per-tool confirmation
+  below). Phase 2 of the redesign.
 
 ---
 
