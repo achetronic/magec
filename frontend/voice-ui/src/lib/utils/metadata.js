@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Alby Hernández <hola@achetronic.com>
+// SPDX-License-Identifier: Apache-2.0
+
 const METADATA_REGEX = /<!--MAGEC_META:.*?:MAGEC_META-->\n?/gs
 
 export function stripMetadata(text) {

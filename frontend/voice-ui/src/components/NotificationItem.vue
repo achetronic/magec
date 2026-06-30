@@ -1,3 +1,6 @@
+<!-- SPDX-FileCopyrightText: 2026 Alby Hernández <hola@achetronic.com> -->
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+
 <template>
   <div class="group flex items-start gap-3 p-3 rounded-xl transition-all hover:bg-opacity-30" :class="config.bg">
     <div class="flex-shrink-0 mt-0.5" v-html="config.icon" />

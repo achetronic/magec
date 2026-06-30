@@ -1,3 +1,6 @@
+<!-- SPDX-FileCopyrightText: 2026 Alby Hernández <hola@achetronic.com> -->
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+
 <template>
   <div class="min-h-screen flex items-center justify-center bg-piedra-950">
     <div class="w-full max-w-sm mx-auto px-6">

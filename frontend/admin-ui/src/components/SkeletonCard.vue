@@ -1,3 +1,6 @@
+<!-- SPDX-FileCopyrightText: 2026 Alby Hernández <hola@achetronic.com> -->
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+
 <template>
   <div :class="grid ? 'grid gap-3 grid-cols-1 sm:grid-cols-2' : 'space-y-3'">
     <div v-for="i in count" :key="i" class="bg-piedra-900 border border-piedra-700/50 rounded-xl p-4 animate-pulse">
