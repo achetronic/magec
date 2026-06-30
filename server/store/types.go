@@ -1,8 +1,6 @@
 package store
 
 import (
-	"fmt"
-
 	"github.com/google/uuid"
 )
 
@@ -222,143 +220,158 @@ type Command struct {
 	Prompt      string `json:"prompt" yaml:"prompt"`
 }
 
-// FlowStepType identifies the kind of node inside a flow.
+// FlowNodeType identifies the kind of vertex inside a flow graph.
 const (
-	FlowStepAgent      = "agent"
-	FlowStepSequential = "sequential"
-	FlowStepParallel   = "parallel"
-	FlowStepLoop       = "loop"
+	// FlowNodeAgent wraps an AgentDefinition (or a sub-flow) and runs it.
+	FlowNodeAgent = "agent"
+	// FlowNodeRouter evaluates ordered CEL rules against the shared flow state
+	// and emits a single route label, which its outgoing edges match.
+	FlowNodeRouter = "router"
+	// FlowNodeJoin is a fan-in barrier: it fires once after every declared
+	// predecessor has completed. Routing into a join node is forbidden.
+	FlowNodeJoin = "join"
 )
 
-// FlowStep is a recursive node in a flow tree.
-// Leaf nodes have Type "agent" and reference an AgentDefinition or FlowDefinition by ID.
-// Container nodes have Type "sequential", "parallel", or "loop" and hold
-// child steps. Loop nodes additionally specify MaxIterations.
-// ResponseAgent marks an agent node whose output should be included in the
-// final response when the flow is invoked via webhook/cron. If no agent in
-// the flow is marked, all agent outputs are concatenated (default behavior).
-//
-// Loop-only fields:
-//   - ExitLoop: when true, every agent in the loop's subtree (any depth)
-//     receives the exit_loop tool. The first agent that calls it terminates
-//     the loop after the current iteration completes.
-//   - ExitWhen: an optional CEL expression evaluated against the shared flow
-//     state at the end of every iteration. If it returns true, the loop
-//     terminates. The expression sees a `state` map containing only keys
-//     written through the set_state tool (the "flow:" namespace).
-//
-// ExitLoop and ExitWhen are mutually exclusive — the admin API rejects
-// flows that set both. They both stack with MaxIterations as a hard cap.
-type FlowStep struct {
-	Type          string     `json:"type"`
-	AgentID       string     `json:"agentId,omitempty"`
-	ResponseAgent bool       `json:"responseAgent,omitempty"`
-	MaxIterations uint       `json:"maxIterations,omitempty"`
-	ExitLoop      bool       `json:"exitLoop,omitempty"`
-	ExitWhen      string     `json:"exitWhen,omitempty"`
-	Steps         []FlowStep `json:"steps,omitempty"`
+// FlowStart is the reserved identifier for the graph entry sentinel. An edge
+// whose From equals FlowStart is wired to the adk workflow Start node by the
+// builder. Reserved so an operator cannot name a real node "START".
+const FlowStart = "START"
+
+// FlowRule is one ordered branch of a router node. When the CEL guard When
+// evaluates to true against the flow state, the router emits Route as its
+// label and stops evaluating later rules. When sees a `state` map (keys
+// written through set_state, the "flow:" namespace) and an `iterations`
+// integer (how many times this router has been activated in the current run).
+type FlowRule struct {
+	When  string `json:"when" yaml:"when"`
+	Route string `json:"route" yaml:"route"`
 }
 
-// ResponseAgentIDs walks the flow tree and returns the agent IDs of all
-// steps marked with ResponseAgent.
+// FlowNode is one vertex of the flow graph. ID is unique within the flow and
+// becomes the adk workflow Node.Name(), so it must be a safe identifier: it
+// also appears as the event Author used by the response filter and as a
+// fragment of session-state keys.
+type FlowNode struct {
+	ID   string `json:"id" yaml:"id"`
+	Type string `json:"type" yaml:"type"`
+
+	// AgentID references an AgentDefinition or FlowDefinition by ID.
+	// Required when Type is FlowNodeAgent, ignored otherwise.
+	AgentID string `json:"agentId,omitempty" yaml:"agentId,omitempty"`
+
+	// ResponseAgent marks an agent node whose output is included in the final
+	// response when the flow is invoked via webhook/cron. If no agent in the
+	// flow is marked, all agent outputs are concatenated (default behaviour).
+	// Only meaningful when Type is FlowNodeAgent.
+	ResponseAgent bool `json:"responseAgent,omitempty" yaml:"responseAgent,omitempty"`
+
+	// Rules and DefaultRoute drive a router node. Rules are evaluated in order;
+	// DefaultRoute is emitted when no rule matches. Only meaningful when Type
+	// is FlowNodeRouter.
+	Rules        []FlowRule `json:"rules,omitempty" yaml:"rules,omitempty"`
+	DefaultRoute string     `json:"defaultRoute,omitempty" yaml:"defaultRoute,omitempty"`
+}
+
+// FlowEdge is a directed connection between two nodes. Route is only
+// meaningful when From is a router node: it names the label the router must
+// emit for this edge to be taken. An empty Route is an unconditional edge.
+type FlowEdge struct {
+	From  string `json:"from" yaml:"from"`
+	To    string `json:"to" yaml:"to"`
+	Route string `json:"route,omitempty" yaml:"route,omitempty"`
+}
+
+// ResponseAgentIDs returns the AgentDefinition IDs of every agent node marked
+// with ResponseAgent.
 func (f *FlowDefinition) ResponseAgentIDs() []string {
 	var ids []string
-	collectResponseAgents(&f.Root, &ids)
+	for i := range f.Nodes {
+		n := &f.Nodes[i]
+		if n.Type == FlowNodeAgent && n.AgentID != "" && n.ResponseAgent {
+			ids = append(ids, n.AgentID)
+		}
+	}
 	return ids
 }
 
-// ResponseAgentNames walks the flow tree and returns the synthetic ADK
-// agent names assigned to every leaf marked with ResponseAgent. The naming
-// scheme matches the one used by server/agent/flow.go when it builds a
-// fresh ADK instance per appearance: the root step is named after the
-// flow ID, and every nested step appends "_<path>" with positional
-// indices joined by "_". This pairing is what lets the FlowResponseFilter
-// match event.Author values produced by ADK against the operator's
-// declarative response-agent toggles.
-//
-// Keep this method in lockstep with buildStep / buildChildren in
-// server/agent/flow.go. If the naming convention there changes, this
-// function must change too.
+// ResponseAgentNames returns the adk node names whose output should appear in
+// the final response. In the graph model a node's ID is its adk Node.Name()
+// and therefore the event.Author the response filter matches against, so the
+// names are simply the IDs of agent nodes flagged ResponseAgent. There is no
+// synthetic naming convention to keep in lockstep with the builder anymore.
 func (f *FlowDefinition) ResponseAgentNames() []string {
 	var names []string
-	collectResponseAgentNames(&f.Root, f.ID, "", &names)
+	for i := range f.Nodes {
+		n := &f.Nodes[i]
+		if n.Type == FlowNodeAgent && n.ResponseAgent {
+			names = append(names, n.ID)
+		}
+	}
 	return names
 }
 
-func collectResponseAgents(step *FlowStep, ids *[]string) {
-	if step.Type == FlowStepAgent {
-		if step.AgentID != "" && step.ResponseAgent {
-			*ids = append(*ids, step.AgentID)
-		}
-	}
-	for i := range step.Steps {
-		collectResponseAgents(&step.Steps[i], ids)
-	}
-}
-
-func collectResponseAgentNames(step *FlowStep, flowID, path string, names *[]string) {
-	stepName := flowID
-	if path != "" {
-		stepName = flowID + "_" + path
-	}
-	if step.Type == FlowStepAgent {
-		if step.AgentID != "" && step.ResponseAgent {
-			*names = append(*names, stepName)
-		}
-		return
-	}
-	for i := range step.Steps {
-		childPath := fmt.Sprintf("%d", i)
-		if path != "" {
-			childPath = path + "_" + fmt.Sprintf("%d", i)
-		}
-		collectResponseAgentNames(&step.Steps[i], flowID, childPath, names)
-	}
-}
-
-// FirstAgentID walks the flow tree depth-first and returns the first leaf
-// agent ID found. Used to resolve voice config (TTS/STT) for a flow.
+// FirstAgentID returns the AgentDefinition ID of the first agent node reached
+// from the entry, breadth-first. Used to resolve voice config (TTS/STT) for a
+// flow. Falls back to the first agent node in declaration order when the entry
+// reaches none, and to "" when the flow has no agent node at all.
 func (f *FlowDefinition) FirstAgentID() string {
-	return findFirstAgent(&f.Root)
-}
-
-func findFirstAgent(step *FlowStep) string {
-	if step.Type == FlowStepAgent && step.AgentID != "" {
-		return step.AgentID
+	index := make(map[string]*FlowNode, len(f.Nodes))
+	for i := range f.Nodes {
+		index[f.Nodes[i].ID] = &f.Nodes[i]
 	}
-	for i := range step.Steps {
-		if id := findFirstAgent(&step.Steps[i]); id != "" {
-			return id
+	successors := make(map[string][]string, len(f.Nodes))
+	for _, e := range f.Edges {
+		successors[e.From] = append(successors[e.From], e.To)
+	}
+	visited := map[string]bool{}
+	queue := []string{f.Entry}
+	for len(queue) > 0 {
+		id := queue[0]
+		queue = queue[1:]
+		if visited[id] {
+			continue
+		}
+		visited[id] = true
+		if n, ok := index[id]; ok && n.Type == FlowNodeAgent && n.AgentID != "" {
+			return n.AgentID
+		}
+		queue = append(queue, successors[id]...)
+	}
+	for i := range f.Nodes {
+		if f.Nodes[i].Type == FlowNodeAgent && f.Nodes[i].AgentID != "" {
+			return f.Nodes[i].AgentID
 		}
 	}
 	return ""
 }
 
-// AgentIDs walks the flow tree and returns all unique agent IDs (leaf nodes).
+// AgentIDs returns all unique AgentDefinition IDs referenced by agent nodes.
+// Used by the topological sort to discover sub-flow dependencies.
 func (f *FlowDefinition) AgentIDs() []string {
 	seen := map[string]bool{}
 	var ids []string
-	collectAgentIDs(&f.Root, seen, &ids)
+	for i := range f.Nodes {
+		n := &f.Nodes[i]
+		if n.Type == FlowNodeAgent && n.AgentID != "" && !seen[n.AgentID] {
+			seen[n.AgentID] = true
+			ids = append(ids, n.AgentID)
+		}
+	}
 	return ids
 }
 
-func collectAgentIDs(step *FlowStep, seen map[string]bool, ids *[]string) {
-	if step.Type == FlowStepAgent && step.AgentID != "" && !seen[step.AgentID] {
-		seen[step.AgentID] = true
-		*ids = append(*ids, step.AgentID)
-	}
-	for i := range step.Steps {
-		collectAgentIDs(&step.Steps[i], seen, ids)
-	}
-}
-
-// FlowDefinition represents a multi-agent workflow stored as a recursive tree
-// of steps that maps directly to ADK workflow agents.
+// FlowDefinition is a multi-agent workflow stored as a directed graph that
+// maps one-to-one onto the adk-go v2 workflow engine ([]workflow.Edge wired
+// into workflowagent.New). Entry names the node connected to the Start
+// sentinel; it is recorded explicitly rather than inferred so a multi-root
+// graph keeps the operator's intent.
 type FlowDefinition struct {
 	ID          string     `json:"id" yaml:"id"`
 	Name        string     `json:"name" yaml:"name"`
 	Description string     `json:"description,omitempty" yaml:"description,omitempty"`
-	Root        FlowStep   `json:"root" yaml:"root"`
+	Entry       string     `json:"entry" yaml:"entry"`
+	Nodes       []FlowNode `json:"nodes" yaml:"nodes"`
+	Edges       []FlowEdge `json:"edges" yaml:"edges"`
 	A2A         *A2AConfig `json:"a2a,omitempty" yaml:"a2a,omitempty"`
 }
 

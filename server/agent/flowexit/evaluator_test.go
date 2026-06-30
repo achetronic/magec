@@ -17,45 +17,61 @@ import (
 	toolsflowstate "github.com/achetronic/magec/server/agent/tools/flowstate"
 )
 
-func TestEvaluateExitWhen_True(t *testing.T) {
+func TestEvaluate_True(t *testing.T) {
 	prog, err := Compile(`state.approved == true`)
 	if err != nil {
 		t.Fatalf("Compile: %v", err)
 	}
-	if !EvaluateExitWhen(prog, `state.approved == true`, map[string]any{"approved": true}) {
+	if !Evaluate(prog, `state.approved == true`, map[string]any{"approved": true}, 0) {
 		t.Fatal("expected true")
 	}
 }
 
-func TestEvaluateExitWhen_False(t *testing.T) {
+func TestEvaluate_False(t *testing.T) {
 	prog, err := Compile(`state.approved == true`)
 	if err != nil {
 		t.Fatalf("Compile: %v", err)
 	}
-	if EvaluateExitWhen(prog, `state.approved == true`, map[string]any{"approved": false}) {
+	if Evaluate(prog, `state.approved == true`, map[string]any{"approved": false}, 0) {
 		t.Fatal("expected false")
 	}
 }
 
-func TestEvaluateExitWhen_RuntimeErrorTreatedAsFalse(t *testing.T) {
+func TestEvaluate_IterationsGuard(t *testing.T) {
+	// The iterations variable lets an operator cap a loop in CEL. Below the
+	// cap the guard is false; at the cap it flips to true.
+	const expr = `state.done == true || iterations >= 5`
+	prog, err := Compile(expr)
+	if err != nil {
+		t.Fatalf("Compile: %v", err)
+	}
+	if Evaluate(prog, expr, map[string]any{"done": false}, 4) {
+		t.Fatal("expected false below the iteration cap")
+	}
+	if !Evaluate(prog, expr, map[string]any{"done": false}, 5) {
+		t.Fatal("expected true once the iteration cap is reached")
+	}
+}
+
+func TestEvaluate_RuntimeErrorTreatedAsFalse(t *testing.T) {
 	// Compile expects state.score to be comparable to 0.5 — passing a
 	// string at runtime triggers a CEL no-such-overload error.
 	prog, err := Compile(`state.score > 0.5`)
 	if err != nil {
 		t.Fatalf("Compile: %v", err)
 	}
-	if EvaluateExitWhen(prog, `state.score > 0.5`, map[string]any{"score": "high"}) {
+	if Evaluate(prog, `state.score > 0.5`, map[string]any{"score": "high"}, 0) {
 		t.Fatal("expected false on runtime error")
 	}
 }
 
-func TestEvaluateExitWhen_MissingKeyTreatedAsFalse(t *testing.T) {
+func TestEvaluate_MissingKeyTreatedAsFalse(t *testing.T) {
 	prog, err := Compile(`has(state.approved) && state.approved == true`)
 	if err != nil {
 		t.Fatalf("Compile: %v", err)
 	}
 	// has() guards the access, so missing key returns false, no error.
-	if EvaluateExitWhen(prog, `has(state.approved) && state.approved == true`, map[string]any{}) {
+	if Evaluate(prog, `has(state.approved) && state.approved == true`, map[string]any{}, 0) {
 		t.Fatal("expected false when key absent")
 	}
 }
@@ -92,9 +108,9 @@ func TestExtractFlowState_StripsPrefix(t *testing.T) {
 	s := &fakeReadonlyState{store: map[string]any{
 		toolsflowstate.StateKeyPrefix + "approved": true,
 		toolsflowstate.StateKeyPrefix + "score":    0.9,
-		"app:other":   "ignored",
-		"user:name":   "ignored",
-		"unprefixed":  "ignored",
+		"app:other":  "ignored",
+		"user:name":  "ignored",
+		"unprefixed": "ignored",
 	}}
 	got := ExtractFlowState(s)
 	if len(got) != 2 {
@@ -121,23 +137,3 @@ func TestExtractFlowState_EmptyWhenNoFlowKeys(t *testing.T) {
 // Compile-time assertion: fakeReadonlyState satisfies session.State, so
 // ExtractFlowState callers do not have to learn a second mock interface.
 var _ session.State = (*fakeReadonlyState)(nil)
-
-func TestNewExitWhenAgent_Construction(t *testing.T) {
-	prog, err := Compile(`state.approved == true`)
-	if err != nil {
-		t.Fatalf("Compile: %v", err)
-	}
-	a, err := NewExitWhenAgent("loop_exit", prog, `state.approved == true`)
-	if err != nil {
-		t.Fatalf("NewExitWhenAgent: %v", err)
-	}
-	if a.Name() != "loop_exit" {
-		t.Fatalf("expected name 'loop_exit', got %q", a.Name())
-	}
-}
-
-func TestNewExitWhenAgent_RejectsNilProgram(t *testing.T) {
-	if _, err := NewExitWhenAgent("x", nil, ""); err == nil {
-		t.Fatal("expected error for nil program")
-	}
-}

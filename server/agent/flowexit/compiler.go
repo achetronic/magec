@@ -29,16 +29,21 @@ import (
 	"github.com/google/cel-go/common/types"
 )
 
-// celEnv declares the single variable available to operator expressions:
-// `state`, a map<string, dyn> populated by the flow runner from session
-// state values written through set_state. The variable is package-level
-// because cel.Env construction is non-trivial and the env is stateless and
-// safe to share.
+// celEnv declares the variables available to operator expressions:
+//   - `state`: a map<string, dyn> populated by the flow runner from session
+//     state values written through set_state (the "flow:" namespace).
+//   - `iterations`: an int, how many times the evaluating router node has been
+//     activated in the current run. Lets operators cap loops in CEL, e.g.
+//     `state.done == true || iterations >= 5`.
+//
+// The variable is package-level because cel.Env construction is non-trivial
+// and the env is stateless and safe to share.
 var celEnv *cel.Env
 
 func init() {
 	env, err := cel.NewEnv(
 		cel.Variable("state", cel.MapType(cel.StringType, cel.DynType)),
+		cel.Variable("iterations", cel.IntType),
 	)
 	if err != nil {
 		// init-time failure means the CEL declaration is wrong, which is

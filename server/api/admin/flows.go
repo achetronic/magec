@@ -2,12 +2,11 @@ package admin
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
 
 	"github.com/gorilla/mux"
 
-	"github.com/achetronic/magec/server/agent/flowexit"
+	"github.com/achetronic/magec/server/agent/flowgraph"
 	"github.com/achetronic/magec/server/store"
 )
 
@@ -46,11 +45,11 @@ func (h *Handler) getFlow(w http.ResponseWriter, r *http.Request) {
 
 // createFlow creates a new flow.
 // @Summary      Create flow
-// @Description  Creates a new agent orchestration flow with a recursive step tree
+// @Description  Creates a new agent orchestration flow defined as a directed graph of nodes and edges
 // @Tags         flows
 // @Accept       json
 // @Produce      json
-// @Param        body  body      store.FlowDefinition  true  "Flow definition with root step tree"
+// @Param        body  body      store.FlowDefinition  true  "Flow definition (nodes + edges graph)"
 // @Success      201   {object}  store.FlowDefinition
 // @Failure      400   {object}  ErrorResponse
 // @Failure      409   {object}  ErrorResponse
@@ -66,7 +65,7 @@ func (h *Handler) createFlow(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "name is required")
 		return
 	}
-	if err := validateFlowStep(&f.Root); err != nil {
+	if err := flowgraph.Validate(&f); err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
@@ -98,7 +97,7 @@ func (h *Handler) updateFlow(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid JSON: "+err.Error())
 		return
 	}
-	if err := validateFlowStep(&f.Root); err != nil {
+	if err := flowgraph.Validate(&f); err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
@@ -126,57 +125,4 @@ func (h *Handler) deleteFlow(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
-}
-
-func validateFlowStep(step *store.FlowStep) error {
-	// Loop-only fields must not appear elsewhere. Catch this before the
-	// type switch so the per-type branches stay focused.
-	if step.Type != store.FlowStepLoop {
-		if step.ExitLoop {
-			return fmt.Errorf("%s step: exitLoop is only valid on loop steps", step.Type)
-		}
-		if step.ExitWhen != "" {
-			return fmt.Errorf("%s step: exitWhen is only valid on loop steps", step.Type)
-		}
-	}
-
-	switch step.Type {
-	case store.FlowStepAgent:
-		if step.AgentID == "" {
-			return fmt.Errorf("agent step requires agentId")
-		}
-	case store.FlowStepSequential, store.FlowStepParallel:
-		if len(step.Steps) == 0 {
-			return fmt.Errorf("%s step requires at least one child step", step.Type)
-		}
-		for i := range step.Steps {
-			if err := validateFlowStep(&step.Steps[i]); err != nil {
-				return err
-			}
-		}
-	case store.FlowStepLoop:
-		if len(step.Steps) == 0 {
-			return fmt.Errorf("loop step requires at least one child step")
-		}
-		// exitLoop and exitWhen are two ways to express the same intent
-		// (LLM-driven vs. state-driven exit). Combining them on the same
-		// loop is forbidden so the operator picks one model and the UI
-		// stays unambiguous; the runtime would technically tolerate both.
-		if step.ExitLoop && step.ExitWhen != "" {
-			return fmt.Errorf("loop step: exitLoop and exitWhen are mutually exclusive")
-		}
-		if step.ExitWhen != "" {
-			if _, err := flowexit.Compile(step.ExitWhen); err != nil {
-				return fmt.Errorf("loop step: %w", err)
-			}
-		}
-		for i := range step.Steps {
-			if err := validateFlowStep(&step.Steps[i]); err != nil {
-				return err
-			}
-		}
-	default:
-		return fmt.Errorf("unknown step type %q", step.Type)
-	}
-	return nil
 }

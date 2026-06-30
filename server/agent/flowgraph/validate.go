@@ -6,6 +6,11 @@
 //
 //     http://www.apache.org/licenses/LICENSE-2.0
 
+// Package flowgraph validates a flow graph (store.FlowDefinition) at save
+// time, before it is handed to the builder. The graph model and its types
+// live in package store; this package owns the rules a graph must satisfy
+// and reuses flowexit to compile router CEL guards. See
+// .agents/WORKFLOW_GRAPH_REDESIGN.md section 6.
 package flowgraph
 
 import (
@@ -13,6 +18,7 @@ import (
 	"regexp"
 
 	"github.com/achetronic/magec/server/agent/flowexit"
+	"github.com/achetronic/magec/server/store"
 )
 
 // idPattern is the safe-identifier shape required of node IDs and route
@@ -21,38 +27,58 @@ import (
 // must start with a letter or underscore.
 var idPattern = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_-]*$`)
 
+// nodeByID indexes a definition's nodes by ID for O(1) lookups.
+func nodeByID(d *store.FlowDefinition) map[string]*store.FlowNode {
+	index := make(map[string]*store.FlowNode, len(d.Nodes))
+	for i := range d.Nodes {
+		index[d.Nodes[i].ID] = &d.Nodes[i]
+	}
+	return index
+}
+
+// outgoing returns the edges leaving the given node ID.
+func outgoing(d *store.FlowDefinition, id string) []store.FlowEdge {
+	var edges []store.FlowEdge
+	for _, e := range d.Edges {
+		if e.From == id {
+			edges = append(edges, e)
+		}
+	}
+	return edges
+}
+
 // Validate checks a flow graph at save time. It enforces the rules in section
 // 6 of .agents/WORKFLOW_GRAPH_REDESIGN.md. Errors are returned to the caller
 // (the admin API) which surfaces them to the operator; nothing here mutates
 // the definition. Cycles are allowed on purpose: a loop is a back edge, capped
 // at runtime, not rejected here.
-func Validate(d *Definition) error {
+func Validate(d *store.FlowDefinition) error {
 	if err := validateNodes(d); err != nil {
 		return err
 	}
-	index := d.nodeByID()
+	index := nodeByID(d)
 	if err := validateEntry(d, index); err != nil {
 		return err
 	}
 	if err := validateEdges(d, index); err != nil {
 		return err
 	}
-	if err := validateRouters(d, index); err != nil {
+	if err := validateRouters(d); err != nil {
 		return err
 	}
 	if err := validateJoins(d); err != nil {
 		return err
 	}
-	if err := validateReachability(d, index); err != nil {
+	if err := validateReachability(d); err != nil {
 		return err
 	}
 	return nil
 }
 
 // validateNodes enforces unique, well-formed IDs and per-type field rules
-// (rule 3 for agents, rule 6 for IDs, and the structural part of rule 4 for
-// routers).
-func validateNodes(d *Definition) error {
+// (agents need an agentId, routers need rules with compilable CEL guards plus
+// a default route, IDs match the safe pattern and are not the reserved start).
+func validateNodes(d *store.FlowDefinition) error {
 	if len(d.Nodes) == 0 {
 		return fmt.Errorf("flow has no nodes")
 	}
@@ -62,8 +88,8 @@ func validateNodes(d *Definition) error {
 		if n.ID == "" {
 			return fmt.Errorf("node has empty id")
 		}
-		if n.ID == Start {
-			return fmt.Errorf("node id %q is reserved for the entry sentinel", Start)
+		if n.ID == store.FlowStart {
+			return fmt.Errorf("node id %q is reserved for the entry sentinel", store.FlowStart)
 		}
 		if !idPattern.MatchString(n.ID) {
 			return fmt.Errorf("node id %q must match [a-zA-Z_][a-zA-Z0-9_-]*", n.ID)
@@ -74,11 +100,11 @@ func validateNodes(d *Definition) error {
 		seen[n.ID] = true
 
 		switch n.Type {
-		case NodeAgent:
+		case store.FlowNodeAgent:
 			if n.AgentID == "" {
 				return fmt.Errorf("agent node %q requires agentId", n.ID)
 			}
-		case NodeRouter:
+		case store.FlowNodeRouter:
 			if len(n.Rules) == 0 {
 				return fmt.Errorf("router node %q requires at least one rule", n.ID)
 			}
@@ -103,7 +129,7 @@ func validateNodes(d *Definition) error {
 			if !idPattern.MatchString(n.DefaultRoute) {
 				return fmt.Errorf("router node %q defaultRoute %q must match [a-zA-Z_][a-zA-Z0-9_-]*", n.ID, n.DefaultRoute)
 			}
-		case NodeJoin:
+		case store.FlowNodeJoin:
 			// No per-node fields; structural checks happen in validateJoins.
 		default:
 			return fmt.Errorf("node %q has unknown type %q", n.ID, n.Type)
@@ -112,8 +138,8 @@ func validateNodes(d *Definition) error {
 	return nil
 }
 
-// validateEntry enforces rule 2: Entry must name an existing node.
-func validateEntry(d *Definition, index map[string]*Node) error {
+// validateEntry enforces that Entry names an existing node.
+func validateEntry(d *store.FlowDefinition, index map[string]*store.FlowNode) error {
 	if d.Entry == "" {
 		return fmt.Errorf("flow has no entry node")
 	}
@@ -123,20 +149,22 @@ func validateEntry(d *Definition, index map[string]*Node) error {
 	return nil
 }
 
-// validateEdges enforces rule 1: every endpoint references an existing node,
-// with the Start sentinel allowed as a source.
-func validateEdges(d *Definition, index map[string]*Node) error {
+// validateEdges enforces that every endpoint references an existing node. The
+// Start sentinel is reserved: operators never wire it themselves (the builder
+// synthesizes Start -> Entry), so an edge that references FlowStart is an error.
+func validateEdges(d *store.FlowDefinition, index map[string]*store.FlowNode) error {
 	for _, e := range d.Edges {
-		if e.From != Start && e.From != "" {
-			if _, ok := index[e.From]; !ok {
-				return fmt.Errorf("edge from %q: source node does not exist", e.From)
-			}
+		if e.From == "" {
+			return fmt.Errorf("edge to %q has empty source", e.To)
+		}
+		if e.From == store.FlowStart || e.To == store.FlowStart {
+			return fmt.Errorf("edge references the reserved entry sentinel %q; set Entry instead of wiring Start", store.FlowStart)
+		}
+		if _, ok := index[e.From]; !ok {
+			return fmt.Errorf("edge from %q: source node does not exist", e.From)
 		}
 		if e.To == "" {
 			return fmt.Errorf("edge from %q has empty target", e.From)
-		}
-		if e.To == Start {
-			return fmt.Errorf("edge targets the reserved entry sentinel %q", Start)
 		}
 		if _, ok := index[e.To]; !ok {
 			return fmt.Errorf("edge to %q: target node does not exist", e.To)
@@ -145,16 +173,16 @@ func validateEdges(d *Definition, index map[string]*Node) error {
 	return nil
 }
 
-// validateRouters enforces rule 4's edge side: every label a router can emit
-// (each rule Route plus DefaultRoute) has exactly one matching outgoing edge,
-// and every outgoing edge of a router carries a Route that the router can
-// actually emit. Non-router nodes must not carry routed outgoing edges.
-func validateRouters(d *Definition, index map[string]*Node) error {
+// validateRouters enforces that every label a router can emit (each rule Route
+// plus DefaultRoute) has exactly one matching outgoing edge, and that every
+// outgoing edge of a router carries a Route the router can actually emit.
+// Non-router nodes must not carry routed outgoing edges.
+func validateRouters(d *store.FlowDefinition) error {
 	for i := range d.Nodes {
 		n := &d.Nodes[i]
-		out := d.outgoing(n.ID)
+		out := outgoing(d, n.ID)
 
-		if n.Type != NodeRouter {
+		if n.Type != store.FlowNodeRouter {
 			for _, e := range out {
 				if e.Route != "" {
 					return fmt.Errorf("node %q is not a router but edge to %q carries route %q", n.ID, e.To, e.Route)
@@ -193,13 +221,13 @@ func validateRouters(d *Definition, index map[string]*Node) error {
 	return nil
 }
 
-// validateJoins enforces rule 5: no conditional (routed) edge may target a
-// join node, because the barrier waits for every declared predecessor and a
+// validateJoins enforces that no conditional (routed) edge targets a join
+// node, because the barrier waits for every declared predecessor and a
 // route-skipped predecessor would never fire, deadlocking the join.
-func validateJoins(d *Definition) error {
+func validateJoins(d *store.FlowDefinition) error {
 	joins := make(map[string]bool)
 	for i := range d.Nodes {
-		if d.Nodes[i].Type == NodeJoin {
+		if d.Nodes[i].Type == store.FlowNodeJoin {
 			joins[d.Nodes[i].ID] = true
 		}
 	}
@@ -211,28 +239,17 @@ func validateJoins(d *Definition) error {
 	return nil
 }
 
-// validateReachability enforces rule 7: every node is reachable from Entry (no
-// orphans) and the graph has at least one terminal node (a node with no
-// outgoing edges), so the flow can actually finish.
-func validateReachability(d *Definition, index map[string]*Node) error {
-	// BFS from Entry over the successor relation.
+// validateReachability enforces that every node is reachable from Entry (no
+// orphans) and the graph has at least one terminal node (no outgoing edges),
+// so the flow can actually finish. The builder wires Start -> Entry, so
+// reachability is measured from Entry.
+func validateReachability(d *store.FlowDefinition) error {
 	successors := make(map[string][]string, len(d.Nodes))
 	for _, e := range d.Edges {
-		from := e.From
-		if from == Start || from == "" {
-			continue
-		}
-		successors[from] = append(successors[from], e.To)
+		successors[e.From] = append(successors[e.From], e.To)
 	}
-	// Edges from Start seed the reachable set alongside Entry itself.
 	reachable := map[string]bool{d.Entry: true}
 	queue := []string{d.Entry}
-	for _, e := range d.Edges {
-		if (e.From == Start || e.From == "") && !reachable[e.To] {
-			reachable[e.To] = true
-			queue = append(queue, e.To)
-		}
-	}
 	for len(queue) > 0 {
 		cur := queue[0]
 		queue = queue[1:]
@@ -251,7 +268,7 @@ func validateReachability(d *Definition, index map[string]*Node) error {
 
 	hasTerminal := false
 	for i := range d.Nodes {
-		if len(d.outgoing(d.Nodes[i].ID)) == 0 {
+		if len(outgoing(d, d.Nodes[i].ID)) == 0 {
 			hasTerminal = true
 			break
 		}

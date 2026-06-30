@@ -40,7 +40,6 @@ import (
 	"google.golang.org/adk/v2/server/adkrest"
 	"google.golang.org/adk/v2/session"
 	"google.golang.org/adk/v2/tool"
-	"google.golang.org/adk/v2/tool/exitlooptool"
 	"google.golang.org/adk/v2/tool/mcptoolset"
 	"google.golang.org/adk/v2/tool/skilltoolset"
 	"google.golang.org/genai"
@@ -94,9 +93,6 @@ You are running inside a multi-agent workflow. You have shared state tools avail
 - Use 'get_state' to read a value previously stored by another agent (or by an earlier turn of yours). It returns {found: true, value: ...} when present and {found: false} when absent.
 
 Use shared state for orchestration signals (e.g. an approval flag, a quality score, a list of pending items), not for bulky content — keep large outputs in artifacts.`
-
-const exitLoopInstruction = `
-You are inside a loop step. When you decide the work is complete and the loop should not iterate again, call the 'exit_loop' tool. Do not call it on the first iteration unless the work is genuinely done. The current iteration always finishes before the loop terminates, so other agents in this iteration may still produce output after your call.`
 
 // Service wraps the ADK REST handler that serves all configured agents.
 // Incoming requests are routed to the correct agent by the appName field.
@@ -218,11 +214,6 @@ func New(ctx context.Context, agents []store.AgentDefinition, backends []store.B
 		return nil, fmt.Errorf("failed to create flow_state toolset: %w", err)
 	}
 
-	exitLoopTool, err := exitlooptool.New()
-	if err != nil {
-		return nil, fmt.Errorf("failed to create exit_loop tool: %w", err)
-	}
-
 	flowDeps := FlowBuildDeps{
 		Ctx:              ctx,
 		AgentDefs:        agentDefMap,
@@ -234,7 +225,6 @@ func New(ctx context.Context, agents []store.AgentDefinition, backends []store.B
 		MemorySvc:        memorySvc,
 		BaseToolset:      baseTset,
 		FlowStateToolset: flowStateToolset,
-		ExitLoopTool:     exitLoopTool,
 	}
 
 	// Build flows
@@ -385,9 +375,6 @@ type BuildAgentInstanceParams struct {
 	// the agent instruction. Set by the flow builder for every agent inside
 	// a flow so the model knows it can call set_state and get_state.
 	IncludeFlowStateInstruction bool
-	// IncludeExitLoopInstruction appends the exit_loop usage paragraph. Set
-	// only for agents that descend from a loop step with ExitLoop enabled.
-	IncludeExitLoopInstruction bool
 }
 
 // BuildAgentInstance constructs an individual ADK agent instance from its
@@ -426,9 +413,6 @@ func BuildAgentInstance(p BuildAgentInstanceParams) (agent.Agent, model.LLM, err
 	instruction := buildInstruction(p.AgentDef, p.MCPServerMap, p.MemorySvc)
 	if p.IncludeFlowStateInstruction {
 		instruction += flowStateInstruction
-	}
-	if p.IncludeExitLoopInstruction {
-		instruction += exitLoopInstruction
 	}
 
 	name := p.InstanceName

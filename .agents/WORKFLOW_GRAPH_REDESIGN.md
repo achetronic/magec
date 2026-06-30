@@ -174,7 +174,7 @@ type FlowRule struct {
 // Route is only meaningful when From is a router node; it matches the
 // label the router emits.
 type FlowEdge struct {
-    From  string `json:"from"`  // FlowNode.ID, or "" / START for the entry
+    From  string `json:"from"`  // FlowNode.ID
     To    string `json:"to"`    // FlowNode.ID
     Route string `json:"route,omitempty"`
 }
@@ -184,7 +184,7 @@ type FlowDefinition struct {
     ID          string     `json:"id"`
     Name        string     `json:"name"`
     Description string     `json:"description,omitempty"`
-    Entry       string     `json:"entry"` // FlowNode.ID wired to workflow.Start
+    Entry       string     `json:"entry"` // FlowNode.ID; builder wires Start -> Entry
     Nodes       []FlowNode `json:"nodes"`
     Edges       []FlowEdge `json:"edges"`
     A2A         *A2AConfig `json:"a2a,omitempty"`
@@ -193,7 +193,9 @@ type FlowDefinition struct {
 
 Notes:
 
-- `Entry` names the node connected to `workflow.Start`. We keep it explicit
+- `Entry` is the single source of truth for where the graph starts: the
+  builder synthesizes a `Start -> Entry` edge, so operators never wire the
+  Start sentinel themselves and `FlowEdge` never references it. We keep it explicit
   rather than inferring the single source, because a graph can legitimately
   have several roots and we want the operator's intent recorded.
 - Node IDs are the naming scheme. The old synthetic `flowID_path` pairing
@@ -208,8 +210,8 @@ Notes:
 
 The admin API validates the graph at save time:
 
-1. Every `FlowEdge.From` and `.To` references an existing node ID (or the
-   START sentinel for `From`).
+1. Every `FlowEdge.From` and `.To` references an existing node ID. Edges must
+   not reference the reserved START sentinel (the builder wires Start->Entry).
 2. `Entry` references an existing node.
 3. `agent` nodes have a non-empty `AgentID`.
 4. `router` nodes have at least one rule; every `FlowRule.When` compiles as
@@ -306,7 +308,7 @@ model needs no change for it. This is why the model is left HITL-ready.
   `NewFunctionNodeFromState`. Affects only the builder, not the model.
 - O3 (sub-flow as node): wire adk v2 `WorkflowNode` for nested flows versus
   referencing a pre-built sub-flow agent. Affects the builder.
-- O4 (voice config): `FirstAgentID` resolved TTS/STT for a flow off the
-  first leaf. In a graph the equivalent is the `Entry` node if it is an
-  agent, else the first agent reachable from `Entry`. Reimplement on the
-  graph.
+- O4 (voice config): RESOLVED. `FirstAgentID` now returns the AgentID of the
+  first agent node reached from `Entry` breadth-first, falling back to the
+  first agent node in declaration order, then "". Implemented on the graph in
+  store.

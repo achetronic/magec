@@ -11,20 +11,21 @@ package flowgraph
 import (
 	"strings"
 	"testing"
+
+	"github.com/achetronic/magec/server/store"
 )
 
 // linearFlow is a minimal valid graph: START -> a -> b, b terminal.
-func linearFlow() *Definition {
-	return &Definition{
+func linearFlow() *store.FlowDefinition {
+	return &store.FlowDefinition{
 		ID:    "f1",
 		Name:  "linear",
 		Entry: "a",
-		Nodes: []Node{
-			{ID: "a", Type: NodeAgent, AgentID: "agent-a"},
-			{ID: "b", Type: NodeAgent, AgentID: "agent-b", ResponseAgent: true},
+		Nodes: []store.FlowNode{
+			{ID: "a", Type: store.FlowNodeAgent, AgentID: "agent-a"},
+			{ID: "b", Type: store.FlowNodeAgent, AgentID: "agent-b", ResponseAgent: true},
 		},
-		Edges: []Edge{
-			{From: Start, To: "a"},
+		Edges: []store.FlowEdge{
 			{From: "a", To: "b"},
 		},
 	}
@@ -32,22 +33,21 @@ func linearFlow() *Definition {
 
 // routerFlow exercises a router with two rules plus a default, each wired to a
 // distinct terminal agent. This is the canonical CEL-as-router shape.
-func routerFlow() *Definition {
-	return &Definition{
+func routerFlow() *store.FlowDefinition {
+	return &store.FlowDefinition{
 		ID:    "f2",
 		Name:  "router",
 		Entry: "classify",
-		Nodes: []Node{
-			{ID: "classify", Type: NodeRouter, DefaultRoute: "revise", Rules: []Rule{
+		Nodes: []store.FlowNode{
+			{ID: "classify", Type: store.FlowNodeRouter, DefaultRoute: "revise", Rules: []store.FlowRule{
 				{When: "state.score >= 0.8", Route: "accept"},
 				{When: "state.score < 0.3", Route: "reject"},
 			}},
-			{ID: "publish", Type: NodeAgent, AgentID: "ag-pub"},
-			{ID: "discard", Type: NodeAgent, AgentID: "ag-dis"},
-			{ID: "rewrite", Type: NodeAgent, AgentID: "ag-rew"},
+			{ID: "publish", Type: store.FlowNodeAgent, AgentID: "ag-pub"},
+			{ID: "discard", Type: store.FlowNodeAgent, AgentID: "ag-dis"},
+			{ID: "rewrite", Type: store.FlowNodeAgent, AgentID: "ag-rew"},
 		},
-		Edges: []Edge{
-			{From: Start, To: "classify"},
+		Edges: []store.FlowEdge{
 			{From: "classify", To: "publish", Route: "accept"},
 			{From: "classify", To: "discard", Route: "reject"},
 			{From: "classify", To: "rewrite", Route: "revise"},
@@ -57,20 +57,19 @@ func routerFlow() *Definition {
 
 // fanFlow exercises fan-out from one agent to two workers and fan-in through a
 // join barrier into a terminal agent.
-func fanFlow() *Definition {
-	return &Definition{
+func fanFlow() *store.FlowDefinition {
+	return &store.FlowDefinition{
 		ID:    "f3",
 		Name:  "fan",
 		Entry: "split",
-		Nodes: []Node{
-			{ID: "split", Type: NodeAgent, AgentID: "ag-split"},
-			{ID: "w1", Type: NodeAgent, AgentID: "ag-w1"},
-			{ID: "w2", Type: NodeAgent, AgentID: "ag-w2"},
-			{ID: "merge", Type: NodeJoin},
-			{ID: "done", Type: NodeAgent, AgentID: "ag-done", ResponseAgent: true},
+		Nodes: []store.FlowNode{
+			{ID: "split", Type: store.FlowNodeAgent, AgentID: "ag-split"},
+			{ID: "w1", Type: store.FlowNodeAgent, AgentID: "ag-w1"},
+			{ID: "w2", Type: store.FlowNodeAgent, AgentID: "ag-w2"},
+			{ID: "merge", Type: store.FlowNodeJoin},
+			{ID: "done", Type: store.FlowNodeAgent, AgentID: "ag-done", ResponseAgent: true},
 		},
-		Edges: []Edge{
-			{From: Start, To: "split"},
+		Edges: []store.FlowEdge{
 			{From: "split", To: "w1"},
 			{From: "split", To: "w2"},
 			{From: "w1", To: "merge"},
@@ -82,20 +81,19 @@ func fanFlow() *Definition {
 
 // loopFlow exercises a back edge: a router decides to loop back to the worker
 // or exit. Cycles must be accepted.
-func loopFlow() *Definition {
-	return &Definition{
+func loopFlow() *store.FlowDefinition {
+	return &store.FlowDefinition{
 		ID:    "f4",
 		Name:  "loop",
 		Entry: "work",
-		Nodes: []Node{
-			{ID: "work", Type: NodeAgent, AgentID: "ag-work"},
-			{ID: "again", Type: NodeRouter, DefaultRoute: "continue", Rules: []Rule{
-				{When: "state.done == true", Route: "exit"},
+		Nodes: []store.FlowNode{
+			{ID: "work", Type: store.FlowNodeAgent, AgentID: "ag-work"},
+			{ID: "again", Type: store.FlowNodeRouter, DefaultRoute: "continue", Rules: []store.FlowRule{
+				{When: "state.done == true || iterations >= 5", Route: "exit"},
 			}},
-			{ID: "out", Type: NodeAgent, AgentID: "ag-out", ResponseAgent: true},
+			{ID: "out", Type: store.FlowNodeAgent, AgentID: "ag-out", ResponseAgent: true},
 		},
-		Edges: []Edge{
-			{From: Start, To: "work"},
+		Edges: []store.FlowEdge{
 			{From: "work", To: "again"},
 			{From: "again", To: "work", Route: "continue"},
 			{From: "again", To: "out", Route: "exit"},
@@ -104,7 +102,7 @@ func loopFlow() *Definition {
 }
 
 func TestValidate_AcceptsValidGraphs(t *testing.T) {
-	cases := map[string]*Definition{
+	cases := map[string]*store.FlowDefinition{
 		"linear":    linearFlow(),
 		"router":    routerFlow(),
 		"fan_join":  fanFlow(),
@@ -122,57 +120,57 @@ func TestValidate_AcceptsValidGraphs(t *testing.T) {
 func TestValidate_RejectsInvalidGraphs(t *testing.T) {
 	cases := []struct {
 		name    string
-		mutate  func(*Definition)
+		mutate  func(*store.FlowDefinition)
 		wantSub string
 	}{
 		{
 			name:    "no nodes",
-			mutate:  func(d *Definition) { d.Nodes = nil },
+			mutate:  func(d *store.FlowDefinition) { d.Nodes = nil },
 			wantSub: "no nodes",
 		},
 		{
 			name:    "duplicate node id",
-			mutate:  func(d *Definition) { d.Nodes = append(d.Nodes, Node{ID: "a", Type: NodeAgent, AgentID: "x"}) },
+			mutate:  func(d *store.FlowDefinition) { d.Nodes = append(d.Nodes, store.FlowNode{ID: "a", Type: store.FlowNodeAgent, AgentID: "x"}) },
 			wantSub: "duplicate node id",
 		},
 		{
 			name:    "reserved start id",
-			mutate:  func(d *Definition) { d.Nodes[0].ID = Start },
+			mutate:  func(d *store.FlowDefinition) { d.Nodes[0].ID = store.FlowStart },
 			wantSub: "reserved",
 		},
 		{
 			name:    "bad id pattern",
-			mutate:  func(d *Definition) { d.Nodes[0].ID = "has space"; d.Entry = "has space" },
+			mutate:  func(d *store.FlowDefinition) { d.Nodes[0].ID = "has space"; d.Entry = "has space" },
 			wantSub: "must match",
 		},
 		{
 			name:    "agent without agentId",
-			mutate:  func(d *Definition) { d.Nodes[0].AgentID = "" },
+			mutate:  func(d *store.FlowDefinition) { d.Nodes[0].AgentID = "" },
 			wantSub: "requires agentId",
 		},
 		{
 			name:    "unknown node type",
-			mutate:  func(d *Definition) { d.Nodes[0].Type = "frobnicate" },
+			mutate:  func(d *store.FlowDefinition) { d.Nodes[0].Type = "frobnicate" },
 			wantSub: "unknown type",
 		},
 		{
 			name:    "entry does not exist",
-			mutate:  func(d *Definition) { d.Entry = "ghost" },
+			mutate:  func(d *store.FlowDefinition) { d.Entry = "ghost" },
 			wantSub: "entry node \"ghost\" does not exist",
 		},
 		{
 			name:    "edge to missing node",
-			mutate:  func(d *Definition) { d.Edges = append(d.Edges, Edge{From: "a", To: "ghost"}) },
+			mutate:  func(d *store.FlowDefinition) { d.Edges = append(d.Edges, store.FlowEdge{From: "a", To: "ghost"}) },
 			wantSub: "target node does not exist",
 		},
 		{
 			name:    "edge from missing node",
-			mutate:  func(d *Definition) { d.Edges = append(d.Edges, Edge{From: "ghost", To: "b"}) },
+			mutate:  func(d *store.FlowDefinition) { d.Edges = append(d.Edges, store.FlowEdge{From: "ghost", To: "b"}) },
 			wantSub: "source node does not exist",
 		},
 		{
 			name:    "orphan node unreachable",
-			mutate:  func(d *Definition) { d.Nodes = append(d.Nodes, Node{ID: "island", Type: NodeAgent, AgentID: "x"}) },
+			mutate:  func(d *store.FlowDefinition) { d.Nodes = append(d.Nodes, store.FlowNode{ID: "island", Type: store.FlowNodeAgent, AgentID: "x"}) },
 			wantSub: "not reachable",
 		},
 	}
@@ -194,50 +192,46 @@ func TestValidate_RejectsInvalidGraphs(t *testing.T) {
 func TestValidate_RouterRules(t *testing.T) {
 	cases := []struct {
 		name    string
-		mutate  func(*Definition)
+		mutate  func(*store.FlowDefinition)
 		wantSub string
 	}{
 		{
 			name:    "router without rules",
-			mutate:  func(d *Definition) { d.Nodes[0].Rules = nil },
+			mutate:  func(d *store.FlowDefinition) { d.Nodes[0].Rules = nil },
 			wantSub: "at least one rule",
 		},
 		{
 			name:    "router without default",
-			mutate:  func(d *Definition) { d.Nodes[0].DefaultRoute = "" },
+			mutate:  func(d *store.FlowDefinition) { d.Nodes[0].DefaultRoute = "" },
 			wantSub: "requires a defaultRoute",
 		},
 		{
 			name:    "invalid CEL guard",
-			mutate:  func(d *Definition) { d.Nodes[0].Rules[0].When = "this is not cel ((" },
+			mutate:  func(d *store.FlowDefinition) { d.Nodes[0].Rules[0].When = "this is not cel ((" },
 			wantSub: "invalid CEL",
 		},
 		{
 			name:    "non-bool CEL guard",
-			mutate:  func(d *Definition) { d.Nodes[0].Rules[0].When = "state.score + 1" },
+			mutate:  func(d *store.FlowDefinition) { d.Nodes[0].Rules[0].When = "state.score + 1" },
 			wantSub: "must return bool",
 		},
 		{
 			name: "emittable label without edge",
-			mutate: func(d *Definition) {
-				// Add a rule that emits a label which has no matching outgoing
-				// edge, while leaving the existing accept/reject/revise edges
-				// intact so this is the only violation.
-				d.Nodes[0].Rules = append(d.Nodes[0].Rules, Rule{When: "state.x == true", Route: "extra"})
+			mutate: func(d *store.FlowDefinition) {
+				d.Nodes[0].Rules = append(d.Nodes[0].Rules, store.FlowRule{When: "state.x == true", Route: "extra"})
 			},
 			wantSub: "no edge for it",
 		},
 		{
 			name: "edge with route no rule emits",
-			mutate: func(d *Definition) {
-				d.Edges = append(d.Edges, Edge{From: "classify", To: "publish", Route: "bogus"})
+			mutate: func(d *store.FlowDefinition) {
+				d.Edges = append(d.Edges, store.FlowEdge{From: "classify", To: "publish", Route: "bogus"})
 			},
 			wantSub: "no rule or default emits",
 		},
 		{
 			name: "unconditional edge from router",
-			mutate: func(d *Definition) {
-				// Replace the "accept" routed edge with an unconditional one.
+			mutate: func(d *store.FlowDefinition) {
 				for i := range d.Edges {
 					if d.Edges[i].From == "classify" && d.Edges[i].Route == "accept" {
 						d.Edges[i].Route = ""
@@ -264,7 +258,6 @@ func TestValidate_RouterRules(t *testing.T) {
 
 func TestValidate_RoutedEdgeFromNonRouter(t *testing.T) {
 	def := linearFlow()
-	// Attach a route to an edge leaving a plain agent node.
 	for i := range def.Edges {
 		if def.Edges[i].From == "a" {
 			def.Edges[i].Route = "somelabel"
@@ -282,20 +275,19 @@ func TestValidate_RoutedEdgeFromNonRouter(t *testing.T) {
 func TestValidate_RoutedEdgeIntoJoinIsRejected(t *testing.T) {
 	// A router feeding a join through a routed edge: the barrier would wait
 	// for a predecessor that may be route-skipped, deadlocking it.
-	def := &Definition{
+	def := &store.FlowDefinition{
 		ID:    "badjoin",
 		Name:  "badjoin",
 		Entry: "decide",
-		Nodes: []Node{
-			{ID: "decide", Type: NodeRouter, DefaultRoute: "skip", Rules: []Rule{
+		Nodes: []store.FlowNode{
+			{ID: "decide", Type: store.FlowNodeRouter, DefaultRoute: "skip", Rules: []store.FlowRule{
 				{When: "state.go == true", Route: "go"},
 			}},
-			{ID: "merge", Type: NodeJoin},
-			{ID: "skipped", Type: NodeAgent, AgentID: "ag-skip"},
-			{ID: "done", Type: NodeAgent, AgentID: "ag-done"},
+			{ID: "merge", Type: store.FlowNodeJoin},
+			{ID: "skipped", Type: store.FlowNodeAgent, AgentID: "ag-skip"},
+			{ID: "done", Type: store.FlowNodeAgent, AgentID: "ag-done"},
 		},
-		Edges: []Edge{
-			{From: Start, To: "decide"},
+		Edges: []store.FlowEdge{
 			{From: "decide", To: "merge", Route: "go"},
 			{From: "decide", To: "skipped", Route: "skip"},
 			{From: "merge", To: "done"},
@@ -312,16 +304,15 @@ func TestValidate_RoutedEdgeIntoJoinIsRejected(t *testing.T) {
 
 func TestValidate_NoTerminalNode(t *testing.T) {
 	// A pure two-node cycle with no exit has no terminal node.
-	def := &Definition{
+	def := &store.FlowDefinition{
 		ID:    "cyc",
 		Name:  "cycle",
 		Entry: "a",
-		Nodes: []Node{
-			{ID: "a", Type: NodeAgent, AgentID: "x"},
-			{ID: "b", Type: NodeAgent, AgentID: "y"},
+		Nodes: []store.FlowNode{
+			{ID: "a", Type: store.FlowNodeAgent, AgentID: "x"},
+			{ID: "b", Type: store.FlowNodeAgent, AgentID: "y"},
 		},
-		Edges: []Edge{
-			{From: Start, To: "a"},
+		Edges: []store.FlowEdge{
 			{From: "a", To: "b"},
 			{From: "b", To: "a"},
 		},
