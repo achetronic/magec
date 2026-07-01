@@ -1,6 +1,7 @@
 <template>
   <div
     class="flow-canvas relative"
+    :class="{ 'flow-canvas-fullscreen': fullscreen }"
     ref="canvasRef"
     @wheel.prevent="onWheel"
     @pointerdown="onCanvasPointerDown"
@@ -127,12 +128,17 @@
       <button @click="fitView" class="flow-zoom-btn" title="Fit / center">
         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 8V5a2 2 0 012-2h3m8 0h3a2 2 0 012 2v3m0 8v3a2 2 0 01-2 2h-3m-8 0H5a2 2 0 01-2-2v-3" /></svg>
       </button>
+      <div class="w-px h-3.5 bg-piedra-700/40 mx-0.5"></div>
+      <button @click="toggleFullscreen" class="flow-zoom-btn" :title="fullscreen ? 'Exit full screen (Esc)' : 'Full screen'">
+        <svg v-if="!fullscreen" class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 8V4h4m8 0h4v4m0 8v4h-4m-8 0H4v-4" /></svg>
+        <svg v-else class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 4v4H5m10-4v4h4M9 20v-4H5m10 4v-4h4" /></svg>
+      </button>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, computed, watch, nextTick, onMounted } from 'vue'
+import { ref, reactive, computed, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import FlowNode from './FlowNode.vue'
 
 const CANVAS_SIZE = 4000
@@ -432,6 +438,28 @@ function measurePorts() {
 watch([nodes, edges, scale, panX, panY], () => nextTick(measurePorts), { deep: true })
 onMounted(() => { nextTick(() => { measurePorts(); fitView() }) })
 
+// ── full screen ──────────────────────────────────────────────────────────────
+// CSS-based full screen (a fixed overlay), not the native Fullscreen API, so we
+// control Escape precisely: Esc exits full screen and never reaches the dialog.
+// The dialog itself is `persistent`, so Esc outside full screen does nothing —
+// a flow is only dismissed via Cancel/Save.
+const fullscreen = ref(false)
+function toggleFullscreen() {
+  fullscreen.value = !fullscreen.value
+  nextTick(() => { measurePorts(); fitView() })
+}
+function onKeydown(e) {
+  if (e.key === 'Escape' && fullscreen.value) {
+    e.preventDefault()
+    e.stopPropagation()
+    fullscreen.value = false
+    nextTick(() => { measurePorts(); fitView() })
+  }
+}
+// Capture phase so we intercept Escape before it bubbles anywhere else.
+onMounted(() => window.addEventListener('keydown', onKeydown, true))
+onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown, true))
+
 // bezier between two canvas points, horizontal tangents
 function bezier(a, b) {
   if (!a || !b) return ''
@@ -505,6 +533,16 @@ const startPos = computed(() => {
   touch-action: none;
 }
 .flow-canvas:active { cursor: grabbing; }
+
+/* CSS full screen: a fixed overlay above the dialog (z ~50). */
+.flow-canvas-fullscreen {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 60;
+  border-radius: 0;
+}
 
 .flow-canvas-inner {
   position: absolute;

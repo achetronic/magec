@@ -6,16 +6,12 @@
     :data-node-id="node.id"
     @pointerdown.stop="onBodyPointerDown"
   >
-    <!-- Entry flag -->
+    <!-- Entry marker: a red dot in the top-left corner -->
     <div
       v-if="isEntry"
-      class="absolute -top-2.5 left-3 z-10 flex items-center gap-1 px-1.5 py-px rounded-full bg-rose-500/20 border border-rose-500/40"
-    >
-      <svg class="w-2.5 h-2.5 text-rose-300" viewBox="0 0 24 24" fill="currentColor">
-        <path d="M3 3h13l-2 4 2 4H3z" />
-      </svg>
-      <span class="text-[8px] font-bold uppercase tracking-wider text-rose-300">Entry</span>
-    </div>
+      class="absolute -top-1.5 -left-1.5 z-10 w-3.5 h-3.5 rounded-full bg-rose-500 border-2 border-piedra-900 shadow"
+      title="Entry — where this flow starts"
+    ></div>
 
     <div
       class="rounded-xl border bg-piedra-900/95 backdrop-blur-sm shadow-lg transition-all flex flex-col h-full"

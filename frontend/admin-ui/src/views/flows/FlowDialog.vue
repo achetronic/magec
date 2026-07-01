@@ -1,5 +1,5 @@
 <template>
-  <AppDialog ref="dialogRef" :title="isEdit ? 'Edit Flow' : 'New Flow'" size="2xl" @save="save">
+  <AppDialog ref="dialogRef" :title="isEdit ? 'Edit Flow' : 'New Flow'" size="2xl" persistent @save="save">
     <div class="space-y-4">
       <div class="grid grid-cols-3 gap-4">
         <div>
