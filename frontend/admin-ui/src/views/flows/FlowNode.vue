@@ -30,7 +30,30 @@
             <path stroke-linecap="round" stroke-linejoin="round" :d="iconPath" />
           </svg>
         </div>
-        <span class="flex-1 text-[9px] font-bold uppercase tracking-wider truncate" :class="labelColorClass">{{ typeLabel }}</span>
+        <span class="text-[9px] font-bold uppercase tracking-wider flex-shrink-0" :class="labelColorClass">{{ typeLabel }}</span>
+        <!-- Node ID chip. The ID is what downstream consumers see (Join map
+             keys, event authors), so it stays visible and a click renames it. -->
+        <div class="flex-1 min-w-0 flex" @pointerdown.stop>
+          <input
+            v-if="editingId"
+            ref="idInputRef"
+            v-model="idDraft"
+            spellcheck="false"
+            class="w-full min-w-0 bg-piedra-800 border rounded px-1 py-px text-[8px] font-mono outline-none"
+            :class="idDraftValid ? 'border-piedra-600 text-arena-200' : 'border-lava-500/60 text-lava-300'"
+            @click.stop
+            @keydown.enter.prevent="commitRename"
+            @keydown.esc.prevent="cancelRename"
+            @blur="commitRename"
+          />
+          <button
+            v-else
+            type="button"
+            class="max-w-full truncate rounded bg-piedra-800/60 px-1 py-px text-[8px] font-mono text-arena-500 hover:text-arena-300 transition-colors"
+            title="Node ID. Click to rename"
+            @click.stop="beginRename"
+          >{{ node.id }}</button>
+        </div>
         <NodeHelp v-if="helpSections.length" label="Need help?" :title="typeLabel" :sections="helpSections" />
         <button
           @pointerdown.stop @click.stop="$emit('remove')"
@@ -337,23 +360,59 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, nextTick } from 'vue'
 import NodeHelp from './NodeHelp.vue'
 
-const NODE_W = 210
+// Default card width. Wide enough for the header to fit the type label, the
+// ID chip and the help trigger without crowding.
+const NODE_W = 360
 
 const props = defineProps({
   node:              { type: Object, required: true },
   agents:            { type: Array, default: () => [] },
   flows:             { type: Array, default: () => [] },
+  allIds:            { type: Array, default: () => [] },
   isEntry:           { type: Boolean, default: false },
   selected:          { type: Boolean, default: false },
   connectingActive:  { type: Boolean, default: false },
 })
 
-const emit = defineEmits(['update', 'remove', 'start-edge', 'end-edge', 'pointerdown-body'])
+const emit = defineEmits(['update', 'remove', 'rename', 'start-edge', 'end-edge', 'pointerdown-body'])
 
 const pickerOpen = ref(false)
+
+// ── node id rename ────────────────────────────────────────────────────────────
+// Mirrors the backend rules (flowgraph idPattern plus the reserved sentinel)
+// so an invalid draft is flagged before it ever reaches the server.
+const ID_PATTERN = /^[a-zA-Z_][a-zA-Z0-9_-]*$/
+const RESERVED_ID = 'START'
+
+const editingId = ref(false)
+const idDraft = ref('')
+const idInputRef = ref(null)
+
+const idDraftValid = computed(() => {
+  const draft = idDraft.value
+  if (!ID_PATTERN.test(draft) || draft === RESERVED_ID) return false
+  return draft === props.node.id || !props.allIds.includes(draft)
+})
+
+function beginRename() {
+  idDraft.value = props.node.id
+  editingId.value = true
+  nextTick(() => idInputRef.value?.select())
+}
+
+function commitRename() {
+  if (!editingId.value) return
+  editingId.value = false
+  if (!idDraftValid.value || idDraft.value === props.node.id) return
+  emit('rename', idDraft.value)
+}
+
+function cancelRename() {
+  editingId.value = false
+}
 
 // ── size / resize ────────────────────────────────────────────────────────────
 const MIN_W = 160
@@ -491,7 +550,7 @@ const NODE_HELP = {
   join: [
     {
       heading: 'What it does',
-      body: 'Waits for all incoming branches to finish, then emits their outputs as a single map keyed by the node that produced each one.',
+      body: 'Waits for all incoming branches to finish, then emits their outputs as a single map. Each key is the ID shown on the producing node\'s header.',
       code: ['{ "agent_1": "...", "agent_2": "..." }'],
     },
     {

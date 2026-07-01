@@ -101,11 +101,13 @@
         :node="n"
         :agents="agents"
         :flows="flows"
+        :all-ids="nodeIds"
         :is-entry="n.id === entry"
         :selected="n.id === selectedNode"
         :connecting-active="connecting !== null"
         @update="updateNode"
         @remove="removeNode(n.id)"
+        @rename="renameNode(n.id, $event)"
         @start-edge="startEdge"
         @end-edge="endEdge"
         @pointerdown-body="onNodePointerDown($event, n)"
@@ -158,6 +160,7 @@ const graph = computed(() => props.modelValue || { entry: '', nodes: [], edges: 
 const nodes = computed(() => graph.value.nodes || [])
 const edges = computed(() => graph.value.edges || [])
 const entry = computed(() => graph.value.entry || '')
+const nodeIds = computed(() => nodes.value.map(n => n.id))
 
 function commit(next) {
   emit('update:modelValue', next)
@@ -218,26 +221,25 @@ function genId(type) {
 
 function addNode(type) {
   const id = genId(type)
-  // Place near the centre of the current viewport, in canvas coords.
+  // Place near the centre of the current viewport, in canvas coords. The x
+  // offset is half the default card width (FlowNode NODE_W).
   const rect = canvasRef.value.getBoundingClientRect()
-  const cx = (rect.width / 2 - panX.value) / scale.value - 105
+  const cx = (rect.width / 2 - panX.value) / scale.value - 180
   const cy = (rect.height / 2 - panY.value) / scale.value - 30
   const node = { id, type, x: Math.round(cx), y: Math.round(cy) }
   if (type === 'agent') node.agentId = ''
-  // Foreach is wider than the default so its concurrency controls read well.
-  if (type === 'parallel') { node.agentId = ''; node.maxConcurrency = 0; node.w = 280 }
+  if (type === 'parallel') { node.agentId = ''; node.maxConcurrency = 0 }
   if (type === 'subflow') node.flowId = ''
-  // Text nodes are born clearly larger than selection nodes: the size itself
-  // signals that a lot of text goes inside.
-  if (type === 'expression') { node.expression = ''; node.outputKey = ''; node.w = 360; node.h = 260 }
-  if (type === 'template') { node.template = ''; node.outputKey = ''; node.w = 360; node.h = 280 }
+  // Text nodes are born tall so the size itself signals that a lot of text
+  // goes inside; code is also wider than the default.
+  if (type === 'expression') { node.expression = ''; node.outputKey = ''; node.h = 260 }
+  if (type === 'template') { node.template = ''; node.outputKey = ''; node.h = 280 }
   if (type === 'code') { node.script = ''; node.outputKey = ''; node.timeoutMs = 0; node.maxOutputBytes = 0; node.w = 400; node.h = 320 }
   if (type === 'router') {
     // Three empty rows so the rotating placeholders show a full example ladder
-    // of score conditions, and a wider card so the expressions fit.
+    // of score conditions.
     node.rules = [{ when: '', route: '' }, { when: '', route: '' }, { when: '', route: '' }]
     node.defaultRoute = 'default'
-    node.w = 280
   }
   const nextNodes = [...nodes.value, node]
   // First node added becomes the entry by default.
@@ -247,6 +249,23 @@ function addNode(type) {
 
 function updateNode(updated) {
   patch({ nodes: nodes.value.map(n => n.id === updated.id ? updated : n) })
+  nextTick(measurePorts)
+}
+
+// renameNode applies an ID change everywhere the old ID appears: the node
+// itself, edge endpoints and the entry pointer. The chip editor validates
+// pattern and uniqueness before emitting, so the new ID is trusted here.
+function renameNode(oldId, newId) {
+  patch({
+    nodes: nodes.value.map(n => n.id === oldId ? { ...n, id: newId } : n),
+    edges: edges.value.map(e => ({
+      ...e,
+      from: e.from === oldId ? newId : e.from,
+      to: e.to === oldId ? newId : e.to,
+    })),
+    entry: entry.value === oldId ? newId : entry.value,
+  })
+  if (selectedNode.value === oldId) selectedNode.value = newId
   nextTick(measurePorts)
 }
 
