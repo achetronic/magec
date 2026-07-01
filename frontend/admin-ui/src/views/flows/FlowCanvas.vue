@@ -11,14 +11,16 @@
     <!-- Toolbar -->
     <div class="flow-toolbar">
       <span class="text-[9px] text-arena-500 uppercase tracking-wider font-semibold px-1 select-none">Add node</span>
-      <button v-for="t in nodeTypes" :key="t.type" class="flow-tool-btn" :class="t.cls" @click="addNode(t.type)" :title="t.title">
-        <span class="w-4 h-4 rounded flex items-center justify-center flex-shrink-0" :class="t.iconBg">
-          <svg class="w-2.5 h-2.5" :class="t.iconColor" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.7">
-            <path stroke-linecap="round" stroke-linejoin="round" :d="t.icon" />
-          </svg>
-        </span>
-        <span class="text-[10px] font-medium">{{ t.label }}</span>
-      </button>
+      <div v-for="(group, gi) in nodeGroups" :key="gi" class="flow-tool-group">
+        <button v-for="t in group" :key="t.type" class="flow-tool-btn" :class="t.cls" @click="addNode(t.type)" :title="t.title">
+          <span class="w-4 h-4 rounded flex items-center justify-center flex-shrink-0" :class="t.iconBg">
+            <svg class="w-2.5 h-2.5" :class="t.iconColor" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.7">
+              <path stroke-linecap="round" stroke-linejoin="round" :d="t.icon" />
+            </svg>
+          </span>
+          <span class="text-[10px] font-medium">{{ t.label }}</span>
+        </button>
+      </div>
     </div>
 
     <!-- Canvas content (panned + zoomed) -->
@@ -167,28 +169,40 @@ function patch(partial) {
 }
 
 // ── node toolbar ─────────────────────────────────────────────────────────────
-const nodeTypes = [
-  { type: 'agent', label: 'Agent', title: 'An AI agent that processes input and produces output',
-    cls: 'border-sol-500/30 hover:border-sol-500/60', iconBg: 'bg-sol-500/15', iconColor: 'text-sol-400',
-    icon: 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z' },
-  { type: 'router', label: 'Router', title: 'Evaluates CEL rules and routes to one of several branches',
-    cls: 'border-atlantico-500/30 hover:border-atlantico-500/60', iconBg: 'bg-atlantico-500/15', iconColor: 'text-atlantico-400',
-    icon: 'M3 12h4l3-9 4 18 3-9h4' },
-  { type: 'join', label: 'Join', title: 'Fan-in barrier: waits for all incoming branches',
-    cls: 'border-purple-500/30 hover:border-purple-500/60', iconBg: 'bg-purple-500/15', iconColor: 'text-purple-400',
-    icon: 'M7 4v5a5 5 0 005 5 5 5 0 005-5V4M12 14v6' },
-  { type: 'parallel', label: 'Parallel', title: 'Runs an agent once per item of a list input, concurrently',
-    cls: 'border-lava-500/30 hover:border-lava-500/60', iconBg: 'bg-lava-500/15', iconColor: 'text-lava-400',
-    icon: 'M4 6h16M4 12h16M4 18h16' },
-  { type: 'subflow', label: 'Subflow', title: 'Embed another flow as a nested workflow',
-    cls: 'border-rose-500/30 hover:border-rose-500/60', iconBg: 'bg-rose-500/15', iconColor: 'text-rose-400',
-    icon: 'M9 4H5a1 1 0 00-1 1v4m0 6v4a1 1 0 001 1h4m6-16h4a1 1 0 011 1v4m0 6v4a1 1 0 01-1 1h-4M9 9h6v6H9z' },
-  { type: 'expression', label: 'Expression', title: 'Transform the input with a CEL expression over input and state',
-    cls: 'border-indigo-500/30 hover:border-indigo-500/60', iconBg: 'bg-indigo-500/15', iconColor: 'text-indigo-400',
-    icon: 'M8 9l3 3-3 3m5 0h3M4 4h16a1 1 0 011 1v14a1 1 0 01-1 1H4a1 1 0 01-1-1V5a1 1 0 011-1z' },
-  { type: 'template', label: 'Template', title: 'Render text with {{ input }} and {{ state.key }} placeholders',
-    cls: 'border-teal-500/30 hover:border-teal-500/60', iconBg: 'bg-teal-500/15', iconColor: 'text-teal-400',
-    icon: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z' },
+// Grouped by role: execution (agent, subflow), flow control (router, join,
+// parallel), data (expression, template). Groups are separated by whitespace
+// in the toolbar, no subheadings. Add new node types to the matching group.
+const nodeGroups = [
+  // Execution: things that run work.
+  [
+    { type: 'agent', label: 'Agent', title: 'An AI agent that processes input and produces output',
+      cls: 'border-sol-500/30 hover:border-sol-500/60', iconBg: 'bg-sol-500/15', iconColor: 'text-sol-400',
+      icon: 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z' },
+    { type: 'subflow', label: 'Subflow', title: 'Embed another flow as a nested workflow',
+      cls: 'border-rose-500/30 hover:border-rose-500/60', iconBg: 'bg-rose-500/15', iconColor: 'text-rose-400',
+      icon: 'M9 4H5a1 1 0 00-1 1v4m0 6v4a1 1 0 001 1h4m6-16h4a1 1 0 011 1v4m0 6v4a1 1 0 01-1 1h-4M9 9h6v6H9z' },
+  ],
+  // Flow control: routing, joining, fan-out.
+  [
+    { type: 'router', label: 'Router', title: 'Evaluates CEL rules and routes to one of several branches',
+      cls: 'border-atlantico-500/30 hover:border-atlantico-500/60', iconBg: 'bg-atlantico-500/15', iconColor: 'text-atlantico-400',
+      icon: 'M3 12h4l3-9 4 18 3-9h4' },
+    { type: 'join', label: 'Join', title: 'Fan-in barrier: waits for all incoming branches',
+      cls: 'border-purple-500/30 hover:border-purple-500/60', iconBg: 'bg-purple-500/15', iconColor: 'text-purple-400',
+      icon: 'M7 4v5a5 5 0 005 5 5 5 0 005-5V4M12 14v6' },
+    { type: 'parallel', label: 'Parallel', title: 'Runs an agent once per item of a list input, concurrently',
+      cls: 'border-lava-500/30 hover:border-lava-500/60', iconBg: 'bg-lava-500/15', iconColor: 'text-lava-400',
+      icon: 'M4 6h16M4 12h16M4 18h16' },
+  ],
+  // Data: shape and transform values between steps.
+  [
+    { type: 'expression', label: 'Expression', title: 'Transform the input with a CEL expression over input and state',
+      cls: 'border-indigo-500/30 hover:border-indigo-500/60', iconBg: 'bg-indigo-500/15', iconColor: 'text-indigo-400',
+      icon: 'M8 9l3 3-3 3m5 0h3M4 4h16a1 1 0 011 1v14a1 1 0 01-1 1H4a1 1 0 01-1-1V5a1 1 0 011-1z' },
+    { type: 'template', label: 'Template', title: 'Render text with {{ input }} and {{ state.key }} placeholders',
+      cls: 'border-teal-500/30 hover:border-teal-500/60', iconBg: 'bg-teal-500/15', iconColor: 'text-teal-400',
+      icon: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z' },
+  ],
 ]
 
 let idCounter = 0
@@ -633,13 +647,20 @@ const startPos = computed(() => {
   z-index: 20;
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 18px;
   padding: 9px;
   width: 132px;
   background: rgba(26, 26, 29, 0.95);
   backdrop-filter: blur(16px);
   border: 1px solid rgba(120, 113, 108, 0.15);
   border-radius: 12px;
+}
+/* a group of related node buttons; the toolbar's larger gap separates groups,
+   this smaller gap keeps buttons within a group tight */
+.flow-tool-group {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
 }
 .flow-tool-btn {
   display: flex;
