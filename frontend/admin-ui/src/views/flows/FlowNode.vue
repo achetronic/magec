@@ -31,6 +31,7 @@
           </svg>
         </div>
         <span class="flex-1 text-[9px] font-bold uppercase tracking-wider truncate" :class="labelColorClass">{{ typeLabel }}</span>
+        <NodeHelp v-if="node.type === 'router'" label="Need help?" title="Router" :sections="routerHelp" />
         <button
           @pointerdown.stop @click.stop="$emit('remove')"
           class="p-0.5 rounded opacity-0 group-hover:opacity-100 hover:bg-lava-500/20 transition-all flex-shrink-0"
@@ -92,9 +93,6 @@
 
       <!-- ROUTER body -->
       <div v-else-if="node.type === 'router'" class="px-2.5 py-2 space-y-1.5">
-        <p class="px-0.5 text-[9px] text-arena-500 leading-snug">
-          First rule whose <span class="text-atlantico-300 font-medium">CEL</span> guard is true wins. <code class="text-arena-400">state.x</code>, <code class="text-arena-400">iterations</code> available.
-        </p>
         <!-- rules -->
         <div
           v-for="(rule, i) in node.rules" :key="'r' + i"
@@ -104,15 +102,13 @@
             :value="rule.when"
             @input="updateRule(i, 'when', $event.target.value)"
             @pointerdown.stop
-            placeholder="state.score >= 0.8"
+            :placeholder="whenPlaceholder(i)"
             class="flex-1 min-w-0 bg-transparent text-[10px] font-mono text-arena-200 placeholder:text-arena-600 outline-none"
           />
-          <span class="text-arena-600 text-[10px]">→</span>
           <input
             :value="rule.route"
             @input="updateRule(i, 'route', $event.target.value)"
             @pointerdown.stop
-            placeholder="route"
             class="w-14 bg-transparent text-[10px] font-mono font-medium text-atlantico-300 placeholder:text-arena-600 outline-none"
           />
           <button @pointerdown.stop @click.stop="removeRule(i)" class="p-0.5 rounded opacity-0 group-hover:opacity-100 hover:bg-lava-500/20 transition-all">
@@ -373,6 +369,7 @@
 
 <script setup>
 import { ref, computed } from 'vue'
+import NodeHelp from './NodeHelp.vue'
 
 const NODE_W = 210
 
@@ -474,6 +471,26 @@ const tmplPlaceholder = 'Summarise for {{ state.lang }}:\n{{ input }}'
 const codePlaceholder = 'output = input.upper()'
 
 // ── router rules ───────────────────────────────────────────────────────────
+// Rotating placeholder examples so consecutive rules read like a real branch
+// ladder instead of repeating the same condition.
+const WHEN_EXAMPLES = ['state.score >= 0.8', 'state.score >= 0.5', 'state.score < 0.5']
+function whenPlaceholder(i) {
+  return WHEN_EXAMPLES[i % WHEN_EXAMPLES.length]
+}
+
+// Help content shown in the router's NodeHelp popover.
+const routerHelp = [
+  {
+    heading: 'How it works',
+    body: 'Rows are checked top to bottom. The first condition that is true picks its branch. If none match, the flow takes OTHERWISE.',
+  },
+  {
+    heading: 'Variables you can use',
+    body: 'state.<key> holds values saved earlier in the flow (a node\'s "save as", or set_state). iterations counts how many times this router has run, handy for loop exits.',
+    code: ['state.score >= 0.8', 'iterations >= 5'],
+  },
+]
+
 function updateRule(i, key, val) {
   const rules = (props.node.rules || []).map((r, idx) => idx === i ? { ...r, [key]: val } : r)
   emit('update', { ...props.node, rules })

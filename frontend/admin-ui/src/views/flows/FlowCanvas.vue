@@ -229,7 +229,13 @@ function addNode(type) {
   if (type === 'expression') { node.expression = ''; node.outputKey = ''; node.w = 280; node.h = 170 }
   if (type === 'template') { node.template = ''; node.outputKey = ''; node.w = 280; node.h = 190 }
   if (type === 'code') { node.script = ''; node.outputKey = ''; node.timeoutMs = 0; node.maxOutputBytes = 0; node.w = 300; node.h = 220 }
-  if (type === 'router') { node.rules = [{ when: '', route: '' }]; node.defaultRoute = 'default' }
+  if (type === 'router') {
+    // Three empty rows so the rotating placeholders show a full example ladder
+    // of score conditions, and a wider card so the expressions fit.
+    node.rules = [{ when: '', route: '' }, { when: '', route: '' }, { when: '', route: '' }]
+    node.defaultRoute = 'default'
+    node.w = 280
+  }
   const nextNodes = [...nodes.value, node]
   // First node added becomes the entry by default.
   patch({ nodes: nextNodes, entry: entry.value || id })
