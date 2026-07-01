@@ -223,8 +223,8 @@ function addNode(type) {
   if (type === 'agent') node.agentId = ''
   if (type === 'parallel') { node.agentId = ''; node.maxConcurrency = 0 }
   if (type === 'subflow') node.flowId = ''
-  if (type === 'expression') { node.expression = ''; node.outputKey = '' }
-  if (type === 'template') { node.template = ''; node.outputKey = '' }
+  if (type === 'expression') { node.expression = ''; node.outputKey = ''; node.w = 280; node.h = 170 }
+  if (type === 'template') { node.template = ''; node.outputKey = ''; node.w = 280; node.h = 190 }
   if (type === 'router') { node.rules = [{ when: '', route: '' }]; node.defaultRoute = 'default' }
   const nextNodes = [...nodes.value, node]
   // First node added becomes the entry by default.
