@@ -315,6 +315,13 @@ type FlowNode struct {
 	// runs. Persisted so the operator's arrangement survives a round-trip.
 	X float64 `json:"x,omitempty" yaml:"x,omitempty"`
 	Y float64 `json:"y,omitempty" yaml:"y,omitempty"`
+
+	// W and H are the node's size on the visual editor canvas, in pixels. Like
+	// X/Y they are an admin-UI layout hint ignored by the builder and
+	// validation. Zero means "use the default size". Persisted so a node the
+	// operator resized (e.g. to read a long expression) keeps that size.
+	W float64 `json:"w,omitempty" yaml:"w,omitempty"`
+	H float64 `json:"h,omitempty" yaml:"h,omitempty"`
 }
 
 // FlowEdge is a directed connection between two nodes. Route is only

@@ -121,6 +121,8 @@ function cleanNode(n) {
   const clean = { id: n.id, type: n.type }
   if (typeof n.x === 'number') clean.x = Math.round(n.x)
   if (typeof n.y === 'number') clean.y = Math.round(n.y)
+  if (typeof n.w === 'number' && n.w > 0) clean.w = Math.round(n.w)
+  if (typeof n.h === 'number' && n.h > 0) clean.h = Math.round(n.h)
   if (n.type === 'agent') {
     clean.agentId = n.agentId || ''
     if (n.responseAgent) clean.responseAgent = true

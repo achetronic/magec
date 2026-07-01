@@ -2,7 +2,7 @@
   <div
     class="flow-node group absolute select-none"
     :class="{ 'is-selected': selected, 'is-entry': isEntry }"
-    :style="{ left: node.x + 'px', top: node.y + 'px', width: NODE_W + 'px' }"
+    :style="nodeStyle"
     @pointerdown.stop="onBodyPointerDown"
   >
     <!-- Entry flag -->
@@ -17,7 +17,7 @@
     </div>
 
     <div
-      class="rounded-xl border bg-piedra-900/95 backdrop-blur-sm shadow-lg transition-all"
+      class="rounded-xl border bg-piedra-900/95 backdrop-blur-sm shadow-lg transition-all flex flex-col h-full"
       :class="[
         borderClass,
         selected ? selectedRingClass : hoverBorderClass,
@@ -237,7 +237,7 @@
       </div>
 
       <!-- EXPRESSION body -->
-      <div v-else-if="node.type === 'expression'" class="px-2.5 py-2 space-y-1.5">
+      <div v-else-if="node.type === 'expression'" class="px-2.5 py-2 space-y-1.5 flex-1 flex flex-col min-h-0">
         <div class="flex items-center gap-1 px-0.5">
           <span class="text-[9px] text-arena-500">CEL over <code class="text-indigo-300">input</code> and <code class="text-indigo-300">state</code></span>
           <span class="relative group/tip">
@@ -253,7 +253,7 @@
           @pointerdown.stop
           rows="2" spellcheck="false"
           :placeholder="exprPlaceholder"
-          class="w-full bg-piedra-800 border border-piedra-700/50 rounded-lg px-2 py-1 text-[10px] font-mono text-arena-200 placeholder:text-arena-600 outline-none focus:border-indigo-500/50 resize-none"
+          class="w-full flex-1 min-h-[2.5rem] bg-piedra-800 border border-piedra-700/50 rounded-lg px-2 py-1 text-[10px] font-mono text-arena-200 placeholder:text-arena-600 outline-none focus:border-indigo-500/50 resize-none"
         />
         <div class="flex items-center gap-1.5">
           <span class="text-[9px] text-arena-500 whitespace-nowrap">save as</span>
@@ -268,7 +268,7 @@
       </div>
 
       <!-- TEMPLATE body -->
-      <div v-else-if="node.type === 'template'" class="px-2.5 py-2 space-y-1.5">
+      <div v-else-if="node.type === 'template'" class="px-2.5 py-2 space-y-1.5 flex-1 flex flex-col min-h-0">
         <div class="flex items-center gap-1 px-0.5">
           <span class="text-[9px] text-arena-500">text with <code class="text-teal-300">{{ mustacheInput }}</code> placeholders</span>
           <span class="relative group/tip">
@@ -284,7 +284,7 @@
           @pointerdown.stop
           rows="3" spellcheck="false"
           :placeholder="tmplPlaceholder"
-          class="w-full bg-piedra-800 border border-piedra-700/50 rounded-lg px-2 py-1 text-[10px] font-mono text-arena-200 placeholder:text-arena-600 outline-none focus:border-teal-500/50 resize-none"
+          class="w-full flex-1 min-h-[3rem] bg-piedra-800 border border-piedra-700/50 rounded-lg px-2 py-1 text-[10px] font-mono text-arena-200 placeholder:text-arena-600 outline-none focus:border-teal-500/50 resize-none"
         />
         <div class="flex items-center gap-1.5">
           <span class="text-[9px] text-arena-500 whitespace-nowrap">save as</span>
@@ -316,6 +316,18 @@
       title="Drag to connect"
       @pointerdown.stop.prevent="$emit('start-edge', { nodeId: node.id, route: '' })"
     />
+
+    <!-- resize handle (bottom-right) -->
+    <span
+      class="flow-resize opacity-0 group-hover:opacity-100"
+      :class="{ 'opacity-100': resizing }"
+      title="Drag to resize"
+      @pointerdown.stop.prevent="onResizeDown"
+    >
+      <svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.2">
+        <path stroke-linecap="round" d="M9 3L3 9M9 6L6 9" />
+      </svg>
+    </span>
   </div>
 </template>
 
@@ -336,6 +348,53 @@ const props = defineProps({
 const emit = defineEmits(['update', 'remove', 'start-edge', 'end-edge', 'pointerdown-body'])
 
 const pickerOpen = ref(false)
+
+// ── size / resize ────────────────────────────────────────────────────────────
+const MIN_W = 160
+const MIN_H = 90
+
+// nodeStyle places and sizes the node. Width falls back to the default; height
+// is only applied once the operator has resized the node (node.h set), so
+// un-resized nodes keep their natural content height.
+const nodeStyle = computed(() => {
+  const s = {
+    left: props.node.x + 'px',
+    top: props.node.y + 'px',
+    width: (props.node.w || NODE_W) + 'px',
+  }
+  if (props.node.h) s.height = props.node.h + 'px'
+  return s
+})
+
+const resizing = ref(false)
+let resizeStart = null // { px, py, w, h }
+
+function onResizeDown(e) {
+  const el = e.currentTarget.closest('.flow-node')
+  resizing.value = true
+  resizeStart = {
+    px: e.clientX,
+    py: e.clientY,
+    w: props.node.w || (el ? el.offsetWidth : NODE_W),
+    h: props.node.h || (el ? el.offsetHeight : MIN_H),
+  }
+  window.addEventListener('pointermove', onResizeMove)
+  window.addEventListener('pointerup', onResizeUp)
+}
+
+function onResizeMove(e) {
+  if (!resizeStart) return
+  const w = Math.max(MIN_W, Math.round(resizeStart.w + (e.clientX - resizeStart.px)))
+  const h = Math.max(MIN_H, Math.round(resizeStart.h + (e.clientY - resizeStart.py)))
+  emit('update', { ...props.node, w, h })
+}
+
+function onResizeUp() {
+  resizing.value = false
+  resizeStart = null
+  window.removeEventListener('pointermove', onResizeMove)
+  window.removeEventListener('pointerup', onResizeUp)
+}
 
 function onBodyPointerDown(e) {
   emit('pointerdown-body', e)
@@ -482,6 +541,24 @@ function portClass() {
 
 <style scoped>
 .flow-node { transition: box-shadow 0.15s ease; }
+
+/* resize handle, bottom-right corner */
+.flow-resize {
+  position: absolute;
+  right: 2px;
+  bottom: 2px;
+  width: 14px;
+  height: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-arena-500);
+  cursor: nwse-resize;
+  transition: color 0.12s ease, opacity 0.12s ease;
+  z-index: 6;
+}
+.flow-resize:hover { color: var(--color-arena-300); }
+.flow-resize svg { width: 10px; height: 10px; }
 
 /* connection ports */
 .flow-port {
