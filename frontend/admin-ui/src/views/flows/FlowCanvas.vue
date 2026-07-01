@@ -41,15 +41,15 @@
           <path
             :d="entryEdge.d"
             fill="none"
-            :stroke="entryEdge.selected ? '#fb7185' : 'var(--color-arena-500)'"
+            :stroke="entryEdge.selected ? 'var(--color-sol-400)' : 'var(--color-arena-500)'"
             :stroke-width="entryEdge.selected ? 2.5 : 1.8"
             marker-end="url(#arrow)"
             class="flow-edge-line"
             @pointerdown.stop="selectEdge('entry')"
           />
           <g v-if="entryEdge.selected" :transform="`translate(${entryEdge.mid.x}, ${entryEdge.mid.y})`" class="flow-edge-delete" @pointerdown.stop="removeEdge('entry')">
-            <circle r="8" fill="var(--color-lava-500)" />
-            <path d="M-3,-3 L3,3 M3,-3 L-3,3" stroke="white" stroke-width="1.5" stroke-linecap="round" />
+            <circle r="8" fill="var(--color-sol-400)" />
+            <path d="M-3,-3 L3,3 M3,-3 L-3,3" stroke="var(--color-piedra-950)" stroke-width="1.6" stroke-linecap="round" />
           </g>
         </g>
 
@@ -59,7 +59,7 @@
           <path :d="e.d" fill="none" stroke="transparent" stroke-width="18" class="flow-edge-hit" @pointerdown.stop="selectEdge(e.index)" />
           <path
             :d="e.d" fill="none"
-            :stroke="e.selected ? '#fb7185' : 'var(--color-arena-500)'"
+            :stroke="e.selected ? 'var(--color-sol-400)' : 'var(--color-arena-500)'"
             :stroke-width="e.selected ? 2.5 : 1.8"
             marker-end="url(#arrow)"
             class="flow-edge-line"
@@ -73,13 +73,13 @@
           </g>
           <!-- delete button on selected edge -->
           <g v-if="e.selected" :transform="`translate(${e.mid.x}, ${e.mid.y + (e.route ? 16 : 0)})`" class="flow-edge-delete" @pointerdown.stop="removeEdge(e.index)">
-            <circle r="8" fill="var(--color-lava-500)" />
-            <path d="M-3,-3 L3,3 M3,-3 L-3,3" stroke="white" stroke-width="1.5" stroke-linecap="round" />
+            <circle r="8" fill="var(--color-sol-400)" />
+            <path d="M-3,-3 L3,3 M3,-3 L-3,3" stroke="var(--color-piedra-950)" stroke-width="1.6" stroke-linecap="round" />
           </g>
         </g>
 
         <!-- ghost edge while connecting -->
-        <path v-if="ghostPath" :d="ghostPath" fill="none" stroke="#fb7185" stroke-width="2" stroke-dasharray="4 4" opacity="0.7" />
+        <path v-if="ghostPath" :d="ghostPath" fill="none" stroke="var(--color-sol-400)" stroke-width="2" stroke-dasharray="4 4" opacity="0.85" />
       </svg>
 
       <!-- START sentinel -->

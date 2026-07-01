@@ -579,9 +579,9 @@ function portClass() {
   top: 16px;
 }
 .flow-port-in.flow-port-target {
-  background: var(--color-rose-400, #fb7185);
-  border-color: var(--color-rose-300, #fda4af);
-  box-shadow: 0 0 0 4px rgba(251, 113, 133, 0.2);
+  background: var(--color-sol-400);
+  border-color: var(--color-sol-300);
+  box-shadow: 0 0 0 4px rgba(251, 191, 36, 0.25);
 }
 .flow-port-out { right: -7px; }
 .flow-port-out-single { top: 16px; }
