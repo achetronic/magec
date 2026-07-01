@@ -3,6 +3,7 @@
     class="flow-node group absolute select-none"
     :class="{ 'is-selected': selected, 'is-entry': isEntry }"
     :style="nodeStyle"
+    :data-node-id="node.id"
     @pointerdown.stop="onBodyPointerDown"
   >
     <!-- Entry flag -->
@@ -299,13 +300,13 @@
       </div>
     </div>
 
-    <!-- input port (all node types) -->
+    <!-- input port (all node types). The drop target is the whole node (see
+         FlowCanvas onCanvasPointerUp hit-test); this port is the visual cue. -->
     <span
       class="flow-port flow-port-in"
       :class="connectingActive ? 'flow-port-target' : ''"
       :data-port="'in:' + node.id"
       title="Drop a connection here"
-      @pointerup.stop="$emit('end-edge', node.id)"
     />
 
     <!-- single output port for agent / join -->

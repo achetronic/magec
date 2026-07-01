@@ -85,7 +85,7 @@ function open(flow = null) {
   form.name = flow?.name || ''
   form.description = flow?.description || ''
   form.graph = flow
-    ? { entry: flow.entry || '', nodes: deepClone(flow.nodes || []), edges: deepClone(flow.edges || []) }
+    ? { entry: flow.entry || '', nodes: deepClone(flow.nodes || []), edges: deepClone(flow.edges || []), startX: flow.startX, startY: flow.startY }
     : { entry: '', nodes: [], edges: [] }
   form.a2aEnabled = flow?.a2a?.enabled || false
   dialogRef.value?.open()
@@ -103,6 +103,8 @@ async function save() {
     edges: (g.edges || []).map(cleanEdge),
     a2a: form.a2aEnabled ? { enabled: true } : undefined,
   }
+  if (typeof g.startX === 'number') data.startX = Math.round(g.startX)
+  if (typeof g.startY === 'number') data.startY = Math.round(g.startY)
   try {
     if (isEdit.value) {
       await flowsApi.update(editId.value, data)

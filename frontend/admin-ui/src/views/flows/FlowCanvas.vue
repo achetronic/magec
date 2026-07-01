@@ -33,20 +33,29 @@
           </marker>
         </defs>
 
-        <!-- entry edge: START -> entry node -->
-        <path
-          v-if="entryPath"
-          :d="entryPath"
-          fill="none"
-          stroke="#fb7185"
-          stroke-width="2"
-          stroke-dasharray="5 4"
-          marker-end="url(#arrow-rose)"
-          opacity="0.9"
-        />
+        <!-- entry edge: START -> entry node (selectable + deletable) -->
+        <g v-if="entryEdge.d">
+          <!-- wide invisible hitbox so the thin line is easy to click -->
+          <path :d="entryEdge.d" fill="none" stroke="transparent" stroke-width="18" class="flow-edge-hit" @pointerdown.stop="selectEdge('entry')" />
+          <path
+            :d="entryEdge.d"
+            fill="none"
+            :stroke="entryEdge.selected ? '#fb7185' : 'var(--color-arena-500)'"
+            :stroke-width="entryEdge.selected ? 2.5 : 1.8"
+            marker-end="url(#arrow)"
+            class="flow-edge-line"
+            @pointerdown.stop="selectEdge('entry')"
+          />
+          <g v-if="entryEdge.selected" :transform="`translate(${entryEdge.mid.x}, ${entryEdge.mid.y})`" class="flow-edge-delete" @pointerdown.stop="removeEdge('entry')">
+            <circle r="8" fill="var(--color-lava-500)" />
+            <path d="M-3,-3 L3,3 M3,-3 L-3,3" stroke="white" stroke-width="1.5" stroke-linecap="round" />
+          </g>
+        </g>
 
         <!-- real edges -->
         <g v-for="(e, i) in edgePaths" :key="'e' + i">
+          <!-- wide invisible hitbox so the thin line is easy to click -->
+          <path :d="e.d" fill="none" stroke="transparent" stroke-width="18" class="flow-edge-hit" @pointerdown.stop="selectEdge(e.index)" />
           <path
             :d="e.d" fill="none"
             :stroke="e.selected ? '#fb7185' : 'var(--color-arena-500)'"
@@ -62,7 +71,7 @@
             <text x="0" y="3" text-anchor="middle" class="flow-edge-label">{{ e.route }}</text>
           </g>
           <!-- delete button on selected edge -->
-          <g v-if="e.selected" :transform="`translate(${e.mid.x}, ${e.mid.y + (e.route ? 16 : 0)})`" class="cursor-pointer" @pointerdown.stop="removeEdge(e.index)">
+          <g v-if="e.selected" :transform="`translate(${e.mid.x}, ${e.mid.y + (e.route ? 16 : 0)})`" class="flow-edge-delete" @pointerdown.stop="removeEdge(e.index)">
             <circle r="8" fill="var(--color-lava-500)" />
             <path d="M-3,-3 L3,3 M3,-3 L-3,3" stroke="white" stroke-width="1.5" stroke-linecap="round" />
           </g>
@@ -73,11 +82,13 @@
       </svg>
 
       <!-- START sentinel -->
-      <div class="flow-start" :style="{ left: startPos.x + 'px', top: startPos.y + 'px' }" @pointerdown.stop="onStartPointerDown">
-        <span class="flow-start-pill">
-          <svg class="w-3 h-3 text-rose-300" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
-          Start
-        </span>
+      <div class="flow-start" :style="{ left: startPos.x + 'px', top: startPos.y + 'px' }" @pointerdown.stop="onStartPointerDown" title="Drag to move. Drag from the dot to pick the entry node.">
+        <div class="flow-start-card">
+          <div class="flow-start-ic">
+            <svg class="w-3.5 h-3.5 text-rose-400" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
+          </div>
+          <span class="flow-start-label">Start</span>
+        </div>
         <span class="flow-port flow-port-out flow-start-port" data-port="out:__start__|" title="Drag to the entry node" @pointerdown.stop.prevent="startEdge({ nodeId: '__start__', route: '' })" />
       </div>
 
@@ -103,7 +114,7 @@
       <div class="text-center">
         <p class="text-sm font-medium text-arena-300">Build your workflow graph</p>
         <p class="text-[10px] text-arena-500 mt-1">Add nodes from the toolbar, then drag from a node's right port to another's left port to connect them.</p>
-        <p class="text-[10px] text-rose-400/80 mt-1.5">Drag from <span class="font-semibold">Start</span> to mark the entry node.</p>
+        <p class="text-[10px] text-rose-400/80 mt-1.5">Drag from the <span class="font-semibold">Start</span> dot to the node where execution begins.</p>
       </div>
     </div>
 
@@ -144,7 +155,9 @@ function commit(next) {
   emit('update:modelValue', next)
 }
 function patch(partial) {
-  commit({ entry: entry.value, nodes: nodes.value, edges: edges.value, ...partial })
+  // Preserve every graph field, not just the three big ones, so layout hints
+  // like the Start box position survive a partial update.
+  commit({ ...graph.value, entry: entry.value, nodes: nodes.value, edges: edges.value, ...partial })
 }
 
 // ── node toolbar ─────────────────────────────────────────────────────────────
@@ -221,6 +234,14 @@ const selectedNode = ref(null)
 const selectedEdge = ref(null)
 function selectEdge(i) { selectedEdge.value = i; selectedNode.value = null }
 function removeEdge(i) {
+  if (i === 'entry') {
+    // The Start -> Entry arrow is not a stored edge; "deleting" it clears the
+    // entry so the operator can wire a new one by dragging from Start.
+    patch({ entry: '' })
+    selectedEdge.value = null
+    nextTick(measurePorts)
+    return
+  }
   patch({ edges: edges.value.filter((_, idx) => idx !== i) })
   selectedEdge.value = null
   nextTick(measurePorts)
@@ -316,13 +337,36 @@ function onCanvasPointerMove(e) {
       patch({ nodes: nodes.value.map(x => x.id === dragNodeId ? { ...x, x: Math.round(c.x - dragOffset.x), y: Math.round(c.y - dragOffset.y) } : x) })
       measurePorts()
     }
+  } else if (mode === 'drag-start') {
+    const c = toCanvas(e)
+    patch({ startX: Math.round(c.x - dragOffset.x), startY: Math.round(c.y - dragOffset.y) })
+    measurePorts()
   }
 }
 
-function onCanvasPointerUp() {
+function onCanvasPointerUp(e) {
+  if (connecting.value) {
+    // Tolerant drop: connect to whatever node sits under the cursor, not just
+    // its 12px input port. The SVG edge layer is pointer-events:none, so
+    // elementFromPoint returns the node beneath it.
+    const targetId = nodeIdAtPoint(e.clientX, e.clientY)
+    if (targetId) endEdge(targetId)
+    else cancelEdge()
+  }
   mode = null
   dragNodeId = null
-  if (connecting.value) cancelEdge()
+}
+
+// nodeIdAtPoint returns the FlowNode id under the given viewport point, or
+// null. It scans the full stack (elementsFromPoint) so an interactive edge
+// line or label sitting above the node does not shadow the drop target.
+function nodeIdAtPoint(clientX, clientY) {
+  const stack = document.elementsFromPoint(clientX, clientY)
+  for (const el of stack) {
+    const nodeEl = el.closest && el.closest('[data-node-id]')
+    if (nodeEl) return nodeEl.dataset.nodeId
+  }
+  return null
 }
 
 // ── connecting edges ─────────────────────────────────────────────────────────
@@ -333,7 +377,14 @@ const ghostCursor = ref({ x: 0, y: 0 })
 function startEdge(src) {
   connecting.value = src
 }
-function onStartPointerDown() { /* allow pan from pill body; port handles connect */ }
+// onStartPointerDown drags the Start box around the canvas. The port sitting on
+// its edge stops propagation and starts a connection instead, so a drag from
+// the body moves the box and a drag from the port wires the entry.
+function onStartPointerDown(e) {
+  mode = 'drag-start'
+  const c = toCanvas(e)
+  dragOffset = { x: c.x - startPos.value.x, y: c.y - startPos.value.y }
+}
 
 function endEdge(targetId) {
   const src = connecting.value
@@ -404,12 +455,19 @@ const edgePaths = computed(() => {
   }).filter(e => e.d)
 })
 
-const entryPath = computed(() => {
+// entryEdge describes the Start -> Entry arrow: its bezier path, midpoint (for
+// the delete button) and whether it is currently selected. Empty d when there
+// is no entry yet.
+const entryEdge = computed(() => {
   measureTick.value
-  if (!entry.value) return ''
+  if (!entry.value) return { d: '' }
   const a = portPos['out:__start__|']
   const b = portPos[portKeyIn(entry.value)]
-  return bezier(a, b)
+  return {
+    d: bezier(a, b),
+    mid: a && b ? mid(a, b) : { x: 0, y: 0 },
+    selected: selectedEdge.value === 'entry',
+  }
 })
 
 const ghostPath = computed(() => {
@@ -419,8 +477,13 @@ const ghostPath = computed(() => {
   return bezier(a, ghostCursor.value)
 })
 
-// START sentinel position: left of the entry node, else a default spot.
+// START sentinel position: the operator's placement (startX/startY) if set,
+// else pinned to the left of the entry node, else a default spot.
 const startPos = computed(() => {
+  const g = graph.value
+  if (typeof g.startX === 'number' && typeof g.startY === 'number') {
+    return { x: g.startX, y: g.startY }
+  }
   const entryNode = nodes.value.find(n => n.id === entry.value)
   if (entryNode) return { x: entryNode.x - 150, y: entryNode.y + 4 }
   return { x: 40, y: 60 }
@@ -458,8 +521,12 @@ const startPos = computed(() => {
   pointer-events: none;
   overflow: visible;
 }
-.flow-edge-line { pointer-events: stroke; cursor: pointer; transition: stroke 0.12s ease; }
-.flow-edge-line:hover { stroke: var(--color-arena-300); }
+.flow-edge-line { pointer-events: none; transition: stroke 0.12s ease; }
+/* wide transparent path under each edge that captures clicks */
+.flow-edge-hit { pointer-events: stroke; cursor: pointer; }
+.flow-edge-hit:hover + .flow-edge-line { stroke: var(--color-arena-300); }
+/* the SVG layer is pointer-events:none; the delete hitbox opts back in */
+.flow-edge-delete { pointer-events: all; cursor: pointer; }
 .flow-edge-label {
   fill: var(--color-atlantico-300);
   font-size: 9px;
@@ -468,25 +535,57 @@ const startPos = computed(() => {
 }
 
 /* START sentinel */
-.flow-start { position: absolute; }
-.flow-start-pill {
-  display: inline-flex;
+.flow-start { position: absolute; cursor: grab; }
+.flow-start:active { cursor: grabbing; }
+.flow-start-card {
+  display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 4px 10px 4px 8px;
-  border-radius: 9999px;
-  background: rgba(251, 113, 133, 0.12);
-  border: 1px solid rgba(251, 113, 133, 0.4);
-  color: var(--color-rose-300, #fda4af);
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  white-space: nowrap;
-  box-shadow: 0 2px 10px -4px rgba(251, 113, 133, 0.5);
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 12px;
+  background: rgba(26, 26, 29, 0.95);
+  border: 1px solid rgba(251, 113, 133, 0.35);
+  box-shadow: 0 8px 24px -10px rgba(0, 0, 0, 0.6);
+  transition: border-color 0.12s ease;
 }
-.flow-start-port { right: -7px; top: 50%; transform: translateY(-50%); }
-.flow-start-port:hover { transform: translateY(-50%) scale(1.25); }
+.flow-start:hover .flow-start-card { border-color: rgba(251, 113, 133, 0.6); }
+.flow-start-ic {
+  width: 24px;
+  height: 24px;
+  border-radius: 7px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  background: rgba(251, 113, 133, 0.15);
+}
+.flow-start-label {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-rose-400, #fb7185);
+}
+.flow-start-port {
+  /* .flow-port lives in FlowNode.vue's scoped styles, so the Start box's own
+     port needs the circle defined here too. */
+  position: absolute;
+  right: -7px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 12px;
+  height: 12px;
+  border-radius: 9999px;
+  background: var(--color-piedra-700);
+  border: 2px solid var(--color-rose-400, #fb7185);
+  cursor: crosshair;
+  transition: all 0.12s ease;
+  z-index: 6;
+}
+.flow-start-port:hover {
+  transform: translateY(-50%) scale(1.3);
+  background: var(--color-rose-400, #fb7185);
+}
 
 /* toolbar */
 .flow-toolbar {

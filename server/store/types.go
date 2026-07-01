@@ -435,6 +435,13 @@ type FlowDefinition struct {
 	Nodes       []FlowNode `json:"nodes" yaml:"nodes"`
 	Edges       []FlowEdge `json:"edges" yaml:"edges"`
 	A2A         *A2AConfig `json:"a2a,omitempty" yaml:"a2a,omitempty"`
+
+	// StartX and StartY are the position of the Start sentinel box on the
+	// visual editor canvas. Like the per-node X/Y they are an admin-UI layout
+	// hint ignored by the builder and validation. Persisted so the operator's
+	// placement of the Start box survives a round-trip.
+	StartX float64 `json:"startX,omitempty" yaml:"startX,omitempty"`
+	StartY float64 `json:"startY,omitempty" yaml:"startY,omitempty"`
 }
 
 // Settings holds global configuration that applies to the launcher/runtime
