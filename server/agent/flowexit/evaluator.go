@@ -19,18 +19,19 @@ import (
 	toolsflowstate "github.com/achetronic/magec/server/agent/tools/flowstate"
 )
 
-// Evaluate runs a compiled CEL program against the supplied flow-state
-// snapshot and iteration count, returning the boolean result. It is the
-// evaluation half of the router node: the builder compiles each rule's guard
-// with Compile and the router calls Evaluate per rule, taking the first that
-// returns true.
+// Evaluate runs a compiled CEL program against the node input, the supplied
+// flow-state snapshot and the iteration count, returning the boolean result.
+// It is the evaluation half of the router node: the builder compiles each
+// rule's guard with Compile and the router calls Evaluate per rule, taking the
+// first that returns true.
 //
 // expr is included only for log clarity when the program errors at evaluation
 // time; it is not re-parsed. On a runtime error (missing key, type mismatch)
 // or a non-bool result the function logs a warning and returns false, so a
-// faulty guard never silently routes traffic — it simply does not match.
-func Evaluate(prog cel.Program, expr string, state map[string]any, iterations int) bool {
+// faulty guard never silently routes traffic: it simply does not match.
+func Evaluate(prog cel.Program, expr string, input any, state map[string]any, iterations int) bool {
 	out, _, err := prog.Eval(map[string]any{
+		"input":      input,
 		"state":      state,
 		"iterations": iterations,
 	})

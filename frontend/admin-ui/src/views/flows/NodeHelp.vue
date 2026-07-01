@@ -13,8 +13,8 @@
     @mouseenter="show"
     @mouseleave="scheduleClose"
   >
-    <span v-if="label" class="text-[9px] font-medium normal-case tracking-normal">{{ label }}</span>
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" class="w-3 h-3">
+    <span v-if="label" class="text-[9px] font-medium leading-none normal-case tracking-normal">{{ label }}</span>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" class="w-3 h-3 relative -top-[0.5px]">
       <path
         stroke-linecap="round"
         stroke-linejoin="round"
@@ -37,6 +37,12 @@
       <div v-for="(section, idx) in sections" :key="idx" class="space-y-1">
         <p v-if="section.heading" class="text-arena-300 text-[9px] font-medium">{{ section.heading }}</p>
         <p v-if="section.body" class="text-arena-400 text-[9px] leading-relaxed">{{ section.body }}</p>
+        <ul v-if="section.items && section.items.length" class="space-y-0.5">
+          <li v-for="(item, itemIdx) in section.items" :key="itemIdx" class="flex gap-1.5 text-[9px] leading-relaxed">
+            <span class="text-arena-600">•</span>
+            <span><code class="font-mono text-atlantico-300">{{ item.name }}</code><span class="text-arena-400 ml-1.5">{{ item.desc }}</span></span>
+          </li>
+        </ul>
         <div v-if="section.code && section.code.length" class="flex flex-wrap gap-1">
           <span
             v-for="(codeLine, codeIdx) in section.code"

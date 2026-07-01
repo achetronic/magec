@@ -482,12 +482,20 @@ function whenPlaceholder(i) {
 const routerHelp = [
   {
     heading: 'How it works',
-    body: 'Rows are checked top to bottom. The first condition that is true picks its branch. If none match, the flow takes OTHERWISE.',
+    body: 'Rules are checked top to bottom. The first condition that is true picks its branch. If none match, the flow takes OTHERWISE.',
+  },
+  {
+    heading: 'Conditions are CEL expressions',
+    body: 'Each condition is a small CEL expression that must result in true or false.',
   },
   {
     heading: 'Variables you can use',
-    body: 'state.<key> holds values saved earlier in the flow (a node\'s "save as", or set_state). iterations counts how many times this router has run, handy for loop exits.',
-    code: ['state.score >= 0.8', 'iterations >= 5'],
+    items: [
+      { name: 'input', desc: 'the output of the previous node.' },
+      { name: 'state.<key>', desc: 'values saved earlier in the flow.' },
+      { name: 'iterations', desc: 'how many times this router has run.' },
+    ],
+    code: ['input.contains("error")', 'state.score >= 0.8', 'iterations >= 5'],
   },
 ]
 

@@ -22,7 +22,7 @@ func TestEvaluate_True(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Compile: %v", err)
 	}
-	if !Evaluate(prog, `state.approved == true`, map[string]any{"approved": true}, 0) {
+	if !Evaluate(prog, `state.approved == true`, nil, map[string]any{"approved": true}, 0) {
 		t.Fatal("expected true")
 	}
 }
@@ -32,7 +32,7 @@ func TestEvaluate_False(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Compile: %v", err)
 	}
-	if Evaluate(prog, `state.approved == true`, map[string]any{"approved": false}, 0) {
+	if Evaluate(prog, `state.approved == true`, nil, map[string]any{"approved": false}, 0) {
 		t.Fatal("expected false")
 	}
 }
@@ -45,10 +45,10 @@ func TestEvaluate_IterationsGuard(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Compile: %v", err)
 	}
-	if Evaluate(prog, expr, map[string]any{"done": false}, 4) {
+	if Evaluate(prog, expr, nil, map[string]any{"done": false}, 4) {
 		t.Fatal("expected false below the iteration cap")
 	}
-	if !Evaluate(prog, expr, map[string]any{"done": false}, 5) {
+	if !Evaluate(prog, expr, nil, map[string]any{"done": false}, 5) {
 		t.Fatal("expected true once the iteration cap is reached")
 	}
 }
@@ -60,7 +60,7 @@ func TestEvaluate_RuntimeErrorTreatedAsFalse(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Compile: %v", err)
 	}
-	if Evaluate(prog, `state.score > 0.5`, map[string]any{"score": "high"}, 0) {
+	if Evaluate(prog, `state.score > 0.5`, nil, map[string]any{"score": "high"}, 0) {
 		t.Fatal("expected false on runtime error")
 	}
 }
@@ -71,8 +71,23 @@ func TestEvaluate_MissingKeyTreatedAsFalse(t *testing.T) {
 		t.Fatalf("Compile: %v", err)
 	}
 	// has() guards the access, so missing key returns false, no error.
-	if Evaluate(prog, `has(state.approved) && state.approved == true`, map[string]any{}, 0) {
+	if Evaluate(prog, `has(state.approved) && state.approved == true`, nil, map[string]any{}, 0) {
 		t.Fatal("expected false when key absent")
+	}
+}
+
+func TestEvaluate_InputGuard(t *testing.T) {
+	// Router guards can branch on the upstream node's output directly.
+	const expr = `input.contains("error")`
+	prog, err := Compile(expr)
+	if err != nil {
+		t.Fatalf("Compile: %v", err)
+	}
+	if !Evaluate(prog, expr, "an error happened", map[string]any{}, 0) {
+		t.Fatal("expected true when the input contains the needle")
+	}
+	if Evaluate(prog, expr, "all good", map[string]any{}, 0) {
+		t.Fatal("expected false when the input does not contain the needle")
 	}
 }
 

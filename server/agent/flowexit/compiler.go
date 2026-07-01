@@ -30,7 +30,10 @@ import (
 	"github.com/google/cel-go/ext"
 )
 
-// celEnv declares the variables available to operator expressions:
+// celEnv declares the variables available to router guard expressions:
+//   - `input`: the output of the previous node, typed dyn so any shape is
+//     accepted. Lets a router branch on upstream content directly, e.g.
+//     `input.contains("error")`.
 //   - `state`: a map<string, dyn> populated by the flow runner from session
 //     state values written through set_state (the "flow:" namespace).
 //   - `iterations`: an int, how many times the evaluating router node has been
@@ -41,15 +44,15 @@ import (
 // and the env is stateless and safe to share.
 var celEnv *cel.Env
 
-// celValueEnv is the environment for expression (transform) nodes. Unlike
-// celEnv it exposes `input` (the previous node's output, typed dyn so any
-// shape is accepted) alongside `state`, and its expressions may return any
+// celValueEnv is the environment for expression (transform) nodes. Like
+// celEnv it exposes `input` and `state`, and its expressions may return any
 // type, not just bool. There is no `iterations` here: transform nodes are not
 // loop guards.
 var celValueEnv *cel.Env
 
 func init() {
 	env, err := cel.NewEnv(
+		cel.Variable("input", cel.DynType),
 		cel.Variable("state", cel.MapType(cel.StringType, cel.DynType)),
 		cel.Variable("iterations", cel.IntType),
 	)

@@ -77,7 +77,7 @@ func buildRouterNode(node store.FlowNode) (workflow.Node, error) {
 		flowState := flowexit.ExtractFlowState(st)
 		route := defaultRoute
 		for _, r := range rules {
-			if flowexit.Evaluate(r.prog, r.expr, flowState, iterations) {
+			if flowexit.Evaluate(r.prog, r.expr, input, flowState, iterations) {
 				route = r.route
 				break
 			}
