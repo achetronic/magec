@@ -164,6 +164,12 @@ const nodeTypes = [
   { type: 'subflow', label: 'Subflow', title: 'Embed another flow as a nested workflow',
     cls: 'border-rose-500/30 hover:border-rose-500/60', iconBg: 'bg-rose-500/15', iconColor: 'text-rose-400',
     icon: 'M9 4H5a1 1 0 00-1 1v4m0 6v4a1 1 0 001 1h4m6-16h4a1 1 0 011 1v4m0 6v4a1 1 0 01-1 1h-4M9 9h6v6H9z' },
+  { type: 'expression', label: 'Expression', title: 'Transform the input with a CEL expression over input and state',
+    cls: 'border-indigo-500/30 hover:border-indigo-500/60', iconBg: 'bg-indigo-500/15', iconColor: 'text-indigo-400',
+    icon: 'M8 9l3 3-3 3m5 0h3M4 4h16a1 1 0 011 1v14a1 1 0 01-1 1H4a1 1 0 01-1-1V5a1 1 0 011-1z' },
+  { type: 'template', label: 'Template', title: 'Render text with {{ input }} and {{ state.key }} placeholders',
+    cls: 'border-teal-500/30 hover:border-teal-500/60', iconBg: 'bg-teal-500/15', iconColor: 'text-teal-400',
+    icon: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z' },
 ]
 
 let idCounter = 0
@@ -184,6 +190,8 @@ function addNode(type) {
   if (type === 'agent') node.agentId = ''
   if (type === 'parallel') { node.agentId = ''; node.maxConcurrency = 0 }
   if (type === 'subflow') node.flowId = ''
+  if (type === 'expression') { node.expression = ''; node.outputKey = '' }
+  if (type === 'template') { node.template = ''; node.outputKey = '' }
   if (type === 'router') { node.rules = [{ when: '', route: '' }]; node.defaultRoute = 'default' }
   const nextNodes = [...nodes.value, node]
   // First node added becomes the entry by default.

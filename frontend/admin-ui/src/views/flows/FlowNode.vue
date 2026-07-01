@@ -235,6 +235,68 @@
           </div>
         </Transition>
       </div>
+
+      <!-- EXPRESSION body -->
+      <div v-else-if="node.type === 'expression'" class="px-2.5 py-2 space-y-1.5">
+        <div class="flex items-center gap-1 px-0.5">
+          <span class="text-[9px] text-arena-500">CEL over <code class="text-indigo-300">input</code> and <code class="text-indigo-300">state</code></span>
+          <span class="relative group/tip">
+            <svg class="w-3 h-3 text-arena-600 hover:text-arena-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.6"><path stroke-linecap="round" stroke-linejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" /></svg>
+            <span class="absolute z-50 left-4 top-0 hidden group-hover/tip:block w-52 p-2 rounded-lg bg-piedra-950 border border-piedra-700/60 text-[9px] text-arena-400 leading-relaxed shadow-xl">
+              The result becomes this node's output. Use a split to produce a list for a For-Each; list helpers .map() and .filter() are available.
+            </span>
+          </span>
+        </div>
+        <textarea
+          :value="node.expression"
+          @input="$emit('update', { ...node, expression: $event.target.value })"
+          @pointerdown.stop
+          rows="2" spellcheck="false"
+          :placeholder="exprPlaceholder"
+          class="w-full bg-piedra-800 border border-piedra-700/50 rounded-lg px-2 py-1 text-[10px] font-mono text-arena-200 placeholder:text-arena-600 outline-none focus:border-indigo-500/50 resize-none"
+        />
+        <div class="flex items-center gap-1.5">
+          <span class="text-[9px] text-arena-500 whitespace-nowrap">save as</span>
+          <input
+            :value="node.outputKey"
+            @input="$emit('update', { ...node, outputKey: $event.target.value })"
+            @pointerdown.stop
+            placeholder="state key (optional)"
+            class="flex-1 min-w-0 bg-piedra-800 border border-piedra-700/50 rounded px-1.5 py-0.5 text-[10px] font-mono text-arena-200 placeholder:text-arena-600 outline-none focus:border-indigo-500/50"
+          />
+        </div>
+      </div>
+
+      <!-- TEMPLATE body -->
+      <div v-else-if="node.type === 'template'" class="px-2.5 py-2 space-y-1.5">
+        <div class="flex items-center gap-1 px-0.5">
+          <span class="text-[9px] text-arena-500">text with <code class="text-teal-300">{{ mustacheInput }}</code> placeholders</span>
+          <span class="relative group/tip">
+            <svg class="w-3 h-3 text-arena-600 hover:text-arena-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.6"><path stroke-linecap="round" stroke-linejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" /></svg>
+            <span class="absolute z-50 left-4 top-0 hidden group-hover/tip:block w-52 p-2 rounded-lg bg-piedra-950 border border-piedra-700/60 text-[9px] text-arena-400 leading-relaxed shadow-xl">
+              Reference input, input.field or state.key inside double braces. Renders a string — handy to build the next agent's prompt.
+            </span>
+          </span>
+        </div>
+        <textarea
+          :value="node.template"
+          @input="$emit('update', { ...node, template: $event.target.value })"
+          @pointerdown.stop
+          rows="3" spellcheck="false"
+          :placeholder="tmplPlaceholder"
+          class="w-full bg-piedra-800 border border-piedra-700/50 rounded-lg px-2 py-1 text-[10px] font-mono text-arena-200 placeholder:text-arena-600 outline-none focus:border-teal-500/50 resize-none"
+        />
+        <div class="flex items-center gap-1.5">
+          <span class="text-[9px] text-arena-500 whitespace-nowrap">save as</span>
+          <input
+            :value="node.outputKey"
+            @input="$emit('update', { ...node, outputKey: $event.target.value })"
+            @pointerdown.stop
+            placeholder="state key (optional)"
+            class="flex-1 min-w-0 bg-piedra-800 border border-piedra-700/50 rounded px-1.5 py-0.5 text-[10px] font-mono text-arena-200 placeholder:text-arena-600 outline-none focus:border-teal-500/50"
+          />
+        </div>
+      </div>
     </div>
 
     <!-- input port (all node types) -->
@@ -298,6 +360,13 @@ function pickFlow(id) {
   pickerOpen.value = false
   emit('update', { ...props.node, flowId: id })
 }
+
+// ── transform node placeholders ──────────────────────────────────────────────
+// Literal double-brace text is built at runtime so Vue does not treat it as an
+// interpolation in the template source.
+const mustacheInput = '{{ input }}'
+const exprPlaceholder = 'input.split(",")'
+const tmplPlaceholder = 'Summarise for {{ state.lang }}:\n{{ input }}'
 
 // ── router rules ───────────────────────────────────────────────────────────
 function updateRule(i, key, val) {
@@ -371,6 +440,28 @@ const TYPE = {
     iconBg: 'bg-rose-500/15',
     iconColor: 'text-rose-400',
     labelColor: 'text-rose-400',
+  },
+  expression: {
+    label: 'Expression',
+    icon: 'M8 9l3 3-3 3m5 0h3M4 4h16a1 1 0 011 1v14a1 1 0 01-1 1H4a1 1 0 01-1-1V5a1 1 0 011-1z',
+    border: 'border-indigo-500/30',
+    hoverBorder: 'hover:border-indigo-500/60',
+    selectedRing: 'border-indigo-500/70 ring-2 ring-indigo-500/25',
+    headerBg: 'bg-indigo-500/8',
+    iconBg: 'bg-indigo-500/15',
+    iconColor: 'text-indigo-400',
+    labelColor: 'text-indigo-400',
+  },
+  template: {
+    label: 'Template',
+    icon: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z',
+    border: 'border-teal-500/30',
+    hoverBorder: 'hover:border-teal-500/60',
+    selectedRing: 'border-teal-500/70 ring-2 ring-teal-500/25',
+    headerBg: 'bg-teal-500/8',
+    iconBg: 'bg-teal-500/15',
+    iconColor: 'text-teal-400',
+    labelColor: 'text-teal-400',
   },
 }
 const cfg              = computed(() => TYPE[props.node.type] || TYPE.agent)

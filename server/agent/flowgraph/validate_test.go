@@ -387,3 +387,69 @@ func TestValidate_ParallelAndSubflowRules(t *testing.T) {
 		})
 	}
 }
+
+// transformFlow: START -> expr(expression) -> tmpl(template) -> done.
+func transformFlow() *store.FlowDefinition {
+	return &store.FlowDefinition{
+		ID:    "f6",
+		Name:  "transform",
+		Entry: "expr",
+		Nodes: []store.FlowNode{
+			{ID: "expr", Type: store.FlowNodeExpression, Expression: `input.split(",")`, OutputKey: "items"},
+			{ID: "tmpl", Type: store.FlowNodeTemplate, Template: "Got: {{ input }} for {{ state.items }}"},
+			{ID: "done", Type: store.FlowNodeAgent, AgentID: "ag-done", ResponseAgent: true},
+		},
+		Edges: []store.FlowEdge{
+			{From: "expr", To: "tmpl"},
+			{From: "tmpl", To: "done"},
+		},
+	}
+}
+
+func TestValidate_AcceptsExpressionAndTemplate(t *testing.T) {
+	if err := Validate(transformFlow()); err != nil {
+		t.Fatalf("expected valid graph, got error: %v", err)
+	}
+}
+
+func TestValidate_TransformRules(t *testing.T) {
+	cases := []struct {
+		name    string
+		mutate  func(*store.FlowDefinition)
+		wantSub string
+	}{
+		{
+			name:    "expression empty",
+			mutate:  func(d *store.FlowDefinition) { d.Nodes[0].Expression = "" },
+			wantSub: "expression node \"expr\" requires an expression",
+		},
+		{
+			name:    "expression invalid CEL",
+			mutate:  func(d *store.FlowDefinition) { d.Nodes[0].Expression = "input.((" },
+			wantSub: "invalid CEL",
+		},
+		{
+			name:    "expression bad outputKey (hyphen)",
+			mutate:  func(d *store.FlowDefinition) { d.Nodes[0].OutputKey = "my-key" },
+			wantSub: "outputKey \"my-key\" must match",
+		},
+		{
+			name:    "template empty",
+			mutate:  func(d *store.FlowDefinition) { d.Nodes[1].Template = "" },
+			wantSub: "template node \"tmpl\" requires a template",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			def := transformFlow()
+			tc.mutate(def)
+			err := Validate(def)
+			if err == nil {
+				t.Fatalf("expected error containing %q, got nil", tc.wantSub)
+			}
+			if !strings.Contains(err.Error(), tc.wantSub) {
+				t.Fatalf("error %q does not contain %q", err.Error(), tc.wantSub)
+			}
+		})
+	}
+}

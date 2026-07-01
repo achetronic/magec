@@ -9,6 +9,7 @@
 package flowexit
 
 import (
+	"fmt"
 	"log/slog"
 	"strings"
 
@@ -45,6 +46,22 @@ func Evaluate(prog cel.Program, expr string, state map[string]any, iterations in
 		return false
 	}
 	return b
+}
+
+// EvaluateValue runs a compiled transform-node program against the node input
+// and the flow-state snapshot, returning the produced value. Unlike Evaluate
+// (which is a loop guard and swallows errors as false), a transform failure is
+// a real problem the operator must fix, so the error is returned to fail the
+// node loudly rather than silently emitting a zero value.
+func EvaluateValue(prog cel.Program, expr string, input any, state map[string]any) (any, error) {
+	out, _, err := prog.Eval(map[string]any{
+		"input": input,
+		"state": state,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("evaluating %q: %w", expr, err)
+	}
+	return out.Value(), nil
 }
 
 // ExtractFlowState returns the subset of session state keys that live under

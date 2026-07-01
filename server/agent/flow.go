@@ -145,6 +145,12 @@ func buildNode(n store.FlowNode, deps FlowBuildDeps) (workflow.Node, error) {
 		}
 		return workflow.NewWorkflowNode(n.ID, subEdges)
 
+	case store.FlowNodeExpression:
+		return buildExpressionNode(n)
+
+	case store.FlowNodeTemplate:
+		return buildTemplateNode(n)
+
 	default:
 		return nil, fmt.Errorf("unknown node type %q", n.Type)
 	}

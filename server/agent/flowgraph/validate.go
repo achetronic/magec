@@ -27,6 +27,11 @@ import (
 // must start with a letter or underscore.
 var idPattern = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_-]*$`)
 
+// stateKeyPattern is the shape required of a node's OutputKey. It is stricter
+// than idPattern (no hyphen) because the key is referenced downstream as
+// state.<key> in CEL, and a hyphen would parse as subtraction.
+var stateKeyPattern = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_]*$`)
+
 // nodeByID indexes a definition's nodes by ID for O(1) lookups.
 func nodeByID(d *store.FlowDefinition) map[string]*store.FlowNode {
 	index := make(map[string]*store.FlowNode, len(d.Nodes))
@@ -141,6 +146,23 @@ func validateNodes(d *store.FlowDefinition) error {
 		case store.FlowNodeSubflow:
 			if n.FlowID == "" {
 				return fmt.Errorf("subflow node %q requires flowId", n.ID)
+			}
+		case store.FlowNodeExpression:
+			if n.Expression == "" {
+				return fmt.Errorf("expression node %q requires an expression", n.ID)
+			}
+			if _, err := flowexit.CompileValue(n.Expression); err != nil {
+				return fmt.Errorf("expression node %q: %w", n.ID, err)
+			}
+			if n.OutputKey != "" && !stateKeyPattern.MatchString(n.OutputKey) {
+				return fmt.Errorf("expression node %q outputKey %q must match [a-zA-Z_][a-zA-Z0-9_]*", n.ID, n.OutputKey)
+			}
+		case store.FlowNodeTemplate:
+			if n.Template == "" {
+				return fmt.Errorf("template node %q requires a template", n.ID)
+			}
+			if n.OutputKey != "" && !stateKeyPattern.MatchString(n.OutputKey) {
+				return fmt.Errorf("template node %q outputKey %q must match [a-zA-Z_][a-zA-Z0-9_]*", n.ID, n.OutputKey)
 			}
 		default:
 			return fmt.Errorf("node %q has unknown type %q", n.ID, n.Type)

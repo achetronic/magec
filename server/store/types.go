@@ -236,6 +236,12 @@ const (
 	// FlowNodeSubflow embeds another FlowDefinition as a single node (a nested
 	// workflow). Its terminal output becomes this node's output.
 	FlowNodeSubflow = "subflow"
+	// FlowNodeExpression evaluates a CEL expression over `input` and `state`
+	// and emits the result as its output. A deterministic transform node.
+	FlowNodeExpression = "expression"
+	// FlowNodeTemplate renders a text template with {{ input }} / {{ state.key }}
+	// placeholders and emits the resulting string as its output.
+	FlowNodeTemplate = "template"
 )
 
 // FlowStart is the reserved identifier for the graph entry sentinel. An edge
@@ -285,6 +291,23 @@ type FlowNode struct {
 	// FlowID references another FlowDefinition embedded as a nested workflow.
 	// Required when Type is FlowNodeSubflow, ignored otherwise.
 	FlowID string `json:"flowId,omitempty" yaml:"flowId,omitempty"`
+
+	// Expression is a CEL expression evaluated over `input` (the previous
+	// node's output) and `state` (the shared flow state). Its result becomes
+	// this node's output. Required when Type is FlowNodeExpression.
+	Expression string `json:"expression,omitempty" yaml:"expression,omitempty"`
+
+	// Template is text with {{ input }}, {{ input.field }} and {{ state.key }}
+	// placeholders; the rendered string becomes this node's output. Required
+	// when Type is FlowNodeTemplate.
+	Template string `json:"template,omitempty" yaml:"template,omitempty"`
+
+	// OutputKey, when set, also writes this node's output into the shared flow
+	// state under that key, readable downstream as state.<key>. It must be a
+	// valid CEL identifier (letters, digits, underscore; no hyphen) so
+	// downstream expressions can reference it. Meaningful for expression and
+	// template nodes.
+	OutputKey string `json:"outputKey,omitempty" yaml:"outputKey,omitempty"`
 
 	// X and Y are the node's position on the visual editor canvas. They are a
 	// layout hint for the admin UI only: the builder and validation ignore

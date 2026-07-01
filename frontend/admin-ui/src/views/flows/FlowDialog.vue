@@ -132,6 +132,12 @@ function cleanNode(n) {
     if (n.maxConcurrency) clean.maxConcurrency = n.maxConcurrency
   } else if (n.type === 'subflow') {
     clean.flowId = n.flowId || ''
+  } else if (n.type === 'expression') {
+    clean.expression = n.expression || ''
+    if (n.outputKey) clean.outputKey = n.outputKey
+  } else if (n.type === 'template') {
+    clean.template = n.template || ''
+    if (n.outputKey) clean.outputKey = n.outputKey
   }
   return clean
 }

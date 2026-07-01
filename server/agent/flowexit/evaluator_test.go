@@ -137,3 +137,63 @@ func TestExtractFlowState_EmptyWhenNoFlowKeys(t *testing.T) {
 // Compile-time assertion: fakeReadonlyState satisfies session.State, so
 // ExtractFlowState callers do not have to learn a second mock interface.
 var _ session.State = (*fakeReadonlyState)(nil)
+
+func TestCompileValue_AllowsNonBool(t *testing.T) {
+	// Unlike Compile, CompileValue accepts any output type.
+	for _, expr := range []string{
+		`input`,
+		`input.split(",")`,
+		`state.name`,
+		`"hello " + input`,
+		`[input]`,
+	} {
+		if _, err := CompileValue(expr); err != nil {
+			t.Fatalf("CompileValue(%q) unexpected error: %v", expr, err)
+		}
+	}
+}
+
+func TestCompileValue_RejectsGarbage(t *testing.T) {
+	if _, err := CompileValue(`this is not (( cel`); err == nil {
+		t.Fatal("expected compile error for garbage expression")
+	}
+}
+
+func TestEvaluateValue_SplitProducesList(t *testing.T) {
+	prog, err := CompileValue(`input.split(",")`)
+	if err != nil {
+		t.Fatalf("CompileValue: %v", err)
+	}
+	out, err := EvaluateValue(prog, `input.split(",")`, "a,b,c", map[string]any{})
+	if err != nil {
+		t.Fatalf("EvaluateValue: %v", err)
+	}
+	list, ok := out.([]string)
+	if !ok {
+		// cel-go may return []ref.Val-backed slice; normalise via length check
+		if l, ok2 := out.([]any); ok2 {
+			if len(l) != 3 {
+				t.Fatalf("expected 3 items, got %d", len(l))
+			}
+			return
+		}
+		t.Fatalf("expected a slice, got %T (%v)", out, out)
+	}
+	if len(list) != 3 {
+		t.Fatalf("expected 3 items, got %d", len(list))
+	}
+}
+
+func TestEvaluateValue_ReadsState(t *testing.T) {
+	prog, err := CompileValue(`state.greeting + " " + input`)
+	if err != nil {
+		t.Fatalf("CompileValue: %v", err)
+	}
+	out, err := EvaluateValue(prog, `state.greeting + " " + input`, "world", map[string]any{"greeting": "hello"})
+	if err != nil {
+		t.Fatalf("EvaluateValue: %v", err)
+	}
+	if out != "hello world" {
+		t.Fatalf("got %q, want %q", out, "hello world")
+	}
+}
