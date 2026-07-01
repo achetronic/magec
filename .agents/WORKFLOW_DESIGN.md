@@ -36,15 +36,16 @@ serve:
   distinct node types even though all three transform data, because each states
   its intent: a CEL one-liner, a text template for assembling prompts, or a
   full script. The operator picks the least powerful block that fits.
-- **Node names favour the operator's mental model over adk's.** The editor
+- **Node labels favour the operator's mental model over adk's.** The editor
   labels a block by what it does for a flow author, not by the adk primitive
-  underneath (for example a routing block is a "Router" though it is a function
-  node emitting routes; an embedded flow is a "Subflow" though it is an adk
-  WorkflowNode). The store `Type` and the adk construct are an implementation
-  detail; the label communicates purpose.
-- **Node size signals intent.** Text-bearing nodes (expression, template, code)
-  open larger so their editable content is visible at a glance and stay
-  resizable so long scripts remain readable; structural nodes stay compact.
+  underneath or the store `Type` (for example the `parallel` node is shown as
+  "Foreach" because it runs an agent once per list item, and an embedded flow
+  is a "Subflow" though it is an adk WorkflowNode). The store `Type` and the adk
+  construct are an implementation detail; the label communicates purpose.
+- **Node size signals intent.** Nodes with growable content (router rules and
+  the text nodes: expression, template, code) open larger and stay resizable so
+  long content is readable; selection-only nodes (agent, subflow, join) have a
+  fixed compact size and no resize handle.
 - **Connection lines are the Magec accent (sol/amber).** Edges and the active
   connection drag use the sol accent so the graph reads as one coherent Magec
   surface; entity colours are reserved for the node cards.
@@ -249,9 +250,11 @@ initial-settings construction in `store.go`). Exposed in the admin UI Settings
   (execution / flow control / data), a full-screen toggle, and a draggable
   Start box whose port sets the entry.
 - `FlowNode.vue`: one node card per type, colour-coded per its entity colour
-  (see `ENTITY_COLORS.md`), resizable (persists `w/h`), with the per-type body
-  (agent picker, router rules, code editor with limit overrides, etc.). Entry
-  is marked with a dot.
+  (see `ENTITY_COLORS.md`), with the per-type body (agent picker, router rules,
+  code editor with limit overrides, etc.). Nodes with growable content are
+  resizable and persist `w/h`; selection-only nodes are fixed-size. Labels are
+  operator-facing (the `parallel` type shows as "Foreach"). Entry is marked
+  with a dot.
 - `FlowDialog.vue`: wraps the canvas in the flow create/edit modal, binds the
   `{entry, nodes, edges}` model, serialises nodes/edges on save. The modal is
   persistent (Escape does not close it) so an unsaved graph is not lost.

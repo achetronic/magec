@@ -190,7 +190,7 @@ const nodeGroups = [
     { type: 'join', label: 'Join', title: 'Fan-in barrier: waits for all incoming branches',
       cls: 'border-purple-500/30 hover:border-purple-500/60', iconBg: 'bg-purple-500/15', iconColor: 'text-purple-400',
       icon: 'M7 4v5a5 5 0 005 5 5 5 0 005-5V4M12 14v6' },
-    { type: 'parallel', label: 'Parallel', title: 'Runs an agent once per item of a list input, concurrently',
+    { type: 'parallel', label: 'Foreach', title: 'Runs an agent once per item of a list input, concurrently',
       cls: 'border-lava-500/30 hover:border-lava-500/60', iconBg: 'bg-lava-500/15', iconColor: 'text-lava-400',
       icon: 'M4 6h16M4 12h16M4 18h16' },
   ],

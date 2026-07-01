@@ -133,18 +133,10 @@
         <!-- default route -->
         <div class="relative flex items-center gap-1.5 rounded-lg bg-piedra-800/40 border border-piedra-700/40 pl-2 pr-3 py-1">
           <span class="flex-1 text-[9px] font-medium text-arena-500 uppercase tracking-wide">otherwise</span>
-          <span class="text-arena-600 text-[10px]">→</span>
-          <input
-            :value="node.defaultRoute"
-            @input="$emit('update', { ...node, defaultRoute: $event.target.value })"
-            @pointerdown.stop
-            placeholder="default"
-            class="w-14 bg-transparent text-[10px] font-mono font-medium text-atlantico-300 placeholder:text-arena-600 outline-none"
-          />
           <span
             class="flow-port flow-port-out"
             :data-port="'out:' + node.id + '|' + (node.defaultRoute || '')"
-            :title="'Drag to connect default route: ' + (node.defaultRoute || '?')"
+            :title="'Drag to connect the default branch'"
             @pointerdown.stop.prevent="$emit('start-edge', { nodeId: node.id, route: node.defaultRoute })"
           />
         </div>
@@ -240,7 +232,7 @@
           <span class="relative group/tip">
             <svg class="w-3 h-3 text-arena-600 hover:text-arena-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.6"><path stroke-linecap="round" stroke-linejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" /></svg>
             <span class="absolute z-50 left-4 top-0 hidden group-hover/tip:block w-52 p-2 rounded-lg bg-piedra-950 border border-piedra-700/60 text-[9px] text-arena-400 leading-relaxed shadow-xl">
-              The result becomes this node's output. Use a split to produce a list for a For-Each; list helpers .map() and .filter() are available.
+              The result becomes this node's output. Use a split to produce a list for a Foreach; list helpers .map() and .filter() are available.
             </span>
           </span>
         </div>
@@ -364,8 +356,9 @@
       @pointerdown.stop.prevent="$emit('start-edge', { nodeId: node.id, route: '' })"
     />
 
-    <!-- resize handle (bottom-right) -->
+    <!-- resize handle (bottom-right); only for nodes whose body can grow -->
     <span
+      v-if="resizable"
       class="flow-resize opacity-0 group-hover:opacity-100"
       :class="{ 'opacity-100': resizing }"
       title="Drag to resize"
@@ -414,6 +407,11 @@ const nodeStyle = computed(() => {
 })
 
 const resizing = ref(false)
+
+// Only nodes with growable content are resizable. Selection-only nodes (agent,
+// subflow, join) have a fixed compact size; router and the text nodes can grow.
+const RESIZABLE_TYPES = ['router', 'expression', 'template', 'code']
+const resizable = computed(() => RESIZABLE_TYPES.includes(props.node.type))
 let resizeStart = null // { px, py, w, h }
 
 function onResizeDown(e) {
@@ -527,7 +525,7 @@ const TYPE = {
     labelColor: 'text-purple-400',
   },
   parallel: {
-    label: 'Parallel',
+    label: 'Foreach',
     icon: 'M4 6h16M4 12h16M4 18h16',
     border: 'border-lava-500/30',
     hoverBorder: 'hover:border-lava-500/60',
