@@ -212,11 +212,15 @@ const nodeGroups = [
 ]
 
 let idCounter = 0
+// The parallel type is shown to operators as Foreach, so its generated IDs
+// follow the visible name.
+const ID_PREFIX = { parallel: 'foreach' }
 function genId(type) {
   // Unique, pattern-safe id. Bump past any existing numeric suffix collisions.
+  const prefix = ID_PREFIX[type] || type
   const existing = new Set(nodes.value.map(n => n.id))
-  do { idCounter++ } while (existing.has(`${type}_${idCounter}`))
-  return `${type}_${idCounter}`
+  do { idCounter++ } while (existing.has(`${prefix}_${idCounter}`))
+  return `${prefix}_${idCounter}`
 }
 
 function addNode(type) {

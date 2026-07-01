@@ -32,14 +32,17 @@
         </div>
         <span class="text-[9px] font-bold uppercase tracking-wider flex-shrink-0" :class="labelColorClass">{{ typeLabel }}</span>
         <!-- Node ID chip. The ID is what downstream consumers see (Join map
-             keys, event authors), so it stays visible and a click renames it. -->
+             keys, event authors), so it stays visible and a click renames it.
+             The editor is sized to its content so the header keeps its drag
+             surface while editing. -->
         <div class="flex-1 min-w-0 flex" @pointerdown.stop>
           <input
             v-if="editingId"
             ref="idInputRef"
             v-model="idDraft"
             spellcheck="false"
-            class="w-full min-w-0 bg-piedra-800 border rounded px-1 py-px text-[8px] font-mono outline-none"
+            :style="{ width: idInputWidth }"
+            class="max-w-full bg-piedra-800 border rounded px-1 py-px text-[8px] font-mono outline-none"
             :class="idDraftValid ? 'border-piedra-600 text-arena-200' : 'border-lava-500/60 text-lava-300'"
             @click.stop
             @keydown.enter.prevent="commitRename"
@@ -67,17 +70,42 @@
       </div>
 
       <!-- AGENT body -->
-      <div v-if="node.type === 'agent'" class="px-3 py-2.5 space-y-2">
-        <button
-          @pointerdown.stop @click.stop="pickerOpen = !pickerOpen"
-          class="w-full flex items-center gap-1.5 text-left text-xs font-medium outline-none cursor-pointer"
-          :class="node.agentId ? 'text-arena-100' : 'text-arena-500 italic'"
-        >
-          <span class="truncate flex-1">{{ agentName }}</span>
-          <svg class="w-3 h-3 flex-shrink-0 text-arena-500" viewBox="0 0 20 20" fill="currentColor">
-            <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
-          </svg>
-        </button>
+      <div v-if="node.type === 'agent'" class="px-3 py-2.5 space-y-2.5">
+        <!-- The relative wrapper anchors the picker dropdown to the button
+             that opens it, not to the node card. -->
+        <div class="relative">
+          <button
+            @pointerdown.stop @click.stop="pickerOpen = !pickerOpen"
+            class="w-full flex items-center gap-1.5 text-left text-xs font-medium outline-none cursor-pointer"
+            :class="node.agentId ? 'text-arena-100' : 'text-arena-500 italic'"
+          >
+            <span class="truncate flex-1">{{ agentName }}</span>
+            <svg class="w-3 h-3 flex-shrink-0 text-arena-500" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
+            </svg>
+          </button>
+          <Transition name="dropdown">
+            <div v-if="pickerOpen" class="absolute z-50 left-0 right-0 top-full mt-1 bg-piedra-800 border border-piedra-700/60 rounded-xl shadow-2xl overflow-hidden" @pointerdown.stop>
+              <div v-if="agents.length" class="py-1 max-h-44 overflow-y-auto">
+                <button
+                  v-for="a in agents" :key="a.id"
+                  @click.stop="pickAgent(a.id)"
+                  class="w-full flex items-center gap-2.5 px-3 py-2 text-left transition-colors"
+                  :class="a.id === node.agentId ? 'bg-sol-500/10' : 'hover:bg-piedra-700/60'"
+                >
+                  <div class="min-w-0 flex-1">
+                    <div class="text-xs font-medium truncate" :class="a.id === node.agentId ? 'text-sol-300' : 'text-arena-100'">{{ a.name || a.id }}</div>
+                    <div v-if="a.description" class="text-[9px] text-arena-500 truncate">{{ a.description }}</div>
+                  </div>
+                  <svg v-if="a.id === node.agentId" class="w-3.5 h-3.5 text-sol-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                </button>
+              </div>
+              <div v-else class="px-3 py-4 text-[10px] text-arena-500 italic text-center">No agents available</div>
+            </div>
+          </Transition>
+        </div>
         <button
           @pointerdown.stop @click.stop="$emit('update', { ...node, responseAgent: !node.responseAgent })"
           class="flex items-center gap-1.5 text-[9px] font-medium px-1.5 py-0.5 rounded-md transition-all"
@@ -89,29 +117,6 @@
           </svg>
           Response
         </button>
-
-        <!-- agent picker dropdown -->
-        <Transition name="dropdown">
-          <div v-if="pickerOpen" class="absolute z-50 left-2 right-2 top-full mt-1 bg-piedra-800 border border-piedra-700/60 rounded-xl shadow-2xl overflow-hidden" @pointerdown.stop>
-            <div v-if="agents.length" class="py-1 max-h-44 overflow-y-auto">
-              <button
-                v-for="a in agents" :key="a.id"
-                @click.stop="pickAgent(a.id)"
-                class="w-full flex items-center gap-2.5 px-3 py-2 text-left transition-colors"
-                :class="a.id === node.agentId ? 'bg-sol-500/10' : 'hover:bg-piedra-700/60'"
-              >
-                <div class="min-w-0 flex-1">
-                  <div class="text-xs font-medium truncate" :class="a.id === node.agentId ? 'text-sol-300' : 'text-arena-100'">{{ a.name || a.id }}</div>
-                  <div v-if="a.description" class="text-[9px] text-arena-500 truncate">{{ a.description }}</div>
-                </div>
-                <svg v-if="a.id === node.agentId" class="w-3.5 h-3.5 text-sol-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
-                </svg>
-              </button>
-            </div>
-            <div v-else class="px-3 py-4 text-[10px] text-arena-500 italic text-center">No agents available</div>
-          </div>
-        </Transition>
       </div>
 
       <!-- ROUTER body -->
@@ -164,17 +169,39 @@
       <!-- JOIN body: no controls, the header and help say it all -->
 
       <!-- PARALLEL body -->
-      <div v-else-if="node.type === 'parallel'" class="px-3 py-2.5 space-y-2">
-        <button
-          @pointerdown.stop @click.stop="pickerOpen = !pickerOpen"
-          class="w-full flex items-center gap-1.5 text-left text-xs font-medium outline-none cursor-pointer"
-          :class="node.agentId ? 'text-arena-100' : 'text-arena-500 italic'"
-        >
-          <span class="truncate flex-1">{{ agentName }}</span>
-          <svg class="w-3 h-3 flex-shrink-0 text-arena-500" viewBox="0 0 20 20" fill="currentColor">
-            <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
-          </svg>
-        </button>
+      <div v-else-if="node.type === 'parallel'" class="px-3 py-2.5 space-y-2.5">
+        <!-- The relative wrapper anchors the picker dropdown to the button
+             that opens it, not to the node card. -->
+        <div class="relative">
+          <button
+            @pointerdown.stop @click.stop="pickerOpen = !pickerOpen"
+            class="w-full flex items-center gap-1.5 text-left text-xs font-medium outline-none cursor-pointer"
+            :class="node.agentId ? 'text-arena-100' : 'text-arena-500 italic'"
+          >
+            <span class="truncate flex-1">{{ agentName }}</span>
+            <svg class="w-3 h-3 flex-shrink-0 text-arena-500" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
+            </svg>
+          </button>
+          <Transition name="dropdown">
+            <div v-if="pickerOpen" class="absolute z-50 left-0 right-0 top-full mt-1 bg-piedra-800 border border-piedra-700/60 rounded-xl shadow-2xl overflow-hidden" @pointerdown.stop>
+              <div v-if="agents.length" class="py-1 max-h-44 overflow-y-auto">
+                <button
+                  v-for="a in agents" :key="a.id"
+                  @click.stop="pickAgent(a.id)"
+                  class="w-full flex items-center gap-2.5 px-3 py-2 text-left transition-colors"
+                  :class="a.id === node.agentId ? 'bg-lava-500/10' : 'hover:bg-piedra-700/60'"
+                >
+                  <div class="min-w-0 flex-1">
+                    <div class="text-xs font-medium truncate" :class="a.id === node.agentId ? 'text-lava-300' : 'text-arena-100'">{{ a.name || a.id }}</div>
+                    <div v-if="a.description" class="text-[9px] text-arena-500 truncate">{{ a.description }}</div>
+                  </div>
+                </button>
+              </div>
+              <div v-else class="px-3 py-4 text-[10px] text-arena-500 italic text-center">No agents available</div>
+            </div>
+          </Transition>
+        </div>
         <div class="flex items-center gap-1.5">
           <span class="text-[9px] text-arena-500 whitespace-nowrap">Max concurrent</span>
           <input
@@ -186,62 +213,46 @@
           />
           <span class="text-[9px] text-arena-600 whitespace-nowrap">(0 = unlimited)</span>
         </div>
-
-        <Transition name="dropdown">
-          <div v-if="pickerOpen" class="absolute z-50 left-2 right-2 top-full mt-1 bg-piedra-800 border border-piedra-700/60 rounded-xl shadow-2xl overflow-hidden" @pointerdown.stop>
-            <div v-if="agents.length" class="py-1 max-h-44 overflow-y-auto">
-              <button
-                v-for="a in agents" :key="a.id"
-                @click.stop="pickAgent(a.id)"
-                class="w-full flex items-center gap-2.5 px-3 py-2 text-left transition-colors"
-                :class="a.id === node.agentId ? 'bg-lava-500/10' : 'hover:bg-piedra-700/60'"
-              >
-                <div class="min-w-0 flex-1">
-                  <div class="text-xs font-medium truncate" :class="a.id === node.agentId ? 'text-lava-300' : 'text-arena-100'">{{ a.name || a.id }}</div>
-                  <div v-if="a.description" class="text-[9px] text-arena-500 truncate">{{ a.description }}</div>
-                </div>
-              </button>
-            </div>
-            <div v-else class="px-3 py-4 text-[10px] text-arena-500 italic text-center">No agents available</div>
-          </div>
-        </Transition>
       </div>
 
       <!-- SUBFLOW body -->
-      <div v-else-if="node.type === 'subflow'" class="px-3 py-2.5 space-y-2">
-        <button
-          @pointerdown.stop @click.stop="pickerOpen = !pickerOpen"
-          class="w-full flex items-center gap-1.5 text-left text-xs font-medium outline-none cursor-pointer"
-          :class="node.flowId ? 'text-arena-100' : 'text-arena-500 italic'"
-        >
-          <span class="truncate flex-1">{{ flowName }}</span>
-          <svg class="w-3 h-3 flex-shrink-0 text-arena-500" viewBox="0 0 20 20" fill="currentColor">
-            <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
-          </svg>
-        </button>
-
-        <Transition name="dropdown">
-          <div v-if="pickerOpen" class="absolute z-50 left-2 right-2 top-full mt-1 bg-piedra-800 border border-piedra-700/60 rounded-xl shadow-2xl overflow-hidden" @pointerdown.stop>
-            <div v-if="flows.length" class="py-1 max-h-44 overflow-y-auto">
-              <button
-                v-for="fl in flows" :key="fl.id"
-                @click.stop="pickFlow(fl.id)"
-                class="w-full flex items-center gap-2.5 px-3 py-2 text-left transition-colors"
-                :class="fl.id === node.flowId ? 'bg-rose-500/10' : 'hover:bg-piedra-700/60'"
-              >
-                <div class="min-w-0 flex-1">
-                  <div class="text-xs font-medium truncate" :class="fl.id === node.flowId ? 'text-rose-300' : 'text-arena-100'">{{ fl.name || fl.id }}</div>
-                  <div v-if="fl.description" class="text-[9px] text-arena-500 truncate">{{ fl.description }}</div>
-                </div>
-              </button>
+      <div v-else-if="node.type === 'subflow'" class="px-3 py-2.5 space-y-2.5">
+        <!-- The relative wrapper anchors the picker dropdown to the button
+             that opens it, not to the node card. -->
+        <div class="relative">
+          <button
+            @pointerdown.stop @click.stop="pickerOpen = !pickerOpen"
+            class="w-full flex items-center gap-1.5 text-left text-xs font-medium outline-none cursor-pointer"
+            :class="node.flowId ? 'text-arena-100' : 'text-arena-500 italic'"
+          >
+            <span class="truncate flex-1">{{ flowName }}</span>
+            <svg class="w-3 h-3 flex-shrink-0 text-arena-500" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
+            </svg>
+          </button>
+          <Transition name="dropdown">
+            <div v-if="pickerOpen" class="absolute z-50 left-0 right-0 top-full mt-1 bg-piedra-800 border border-piedra-700/60 rounded-xl shadow-2xl overflow-hidden" @pointerdown.stop>
+              <div v-if="flows.length" class="py-1 max-h-44 overflow-y-auto">
+                <button
+                  v-for="fl in flows" :key="fl.id"
+                  @click.stop="pickFlow(fl.id)"
+                  class="w-full flex items-center gap-2.5 px-3 py-2 text-left transition-colors"
+                  :class="fl.id === node.flowId ? 'bg-rose-500/10' : 'hover:bg-piedra-700/60'"
+                >
+                  <div class="min-w-0 flex-1">
+                    <div class="text-xs font-medium truncate" :class="fl.id === node.flowId ? 'text-rose-300' : 'text-arena-100'">{{ fl.name || fl.id }}</div>
+                    <div v-if="fl.description" class="text-[9px] text-arena-500 truncate">{{ fl.description }}</div>
+                  </div>
+                </button>
+              </div>
+              <div v-else class="px-3 py-4 text-[10px] text-arena-500 italic text-center">No other flows available</div>
             </div>
-            <div v-else class="px-3 py-4 text-[10px] text-arena-500 italic text-center">No other flows available</div>
-          </div>
-        </Transition>
+          </Transition>
+        </div>
       </div>
 
       <!-- EXPRESSION body -->
-      <div v-else-if="node.type === 'expression'" class="px-2.5 py-2 space-y-1.5 flex-1 flex flex-col min-h-0">
+      <div v-else-if="node.type === 'expression'" class="px-2.5 py-2 space-y-2 flex-1 flex flex-col min-h-0">
         <textarea
           :value="node.expression"
           @input="$emit('update', { ...node, expression: $event.target.value })"
@@ -263,7 +274,7 @@
       </div>
 
       <!-- TEMPLATE body -->
-      <div v-else-if="node.type === 'template'" class="px-2.5 py-2 space-y-1.5 flex-1 flex flex-col min-h-0">
+      <div v-else-if="node.type === 'template'" class="px-2.5 py-2 space-y-2 flex-1 flex flex-col min-h-0">
         <textarea
           :value="node.template"
           @input="$emit('update', { ...node, template: $event.target.value })"
@@ -285,7 +296,7 @@
       </div>
 
       <!-- CODE body -->
-      <div v-else-if="node.type === 'code'" class="px-2.5 py-2 space-y-1.5 flex-1 flex flex-col min-h-0">
+      <div v-else-if="node.type === 'code'" class="px-2.5 py-2 space-y-2 flex-1 flex flex-col min-h-0">
         <textarea
           :value="node.script"
           @input="$emit('update', { ...node, script: $event.target.value })"
@@ -396,6 +407,10 @@ const idDraftValid = computed(() => {
   if (!ID_PATTERN.test(draft) || draft === RESERVED_ID) return false
   return draft === props.node.id || !props.allIds.includes(draft)
 })
+
+// idInputWidth sizes the rename editor to its content (in ch) so it does not
+// swallow the header's drag surface while open.
+const idInputWidth = computed(() => `${Math.max(idDraft.value.length + 3, 8)}ch`)
 
 function beginRename() {
   idDraft.value = props.node.id
@@ -761,7 +776,12 @@ function portClass() {
 </script>
 
 <style scoped>
-.flow-node { transition: box-shadow 0.15s ease; }
+/* Each card gets its own stacking context so internal elements (ports,
+   resize handle) never paint above a neighbouring card. The selected card
+   rises above the rest, which also covers the card being dragged because
+   pointerdown selects it. */
+.flow-node { transition: box-shadow 0.15s ease; z-index: 1; }
+.flow-node.is-selected { z-index: 20; }
 
 /* resize handle, bottom-right corner */
 .flow-resize {
