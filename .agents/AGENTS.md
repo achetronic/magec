@@ -7,7 +7,7 @@ Self-hosted multi-agent AI platform with voice, visual workflows, and tool integ
 **Magec** is a multi-agent AI platform that runs on your server. Named after the Guanche god of the Sun (/maˈxek/), it provides:
 
 - **Multi-agent system**: Per-agent LLM, memory, voice, and tools. Hot-reload from the Admin UI.
-- **Agentic Flows**: Visual drag-and-drop editor. Sequential, parallel, loop, nested.
+- **Agentic Flows**: Visual graph editor. Agent, router (CEL), join, parallel, subflow, expression, template and Starlark code nodes wired by directed edges.
 - **Any LLM backend**: OpenAI, Anthropic, Gemini, Ollama, or any OpenAI-compatible API.
 - **MCP tools**: Home Assistant, GitHub, databases, and hundreds more via Model Context Protocol. HTTP headers and TLS skip supported.
 - **Memory**: Session (Redis) + long-term semantic (PostgreSQL/pgvector).
@@ -35,8 +35,12 @@ magec/
 │   ├── main.go                 # HTTP server (:8080 user + :8081 admin), routing, middleware
 │   ├── agent/
 │   │   ├── agent.go            # Multi-agent ADK setup, MCP transport, memory tools, ContextGuard wiring, BuildAgentInstance entry point
-│   │   ├── flow.go             # Flow→ADK workflow agent builder (sequential/parallel/loop), per-appearance instance builder, exit_loop wiring, exitWhen evaluator wiring
-│   │   ├── flowexit/           # CEL compiler + synthetic loop-exit evaluator agent (decision #28)
+│   │   ├── flow.go             # FlowDefinition graph -> adk v2 workflowagent builder (nodes + edges, Start->Entry)
+│   │   ├── router_node.go      # Router node: ordered CEL rules over flow state emit a route label
+│   │   ├── transform_nodes.go  # Expression (CEL value) and Template (placeholder) transform nodes
+│   │   ├── code_node.go        # Starlark code node via starlet, per-execution machine, timeout/step-budget/output cap
+│   │   ├── flowexit/           # CEL compile/evaluate for router guards and expression nodes (state + iterations)
+│   │   ├── flowgraph/          # Graph validation (Validate over store.FlowDefinition)
 │   │   ├── tools/
 │   │   │   ├── artifacts/      # save/load/list/export/url artifact tools (decision #17, #25, #26, #27)
 │   │   │   ├── flowstate/      # set_state/get_state shared scratchpad (decision #28)
@@ -53,7 +57,7 @@ magec/
 │   │   │   ├── memory.go       # Memory provider CRUD + ping + /types
 │   │   │   ├── secrets.go      # Secrets CRUD (encrypted at rest)
 │   │   │   ├── settings.go     # Global settings (session/longterm provider)
-│   │   │   ├── flows.go        # Flow CRUD + recursive validation
+│   │   │   ├── flows.go        # Flow CRUD + graph validation (flowgraph.Validate)
 │   │   │   ├── conversations.go # Conversation audit (list/get/delete/clear/stats/summary/pair/reset-session)
 │   │   │   ├── backup.go       # Backup/restore (tar.gz of data/ directory)
 │   │   │   ├── voice.go        # Voice provider types endpoint
@@ -127,7 +131,7 @@ magec/
 │   │   │   └── views/          # Entity views (backends/, memory/, mcps/, agents/, skills/,
 │   │   │                       #   clients/, commands/, flows/, conversations/)
 │   │   ├── vite.config.js      # Vue + Tailwind plugin + dev proxy to :8081
-│   │   └── package.json        # vue, pinia, vuedraggable, marked, js-yaml, tailwindcss v4
+│   │   └── package.json        # vue, pinia, marked, js-yaml, tailwindcss v4
 │   └── voice-ui/               # Voice UI (Vue 3 + Vite + Tailwind v4 + Pinia)
 │       ├── src/
 │       │   ├── main.js         # Vue app entry
@@ -237,7 +241,7 @@ log:
 - **MCP transports**: HTTP (`StreamableClientTransport` with optional headers + TLS skip) and stdio (`CommandTransport`). Stdio spawns subprocesses — works best with binary installs, not Docker
 - **Migration chain** (on load): `migrateTTSConfig` moves legacy `tts.speed` → `tts.config.openai.speed` and flat Gemini config → `tts.config.gemini.*`. Operates on raw JSON before unmarshal. All idempotent
 - **Webhook auth**: Separate from `clientAuthMiddleware`. Webhook handler validates Bearer token against client's `cl.Token`
-- **Flow execution**: `FlowDefinition` recursive tree maps 1:1 to ADK workflow agents. `responseAgent` flag on `FlowStep` filters output
+- **Flow execution**: `FlowDefinition` is a directed graph (`Entry`, `Nodes`, `Edges`) built into a single adk v2 `workflowagent` by `flow.go`, which synthesizes the `Start -> Entry` edge. Node types: agent, router, join, parallel, subflow, expression, template, code. A node's ID is its adk `Node.Name()` and the `event.Author`, so `responseAgent` on an agent node filters output by matching node IDs (no synthetic naming)
 - **Voice endpoints**: `/api/v1/voice/{agentId}/speech` and `/transcription` resolve backends dynamically per agent
 - **MCP headers/TLS**: `MCPServer` struct has `Headers map[string]string` and `Insecure bool`. `httpClientForMCP()` creates transport with optional `InsecureSkipVerify`
 - **Skills as on-disk packages (decision #29)**: each skill lives at `data/skills/{slug}/SKILL.md` with optional `references/`, `assets/`, `scripts/` sub-trees. The store keeps only `{id, slug}`; everything else is read live from disk on every admin GET. Per-agent toolset built via ADK's `tool/skilltoolset` over an `agent/tools/skills.AgentFS` wrapper that whitelists the slugs linked to the agent. Pre-#29 stores are NOT auto-migrated: `store.detectBrokenSkills` flags entries with legacy fields, logs one WARN per skill on startup, and the Skill accessors filter them out of every read path. The operator removes the legacy entry by hand and re-uploads the package via the admin UI. Non-canonical frontmatter keys (`version:`, `author:`) are tolerated at runtime via `agent/tools/skills.TolerantSource`.
@@ -249,11 +253,11 @@ log:
 - **Session middleware**: `SessionEnsure` prevents overwriting existing sessions (protects ContextGuard summaries). `SessionStateSeed` injects empty outputKey values so `{{agent.output:key}}` references in flow agent prompts resolve correctly
 - **SnakeCaseNormalize middleware**: Intercepts POST `/run` and `/run_sse`, recursively converts all snake_case JSON keys to camelCase before ADK processes the request. ADK uses `DisallowUnknownFields()` so any unconverted snake_case key causes a 400. Conversion is generic (not a fixed key list) — handles all nesting levels including `genai.Part` fields like `inlineData`, `mimeType`, `functionCall`. When both forms coexist in the same object, camelCase wins. Single-word keys are never modified. Placed outermost in the middleware chain (before ConversationRecorder)
 - **InstructionProvider pattern**: Agents use `InstructionProvider` instead of static `Instruction` strings to bypass ADK's built-in `{variable}` substitution (which conflicts with curly braces in prompts, JSON examples, scripts, etc). Magec resolves its own `{{agent.output:key}}` pattern from session state inside the provider. Plain `{text}` in prompts is never touched
-- **Flow wrapAgent pattern**: Same agent can appear in multiple flow steps — `wrapAgent()` creates uniquely-named delegate agents to satisfy ADK's single-parent constraint
+- **Flow subflow composition**: a `subflow` node embeds another flow as an adk v2 `WorkflowNode` built from that flow's own edges; `sortFlowsTopologically` orders builds and detects cycles across flows
 - **Voice provider registry**: TTS/STT proxies dispatch to per-backend-type providers via `voice.Get(backend.Type)`. Same pattern as clients/memory — `init()` + blank imports. OpenAI provider handles `/v1/audio/speech` and `/v1/audio/transcriptions`. Gemini provider translates to `generateContent` with `speechConfig`/`inlineData`. `TTSRef.Config` and `BackendRef.Config` use typed structs (`TTSConfig`, `STTConfig`) with per-provider namespaces matching the `ClientConfig` pattern (e.g. `config.openai.speed`, `config.gemini.languageCode`). `GET /voice/types` returns JSON Schemas per provider. Store migration moves legacy `tts.speed` → `tts.config.openai.speed` and flat config fields → `tts.config.gemini.*`
 - **Input artifact offloading**: User-uploaded files are persisted through the ADK `artifact.Service` and replaced in the prompt with a `MAGEC_ATTACHED_ARTIFACTS` block telling the model to call `load_artifact` on demand. Reuses the universal artifact toolset (decision #17). The service is injected per-client through `SetArtifactService` and sourced from `agentRouterHandler.ArtifactService()` so it tracks store rebuilds. Helpers in `server/clients/msgutil/attachments.go`: `StoreAsArtifact`, `AttachedArtifactsBlock` — each client runs its own short loop over platform-specific attachment types.
 - **Artifact toolset**: universal via `base_toolset.go` (decision #17). Exposes `save_artifact`, `load_artifact`, `list_artifacts`, `export_artifact` and `get_artifact_url`. `load_artifact` injects the artifact as a native multimodal `*genai.Part` via `ProcessRequest` rather than serialising base64 (decision #25). `export_artifact` writes raw bytes to disk under `Store.ResolveTemporaryDir()` and returns the absolute path so non-artifact-aware tools running in the same container can pick the file up (decision #26). `get_artifact_url` mints a short-lived HMAC-signed URL under `/api/v1/ephemeral/artifacts/{token}` so consumers in other processes/containers can fetch the artifact's raw bytes over HTTP without sharing volumes (decision #27); the tool stays unregistered when `server.encryptionKey` is unset. `Store.ResolveTemporaryDir()` is the single fallback point for `Settings.TemporaryDir` → `os.TempDir()`; nobody else may compute that fallback.
-- **Flow state and loop exit** (decision #28): agents inside a flow get `set_state(key, value)` and `get_state(key)` tools that read/write the shared `session.state` under the `flow:` prefix — keys are visible to every agent in the same flow during the same conversation. Loop steps can opt into one of two early-exit strategies (mutually exclusive): `ExitLoop:true` injects `exit_loop` from `google.golang.org/adk/tool/exitlooptool` into every agent in the loop's subtree (any depth), or `ExitWhen:"<CEL expression>"` appends a synthetic evaluator agent (`flowexit.NewExitWhenAgent`) as the last child of the loopagent, which emits `Escalate` when the expression evaluates to true. Both mechanisms fire at iteration boundaries — sibling agents within the same iteration still run to completion. CEL evaluation is via `github.com/google/cel-go`; runtime errors are treated as `false` and logged at warn level. Tools and instruction snippets are wired only when an agent runs as part of a flow (per-appearance ADK instances built by `flow.go`, never on the standalone catalogue copy).
+- **Flow state and routing**: agents inside a flow get `set_state(key, value)` and `get_state(key)` tools backed by `session.state` under the `flow:` prefix, visible to every node in the same flow during the conversation. A `router` node holds ordered CEL rules over the flow state (plus an `iterations` counter per router) and emits a route label; its outgoing edges carry `StringRoute` labels that match it, with a default route when none fire. Loops are back edges gated by a router; a hard `maxLoopIterations` guard fails a runaway router. CEL is `github.com/google/cel-go` (compiled in `flowexit`); runtime errors on a router guard are treated as `false` and logged. `expression` nodes evaluate a CEL value over `input`+`state`; `template` nodes render `{{ input }}`/`{{ state.key }}` placeholders; both can write their result into flow state via `outputKey`
 
 ### Design Philosophy
 
@@ -270,11 +274,12 @@ log:
 - **No Vue Router**: Tab navigation via `activeTab` ref + `location.hash`
 - **Dialog pattern**: `defineExpose({ open })`, parents call `ref.value?.open(data)`. Native `<dialog>` + `showModal()`
 - **JSON Schema form renderer**: `ClientDialog.vue` renders forms dynamically from `ConfigSchema()`
-- **Flow editor**: `FlowCanvas.vue` (pan/zoom/toolbar) + `FlowBlock.vue` (recursive, vuedraggable)
+- **Code node capabilities**: a `code` flow node runs user Starlark (via `github.com/1set/starlet`) over `input`+`state`, returning the script's top-level `output`. The admin, not the flow author, governs power: every starlet library ships enabled and the admin disables some in Settings (`Settings.Flows.DisabledLibraries`); a fresh starlet Machine is built per execution from a loader list prebuilt in `agent.New`. Execution limits (wall-clock timeout, output-size cap) have a global ceiling in Settings and an optional per-node override, effective = min(node, ceiling), 0 = unlimited; a runaway loop is cut by a Starlark step budget and the context deadline.
+- **Flow editor**: `FlowCanvas.vue` (pan/zoom, SVG bezier edges, drag-to-connect ports, grouped add-node toolbar, full-screen toggle) + `FlowNode.vue` (per-type node card, resizable, positions/size persisted as node x/y/w/h)
 - **Tailwind v4**: `@tailwindcss/vite` plugin, `@theme` directive for custom colors
 - **11 active tabs**: backends, memory, mcps, agents, flows, commands, skills, clients, secrets, conversations, settings
 - **Keyboard shortcuts**: `n` (new entity), `r` (refresh), `Cmd+K` (search palette)
-- **Settings view**: Runtime (`temporaryDir` for transient files used by tools like `export_artifact`) + backup/restore (tar.gz). Memory provider selection lives in the global settings struct but is not yet exposed in the UI.
+- **Settings view**: Runtime (`temporaryDir` for transient files used by tools like `export_artifact`), Flows (Starlark code-node script libraries and execution limits) and backup/restore (tar.gz). Memory provider selection lives in the global settings struct but is not yet exposed in the UI.
 
 ### Frontend Conventions (voice-ui)
 
@@ -324,7 +329,8 @@ GPU section commented out by default. Users who want cloud providers create diff
 
 **Go backend:**
 
-- `google.golang.org/adk` — Agent Development Kit (v1.2.0)
+- `google.golang.org/adk/v2`: Agent Development Kit (v2.0.0)
+- `github.com/1set/starlet`: Starlark runtime for code nodes
 - `google.golang.org/genai` — Google GenAI SDK (v1.40.0)
 - `github.com/achetronic/adk-utils-go` — ADK utilities (v0.16.0): providers, session, memory tools, ContextGuard plugin, Langfuse plugin, artifact filesystem service
 - `github.com/a2aproject/a2a-go` — A2A protocol library (v0.3.10)
@@ -342,7 +348,7 @@ GPU section commented out by default. Users who want cloud providers create diff
 **Frontends:**
 
 - Vue 3, Vite 7.3, Tailwind CSS 4.1, Pinia 3
-- vuedraggable (admin-ui flow editor)
+- vuedraggable (admin-ui list reordering)
 - marked (admin-ui markdown rendering in conversations)
 
 ## Gotchas
@@ -355,8 +361,8 @@ GPU section commented out by default. Users who want cloud providers create diff
 6. **Parakeet/Edge TTS URLs**: Do NOT include `/v1` — Magec auto-appends it.
 7. **Edge TTS auth**: Use `REQUIRE_API_KEY=False` env var, no API key needed in backend config.
 8. **JSON Schema extensions**: `x-entity` (entity select), `x-format: password`, `x-placeholder`. Frontend renders dynamically.
-9. **OutputKey on AgentDefinition, not FlowStep**: ADK's `OutputKey` is set on the agent.
-10. **`responseAgent` is per-flow-step**: Lives on `FlowStep`. Executor resolves via `flow.ResponseAgentIDs()`. If none marked, all events returned.
+9. **OutputKey on AgentDefinition and on transform/code nodes**: ADK's `OutputKey` is set on the agent; expression, template and code flow nodes also accept an `outputKey` to write their result into flow state.
+10. **`responseAgent` is per agent node**: Lives on `FlowNode`. Executor resolves via `flow.ResponseAgentIDs()`. If none marked, all events returned.
 11. **Cron supports shorthands**: `@daily`, `@hourly`, `@weekly`, etc. expand to 5-field expressions.
 12. **Docker image includes default config.yaml**: Baked in at `/app/config.yaml`. Override with `-v`.
 13. **Git branch is `master`**, not `main`. All raw GitHub URLs use `master`.

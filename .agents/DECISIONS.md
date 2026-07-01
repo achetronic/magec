@@ -883,3 +883,68 @@ no automatic conversion, no "try harder" repair pass.
 - `frontend/admin-ui/src/views/skills/SkillsList.vue` — opens viewer on click, upload from header button.
 - `frontend/admin-ui/src/lib/api/skills.js` — upload/get/list/delete/download.
 - `frontend/admin-ui/src/lib/markdown.js` + style.css `.magec-markdown` block — Magec-flavoured markdown renderer for skill instructions.
+
+
+## 30. Flows are a directed graph on adk-go v2
+
+Flows are a directed graph of typed nodes joined by edges, built on the
+adk-go v2 workflow engine (`google.golang.org/adk/v2`). A `FlowDefinition`
+holds `Entry`, `Nodes` and `Edges`; the builder emits a single
+`workflowagent` and synthesizes the `Start -> Entry` edge. A node's ID is its
+adk `Node.Name()` and the `event.Author`, so output filtering matches node IDs
+directly with no synthetic naming scheme.
+
+Node types: `agent` (runs an AgentDefinition), `router` (ordered CEL rules over
+flow state emit a route label matched by outgoing `StringRoute` edges),
+`join` (fan-in barrier), `parallel` (runs one agent once per list item via
+`ParallelWorker`), `subflow` (embeds another flow as a `WorkflowNode` built
+from its edges), `expression` (CEL value over `input`+`state`), `template`
+(placeholder text), and `code` (Starlark). Loops are back edges gated by a
+router; there is no loop container.
+
+### Why a graph
+
+A visual flow editor is a graph (boxes and arrows), so the data model, the
+builder and the editor share one shape. Sequencing is an edge, fan-out is
+edges plus a `join`, a loop is a back edge gated by a `router`; none of these
+need a container node or an escalate/exit-loop mechanism. Flows persist only in
+graph form (`Entry`/`Nodes`/`Edges`); there is no importer for other shapes.
+
+### Code node capabilities and limits
+
+The `code` node runs user Starlark via `github.com/1set/starlet`. The admin
+who deploys governs capability, not the flow author: every starlet library
+ships enabled, and the admin disables some in `Settings.Flows.DisabledLibraries`.
+A fresh starlet Machine is built per execution from a loader list prebuilt in
+`agent.New`. Execution limits (wall-clock timeout, output-size cap) have a
+global ceiling in `Settings.Flows` and an optional per-node override, with
+effective = min(node, ceiling) and 0 = unlimited; a runaway script is cut by a
+Starlark step budget and the context deadline. This keeps the sandbox decision
+where it belongs: the operator knows whether the deployment is an isolated
+distroless container or an exposed binary.
+
+### Do not
+
+- Reintroduce `sequential`/`parallel`/`loop` container node types. Sequencing
+  is edges, fan-out is edges plus a `join`, loops are a back edge plus a
+  router; container nodes would reintroduce nesting.
+- Hardcode a library allowlist for the code node. Capability is an admin
+  runtime decision (Settings), not a compile-time policy.
+- Drop the code-node execution limits as non-configurable. They guard Magec's
+  own availability (a runaway loop or huge output), independent of the
+  network/disk capability question, and the admin can disable them knowingly.
+- Evaluate anything in an edge. Edges only match a label; the source router
+  node decides routing by emitting `ev.Routes`.
+
+**Files**:
+
+- `server/store/types.go`: `FlowDefinition{Entry,Nodes,Edges,StartX,StartY}`, `FlowNode`, `FlowEdge`, `FlowRule`, node-type constants, `FlowsSettings` on `Settings`.
+- `server/agent/flow.go`: `buildEdges`/`buildNode`, `workflowagent.New`, subflow via `WorkflowNode`, parallel via `ParallelWorker`.
+- `server/agent/router_node.go`: CEL router with the `iterations` counter and `maxLoopIterations` guard.
+- `server/agent/transform_nodes.go`: expression and template nodes.
+- `server/agent/code_node.go`: Starlark code node, `effectiveLimit`, per-execution machine.
+- `server/agent/flowexit/`: CEL compile/evaluate for router guards and expression values.
+- `server/agent/flowgraph/validate.go` + tests: graph validation.
+- `server/api/admin/flows.go`: `flowgraph.Validate` on save.
+- `frontend/admin-ui/src/views/flows/`: `FlowCanvas.vue`, `FlowNode.vue` (graph editor, resizable nodes, full-screen, draggable Start).
+- `frontend/admin-ui/src/views/settings/FlowsSection.vue`: library pills and execution limits.
