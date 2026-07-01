@@ -242,6 +242,10 @@ const (
 	// FlowNodeTemplate renders a text template with {{ input }} / {{ state.key }}
 	// placeholders and emits the resulting string as its output.
 	FlowNodeTemplate = "template"
+	// FlowNodeCode runs a user-supplied Starlark script. The script receives
+	// `input` (the upstream output) and `state` (the shared flow state) and
+	// must assign `output`; that value becomes the node's output.
+	FlowNodeCode = "code"
 )
 
 // FlowStart is the reserved identifier for the graph entry sentinel. An edge
@@ -302,11 +306,25 @@ type FlowNode struct {
 	// when Type is FlowNodeTemplate.
 	Template string `json:"template,omitempty" yaml:"template,omitempty"`
 
+	// Script is the Starlark source code to execute. Required when Type is
+	// FlowNodeCode; the script must assign a top-level variable named `output`.
+	Script string `json:"script,omitempty" yaml:"script,omitempty"`
+
+	// TimeoutMs is the per-node wall-clock execution ceiling in milliseconds.
+	// 0 means "defer to the global ceiling in Settings.Flows.ExecutionTimeoutMs".
+	// The effective timeout is min(TimeoutMs, ceiling) when both are non-zero.
+	TimeoutMs int `json:"timeoutMs,omitempty" yaml:"timeoutMs,omitempty"`
+
+	// MaxOutputBytes is the per-node cap on the JSON-serialised output size.
+	// 0 means "defer to the global ceiling in Settings.Flows.MaxOutputBytes".
+	// The effective cap is min(MaxOutputBytes, ceiling) when both are non-zero.
+	MaxOutputBytes int `json:"maxOutputBytes,omitempty" yaml:"maxOutputBytes,omitempty"`
+
 	// OutputKey, when set, also writes this node's output into the shared flow
 	// state under that key, readable downstream as state.<key>. It must be a
 	// valid CEL identifier (letters, digits, underscore; no hyphen) so
-	// downstream expressions can reference it. Meaningful for expression and
-	// template nodes.
+	// downstream expressions can reference it. Meaningful for expression,
+	// template, and code nodes.
 	OutputKey string `json:"outputKey,omitempty" yaml:"outputKey,omitempty"`
 
 	// X and Y are the node's position on the visual editor canvas. They are a
@@ -444,6 +462,21 @@ type FlowDefinition struct {
 	StartY float64 `json:"startY,omitempty" yaml:"startY,omitempty"`
 }
 
+// FlowsSettings holds global configuration for the Starlark code-node feature.
+// All values are ceilings: a code node may ask for less but never more.
+type FlowsSettings struct {
+	// DisabledLibraries lists starlet built-in module names the admin has
+	// turned off. Every built-in module not listed here is enabled. nil or
+	// empty means all modules are available.
+	DisabledLibraries []string `json:"disabledLibraries,omitempty" yaml:"disabledLibraries,omitempty"`
+	// ExecutionTimeoutMs is the global ceiling for a code node's wall-clock
+	// execution time in milliseconds. 0 means no limit.
+	ExecutionTimeoutMs int `json:"executionTimeoutMs" yaml:"executionTimeoutMs"`
+	// MaxOutputBytes is the global ceiling for a code node's JSON-serialised
+	// output size in bytes. 0 means no limit.
+	MaxOutputBytes int `json:"maxOutputBytes" yaml:"maxOutputBytes"`
+}
+
 // Settings holds global configuration that applies to the launcher/runtime
 // rather than to individual entities.
 type Settings struct {
@@ -455,6 +488,8 @@ type Settings struct {
 	// temporary directory via Store.ResolveTemporaryDir, which is the only
 	// place that performs that fallback.
 	TemporaryDir string `json:"temporaryDir,omitempty" yaml:"temporaryDir,omitempty"`
+	// Flows holds global settings for the Starlark code-node feature.
+	Flows FlowsSettings `json:"flows" yaml:"flows"`
 }
 
 // Secret represents an encrypted key-value pair used for environment variable injection.

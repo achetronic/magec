@@ -453,3 +453,77 @@ func TestValidate_TransformRules(t *testing.T) {
 		})
 	}
 }
+
+// codeFlow returns a minimal valid flow with a single code node.
+// START -> code_node (terminal).
+func codeFlow() *store.FlowDefinition {
+	return &store.FlowDefinition{
+		ID:    "f7",
+		Name:  "code",
+		Entry: "transform",
+		Nodes: []store.FlowNode{
+			{
+				ID:     "transform",
+				Type:   store.FlowNodeCode,
+				Script: "output = input",
+			},
+		},
+		Edges: nil,
+	}
+}
+
+func TestValidate_AcceptsCodeNode(t *testing.T) {
+	if err := Validate(codeFlow()); err != nil {
+		t.Fatalf("expected valid code node flow, got error: %v", err)
+	}
+}
+
+func TestValidate_AcceptsCodeNodeWithOutputKey(t *testing.T) {
+	def := codeFlow()
+	def.Nodes[0].OutputKey = "result"
+	if err := Validate(def); err != nil {
+		t.Fatalf("expected valid code node flow with outputKey, got error: %v", err)
+	}
+}
+
+func TestValidate_CodeNodeRules(t *testing.T) {
+	cases := []struct {
+		name    string
+		mutate  func(*store.FlowDefinition)
+		wantSub string
+	}{
+		{
+			name:    "missing script",
+			mutate:  func(d *store.FlowDefinition) { d.Nodes[0].Script = "" },
+			wantSub: "code node \"transform\" requires a script",
+		},
+		{
+			name:    "bad outputKey with hyphen",
+			mutate:  func(d *store.FlowDefinition) { d.Nodes[0].OutputKey = "my-key" },
+			wantSub: "outputKey \"my-key\" must match",
+		},
+		{
+			name:    "negative timeoutMs",
+			mutate:  func(d *store.FlowDefinition) { d.Nodes[0].TimeoutMs = -1 },
+			wantSub: "negative timeoutMs",
+		},
+		{
+			name:    "negative maxOutputBytes",
+			mutate:  func(d *store.FlowDefinition) { d.Nodes[0].MaxOutputBytes = -1 },
+			wantSub: "negative maxOutputBytes",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			def := codeFlow()
+			tc.mutate(def)
+			err := Validate(def)
+			if err == nil {
+				t.Fatalf("expected error containing %q, got nil", tc.wantSub)
+			}
+			if !strings.Contains(err.Error(), tc.wantSub) {
+				t.Fatalf("error %q does not contain %q", err.Error(), tc.wantSub)
+			}
+		})
+	}
+}

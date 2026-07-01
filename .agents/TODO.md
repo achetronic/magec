@@ -96,6 +96,40 @@ no validation and bad UX — explicitly not worth doing half-way.
 
 ---
 
+### Workflow graph: Code node (Starlark) + Flows settings (in progress)
+
+A `code` flow node (Data group) that runs user Starlark, interpreted, over
+`input` and `state` and returns `output` (optional `outputKey` writes into flow
+state, like expression/template). Engine: Starlark via `github.com/1set/starlet`
+(wrapper plus dataconv Go/Starlark plus a library catalogue: json, csv, base64,
+hashlib, re, regex, string, math, stats, serial, http, net, file, path,
+runtime, ...). Pin starlet to a tag and audit what is used (small project).
+
+Capability model: the admin who deploys decides what the code may touch, not the
+flow author. Every library ships ON by default (power first); the admin turns
+off what their deployment should not have. `http` enables notifications and
+webhooks from a flow, a legitimate use, not just a risk.
+
+Execution limits (execution timeout plus output size cap) exist at two levels:
+admin Settings (global ceiling) and the FunctionNode box (per node). Semantics:
+admin is a hard ceiling, a node may only ask for LESS, effective value is
+`min(node, adminCeiling)`; a node that specifies nothing uses the Settings
+default. Limits ship ON with sane defaults (timeout ~5s, output ~1MB, to tune)
+but the admin CAN disable them (no limit). Enforced with `starlark.Thread`
+(step budget / deadline) plus an output-size cap. These guard Magec's own
+availability (a runaway loop or huge output), independent of the network/disk
+capability question.
+
+Settings gains a `Flows` section with two areas: `Script libraries` (a toggle
+per starlet module, all ON by default, the network/disk ones like
+http/net/file/path/runtime flagged visually so the admin enables them
+knowingly) and `Execution limits` (timeout on-by-default plus value, output cap
+on-by-default plus value, both disableable).
+
+**Modify**: `server/store/types.go` (FlowNode `code` fields + `Settings.Flows`), `server/agent/` (new code node builder with starlet module injection + thread deadline/cap), `server/agent/flowgraph/validate.go`, `server/api/admin/settings.go`, `frontend/admin-ui/src/views/flows/` (Code node) and the admin Settings view.
+
+---
+
 ### Workflow graph: remaining debt
 
 - **Seeds** — `data/seeds/examples.json` and `data/store.json` still hold flows

@@ -53,6 +53,12 @@ type Store struct {
 // The encryptionKey is used to encrypt/decrypt secret values at rest. If empty, secrets are stored in cleartext.
 func New(filePath string, encryptionKey string) (*Store, error) {
 	defaults := StoreData{
+		Settings: Settings{
+			Flows: FlowsSettings{
+				ExecutionTimeoutMs: 5000,
+				MaxOutputBytes:     1048576,
+			},
+		},
 		Backends:        []BackendDefinition{},
 		MemoryProviders: []MemoryProvider{},
 		MCPServers:      []MCPServer{},

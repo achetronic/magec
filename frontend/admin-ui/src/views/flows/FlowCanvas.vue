@@ -202,6 +202,9 @@ const nodeGroups = [
     { type: 'template', label: 'Template', title: 'Render text with {{ input }} and {{ state.key }} placeholders',
       cls: 'border-teal-500/30 hover:border-teal-500/60', iconBg: 'bg-teal-500/15', iconColor: 'text-teal-400',
       icon: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z' },
+    { type: 'code', label: 'Code', title: 'Run a Starlark script over input and state',
+      cls: 'border-emerald-500/30 hover:border-emerald-500/60', iconBg: 'bg-emerald-500/15', iconColor: 'text-emerald-400',
+      icon: 'M8 9l3 3-3 3m5 0h3M5 5h14a1 1 0 011 1v12a1 1 0 01-1 1H5a1 1 0 01-1-1V6a1 1 0 011-1z' },
   ],
 ]
 
@@ -225,6 +228,7 @@ function addNode(type) {
   if (type === 'subflow') node.flowId = ''
   if (type === 'expression') { node.expression = ''; node.outputKey = ''; node.w = 280; node.h = 170 }
   if (type === 'template') { node.template = ''; node.outputKey = ''; node.w = 280; node.h = 190 }
+  if (type === 'code') { node.script = ''; node.outputKey = ''; node.timeoutMs = 0; node.maxOutputBytes = 0; node.w = 300; node.h = 220 }
   if (type === 'router') { node.rules = [{ when: '', route: '' }]; node.defaultRoute = 'default' }
   const nextNodes = [...nodes.value, node]
   // First node added becomes the entry by default.

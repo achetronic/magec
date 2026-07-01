@@ -294,6 +294,56 @@
           />
         </div>
       </div>
+
+      <!-- CODE body -->
+      <div v-else-if="node.type === 'code'" class="px-2.5 py-2 space-y-1.5 flex-1 flex flex-col min-h-0">
+        <div class="flex items-center gap-1 px-0.5">
+          <span class="text-[9px] text-arena-500">Starlark over <code class="text-emerald-300">input</code> and <code class="text-emerald-300">state</code></span>
+          <span class="relative group/tip">
+            <svg class="w-3 h-3 text-arena-600 hover:text-arena-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.6"><path stroke-linecap="round" stroke-linejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" /></svg>
+            <span class="absolute z-50 left-4 top-0 hidden group-hover/tip:block w-52 p-2 rounded-lg bg-piedra-950 border border-piedra-700/60 text-[9px] text-arena-400 leading-relaxed shadow-xl">
+              Assign a top-level `output` variable. Libraries the admin enabled are available. Runtime limits apply.
+            </span>
+          </span>
+        </div>
+        <textarea
+          :value="node.script"
+          @input="$emit('update', { ...node, script: $event.target.value })"
+          @pointerdown.stop
+          rows="5" spellcheck="false"
+          :placeholder="codePlaceholder"
+          class="w-full flex-1 min-h-[4rem] bg-piedra-800 border border-piedra-700/50 rounded-lg px-2 py-1 text-[10px] font-mono text-arena-200 placeholder:text-arena-600 outline-none focus:border-emerald-500/50 resize-none"
+        />
+        <div class="flex items-center gap-1.5">
+          <span class="text-[9px] text-arena-500 whitespace-nowrap">save as</span>
+          <input
+            :value="node.outputKey"
+            @input="$emit('update', { ...node, outputKey: $event.target.value })"
+            @pointerdown.stop
+            placeholder="state key (optional)"
+            class="flex-1 min-w-0 bg-piedra-800 border border-piedra-700/50 rounded px-1.5 py-0.5 text-[10px] font-mono text-arena-200 placeholder:text-arena-600 outline-none focus:border-emerald-500/50"
+          />
+        </div>
+        <div class="flex items-center gap-1.5 flex-wrap">
+          <span class="text-[9px] text-arena-500">timeout ms</span>
+          <input
+            type="number" min="0"
+            :value="node.timeoutMs || 0"
+            @input="$emit('update', { ...node, timeoutMs: Math.max(0, parseInt($event.target.value) || 0) })"
+            @pointerdown.stop
+            class="w-16 bg-piedra-800 border border-piedra-700/50 rounded px-1.5 py-0.5 text-[10px] font-mono text-arena-200 outline-none focus:border-emerald-500/50"
+          />
+          <span class="text-[9px] text-arena-500">max out</span>
+          <input
+            type="number" min="0"
+            :value="node.maxOutputBytes || 0"
+            @input="$emit('update', { ...node, maxOutputBytes: Math.max(0, parseInt($event.target.value) || 0) })"
+            @pointerdown.stop
+            class="w-16 bg-piedra-800 border border-piedra-700/50 rounded px-1.5 py-0.5 text-[10px] font-mono text-arena-200 outline-none focus:border-emerald-500/50"
+          />
+          <span class="text-[9px] text-arena-600">(0 = inherit)</span>
+        </div>
+      </div>
     </div>
 
     <!-- input port (all node types). The drop target is the whole node (see
@@ -423,6 +473,7 @@ function pickFlow(id) {
 const mustacheInput = '{{ input }}'
 const exprPlaceholder = 'input.split(",")'
 const tmplPlaceholder = 'Summarise for {{ state.lang }}:\n{{ input }}'
+const codePlaceholder = 'output = input.upper()'
 
 // ── router rules ───────────────────────────────────────────────────────────
 function updateRule(i, key, val) {
@@ -518,6 +569,17 @@ const TYPE = {
     iconBg: 'bg-teal-500/15',
     iconColor: 'text-teal-400',
     labelColor: 'text-teal-400',
+  },
+  code: {
+    label: 'Code',
+    icon: 'M8 9l3 3-3 3m5 0h3M5 5h14a1 1 0 011 1v12a1 1 0 01-1 1H5a1 1 0 01-1-1V6a1 1 0 011-1z',
+    border: 'border-emerald-500/30',
+    hoverBorder: 'hover:border-emerald-500/60',
+    selectedRing: 'border-emerald-500/70 ring-2 ring-emerald-500/25',
+    headerBg: 'bg-emerald-500/8',
+    iconBg: 'bg-emerald-500/15',
+    iconColor: 'text-emerald-400',
+    labelColor: 'text-emerald-400',
   },
 }
 const cfg              = computed(() => TYPE[props.node.type] || TYPE.agent)

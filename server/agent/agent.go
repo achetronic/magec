@@ -44,6 +44,7 @@ import (
 	"google.golang.org/adk/v2/tool/skilltoolset"
 	"google.golang.org/genai"
 
+	"github.com/1set/starlet"
 	artifactfs "github.com/achetronic/adk-utils-go/artifact/filesystem"
 	genaianthro "github.com/achetronic/adk-utils-go/genai/anthropic"
 	genaiopenai "github.com/achetronic/adk-utils-go/genai/openai"
@@ -219,6 +220,28 @@ func New(ctx context.Context, agents []store.AgentDefinition, backends []store.B
 		flowDefMap[f.ID] = f
 	}
 
+	// Build the enabled starlet module loader list once: all built-in modules
+	// minus whatever the admin disabled. Shared safely across code-node runs
+	// (each run builds its own fresh Machine). If the loader list cannot be
+	// built (e.g. an unknown name in DisabledLibraries), log and fall back to
+	// an empty list so the server still starts.
+	allNames := starlet.GetAllBuiltinModuleNames()
+	disabledSet := make(map[string]bool, len(settings.Flows.DisabledLibraries))
+	for _, n := range settings.Flows.DisabledLibraries {
+		disabledSet[n] = true
+	}
+	enabledNames := make([]string, 0, len(allNames))
+	for _, n := range allNames {
+		if !disabledSet[n] {
+			enabledNames = append(enabledNames, n)
+		}
+	}
+	starletLoaders, loaderErr := starlet.MakeBuiltinModuleLoaderList(enabledNames...)
+	if loaderErr != nil {
+		slog.Warn("Failed to build Starlark module loader list; code nodes will have no modules", "error", loaderErr)
+		starletLoaders = nil
+	}
+
 	flowDeps := FlowBuildDeps{
 		Ctx:              ctx,
 		AgentDefs:        agentDefMap,
@@ -230,6 +253,8 @@ func New(ctx context.Context, agents []store.AgentDefinition, backends []store.B
 		MemorySvc:        memorySvc,
 		BaseToolset:      baseTset,
 		FlowStateToolset: flowStateToolset,
+		StarletLoaders:   starletLoaders,
+		FlowsSettings:   settings.Flows,
 	}
 
 	// Build flows

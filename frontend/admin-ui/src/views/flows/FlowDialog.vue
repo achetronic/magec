@@ -142,6 +142,11 @@ function cleanNode(n) {
   } else if (n.type === 'template') {
     clean.template = n.template || ''
     if (n.outputKey) clean.outputKey = n.outputKey
+  } else if (n.type === 'code') {
+    clean.script = n.script || ''
+    if (n.outputKey) clean.outputKey = n.outputKey
+    if (n.timeoutMs) clean.timeoutMs = n.timeoutMs
+    if (n.maxOutputBytes) clean.maxOutputBytes = n.maxOutputBytes
   }
   return clean
 }

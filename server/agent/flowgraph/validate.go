@@ -164,6 +164,19 @@ func validateNodes(d *store.FlowDefinition) error {
 			if n.OutputKey != "" && !stateKeyPattern.MatchString(n.OutputKey) {
 				return fmt.Errorf("template node %q outputKey %q must match [a-zA-Z_][a-zA-Z0-9_]*", n.ID, n.OutputKey)
 			}
+		case store.FlowNodeCode:
+			if n.Script == "" {
+				return fmt.Errorf("code node %q requires a script", n.ID)
+			}
+			if n.OutputKey != "" && !stateKeyPattern.MatchString(n.OutputKey) {
+				return fmt.Errorf("code node %q outputKey %q must match [a-zA-Z_][a-zA-Z0-9_]*", n.ID, n.OutputKey)
+			}
+			if n.TimeoutMs < 0 {
+				return fmt.Errorf("code node %q has negative timeoutMs", n.ID)
+			}
+			if n.MaxOutputBytes < 0 {
+				return fmt.Errorf("code node %q has negative maxOutputBytes", n.ID)
+			}
 		default:
 			return fmt.Errorf("node %q has unknown type %q", n.ID, n.Type)
 		}

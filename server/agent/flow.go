@@ -12,6 +12,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/1set/starlet"
 	adkagent "google.golang.org/adk/v2/agent"
 	"google.golang.org/adk/v2/agent/workflowagent"
 	"google.golang.org/adk/v2/memory"
@@ -47,6 +48,13 @@ type FlowBuildDeps struct {
 	MemorySvc        memory.Service
 	BaseToolset      tool.Toolset
 	FlowStateToolset tool.Toolset
+	// StarletLoaders is the prebuilt list of enabled Starlark module loaders.
+	// Safe to share across concurrent code-node executions; each run builds
+	// its own fresh Machine.
+	StarletLoaders starlet.ModuleLoaderList
+	// FlowsSettings carries the admin ceilings (timeout, output cap) for code
+	// nodes. Computed once in agent.New and forwarded through FlowBuildDeps.
+	FlowsSettings store.FlowsSettings
 }
 
 // BuildFlowAgent translates a FlowDefinition graph into an adk workflow agent
@@ -150,6 +158,9 @@ func buildNode(n store.FlowNode, deps FlowBuildDeps) (workflow.Node, error) {
 
 	case store.FlowNodeTemplate:
 		return buildTemplateNode(n)
+
+	case store.FlowNodeCode:
+		return buildCodeNode(n, deps)
 
 	default:
 		return nil, fmt.Errorf("unknown node type %q", n.Type)
