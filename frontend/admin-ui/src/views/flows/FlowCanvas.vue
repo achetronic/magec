@@ -425,15 +425,27 @@ function endEdge(targetId) {
   if (!src || targetId === src.nodeId) return
   if (src.nodeId === '__start__') {
     patch({ entry: targetId })
-  } else {
-    // replace any existing edge with the same (from, route) so a router route
-    // points at exactly one target, matching the validation rule
+  } else if (isRouterSource(src.nodeId)) {
+    // A router route points at exactly one target (validation rule), so a
+    // new connection replaces any edge with the same (from, route).
     const filtered = edges.value.filter(e => !(e.from === src.nodeId && (e.route || '') === (src.route || '')))
-    const edge = { from: src.nodeId, to: targetId }
-    if (src.route) edge.route = src.route
+    const edge = { from: src.nodeId, to: targetId, route: src.route }
+    if (!edge.route) delete edge.route
     patch({ edges: [...filtered, edge] })
+  } else {
+    // Any other node fans out: it may keep several outgoing edges and the
+    // scheduler sends a copy of its output down each one. Only an exact
+    // duplicate (same from and to) is dropped before appending.
+    const filtered = edges.value.filter(e => !(e.from === src.nodeId && e.to === targetId))
+    patch({ edges: [...filtered, { from: src.nodeId, to: targetId }] })
   }
   nextTick(measurePorts)
+}
+
+// isRouterSource reports whether the node dragging the connection is a router,
+// whose outgoing edges are route-labelled and single-target.
+function isRouterSource(nodeId) {
+  return nodes.value.find(n => n.id === nodeId)?.type === 'router'
 }
 function cancelEdge() { connecting.value = null }
 

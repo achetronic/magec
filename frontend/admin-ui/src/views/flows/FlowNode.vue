@@ -464,6 +464,10 @@ const NODE_HELP = {
       body: 'Agents can save values for later nodes and read them back.',
       code: ['set_state(key, value)', 'get_state(key)'],
     },
+    {
+      heading: 'Fan-out',
+      body: 'Connect several outgoing edges and each target receives a copy of the output, running in parallel branches.',
+    },
   ],
   router: [
     {
@@ -487,11 +491,13 @@ const NODE_HELP = {
   join: [
     {
       heading: 'What it does',
-      body: 'Waits for all incoming branches to finish, then forwards their combined output.',
+      body: 'Waits for all incoming branches to finish, then emits their outputs as a single map keyed by the node that produced each one.',
+      code: ['{ "agent_1": "...", "agent_2": "..." }'],
     },
     {
       heading: 'When to use it',
-      body: 'Place it where parallel branches must meet before the flow continues.',
+      body: 'Place it where parallel branches must meet before the flow continues. A Code node downstream can turn the map into a list.',
+      code: ['output = list(input.values())'],
     },
   ],
   parallel: [
