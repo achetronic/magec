@@ -3,7 +3,7 @@
     <!-- Header -->
     <div>
       <h3 class="text-sm font-semibold text-arena-100">Flows</h3>
-      <p class="text-xs text-arena-500 mt-1">Starlark code-node libraries and execution limits.</p>
+      <p class="text-xs text-arena-500 mt-1">Behaviour and limits for workflow flows.</p>
     </div>
 
     <!-- Script Libraries -->
@@ -15,42 +15,32 @@
         <div class="flex-1 min-w-0">
           <h4 class="text-[13px] font-medium text-arena-100">Script libraries</h4>
           <p class="text-xs text-arena-500 mt-0.5">
-            Modules available to code nodes. All enabled by default; turn off what this deployment should not allow.
+            Modules available to code nodes. All enabled by default; click to disable what this deployment should not allow.
           </p>
 
-          <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 mt-4">
-            <div
+          <div class="flex flex-wrap gap-2 mt-4">
+            <button
               v-for="mod in ALL_MODULES"
               :key="mod"
-              class="flex items-center justify-between p-2 rounded-lg bg-piedra-950/40 border border-piedra-800/60"
+              type="button"
+              @click="toggleLibrary(mod)"
+              :title="isSensitive(mod) ? 'Network or filesystem access' : undefined"
+              class="px-2.5 py-1 text-[11px] font-medium rounded-lg border transition-all cursor-pointer select-none font-mono"
+              :class="isLibraryEnabled(mod)
+                ? 'bg-piedra-800 text-arena-200 border-piedra-700/40 hover:border-piedra-600'
+                : 'bg-piedra-900 text-arena-600 border-piedra-800 line-through hover:text-arena-500'"
             >
-              <div
-                v-if="isSensitive(mod)"
-                class="flex items-center gap-1.5 min-w-0"
-                title="Network or filesystem access"
-              >
-                <svg
-                  class="w-3.5 h-3.5 text-amber-400 flex-shrink-0"
-                  fill="currentColor"
-                  viewBox="0 0 20 20"
-                >
-                  <path
-                    fill-rule="evenodd"
-                    d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
-                    clip-rule="evenodd"
-                  />
-                </svg>
-                <span class="font-mono text-xs text-amber-400 truncate">{{ mod }}</span>
-              </div>
-              <div v-else class="flex items-center gap-1.5 min-w-0">
-                <span class="font-mono text-xs text-arena-300 truncate">{{ mod }}</span>
-              </div>
-              <FormToggle
-                :model-value="isLibraryEnabled(mod)"
-                @update:model-value="toggleLibrary(mod)"
-              />
-            </div>
+              {{ mod }}<span v-if="isSensitive(mod)" class="ml-1 text-arena-500 no-underline">&bull;</span>
+            </button>
           </div>
+
+          <p class="text-[11px] text-arena-500 mt-4">
+            See the
+            <a href="https://github.com/1set/starlet#libraries"
+               target="_blank" rel="noopener"
+               class="text-sol-400 hover:text-sol-300 underline underline-offset-2 decoration-sol-400/40 hover:decoration-sol-300">library reference</a>
+            for what each module provides.
+          </p>
         </div>
       </div>
     </Card>
@@ -110,27 +100,26 @@
           <p class="text-[11px] text-arena-500 mt-1">
             0 disables the limit.
           </p>
+
+          <div class="flex items-center gap-3 mt-3">
+            <button
+              @click="onSaveLimits"
+              :disabled="!limitsDirty || savingLimits"
+              class="px-4 py-1.5 bg-blue-500/15 hover:bg-blue-500/25 text-blue-300 text-xs font-medium rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              {{ savingLimits ? 'Saving...' : 'Save' }}
+            </button>
+            <button
+              v-if="limitsDirty"
+              @click="onResetLimits"
+              class="text-[11px] text-arena-500 hover:text-arena-300 transition-colors"
+            >
+              Discard
+            </button>
+          </div>
         </div>
       </div>
     </Card>
-
-    <!-- Actions -->
-    <div class="flex items-center gap-3 mt-3">
-      <button
-        @click="onSave"
-        :disabled="!dirty || saving"
-        class="px-4 py-1.5 bg-blue-500/15 hover:bg-blue-500/25 text-blue-300 text-xs font-medium rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-      >
-        {{ saving ? 'Saving...' : 'Save' }}
-      </button>
-      <button
-        v-if="dirty"
-        @click="onReset"
-        class="text-[11px] text-arena-500 hover:text-arena-300 transition-colors"
-      >
-        Discard
-      </button>
-    </div>
   </div>
 </template>
 
@@ -154,27 +143,22 @@ const SENSITIVE_MODULES = ['http', 'net', 'file', 'path', 'runtime']
 
 const isSensitive = (mod) => SENSITIVE_MODULES.includes(mod)
 
-const initialDisabledLibraries = ref([])
+const disabledLibraries = ref([])
+let saveInFlight = false
+let pendingSave = false
+
 const initialTimeoutEnabled = ref(true)
 const initialTimeoutMs = ref(5000)
 const initialOutputEnabled = ref(true)
 const initialMaxOutputBytes = ref(1048576)
 
-const disabledLibraries = ref([])
 const timeoutEnabled = ref(true)
 const timeoutMs = ref(5000)
 const outputEnabled = ref(true)
 const maxOutputBytes = ref(1048576)
-const saving = ref(false)
+const savingLimits = ref(false)
 
-const dirty = computed(() => {
-  const set1 = new Set(disabledLibraries.value)
-  const set2 = new Set(initialDisabledLibraries.value)
-  if (set1.size !== set2.size) return true
-  for (const item of set1) {
-    if (!set2.has(item)) return true
-  }
-
+const limitsDirty = computed(() => {
   if (timeoutEnabled.value !== initialTimeoutEnabled.value) return true
   if (timeoutEnabled.value) {
     if (Number(timeoutMs.value) !== Number(initialTimeoutMs.value)) return true
@@ -191,10 +175,32 @@ const dirty = computed(() => {
 const isLibraryEnabled = (mod) => !disabledLibraries.value.includes(mod)
 
 function toggleLibrary(mod) {
-  if (disabledLibraries.value.includes(mod)) {
-    disabledLibraries.value = disabledLibraries.value.filter(m => m !== mod)
-  } else {
-    disabledLibraries.value = [...disabledLibraries.value, mod]
+  disabledLibraries.value = disabledLibraries.value.includes(mod)
+    ? disabledLibraries.value.filter(m => m !== mod)
+    : [...disabledLibraries.value, mod]
+
+  persistLibraries()
+}
+
+async function persistLibraries() {
+  if (saveInFlight) {
+    pendingSave = true
+    return
+  }
+
+  saveInFlight = true
+  try {
+    do {
+      pendingSave = false
+      const current = (await settingsApi.get()) || {}
+      const flows = { ...(current.flows || {}), disabledLibraries: [...disabledLibraries.value] }
+      await settingsApi.update({ ...current, flows })
+    } while (pendingSave)
+  } catch (e) {
+    toast.error('Failed to update libraries: ' + e.message)
+    await load()
+  } finally {
+    saveInFlight = false
   }
 }
 
@@ -203,9 +209,7 @@ async function load() {
     const settings = await settingsApi.get()
     const flows = settings?.flows || {}
 
-    const libs = flows.disabledLibraries || []
-    initialDisabledLibraries.value = [...libs]
-    disabledLibraries.value = [...libs]
+    disabledLibraries.value = [...(flows.disabledLibraries || [])]
 
     const tMs = flows.executionTimeoutMs !== undefined ? flows.executionTimeoutMs : 5000
     if (tMs > 0) {
@@ -233,34 +237,31 @@ async function load() {
   }
 }
 
-async function onSave() {
-  saving.value = true
+async function onSaveLimits() {
+  savingLimits.value = true
   try {
     const current = (await settingsApi.get()) || {}
     const flows = {
-      disabledLibraries: [...disabledLibraries.value],
+      ...(current.flows || {}),
       executionTimeoutMs: timeoutEnabled.value ? Number(timeoutMs.value) || 0 : 0,
       maxOutputBytes: outputEnabled.value ? Number(maxOutputBytes.value) || 0 : 0
     }
-    const next = { ...current, flows }
-    await settingsApi.update(next)
+    await settingsApi.update({ ...current, flows })
 
-    initialDisabledLibraries.value = [...disabledLibraries.value]
     initialTimeoutEnabled.value = timeoutEnabled.value
     initialTimeoutMs.value = timeoutMs.value
     initialOutputEnabled.value = outputEnabled.value
     initialMaxOutputBytes.value = maxOutputBytes.value
 
-    toast.success('Flows settings saved')
+    toast.success('Execution limits saved')
   } catch (e) {
     toast.error('Save failed: ' + e.message)
   } finally {
-    saving.value = false
+    savingLimits.value = false
   }
 }
 
-function onReset() {
-  disabledLibraries.value = [...initialDisabledLibraries.value]
+function onResetLimits() {
   timeoutEnabled.value = initialTimeoutEnabled.value
   timeoutMs.value = initialTimeoutMs.value
   outputEnabled.value = initialOutputEnabled.value
