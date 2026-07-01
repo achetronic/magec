@@ -31,7 +31,7 @@
           </svg>
         </div>
         <span class="flex-1 text-[9px] font-bold uppercase tracking-wider truncate" :class="labelColorClass">{{ typeLabel }}</span>
-        <NodeHelp v-if="node.type === 'router'" label="Need help?" title="Router" :sections="routerHelp" />
+        <NodeHelp v-if="helpSections.length" label="Need help?" :title="typeLabel" :sections="helpSections" />
         <button
           @pointerdown.stop @click.stop="$emit('remove')"
           class="p-0.5 rounded opacity-0 group-hover:opacity-100 hover:bg-lava-500/20 transition-all flex-shrink-0"
@@ -138,10 +138,7 @@
         </div>
       </div>
 
-      <!-- JOIN body -->
-      <div v-else-if="node.type === 'join'" class="px-3 py-2.5">
-        <p class="text-[9px] text-arena-500 leading-snug">Waits for <span class="text-purple-300 font-medium">all</span> incoming branches, then forwards their combined output.</p>
-      </div>
+      <!-- JOIN body: no controls, the header and help say it all -->
 
       <!-- PARALLEL body -->
       <div v-else-if="node.type === 'parallel'" class="px-3 py-2.5 space-y-2">
@@ -156,15 +153,15 @@
           </svg>
         </button>
         <div class="flex items-center gap-1.5">
-          <span class="text-[9px] text-arena-500">runs per list item, max</span>
+          <span class="text-[9px] text-arena-500 whitespace-nowrap">Max concurrent</span>
           <input
             type="number" min="0"
             :value="node.maxConcurrency || 0"
             @input="$emit('update', { ...node, maxConcurrency: Math.max(0, parseInt($event.target.value) || 0) })"
             @pointerdown.stop
-            class="w-12 bg-piedra-800 border border-piedra-700/50 rounded px-1.5 py-0.5 text-[10px] font-mono text-arena-200 outline-none focus:border-lava-500/50"
+            class="w-14 bg-piedra-800 border border-piedra-700/50 rounded px-1.5 py-0.5 text-[10px] font-mono text-arena-200 outline-none focus:border-lava-500/50"
           />
-          <span class="text-[9px] text-arena-600">(0 = unlimited)</span>
+          <span class="text-[9px] text-arena-600 whitespace-nowrap">(0 = unlimited)</span>
         </div>
 
         <Transition name="dropdown">
@@ -199,7 +196,6 @@
             <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
           </svg>
         </button>
-        <p class="text-[9px] text-arena-500 leading-snug">Embeds another flow as a nested step.</p>
 
         <Transition name="dropdown">
           <div v-if="pickerOpen" class="absolute z-50 left-2 right-2 top-full mt-1 bg-piedra-800 border border-piedra-700/60 rounded-xl shadow-2xl overflow-hidden" @pointerdown.stop>
@@ -223,15 +219,6 @@
 
       <!-- EXPRESSION body -->
       <div v-else-if="node.type === 'expression'" class="px-2.5 py-2 space-y-1.5 flex-1 flex flex-col min-h-0">
-        <div class="flex items-center gap-1 px-0.5">
-          <span class="text-[9px] text-arena-500">CEL over <code class="text-indigo-300">input</code> and <code class="text-indigo-300">state</code></span>
-          <span class="relative group/tip">
-            <svg class="w-3 h-3 text-arena-600 hover:text-arena-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.6"><path stroke-linecap="round" stroke-linejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" /></svg>
-            <span class="absolute z-50 left-4 top-0 hidden group-hover/tip:block w-52 p-2 rounded-lg bg-piedra-950 border border-piedra-700/60 text-[9px] text-arena-400 leading-relaxed shadow-xl">
-              The result becomes this node's output. Use a split to produce a list for a Foreach; list helpers .map() and .filter() are available.
-            </span>
-          </span>
-        </div>
         <textarea
           :value="node.expression"
           @input="$emit('update', { ...node, expression: $event.target.value })"
@@ -254,15 +241,6 @@
 
       <!-- TEMPLATE body -->
       <div v-else-if="node.type === 'template'" class="px-2.5 py-2 space-y-1.5 flex-1 flex flex-col min-h-0">
-        <div class="flex items-center gap-1 px-0.5">
-          <span class="text-[9px] text-arena-500">text with <code class="text-teal-300">{{ mustacheInput }}</code> placeholders</span>
-          <span class="relative group/tip">
-            <svg class="w-3 h-3 text-arena-600 hover:text-arena-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.6"><path stroke-linecap="round" stroke-linejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" /></svg>
-            <span class="absolute z-50 left-4 top-0 hidden group-hover/tip:block w-52 p-2 rounded-lg bg-piedra-950 border border-piedra-700/60 text-[9px] text-arena-400 leading-relaxed shadow-xl">
-              Reference input, input.field or state.key inside double braces. Renders a string — handy to build the next agent's prompt.
-            </span>
-          </span>
-        </div>
         <textarea
           :value="node.template"
           @input="$emit('update', { ...node, template: $event.target.value })"
@@ -285,15 +263,6 @@
 
       <!-- CODE body -->
       <div v-else-if="node.type === 'code'" class="px-2.5 py-2 space-y-1.5 flex-1 flex flex-col min-h-0">
-        <div class="flex items-center gap-1 px-0.5">
-          <span class="text-[9px] text-arena-500">Starlark over <code class="text-emerald-300">input</code> and <code class="text-emerald-300">state</code></span>
-          <span class="relative group/tip">
-            <svg class="w-3 h-3 text-arena-600 hover:text-arena-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.6"><path stroke-linecap="round" stroke-linejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" /></svg>
-            <span class="absolute z-50 left-4 top-0 hidden group-hover/tip:block w-52 p-2 rounded-lg bg-piedra-950 border border-piedra-700/60 text-[9px] text-arena-400 leading-relaxed shadow-xl">
-              Assign a top-level `output` variable. Libraries the admin enabled are available. Runtime limits apply.
-            </span>
-          </span>
-        </div>
         <textarea
           :value="node.script"
           @input="$emit('update', { ...node, script: $event.target.value })"
@@ -465,7 +434,6 @@ function pickFlow(id) {
 // ── transform node placeholders ──────────────────────────────────────────────
 // Literal double-brace text is built at runtime so Vue does not treat it as an
 // interpolation in the template source.
-const mustacheInput = '{{ input }}'
 const exprPlaceholder = 'input.split(",")'
 const tmplPlaceholder = 'Summarise for {{ state.lang }}:\n{{ input }}'
 const codePlaceholder = 'output = input.upper()'
@@ -478,26 +446,132 @@ function whenPlaceholder(i) {
   return WHEN_EXAMPLES[i % WHEN_EXAMPLES.length]
 }
 
-// Help content shown in the router's NodeHelp popover.
-const routerHelp = [
-  {
-    heading: 'How it works',
-    body: 'Rules are checked top to bottom. The first condition that is true picks its branch. If none match, the flow takes OTHERWISE.',
-  },
-  {
-    heading: 'Conditions are CEL expressions',
-    body: 'Each condition is a small CEL expression that must result in true or false.',
-  },
-  {
-    heading: 'Variables you can use',
-    items: [
-      { name: 'input', desc: 'the output of the previous node.' },
-      { name: 'state.<key>', desc: 'values saved earlier in the flow.' },
-      { name: 'iterations', desc: 'how many times this router has run.' },
-    ],
-    code: ['input.contains("error")', 'state.score >= 0.8', 'iterations >= 5'],
-  },
-]
+// ── node help ───────────────────────────────────────────────────────────
+// Per-type content for the NodeHelp popover in the node header. Double-brace
+// examples are plain JS strings, so Vue does not interpolate them.
+const NODE_HELP = {
+  agent: [
+    {
+      heading: 'What it does',
+      body: 'Runs the selected agent. The output of the previous node becomes its message, and its answer becomes this node\'s output.',
+    },
+    {
+      heading: 'Response toggle',
+      body: 'Include this agent\'s answer in the flow\'s final response.',
+    },
+    {
+      heading: 'Shared state',
+      body: 'Agents can save values for later nodes and read them back.',
+      code: ['set_state(key, value)', 'get_state(key)'],
+    },
+  ],
+  router: [
+    {
+      heading: 'How it works',
+      body: 'Rules are checked top to bottom. The first condition that is true picks its branch. If none match, the flow takes OTHERWISE.',
+    },
+    {
+      heading: 'Conditions are CEL expressions',
+      body: 'Each condition is a small CEL expression that must result in true or false.',
+    },
+    {
+      heading: 'Variables you can use',
+      items: [
+        { name: 'input', desc: 'the output of the previous node.' },
+        { name: 'state.<key>', desc: 'values saved earlier in the flow.' },
+        { name: 'iterations', desc: 'how many times this router has run.' },
+      ],
+      code: ['input.contains("error")', 'state.score >= 0.8', 'iterations >= 5'],
+    },
+  ],
+  join: [
+    {
+      heading: 'What it does',
+      body: 'Waits for all incoming branches to finish, then forwards their combined output.',
+    },
+    {
+      heading: 'When to use it',
+      body: 'Place it where parallel branches must meet before the flow continues.',
+    },
+  ],
+  parallel: [
+    {
+      heading: 'What it does',
+      body: 'Runs the selected agent once per item of the incoming list, concurrently.',
+    },
+    {
+      heading: 'The input must be a list',
+      body: 'Produce one upstream, for example with an Expression node.',
+      code: ['input.split(",")'],
+    },
+    {
+      heading: 'Max concurrent',
+      body: 'Caps how many items run at once. 0 means unlimited.',
+    },
+  ],
+  subflow: [
+    {
+      heading: 'What it does',
+      body: 'Runs another flow as a single step. The output of the previous node becomes its input, and its result becomes this node\'s output.',
+    },
+  ],
+  expression: [
+    {
+      heading: 'What it does',
+      body: 'Transforms the incoming value with a CEL expression. The result becomes this node\'s output.',
+    },
+    {
+      heading: 'Variables you can use',
+      items: [
+        { name: 'input', desc: 'the output of the previous node.' },
+        { name: 'state.<key>', desc: 'values saved earlier in the flow.' },
+      ],
+      code: ['input.split(",")', '"hello " + input'],
+    },
+    {
+      heading: 'Save as',
+      body: 'Also stores the result in the flow state under the given key.',
+    },
+  ],
+  template: [
+    {
+      heading: 'What it does',
+      body: 'Builds a text by replacing the placeholders. The text becomes this node\'s output.',
+    },
+    {
+      heading: 'Placeholders you can use',
+      items: [
+        { name: '{{ input }}', desc: 'the output of the previous node.' },
+        { name: '{{ input.field }}', desc: 'a field of that output.' },
+        { name: '{{ state.key }}', desc: 'a value saved earlier in the flow.' },
+      ],
+    },
+    {
+      heading: 'Save as',
+      body: 'Also stores the text in the flow state under the given key.',
+    },
+  ],
+  code: [
+    {
+      heading: 'What it does',
+      body: 'Runs a Starlark script, a small Python-like language. Assign the result to a top-level output variable.',
+      code: ['output = input.upper()'],
+    },
+    {
+      heading: 'Variables you can use',
+      items: [
+        { name: 'input', desc: 'the output of the previous node.' },
+        { name: 'state', desc: 'values saved earlier in the flow.' },
+      ],
+    },
+    {
+      heading: 'Libraries and limits',
+      body: 'Libraries enabled by the admin are importable. Timeout and max out cap the run; 0 inherits the server defaults.',
+    },
+  ],
+}
+
+const helpSections = computed(() => NODE_HELP[props.node.type] || [])
 
 function updateRule(i, key, val) {
   const rules = (props.node.rules || []).map((r, idx) => idx === i ? { ...r, [key]: val } : r)

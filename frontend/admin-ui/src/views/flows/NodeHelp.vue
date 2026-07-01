@@ -40,14 +40,14 @@
         <ul v-if="section.items && section.items.length" class="space-y-0.5">
           <li v-for="(item, itemIdx) in section.items" :key="itemIdx" class="flex gap-1.5 text-[9px] leading-relaxed">
             <span class="text-arena-600">•</span>
-            <span><code class="font-mono text-atlantico-300">{{ item.name }}</code><span class="text-arena-400 ml-1.5">{{ item.desc }}</span></span>
+            <span><code class="font-mono text-sol-300">{{ item.name }}</code><span class="text-arena-400 ml-1.5">{{ item.desc }}</span></span>
           </li>
         </ul>
         <div v-if="section.code && section.code.length" class="flex flex-wrap gap-1">
           <span
             v-for="(codeLine, codeIdx) in section.code"
             :key="codeIdx"
-            class="inline-block font-mono text-[9px] text-atlantico-300 bg-piedra-800 rounded px-1 py-0.5"
+            class="inline-block font-mono text-[9px] text-sol-300 bg-piedra-800 rounded px-1 py-0.5"
           >{{ codeLine }}</span>
         </div>
       </div>

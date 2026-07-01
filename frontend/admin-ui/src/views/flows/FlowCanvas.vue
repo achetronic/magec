@@ -224,11 +224,14 @@ function addNode(type) {
   const cy = (rect.height / 2 - panY.value) / scale.value - 30
   const node = { id, type, x: Math.round(cx), y: Math.round(cy) }
   if (type === 'agent') node.agentId = ''
-  if (type === 'parallel') { node.agentId = ''; node.maxConcurrency = 0 }
+  // Foreach is wider than the default so its concurrency controls read well.
+  if (type === 'parallel') { node.agentId = ''; node.maxConcurrency = 0; node.w = 280 }
   if (type === 'subflow') node.flowId = ''
-  if (type === 'expression') { node.expression = ''; node.outputKey = ''; node.w = 280; node.h = 170 }
-  if (type === 'template') { node.template = ''; node.outputKey = ''; node.w = 280; node.h = 190 }
-  if (type === 'code') { node.script = ''; node.outputKey = ''; node.timeoutMs = 0; node.maxOutputBytes = 0; node.w = 300; node.h = 220 }
+  // Text nodes are born clearly larger than selection nodes: the size itself
+  // signals that a lot of text goes inside.
+  if (type === 'expression') { node.expression = ''; node.outputKey = ''; node.w = 360; node.h = 260 }
+  if (type === 'template') { node.template = ''; node.outputKey = ''; node.w = 360; node.h = 280 }
+  if (type === 'code') { node.script = ''; node.outputKey = ''; node.timeoutMs = 0; node.maxOutputBytes = 0; node.w = 400; node.h = 320 }
   if (type === 'router') {
     // Three empty rows so the rotating placeholders show a full example ladder
     // of score conditions, and a wider card so the expressions fit.
