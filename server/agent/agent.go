@@ -53,6 +53,7 @@ import (
 	sessionredis "github.com/achetronic/adk-utils-go/session/redis"
 	toolsmemory "github.com/achetronic/adk-utils-go/tools/memory"
 
+	"github.com/achetronic/magec/server/agent/runrecorder"
 	toolsartifacts "github.com/achetronic/magec/server/agent/tools/artifacts"
 	toolsflowstate "github.com/achetronic/magec/server/agent/tools/flowstate"
 	toolsskills "github.com/achetronic/magec/server/agent/tools/skills"
@@ -124,7 +125,7 @@ type Service struct {
 // by the get_artifact_url tool). May be nil; when nil the tool is not
 // registered, so deployments that have not configured the signing secret do
 // not advertise a capability that always fails.
-func New(ctx context.Context, agents []store.AgentDefinition, backends []store.BackendDefinition, memoryProviders []store.MemoryProvider, mcpServers []store.MCPServer, skills []store.Skill, flows []store.FlowDefinition, settings store.Settings, registry contextguard.ModelRegistry, tempDirProvider func() string, skillsDir string, artifactURLBuilder toolsartifacts.ArtifactURLBuilder) (*Service, error) {
+func New(ctx context.Context, agents []store.AgentDefinition, backends []store.BackendDefinition, memoryProviders []store.MemoryProvider, mcpServers []store.MCPServer, skills []store.Skill, flows []store.FlowDefinition, settings store.Settings, registry contextguard.ModelRegistry, tempDirProvider func() string, skillsDir string, artifactURLBuilder toolsartifacts.ArtifactURLBuilder, recorder *runrecorder.Recorder) (*Service, error) {
 	if len(agents) == 0 {
 		return nil, fmt.Errorf("no agents defined")
 	}
@@ -254,7 +255,7 @@ func New(ctx context.Context, agents []store.AgentDefinition, backends []store.B
 		BaseToolset:      baseTset,
 		FlowStateToolset: flowStateToolset,
 		StarletLoaders:   starletLoaders,
-		FlowsSettings:   settings.Flows,
+		FlowsSettings:    settings.Flows,
 	}
 
 	// Build flows
@@ -284,6 +285,16 @@ func New(ctx context.Context, agents []store.AgentDefinition, backends []store.B
 
 	if registry != nil {
 		restCfg.PluginConfig = buildContextGuardConfig(agents, llmMap, registry)
+	}
+	// The run recorder plugin coexists with contextguard: PluginConfig.Plugins
+	// is a slice and the runner invokes every plugin's callbacks.
+	if recorder != nil {
+		recorderPlugin, err := recorder.Plugin()
+		if err != nil {
+			slog.Warn("Failed to build runrecorder plugin; runs will not be audited", "error", err)
+		} else {
+			restCfg.PluginConfig.Plugins = append(restCfg.PluginConfig.Plugins, recorderPlugin)
+		}
 	}
 
 	restServer, err := adkrest.NewServer(restCfg)

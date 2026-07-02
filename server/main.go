@@ -34,6 +34,7 @@ import (
 	"github.com/achetronic/adk-utils-go/plugin/contextguard"
 	mageca2a "github.com/achetronic/magec/server/a2a"
 	"github.com/achetronic/magec/server/agent"
+	"github.com/achetronic/magec/server/agent/runrecorder"
 	toolsartifacts "github.com/achetronic/magec/server/agent/tools/artifacts"
 	"github.com/achetronic/magec/server/api/admin"
 	user "github.com/achetronic/magec/server/api/user"
@@ -49,6 +50,7 @@ import (
 	"github.com/achetronic/magec/server/logging"
 	"github.com/achetronic/magec/server/middleware"
 	"github.com/achetronic/magec/server/models"
+	"github.com/achetronic/magec/server/runs"
 	"github.com/achetronic/magec/server/store"
 	"github.com/achetronic/magec/server/voice"
 
@@ -93,6 +95,20 @@ func main() {
 	// Initialize stores
 	dataStore, convoStore := initStores(cfg)
 
+	// Run auditing: SQLite-backed store plus the recorder plugin that feeds it.
+	// A failure here degrades gracefully: runs are simply not audited.
+	var runRecorder *runrecorder.Recorder
+	runsStore, err := runs.Open("data/runs.db")
+	if err != nil {
+		slog.Warn("Failed to open runs database; run auditing disabled", "error", err)
+	} else {
+		runsStore.StartSweeper(time.Hour, 30*24*time.Hour, 500)
+		runRecorder = runrecorder.New(runsStore)
+		defer runsStore.Close()
+		defer runRecorder.Close()
+		slog.Info("Run auditing initialized", "db", "data/runs.db")
+	}
+
 	// Admin API setup
 	adminHandler := admin.New(dataStore)
 	adminHandler.SetConversationStore(convoStore)
@@ -111,6 +127,7 @@ func main() {
 		a2aHandler:         a2aHandler,
 		cwRegistry:         cwRegistry,
 		artifactURLBuilder: newArtifactURLBuilder(cfg),
+		runRecorder:        runRecorder,
 	}
 	agentRouter.rebuild(ctx, dataStore)
 
@@ -260,7 +277,7 @@ func startUserServer(
 		executor, dataStore, "user",
 	)
 
-	httpMux.Handle("/api/v1/agent/", middleware.SnakeCaseNormalize(userRecorded))
+	httpMux.Handle("/api/v1/agent/", middleware.SnakeCaseNormalize(middleware.RunAudit(userRecorded, agentRouter.runRecorder, dataStore)))
 	httpMux.Handle("/api/v1/voice/", newVoiceHandler(dataStore, agentRouter))
 	httpMux.HandleFunc("/api/v1/a2a/", a2aHandler.ServeA2A)
 	httpMux.Handle("/api/v1/ephemeral/artifacts/", newEphemeralArtifactHandler(
@@ -685,6 +702,9 @@ type agentRouterHandler struct {
 	// no signing secret is configured (the get_artifact_url tool stays
 	// unregistered in that case).
 	artifactURLBuilder toolsartifacts.ArtifactURLBuilder
+	// runRecorder feeds the run audit trail; nil when the runs database
+	// could not be opened.
+	runRecorder *runrecorder.Recorder
 }
 
 // ArtifactService returns the ADK artifact.Service currently wired, or nil
@@ -728,7 +748,7 @@ func (h *agentRouterHandler) rebuild(ctx context.Context, dataStore *store.Store
 		// the same view of "what is a real skill" — there's only
 		// one source of truth for that, and it's ListSkills.
 		skills := dataStore.ListSkills()
-		svc, err := agent.New(ctx, storeData.Agents, storeData.Backends, storeData.MemoryProviders, storeData.MCPServers, skills, storeData.Flows, storeData.Settings, h.cwRegistry, dataStore.ResolveTemporaryDir, dataStore.SkillsDir(), h.artifactURLBuilder)
+		svc, err := agent.New(ctx, storeData.Agents, storeData.Backends, storeData.MemoryProviders, storeData.MCPServers, skills, storeData.Flows, storeData.Settings, h.cwRegistry, dataStore.ResolveTemporaryDir, dataStore.SkillsDir(), h.artifactURLBuilder, h.runRecorder)
 		if err != nil {
 			slog.Warn("Failed to initialize agents", "error", err)
 		} else {
