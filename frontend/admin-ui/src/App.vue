@@ -35,6 +35,7 @@
             <ClientsList v-else-if="activeTab === 'clients'" />
             <SecretsList v-else-if="activeTab === 'secrets'" />
             <ConversationsView v-else-if="activeTab === 'conversations'" />
+            <RunsView v-else-if="activeTab === 'runs'" />
             <SettingsView v-else-if="activeTab === 'settings'" />
           </div>
         </Transition>
@@ -71,6 +72,7 @@ import SkillsList from './views/skills/SkillsList.vue'
 import ClientsList from './views/clients/ClientsList.vue'
 import SecretsList from './views/secrets/SecretsList.vue'
 import ConversationsView from './views/conversations/ConversationsView.vue'
+import RunsView from './views/runs/RunsView.vue'
 import SettingsView from './views/settings/SettingsView.vue'
 
 const store = useDataStore()
@@ -78,7 +80,7 @@ const store = useDataStore()
 const showLogin = ref(false)
 const appReady = ref(false)
 
-const validTabs = ['backends', 'memory', 'mcps', 'agents', 'flows', 'commands', 'skills', 'clients', 'secrets', 'conversations', 'settings']
+const validTabs = ['backends', 'memory', 'mcps', 'agents', 'flows', 'commands', 'skills', 'clients', 'secrets', 'conversations', 'runs', 'settings']
 const saved = location.hash.slice(1)
 const activeTab = ref(validTabs.includes(saved) ? saved : 'backends')
 const sidebarCollapsed = ref(localStorage.getItem('sidebar-collapsed') === 'true')
