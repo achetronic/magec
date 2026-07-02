@@ -3,7 +3,6 @@
     <!-- Header -->
     <div class="flex flex-col lg:flex-row lg:items-center gap-3 mb-2">
       <div class="flex items-center gap-3 flex-1 min-w-0">
-        <!-- Back button -->
         <button
           @click="$emit('back')"
           class="w-7 h-7 rounded-lg flex items-center justify-center text-arena-400 hover:text-arena-200 hover:bg-piedra-800/80 transition-colors flex-shrink-0"
@@ -19,7 +18,6 @@
               {{ STATUS_TEXT[run.status] || run.status }}
             </Badge>
           </div>
-          <!-- Meta row -->
           <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-arena-500 font-mono">
             <span>ID: <span class="text-arena-400">{{ run?.runId }}</span></span>
             <span v-if="run?.sessionId">Session: <span class="text-arena-400">{{ run.sessionId }}</span></span>
@@ -31,7 +29,7 @@
       </div>
     </div>
 
-    <!-- Error Panel -->
+    <!-- Run error panel -->
     <div v-if="run?.error" class="bg-lava-500/10 border border-lava-500/30 rounded-xl p-3 text-lava-300 text-xs">
       <div class="font-semibold mb-1">Execution Error</div>
       <div class="font-mono whitespace-pre-wrap break-all">{{ run.error }}</div>
@@ -42,119 +40,147 @@
       <SkeletonCard />
     </div>
 
-    <!-- Activation Timeline -->
+    <!-- Timeline -->
     <div v-else-if="run?.activations && run.activations.length" class="space-y-3">
-      <h3 class="text-xs font-semibold text-arena-300 uppercase tracking-wider mb-2">Activation Timeline</h3>
-      
-      <div class="relative pl-6 border-l border-piedra-800 space-y-4 ml-3">
+      <div class="flex items-center justify-between">
+        <h3 class="text-xs font-semibold text-arena-300 uppercase tracking-wider">Timeline</h3>
+        <!-- Branch legend -->
+        <div v-if="branches.length >= 2" class="flex flex-wrap items-center gap-2">
+          <div
+            v-for="br in branches" :key="br"
+            class="flex items-center gap-1.5 rounded-full border px-2 py-0.5"
+            :class="getBranchColors(br).chip"
+          >
+            <span class="w-1.5 h-1.5 rounded-full" :class="getBranchColors(br).dot" />
+            <span class="font-mono text-[9px]" :class="getBranchColors(br).text">{{ shortBranch(br) }}</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="relative pl-6 border-l border-piedra-800 space-y-3 ml-3">
         <div v-for="(act, idx) in run.activations" :key="idx" class="relative">
-          <!-- Circle timeline indicator aligned with node card header -->
+          <!-- Timeline dot -->
           <span
-            class="absolute -left-[30.5px] top-[15px] w-2 h-2 rounded-full border bg-piedra-950 transition-colors"
-            :class="act.error ? 'border-lava-500' : 'border-piedra-500'"
+            class="absolute -left-[31px] top-[17px] w-2.5 h-2.5 rounded-full border-2 border-piedra-950"
+            :class="act.error ? 'bg-lava-400' : getBranchColors(act.branch).dot"
           />
-          
+
           <!-- Activation card -->
-          <div class="bg-piedra-900 border border-piedra-800 rounded-xl p-3.5 space-y-2">
-            <div class="flex items-center justify-between gap-2">
-              <div class="flex items-center gap-2 min-w-0">
-                <span class="font-mono text-xs font-semibold text-arena-100 truncate">
-                  {{ act.node }}
-                </span>
-                <span v-if="act.seq != null" class="font-mono text-[9px] text-arena-600 bg-piedra-850 px-1 rounded">
-                  #{{ act.seq }}
-                </span>
-              </div>
-              
-              <div class="flex items-center gap-1.5 flex-shrink-0">
-                <!-- Duration Badge if > 0ms -->
-                <Badge v-if="getActivationMs(act.startedAt, act.endedAt) > 0" variant="muted" class="!py-0">
-                  {{ formatActivationDuration(act.startedAt, act.endedAt) }}
-                </Badge>
-                <!-- Event count -->
-                <span v-if="act.events != null" class="text-[10px] text-arena-500 font-mono">
-                  {{ act.events }} event{{ act.events !== 1 ? 's' : '' }}
-                </span>
-              </div>
-            </div>
-
-            <!-- Branch -->
-            <div v-if="act.branch" class="text-[9px] text-arena-600 font-mono">
-              Branch: <span class="text-arena-400">{{ act.branch }}</span>
-            </div>
-
-            <!-- Routes pills -->
-            <div v-if="act.routes && (Array.isArray(act.routes) ? act.routes.length : act.routes)" class="flex flex-wrap gap-1">
+          <div
+            class="bg-piedra-900 border border-piedra-800 border-l-2 rounded-xl overflow-hidden transition-colors"
+            :class="[getBranchColors(act.branch).border, expandedCards[idx] ? '' : 'hover:border-piedra-700']"
+          >
+            <!-- Header row (click to expand) -->
+            <button
+              type="button"
+              @click="toggleExpand(idx)"
+              class="w-full text-left flex items-center gap-2 px-3.5 py-2.5 cursor-pointer focus:outline-none select-none"
+            >
+              <span class="font-mono text-xs font-semibold text-arena-100 truncate">{{ act.node }}</span>
               <span
-                v-for="r in (Array.isArray(act.routes) ? act.routes : [act.routes])"
-                :key="r"
-                class="font-mono text-[9px] bg-atlantico-500/10 text-atlantico-300 rounded px-1.5 py-0.5"
-              >
-                {{ r }}
+                v-if="act.branch"
+                class="font-mono text-[9px] rounded px-1 flex-shrink-0"
+                :class="getBranchColors(act.branch).text"
+              >{{ shortBranch(act.branch) }}</span>
+              <span
+                v-for="r in normalizedRoutes(act)" :key="r"
+                class="font-mono text-[9px] bg-atlantico-500/10 text-atlantico-300 rounded px-1.5 py-0.5 flex-shrink-0"
+              >&rarr; {{ r }}</span>
+              <span class="flex-1" />
+              <span v-if="getActivationMs(act.startedAt, act.endedAt) > 0" class="text-[10px] text-arena-500 font-mono flex-shrink-0">
+                {{ formatActivationDuration(act.startedAt, act.endedAt) }}
               </span>
+              <span v-if="act.error" class="w-1.5 h-1.5 rounded-full bg-lava-400 flex-shrink-0" title="This node failed" />
+              <Icon
+                name="chevronDown"
+                size="xs"
+                class="text-arena-500 transition-transform duration-200 flex-shrink-0"
+                :class="expandedCards[idx] ? 'rotate-180' : ''"
+              />
+            </button>
+
+            <!-- Collapsed summary: output snippet + error line -->
+            <div v-if="!expandedCards[idx] && (act.outputPreview || act.error)" class="px-3.5 pb-2.5 space-y-1.5">
+              <p v-if="act.outputPreview" class="font-mono text-[10px] text-arena-400 truncate">{{ act.outputPreview }}</p>
+              <p v-if="act.error" class="font-mono text-[10px] text-lava-300 truncate">{{ act.error }}</p>
             </div>
 
-            <!-- Output Preview -->
-            <div v-if="act.outputPreview" class="mt-1">
-              <pre class="bg-piedra-800/60 rounded-lg p-2 text-[10px] font-mono text-arena-300 whitespace-pre-wrap break-words max-h-24 overflow-y-auto">{{ act.outputPreview }}</pre>
-            </div>
+            <!-- Expanded panel -->
+            <div v-if="expandedCards[idx]" class="border-t border-piedra-800 px-3.5 py-3 space-y-3 bg-piedra-950/30">
+              <!-- Node error, front and center -->
+              <div v-if="act.error" class="bg-lava-500/10 border border-lava-500/30 rounded-lg p-2.5 text-lava-300 text-[10px] font-mono whitespace-pre-wrap break-words">
+                {{ act.error }}
+              </div>
 
-            <!-- Activation Error -->
-            <div v-if="act.error" class="bg-lava-500/5 border border-lava-500/20 rounded-lg p-2 text-lava-300 text-[10px] font-mono mt-1 whitespace-pre-wrap break-words">
-              {{ act.error }}
+              <!-- Input / Output side by side -->
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div class="space-y-1">
+                  <p class="text-[9px] font-semibold text-arena-500 uppercase tracking-wider">Input</p>
+                  <pre v-if="act.inputPreview" class="io-block">{{ act.inputPreview }}</pre>
+                  <p v-else class="text-[10px] text-arena-600 italic">empty</p>
+                </div>
+                <div class="space-y-1">
+                  <p class="text-[9px] font-semibold text-arena-500 uppercase tracking-wider">Output</p>
+                  <pre v-if="act.outputPreview" class="io-block">{{ act.outputPreview }}</pre>
+                  <p v-else class="text-[10px] text-arena-600 italic">empty</p>
+                </div>
+              </div>
+
+              <!-- State -->
+              <div class="space-y-1">
+                <p class="text-[9px] font-semibold text-arena-500 uppercase tracking-wider">State</p>
+                <div v-if="act.stateAfter && Object.keys(act.stateAfter).length" class="bg-piedra-800/60 rounded-lg divide-y divide-piedra-800/60">
+                  <div
+                    v-for="(val, key) in act.stateAfter" :key="key"
+                    class="flex items-start gap-2 px-2 py-1.5"
+                  >
+                    <span class="font-mono text-[10px] text-sol-300 flex-shrink-0">{{ key }}</span>
+                    <span class="font-mono text-[10px] text-arena-300 break-all flex-1">{{ formatStateValue(val) }}</span>
+                    <span
+                      v-if="act.stateDelta && key in act.stateDelta"
+                      class="text-[8px] bg-emerald-500/10 text-emerald-300 rounded px-1 py-px flex-shrink-0"
+                    >written here</span>
+                  </div>
+                </div>
+                <p v-else class="text-[10px] text-arena-600 italic">empty</p>
+              </div>
+
+              <!-- Raw events of this activation -->
+              <div class="space-y-1">
+                <p class="text-[9px] font-semibold text-arena-500 uppercase tracking-wider">
+                  Raw events ({{ act.events }})
+                </p>
+                <div v-if="!run.events" class="text-[10px] text-arena-600 italic">unavailable for this run</div>
+                <div v-else class="space-y-1">
+                  <details
+                    v-for="(ev, evIdx) in getActivationEvents(act)" :key="evIdx"
+                    class="bg-piedra-950 border border-piedra-800/60 rounded-lg overflow-hidden"
+                  >
+                    <summary class="cursor-pointer flex items-center gap-2 px-2 py-1.5 text-[10px] font-mono text-arena-400 hover:text-arena-200 select-none">
+                      <span class="text-arena-600">#{{ act.seq + evIdx }}</span>
+                      <span>{{ getEventAuthor(ev) }}</span>
+                      <span v-if="getEventRoutes(ev)" class="text-atlantico-300">&rarr; {{ getEventRoutes(ev) }}</span>
+                      <span class="flex-1 truncate text-arena-600">{{ getEventPreview(ev) }}</span>
+                    </summary>
+                    <pre class="border-t border-piedra-800/60 p-2 text-[9px] font-mono text-arena-400 whitespace-pre-wrap break-all max-h-64 overflow-y-auto">{{ prettyEvent(ev) }}</pre>
+                  </details>
+                </div>
+              </div>
             </div>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- Empty activations -->
+    <!-- Empty -->
     <div v-else-if="!loading" class="text-center py-8 text-arena-500 text-xs">
       No activations recorded for this run.
-    </div>
-
-    <!-- Raw Events Section -->
-    <div v-if="run" class="mt-6 border-t border-piedra-800 pt-4">
-      <div class="flex items-center justify-between mb-3">
-        <h3 class="text-xs font-semibold text-arena-300">Raw Events</h3>
-        <button
-          @click="toggleRaw"
-          class="flex items-center gap-1 px-2.5 py-1 hover:bg-piedra-800 rounded-lg text-[10px] font-medium text-arena-400 hover:text-arena-200 transition-colors"
-        >
-          <Icon name="eye" size="xs" />
-          <span>{{ showRaw ? 'Hide raw events' : 'Show raw events' }}</span>
-        </button>
-      </div>
-
-      <div v-if="showRaw" class="space-y-2">
-        <div v-if="rawLoading" class="text-xs text-arena-500 italic">
-          Loading raw events…
-        </div>
-        <div v-else-if="!run.events || !run.events.length" class="text-xs text-arena-500 italic">
-          No raw events found for this run.
-        </div>
-        <div v-else class="space-y-1">
-          <details
-            v-for="(evt, idx) in run.events"
-            :key="idx"
-            class="bg-piedra-900 border border-piedra-800/50 rounded-lg overflow-hidden group"
-          >
-            <summary class="flex items-center justify-between px-3 py-1.5 text-[10px] text-arena-400 font-mono cursor-pointer hover:bg-piedra-800/50 select-none">
-              <span>{{ getEventSummary(evt, idx) }}</span>
-              <Icon name="chevronDown" size="xs" class="text-arena-600 group-open:rotate-180 transition-transform" />
-            </summary>
-            <div class="p-3 border-t border-piedra-800/30 bg-piedra-950/40">
-              <pre class="font-mono text-[9px] text-arena-400 max-h-48 overflow-auto whitespace-pre-wrap break-all">{{ safeFormatJson(evt) }}</pre>
-            </div>
-          </details>
-        </div>
-      </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, inject, onMounted } from 'vue'
+import { ref, inject, onMounted, computed } from 'vue'
 import { useDataStore } from '../../lib/stores/data.js'
 import { runsApi } from '../../lib/api/index.js'
 import Badge from '../../components/Badge.vue'
@@ -172,8 +198,7 @@ const toast = inject('toast', { error: console.error })
 
 const run = ref(null)
 const loading = ref(false)
-const showRaw = ref(false)
-const rawLoading = ref(false)
+const expandedCards = ref({})
 
 const STATUS_BADGE_VARIANTS = {
   completed: 'green',
@@ -185,6 +210,50 @@ const STATUS_TEXT = {
   completed: 'Completed',
   failed: 'Failed',
   interrupted: 'Interrupted'
+}
+
+// Full literal class strings per branch lane so the Tailwind scanner sees
+// them. Each lane pairs a dot, a card border, a text tint and a legend chip.
+const BRANCH_COLORS = [
+  { dot: 'bg-atlantico-400', border: 'border-l-atlantico-500/60', text: 'text-atlantico-300', chip: 'border-atlantico-500/30 bg-atlantico-500/10' },
+  { dot: 'bg-teal-400', border: 'border-l-teal-500/60', text: 'text-teal-300', chip: 'border-teal-500/30 bg-teal-500/10' },
+  { dot: 'bg-purple-400', border: 'border-l-purple-500/60', text: 'text-purple-300', chip: 'border-purple-500/30 bg-purple-500/10' },
+  { dot: 'bg-rose-400', border: 'border-l-rose-500/60', text: 'text-rose-300', chip: 'border-rose-500/30 bg-rose-500/10' },
+  { dot: 'bg-emerald-400', border: 'border-l-emerald-500/60', text: 'text-emerald-300', chip: 'border-emerald-500/30 bg-emerald-500/10' },
+]
+
+const NEUTRAL_BRANCH = { dot: 'bg-arena-500', border: 'border-l-piedra-700', text: 'text-arena-500', chip: 'border-piedra-700 bg-piedra-800/60' }
+
+const branches = computed(() => {
+  if (!run.value?.activations) return []
+  const list = []
+  for (const act of run.value.activations) {
+    if (act.branch && !list.includes(act.branch)) list.push(act.branch)
+  }
+  return list
+})
+
+function getBranchColors(branch) {
+  if (!branch) return NEUTRAL_BRANCH
+  const idx = branches.value.indexOf(branch)
+  if (idx === -1) return NEUTRAL_BRANCH
+  return BRANCH_COLORS[idx % BRANCH_COLORS.length]
+}
+
+// shortBranch keeps the last meaningful segment of a composite branch path so
+// legend chips stay compact ("flow.writer@1" instead of the full dotted path).
+function shortBranch(branch) {
+  const parts = branch.split('.')
+  return parts.length > 2 ? parts.slice(-2).join('.') : branch
+}
+
+function normalizedRoutes(act) {
+  if (!act.routes) return []
+  return Array.isArray(act.routes) ? act.routes : [act.routes]
+}
+
+function toggleExpand(idx) {
+  expandedCards.value[idx] = !expandedCards.value[idx]
 }
 
 function getAppName(idOrName) {
@@ -231,8 +300,7 @@ function formatActivationDuration(startedAt, endedAt) {
 async function loadRunDetail() {
   loading.value = true
   try {
-    const data = await runsApi.get(props.runId)
-    run.value = data
+    run.value = await runsApi.get(props.runId, { raw: true })
   } catch (e) {
     toast.error(e.message)
   } finally {
@@ -240,48 +308,65 @@ async function loadRunDetail() {
   }
 }
 
-async function toggleRaw() {
-  showRaw.value = !showRaw.value
-  if (showRaw.value && run.value && !run.value.events) {
-    rawLoading.value = true
-    try {
-      const data = await runsApi.get(props.runId, { raw: true })
-      run.value = data
-    } catch (e) {
-      toast.error('Failed to load raw events: ' + e.message)
-    } finally {
-      rawLoading.value = false
-    }
+function getActivationEvents(act) {
+  if (!run.value?.events || act.seq == null || act.events == null) return []
+  return run.value.events.slice(act.seq, act.seq + act.events)
+}
+
+function getEventAuthor(ev) {
+  if (!ev) return 'unknown'
+  return ev.Author || ev.author || 'unknown'
+}
+
+function getEventRoutes(ev) {
+  if (!ev) return ''
+  const r = ev.Routes || ev.routes
+  if (!r) return ''
+  return Array.isArray(r) ? r.join(', ') : String(r)
+}
+
+function getEventPreview(ev) {
+  if (!ev) return ''
+  try {
+    const str = JSON.stringify(ev)
+    return str.length > 80 ? str.slice(0, 80) + '...' : str
+  } catch (e) {
+    return String(ev).slice(0, 80)
   }
 }
 
-function safeFormatJson(evt) {
-  if (typeof evt === 'string') {
-    try {
-      return JSON.stringify(JSON.parse(evt), null, 2)
-    } catch (e) {
-      return evt
-    }
+function prettyEvent(ev) {
+  try {
+    return JSON.stringify(ev, null, 2)
+  } catch (e) {
+    return String(ev)
   }
-  return JSON.stringify(evt, null, 2)
 }
 
-function getEventSummary(evt, idx) {
-  let data = evt
-  if (typeof evt === 'string') {
-    try {
-      data = JSON.parse(evt)
-    } catch (e) {
-      return `Event #${idx}`
-    }
+function formatStateValue(val) {
+  if (val === undefined) return 'undefined'
+  try {
+    return JSON.stringify(val)
+  } catch (e) {
+    return String(val)
   }
-  if (!data) return `Event #${idx}`
-  const type = data.type || data.event || 'Event'
-  const source = data.source || data.author || ''
-  return `[${idx}] ${type}${source ? ' - ' + source : ''}`
 }
 
-onMounted(() => {
-  loadRunDetail()
-})
+onMounted(loadRunDetail)
 </script>
+
+<style scoped>
+/* Shared look for the input/output blocks in the expanded panel. */
+.io-block {
+  background: rgba(33, 33, 37, 0.6);
+  border-radius: 0.5rem;
+  padding: 0.5rem;
+  font-family: ui-monospace, monospace;
+  font-size: 10px;
+  color: var(--color-arena-300);
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 7rem;
+  overflow-y: auto;
+}
+</style>

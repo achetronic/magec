@@ -146,3 +146,72 @@ func TestProjectActivations(t *testing.T) {
 		})
 	}
 }
+
+// TestProjectActivations_DerivedInputAndState verifies the derived chain: an
+// activation's InputPreview is the previous activation's output, StateDelta
+// captures flow-prefixed writes with internal keys hidden, and StateAfter
+// accumulates across activations.
+func TestProjectActivations_DerivedInputAndState(t *testing.T) {
+	t1 := time.Date(2025, 1, 1, 12, 0, 0, 0, time.UTC)
+	events := []runrecorder.EventRecord{
+		{Seq: 0, Timestamp: t1, Author: "writer",
+			Payload: []byte(`{"Output":"draft v1","Actions":{"StateDelta":{"flow:score":0.9,"flow:__iter__router_1":1,"other:key":"hidden"}}}`)},
+		{Seq: 1, Timestamp: t1.Add(time.Second), Author: "router_1",
+			Payload: []byte(`{"Output":"draft v1"}`)},
+		{Seq: 2, Timestamp: t1.Add(2 * time.Second), Author: "publisher",
+			Payload: []byte(`{"output":"published","Actions":{"StateDelta":{"flow:done":true}}}`)},
+	}
+
+	got := projectActivations(events, "my-flow")
+
+	if len(got) != 3 {
+		t.Fatalf("expected 3 activations, got %d", len(got))
+	}
+	if got[0].InputPreview != "" {
+		t.Fatalf("first activation should have no derived input, got %q", got[0].InputPreview)
+	}
+	if got[1].InputPreview != "draft v1" {
+		t.Fatalf("router input should be writer output, got %q", got[1].InputPreview)
+	}
+	if got[2].InputPreview != "draft v1" {
+		t.Fatalf("publisher input should be router passthrough, got %q", got[2].InputPreview)
+	}
+
+	wantDelta := map[string]any{"score": 0.9}
+	if !reflect.DeepEqual(got[0].StateDelta, wantDelta) {
+		t.Fatalf("writer stateDelta mismatch (internal and non-flow keys must be hidden): %+v", got[0].StateDelta)
+	}
+	if got[1].StateDelta != nil {
+		t.Fatalf("router wrote no state, got %+v", got[1].StateDelta)
+	}
+
+	if !reflect.DeepEqual(got[1].StateAfter, map[string]any{"score": 0.9}) {
+		t.Fatalf("stateAfter should carry accumulated state through activations: %+v", got[1].StateAfter)
+	}
+	wantFinal := map[string]any{"score": 0.9, "done": true}
+	if !reflect.DeepEqual(got[2].StateAfter, wantFinal) {
+		t.Fatalf("final stateAfter mismatch: %+v", got[2].StateAfter)
+	}
+}
+
+// TestBuildActivation_AgentContentTextFallback verifies that an agent event
+// whose answer travels as model content text (no workflow Output) still
+// produces an output preview.
+func TestBuildActivation_AgentContentTextFallback(t *testing.T) {
+	t1 := time.Date(2025, 1, 1, 12, 0, 0, 0, time.UTC)
+	events := []runrecorder.EventRecord{
+		{Seq: 0, Timestamp: t1, Author: "agent_1",
+			Payload: []byte(`{"Content":{"role":"model","parts":[{"functionCall":{"name":"set_state"}}]}}`)},
+		{Seq: 1, Timestamp: t1.Add(time.Second), Author: "agent_1",
+			Payload: []byte(`{"Content":{"role":"model","parts":[{"text":"the final "},{"text":"answer"}]}}`)},
+	}
+
+	got := projectActivations(events, "my-flow")
+
+	if len(got) != 1 {
+		t.Fatalf("expected 1 activation, got %d", len(got))
+	}
+	if got[0].OutputPreview != "the final answer" {
+		t.Fatalf("expected content text as output preview, got %q", got[0].OutputPreview)
+	}
+}

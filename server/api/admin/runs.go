@@ -3,6 +3,7 @@ package admin
 import (
 	"encoding/json"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -35,6 +36,15 @@ type runActivation struct {
 	Branch        string    `json:"branch,omitempty"`
 	OutputPreview string    `json:"outputPreview,omitempty"`
 	Error         string    `json:"error,omitempty"`
+	// InputPreview is derived, not captured: a node's input is the output of
+	// the activation that preceded it (routers and joins pass input through).
+	InputPreview string `json:"inputPreview,omitempty"`
+	// StateDelta holds the flow-state keys this activation wrote, prefix
+	// stripped, internal bookkeeping keys hidden.
+	StateDelta map[string]any `json:"stateDelta,omitempty"`
+	// StateAfter is the accumulated flow state after this activation,
+	// reconstructed by folding every StateDelta in event order.
+	StateAfter map[string]any `json:"stateAfter,omitempty"`
 }
 
 type runDetail struct {
@@ -169,7 +179,9 @@ func (h *Handler) getRun(w http.ResponseWriter, r *http.Request) {
 }
 
 // projectActivations collapses raw event sequence into node activations.
-// It groups sequential events that represent a single execution phase.
+// It groups sequential events that represent a single execution phase, then
+// chains derived inputs (previous activation's output) and folds state deltas
+// into an accumulated flow-state snapshot per activation.
 func projectActivations(events []runrecorder.EventRecord, runAppName string) []runActivation {
 	if len(events) == 0 {
 		return nil
@@ -204,7 +216,46 @@ func projectActivations(events []runrecorder.EventRecord, runAppName string) []r
 		activations = append(activations, buildActivation(currentKey, currentEvents))
 	}
 
+	chainDerivedState(activations)
 	return activations
+}
+
+// chainDerivedState walks activations in order, setting each InputPreview to
+// the previous activation's output and StateAfter to the flow state folded up
+// to that point. The input is an approximation for fan-out branches, where
+// several successors share the same upstream output.
+func chainDerivedState(activations []runActivation) {
+	state := map[string]any{}
+	prevOutput := ""
+	for i := range activations {
+		activations[i].InputPreview = prevOutput
+		for k, v := range activations[i].StateDelta {
+			state[k] = v
+		}
+		if len(state) > 0 {
+			snapshot := make(map[string]any, len(state))
+			for k, v := range state {
+				snapshot[k] = v
+			}
+			activations[i].StateAfter = snapshot
+		}
+		if activations[i].OutputPreview != "" {
+			prevOutput = activations[i].OutputPreview
+		}
+	}
+}
+
+// payloadValue reads a key from an event payload tolerating both casings:
+// session.Event marshals with Go field names (no json tags), so keys arrive
+// capitalized, but older payloads may carry lowercase.
+func payloadValue(payload map[string]any, capitalized, lowercase string) (any, bool) {
+	if v, ok := payload[capitalized]; ok && v != nil {
+		return v, true
+	}
+	if v, ok := payload[lowercase]; ok && v != nil {
+		return v, true
+	}
+	return nil, false
 }
 
 // buildActivation groups sequential event attributes into a run activation summary.
@@ -234,11 +285,12 @@ func buildActivation(node string, events []runrecorder.EventRecord) runActivatio
 
 	var lastOutput string
 	var lastError string
+	stateDelta := map[string]any{}
 	for _, ev := range events {
 		if len(ev.Payload) > 0 {
 			var payloadMap map[string]any
 			if err := json.Unmarshal(ev.Payload, &payloadMap); err == nil {
-				if val, ok := payloadMap["output"]; ok && val != nil {
+				if val, ok := payloadValue(payloadMap, "Output", "output"); ok {
 					var outStr string
 					if s, ok := val.(string); ok {
 						outStr = s
@@ -250,12 +302,17 @@ func buildActivation(node string, events []runrecorder.EventRecord) runActivatio
 					if outStr != "" {
 						lastOutput = outStr
 					}
+				} else if text := contentText(payloadMap); text != "" {
+					// Agent events carry their answer as model content text, not
+					// as a workflow Output value.
+					lastOutput = text
 				}
-				if val, ok := payloadMap["errorMessage"]; ok && val != nil {
+				if val, ok := payloadValue(payloadMap, "ErrorMessage", "errorMessage"); ok {
 					if s, ok := val.(string); ok && s != "" {
 						lastError = s
 					}
 				}
+				collectFlowStateDelta(payloadMap, stateDelta)
 			}
 		}
 	}
@@ -264,7 +321,7 @@ func buildActivation(node string, events []runrecorder.EventRecord) runActivatio
 		lastOutput = string([]rune(lastOutput)[:200]) + "..."
 	}
 
-	return runActivation{
+	act := runActivation{
 		Node:          node,
 		Seq:           first.Seq,
 		StartedAt:     first.Timestamp,
@@ -274,5 +331,64 @@ func buildActivation(node string, events []runrecorder.EventRecord) runActivatio
 		Branch:        branch,
 		OutputPreview: lastOutput,
 		Error:         lastError,
+	}
+	if len(stateDelta) > 0 {
+		act.StateDelta = stateDelta
+	}
+	return act
+}
+
+// contentText extracts and concatenates the text parts of an event's model
+// content. The inner genai types marshal with lowercase json tags, unlike the
+// event envelope.
+func contentText(payload map[string]any) string {
+	content, ok := payloadValue(payload, "Content", "content")
+	if !ok {
+		return ""
+	}
+	cm, ok := content.(map[string]any)
+	if !ok {
+		return ""
+	}
+	parts, ok := cm["parts"].([]any)
+	if !ok {
+		return ""
+	}
+	var out strings.Builder
+	for _, p := range parts {
+		pm, ok := p.(map[string]any)
+		if !ok {
+			continue
+		}
+		if s, ok := pm["text"].(string); ok {
+			out.WriteString(s)
+		}
+	}
+	return out.String()
+}
+
+// collectFlowStateDelta copies the operator-visible flow-state writes of an
+// event payload into dst: keys under the "flow:" namespace with the prefix
+// stripped, skipping internal "__" bookkeeping such as router iteration
+// counters.
+func collectFlowStateDelta(payload map[string]any, dst map[string]any) {
+	actions, ok := payload["Actions"].(map[string]any)
+	if !ok {
+		if actions, ok = payload["actions"].(map[string]any); !ok {
+			return
+		}
+	}
+	delta, ok := actions["StateDelta"].(map[string]any)
+	if !ok {
+		if delta, ok = actions["stateDelta"].(map[string]any); !ok {
+			return
+		}
+	}
+	for k, v := range delta {
+		key, ok := strings.CutPrefix(k, "flow:")
+		if !ok || strings.HasPrefix(key, "__") {
+			continue
+		}
+		dst[key] = v
 	}
 }

@@ -120,7 +120,7 @@ const groups = [
     label: 'Audit',
     items: [
       { id: 'conversations', label: 'Conversations', icon: 'chat', color: 'teal' },
-      { id: 'runs', label: 'Runs', icon: 'clock', color: 'sol' },
+      { id: 'runs', label: 'Runs', icon: 'clock', color: 'arena' },
     ],
   },
   {
