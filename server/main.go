@@ -112,6 +112,9 @@ func main() {
 	// Admin API setup
 	adminHandler := admin.New(dataStore)
 	adminHandler.SetConversationStore(convoStore)
+	if runsStore != nil {
+		adminHandler.SetRunsStore(runsStore)
+	}
 
 	adminServer, adminCtx, adminCancel := startAdminServer(cfg, adminHandler)
 
