@@ -1,8 +1,9 @@
-<!-- Small info-icon trigger that reveals a help panel for flow nodes. The panel
-     is a native popover: the flow editor lives inside a <dialog> opened with
-     showModal(), which sits in the browser top layer, so a plain teleported
-     element is hidden behind it regardless of z-index. showPopover() promotes
-     the panel into the same top layer, above the dialog. -->
+<!-- Small info-icon trigger that reveals a help panel for flow nodes. The
+     panel is a native popover kept INLINE in the component: the flow editor
+     lives inside a <dialog> opened with showModal(), which makes everything
+     outside the dialog inert, so a panel teleported to body would be visible
+     yet dead to the mouse. showPopover() promotes the inline panel to the
+     top layer regardless of its DOM position, above the dialog. -->
 <template>
   <button
     ref="triggerRef"
@@ -24,42 +25,41 @@
     </svg>
   </button>
 
-  <Teleport to="body">
-    <div
-      ref="popRef"
-      popover="manual"
-      class="nodehelp-pop w-[280px] bg-piedra-950 border border-piedra-700/60 rounded-lg shadow-xl p-2.5 space-y-1.5 text-arena-400"
-      :style="{ left: left + 'px', top: top + 'px' }"
-      @mouseenter="cancelClose"
-      @mouseleave="scheduleClose"
-    >
-      <p v-if="title" class="text-arena-200 text-[10px] font-semibold">{{ title }}</p>
-      <div v-for="(section, idx) in sections" :key="idx" class="space-y-1">
-        <p v-if="section.heading" class="text-arena-300 text-[9px] font-medium">{{ section.heading }}</p>
-        <p v-if="section.body" class="text-arena-400 text-[9px] leading-relaxed">{{ section.body }}</p>
-        <ul v-if="section.items && section.items.length" class="space-y-0.5">
-          <li v-for="(item, itemIdx) in section.items" :key="itemIdx" class="flex gap-1.5 text-[9px] leading-relaxed">
-            <span class="text-arena-600">•</span>
-            <span><code class="font-mono text-sol-300">{{ item.name }}</code><span class="text-arena-400 ml-1.5">{{ item.desc }}</span></span>
-          </li>
-        </ul>
-        <div v-if="section.code && section.code.length" class="flex flex-wrap gap-1">
-          <span
-            v-for="(codeLine, codeIdx) in section.code"
-            :key="codeIdx"
-            class="inline-block font-mono text-[9px] text-sol-300 bg-piedra-800 rounded px-1 py-0.5"
-          >{{ codeLine }}</span>
-        </div>
-        <a
-          v-if="section.link"
-          :href="section.link.href"
-          target="_blank" rel="noopener noreferrer"
-          class="inline-block text-[9px] text-sol-400 hover:text-sol-300 underline underline-offset-2 decoration-sol-400/40 hover:decoration-sol-300"
-          @pointerdown.stop @click.stop
-        >{{ section.link.label }}</a>
+  <div
+    ref="popRef"
+    popover="manual"
+    class="nodehelp-pop w-[280px] bg-piedra-950 border border-piedra-700/60 rounded-lg shadow-xl p-2.5 space-y-1.5 text-arena-400"
+    :style="{ left: left + 'px', top: top + 'px' }"
+    @pointerdown.stop
+    @mouseenter="cancelClose"
+    @mouseleave="scheduleClose"
+  >
+    <p v-if="title" class="text-arena-200 text-[10px] font-semibold">{{ title }}</p>
+    <div v-for="(section, idx) in sections" :key="idx" class="space-y-1">
+      <p v-if="section.heading" class="text-arena-300 text-[9px] font-medium">{{ section.heading }}</p>
+      <p v-if="section.body" class="text-arena-400 text-[9px] leading-relaxed">{{ section.body }}</p>
+      <ul v-if="section.items && section.items.length" class="space-y-0.5">
+        <li v-for="(item, itemIdx) in section.items" :key="itemIdx" class="flex gap-1.5 text-[9px] leading-relaxed">
+          <span class="text-arena-600">•</span>
+          <span><code class="font-mono text-sol-300">{{ item.name }}</code><span class="text-arena-400 ml-1.5">{{ item.desc }}</span></span>
+        </li>
+      </ul>
+      <div v-if="section.code && section.code.length" class="flex flex-wrap gap-1">
+        <span
+          v-for="(codeLine, codeIdx) in section.code"
+          :key="codeIdx"
+          class="inline-block font-mono text-[9px] text-sol-300 bg-piedra-800 rounded px-1 py-0.5"
+        >{{ codeLine }}</span>
       </div>
+      <a
+        v-if="section.link"
+        :href="section.link.href"
+        target="_blank" rel="noopener noreferrer"
+        class="inline-block text-[9px] text-sol-400 hover:text-sol-300 underline underline-offset-2 decoration-sol-400/40 hover:decoration-sol-300"
+        @pointerdown.stop @click.stop
+      >{{ section.link.label }}</a>
     </div>
-  </Teleport>
+  </div>
 </template>
 
 <script setup>
@@ -67,7 +67,9 @@ import { ref, nextTick, onBeforeUnmount } from 'vue'
 
 const POPOVER_WIDTH = 280
 const MARGIN = 8
-const CLOSE_DELAY_MS = 120
+// Generous grace period so the pointer can travel from the trigger into the
+// panel (to hover code or click doc links) without the panel closing.
+const CLOSE_DELAY_MS = 450
 
 const props = defineProps({
   title:    { type: String, default: '' },
@@ -160,10 +162,21 @@ function reposition() {
 }
 
 // scheduleClose gives the pointer a short grace period to travel across the gap
-// between the icon and the panel without the panel closing underneath it.
+// between the icon and the panel. When the timer fires, a :hover check decides:
+// if the pointer sits on the panel or the trigger the close is postponed, so
+// the panel never vanishes under the cursor regardless of missed mouse events.
 function scheduleClose() {
   cancelClose()
-  closeTimer = setTimeout(hide, CLOSE_DELAY_MS)
+  closeTimer = setTimeout(closeUnlessHovered, CLOSE_DELAY_MS)
+}
+
+function closeUnlessHovered() {
+  closeTimer = null
+  if (popRef.value?.matches(':hover') || triggerRef.value?.matches(':hover')) {
+    scheduleClose()
+    return
+  }
+  hide()
 }
 
 function cancelClose() {
