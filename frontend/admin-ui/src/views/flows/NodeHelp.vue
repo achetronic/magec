@@ -50,6 +50,13 @@
             class="inline-block font-mono text-[9px] text-sol-300 bg-piedra-800 rounded px-1 py-0.5"
           >{{ codeLine }}</span>
         </div>
+        <a
+          v-if="section.link"
+          :href="section.link.href"
+          target="_blank" rel="noopener noreferrer"
+          class="inline-block text-[9px] text-sol-400 hover:text-sol-300 underline underline-offset-2 decoration-sol-400/40 hover:decoration-sol-300"
+          @pointerdown.stop @click.stop
+        >{{ section.link.label }}</a>
       </div>
     </div>
   </Teleport>

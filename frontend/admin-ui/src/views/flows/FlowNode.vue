@@ -299,13 +299,10 @@
 
       <!-- CODE body -->
       <div v-else-if="node.type === 'code'" class="px-2.5 py-2 space-y-2 flex-1 flex flex-col min-h-0">
-        <textarea
-          :value="node.script"
-          @input="$emit('update', { ...node, script: $event.target.value })"
-          @pointerdown.stop
-          rows="5" spellcheck="false"
+        <StarlarkEditor
+          :model-value="node.script"
           :placeholder="codePlaceholder"
-          class="w-full flex-1 min-h-[4rem] bg-piedra-800 border border-piedra-700/50 rounded-lg px-2 py-1 text-[10px] font-mono text-arena-200 placeholder:text-arena-600 outline-none focus:border-emerald-500/50 resize-none"
+          @update:model-value="$emit('update', { ...node, script: $event })"
         />
         <div class="flex items-center gap-1.5">
           <span class="text-[9px] text-arena-500 whitespace-nowrap">save as</span>
@@ -375,6 +372,7 @@
 <script setup>
 import { ref, computed, nextTick } from 'vue'
 import NodeHelp from './NodeHelp.vue'
+import StarlarkEditor from './StarlarkEditor.vue'
 
 // Default card width. Wide enough for the header to fit the type label, the
 // ID chip and the help trigger without crowding.
@@ -649,6 +647,7 @@ const NODE_HELP = {
     {
       heading: 'Libraries and limits',
       body: 'Libraries enabled by the admin are importable. Timeout and max out cap the run; 0 inherits the server defaults.',
+      link: { href: 'https://github.com/1set/starlet#libraries', label: 'See available libraries' },
     },
   ],
 }
