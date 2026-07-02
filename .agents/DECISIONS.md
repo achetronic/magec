@@ -948,3 +948,51 @@ distroless container or an exposed binary.
 - `server/api/admin/flows.go`: `flowgraph.Validate` on save.
 - `frontend/admin-ui/src/views/flows/`: `FlowCanvas.vue`, `FlowNode.vue` (graph editor, resizable nodes, full-screen, draggable Start).
 - `frontend/admin-ui/src/views/settings/FlowsSection.vue`: library pills and execution limits.
+
+
+## 31. Run auditing: raw events recorded by a runner plugin, projected on read
+
+Every runner invocation (agent or flow, from any entry point) is recorded by
+`server/agent/runrecorder`, an adk v2 plugin registered in
+`runner.PluginConfig.Plugins` alongside contextguard. The recorder is a pure
+observer: it never mutates events, never returns an error from a callback, and
+swallows sink failures, so auditing can never break a run.
+
+What is persisted per run: the ordered raw `session.Event` list (the adk
+workflow scheduler yields events through a single queue, so per-run order is
+total) plus run metadata (app, session, user, client, source, timestamps,
+status, error). No distilled format is stored; the admin API derives the
+per-node activation timeline at read time (`projectActivations` in
+`server/api/admin/runs.go`). Views can therefore evolve or be fixed without
+data migration, and `?raw=true` exposes the untouched events for replay.
+
+Storage is SQLite at `data/runs.db` through `server/runs`, using
+`modernc.org/sqlite` (pure Go). CGO surface stays at its current minimum
+(onnxruntime only); this was an explicit constraint. SQLite is scoped to runs
+only; `store.json` is untouched. Retention is SQL (`Sweep` by age and by
+newest-N per app, swept hourly). Sessions live in Redis and are ephemeral, so
+this database is the durable audit copy.
+
+Two facts about the adk plugin API shaped the design (verified empirically):
+run-fatal node errors are not events and never reach the plugin (they surface
+only as the run iterator's error, consumed inside adkrest), and
+`AfterRunCallback` carries no outcome. The recorder therefore exposes
+`MarkRunError`, called by the `RunAudit` middleware, which also annotates
+client attribution (`Annotate`) since the plugin cannot see HTTP. The
+middleware scans the SSE response incrementally for `event: error` frames; it
+does not buffer the stream.
+
+`event.Author` for plain function/join workflow nodes is the workflow agent's
+name, not the node name; Magec's own nodes set `Author` to the node ID. The
+recorder persists both `Author` and `NodeInfo.Path`, and the projection groups
+by consecutive runs of Author (falling back to NodePath) so loop reactivations
+appear as separate activations.
+
+OpenTelemetry was considered and excluded: adk v2 already emits `invoke_node`
+spans natively for users with a collector, and persisting spans locally would
+reimplement a tracing backend. The recorder is a product feature (embedded,
+queryable, own retention), not infra telemetry.
+
+Planned phase 2: rebuild the Conversations audit as a projection over recorded
+runs and retire the stream-buffering conversation middleware and the persisted
+dual perspective.

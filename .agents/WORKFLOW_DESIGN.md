@@ -259,6 +259,20 @@ initial-settings construction in `store.go`). Exposed in the admin UI Settings
   `{entry, nodes, edges}` model, serialises nodes/edges on save. The modal is
   persistent (Escape does not close it) so an unsaved graph is not lost.
 
+## Run auditing (`server/agent/runrecorder`, `server/runs`)
+
+Every runner invocation is recorded by the `runrecorder` adk plugin (a pure
+observer registered next to contextguard) and persisted as raw ordered
+`session.Event` payloads plus run metadata in SQLite (`data/runs.db`,
+`modernc.org/sqlite`, pure Go, retention swept hourly). Views are projections
+computed at read time: `GET /runs` lists summaries and `GET /runs/{id}`
+derives the per-node activation timeline (consecutive events grouped by
+Author, falling back to `NodeInfo.Path`); `?raw=true` returns the untouched
+events. Run-fatal errors and client attribution do not exist at plugin level,
+so the `RunAudit` middleware feeds them in (`MarkRunError` from SSE error
+frames, `Annotate` from the Bearer token). The admin UI surfaces this as the
+Runs section (list plus timeline detail). Full rationale in decision #31.
+
 ## Key files
 
 - `server/store/types.go`: `FlowDefinition`, `FlowNode`, `FlowEdge`,
@@ -269,6 +283,9 @@ initial-settings construction in `store.go`). Exposed in the admin UI Settings
   builders.
 - `server/agent/flowexit/`: CEL compile/evaluate and flow-state extraction.
 - `server/agent/flowgraph/validate.go`: graph validation.
+- `server/agent/runrecorder/`: run audit plugin and Sink interface.
+- `server/runs/`: SQLite run store (sink implementation plus query API).
+- `server/api/admin/runs.go`: run endpoints and the activation projection.
 - `server/api/admin/flows.go`, `server/api/admin/settings.go`: admin API.
 - `frontend/admin-ui/src/views/flows/`, `.../settings/FlowsSection.vue`: editor
   and settings UI.

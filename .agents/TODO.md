@@ -58,78 +58,22 @@
 
 ## High Priority
 
-### Flow run auditing: runrecorder plugin + SQLite sink + Runs UI (BLOCKS the flows release)
+### Flow run auditing: DONE except live verification
 
-The graph flows feature does not ship without execution auditing: operators need
-to see, per flow run, which nodes ran, in what order, what each emitted, which
-one failed and with what error, and rough timings.
+Implemented on this branch (decision #31): `server/agent/runrecorder` plugin,
+`server/runs` SQLite store (modernc.org/sqlite, pure Go, `data/runs.db`),
+`RunAudit` middleware (attribution + SSE error capture), admin API
+`GET /runs` + `GET /runs/{id}` with on-read activation projection, and the
+Runs section in the admin UI. Remaining:
 
-**Design (agreed 2026-07-02, see memory + DECISIONS)**:
-
-- **Store raw events, derive views on read.** The adk workflow scheduler yields
-  events through a single queue, so per-run event order is total. Persisted
-  shape per run: the ordered `session.Event` list plus run metadata. No
-  distilled/summary format is persisted; the timeline projection (activations,
-  routes, durations, errors) is computed at read time in the API. Rationale:
-  zero invented on-disk vocabulary, views can evolve without migration.
-- **Session lives in Redis**, so adk session events are ephemeral; the recorder
-  is the durable audit copy.
-- **OpenTelemetry is out of scope**: adk-go v2 has built-in OTel spans per node
-  (`invoke_node`), which cover infra tracing for users with a collector. The
-  recorder is a product feature (embedded, queryable, own retention). Do not
-  consume or persist OTel data. Document it as a complement.
-- **Recorder stays in Magec** (`server/agent/runrecorder/`), not adk-utils-go:
-  after removing the distilled format it is thin glue over the adk plugin API;
-  not generic enough to justify a library. Sink is an interface for testability.
-- **SQLite via modernc.org/sqlite (pure Go, NO CGO)** at `data/runs.db`, WAL
-  mode. Keep the CGO surface at its current minimum (onnxruntime only); the
-  VoiceUI may become an external client later and builds should stay simple.
-  Scope decision: SQLite is for runs only; store.json stays as is.
-- **Known gaps, accepted**: event timestamps mark emission (≈ node end), not
-  start; node start marks come from BeforeAgentCallback for agent nodes
-  (routers/expressions run in ms, approximation fine). Run-fatal errors are NOT
-  events (they travel as the iterator error / OnModelError / OnToolError
-  callbacks) and must be captured separately by the recorder.
-- **Attribution**: the plugin sees runner-level data only (no HTTP). Client or
-  source attribution (telegram, cron, voice) is annotated by a slimmed-down
-  middleware that maps sessionID to {clientID, source} for the recorder,
-  replacing nothing else yet.
-- **Phase 2 (separate, after flows ship)**: rebuild the Conversations audit as
-  a projection over recorded runs (conversation = runs of one session; user
+- **Live verification on the homelab**: run a real flow, confirm the run
+  lands in `runs.db` with ordered events, break a code node and confirm the
+  run shows `failed` with the error message in the Runs UI.
+- **Phase 2 (after flows ship)**: rebuild the Conversations audit as a
+  projection over recorded runs (conversation = runs of one session; user
   perspective = on-read filter by ResponseAgentNames). Retires the
   body-buffering ConversationRecorder middleware and the persisted dual
   perspective. Clean break, no migrator.
-
-**Steps**:
-
-1. **Spike**: prove `plugin.OnEventCallback` receives workflow node events
-   (router/join/function nodes, not just LLM agents) under adkrest; determine
-   where the run-fatal iterator error can be captured (AfterRunCallback
-   semantics on failure); confirm BeforeAgentCallback fires per flow-scoped
-   agent activation. Small throwaway Go test against adk v2.
-2. **runrecorder package**: plugin (BeforeRun/OnEvent/OnModelError/OnToolError/
-   AfterRun), per-invocation accumulator (goroutine-safe), node start marks,
-   orphan eviction by timeout (status `interrupted`), pure observer contract
-   (never mutates events, never fails the run, Sink errors only logged).
-   Sink interface + fake for tests.
-3. **SQLite sink**: modernc.org/sqlite, `data/runs.db`, WAL, tables `runs`
-   (run_id PK, app_name, session_id, user_id, client_id, source, started_at,
-   ended_at, status, error) + `events` (run_id, seq, timestamp, author, branch,
-   payload JSON; indexes on run_id and app_name+started_at). Config: retention
-   (days / max runs per app), payload truncation cap for heavy fields.
-4. **Wiring**: add the recorder to `runner.PluginConfig` next to contextguard in
-   `agent.go`; retention sweeper; attribution middleware (sessionID map).
-5. **Admin API**: `GET /runs?appName=&status=&limit=&offset=` (list, projected
-   summaries), `GET /runs/{id}` (detail: timeline projection over raw events:
-   per-activation node, seq, timestamps, route, error, tokens, output preview).
-   Swagger.
-6. **Admin UI**: Runs section (list with status/duration/flow filters; detail
-   view with per-node timeline, branch lanes for fan-out, error surfacing).
-7. **Docs**: DECISIONS.md entry, WORKFLOW_DESIGN.md section, this TODO update.
-
-**Modify**: `server/agent/runrecorder/` (new), `server/store/` or `server/runs/`
-(sink), `server/agent/agent.go`, `server/middleware/`, `server/api/admin/`,
-`frontend/admin-ui/`, `go.mod` (modernc.org/sqlite).
 
 ---
 
