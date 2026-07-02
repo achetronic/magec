@@ -33,9 +33,9 @@
         <span class="text-[9px] font-bold uppercase tracking-wider flex-shrink-0" :class="labelColorClass">{{ typeLabel }}</span>
         <!-- Node ID chip. The ID is what downstream consumers see (Join map
              keys, event authors), so it stays visible and a click renames it.
-             The editor is sized to its content so the header keeps its drag
-             surface while editing. -->
-        <div class="flex-1 min-w-0 flex" @pointerdown.stop>
+             The editor is sized to its content, and only the chip and input
+             swallow pointerdown, so the empty header space stays draggable. -->
+        <div class="flex-1 min-w-0 flex">
           <input
             v-if="editingId"
             ref="idInputRef"
@@ -44,6 +44,7 @@
             :style="{ width: idInputWidth }"
             class="max-w-full bg-piedra-800 border rounded px-1 py-px text-[8px] font-mono outline-none"
             :class="idDraftValid ? 'border-piedra-600 text-arena-200' : 'border-lava-500/60 text-lava-300'"
+            @pointerdown.stop
             @click.stop
             @keydown.enter.prevent="commitRename"
             @keydown.esc.prevent="cancelRename"
@@ -54,6 +55,7 @@
             type="button"
             class="max-w-full truncate rounded bg-piedra-800/60 px-1 py-px text-[8px] font-mono text-arena-500 hover:text-arena-300 transition-colors"
             title="Node ID. Click to rename"
+            @pointerdown.stop
             @click.stop="beginRename"
           >{{ node.id }}</button>
         </div>

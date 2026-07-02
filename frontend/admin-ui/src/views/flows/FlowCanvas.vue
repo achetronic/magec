@@ -138,6 +138,13 @@
         <svg v-else class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 4v4H5m10-4v4h4M9 20v-4H5m10 4v-4h4" /></svg>
       </button>
     </div>
+
+    <!-- Escape confirmation toast (full screen only) -->
+    <Transition name="esc-toast">
+      <div v-if="escArmed" class="esc-toast">
+        Press <span class="esc-toast-key">Esc</span> again to exit full screen
+      </div>
+    </Transition>
   </div>
 </template>
 
@@ -505,22 +512,50 @@ onMounted(() => { nextTick(() => { measurePorts(); fitView() }) })
 // control Escape precisely: Esc exits full screen and never reaches the dialog.
 // The dialog itself is `persistent`, so Esc outside full screen does nothing —
 // a flow is only dismissed via Cancel/Save.
+const ESC_CONFIRM_MS = 3000
 const fullscreen = ref(false)
+const escArmed = ref(false)
+let escTimer = null
+
 function toggleFullscreen() {
   fullscreen.value = !fullscreen.value
+  disarmEscape()
   nextTick(() => { measurePorts(); fitView() })
 }
-function onKeydown(e) {
-  if (e.key === 'Escape' && fullscreen.value) {
-    e.preventDefault()
-    e.stopPropagation()
-    fullscreen.value = false
-    nextTick(() => { measurePorts(); fitView() })
+
+function disarmEscape() {
+  escArmed.value = false
+  if (escTimer) {
+    clearTimeout(escTimer)
+    escTimer = null
   }
+}
+
+function isEditableTarget(el) {
+  return el instanceof HTMLElement && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA')
+}
+
+// Exiting full screen takes a double Escape within a grace period: the first
+// press shows a hint toast, the second confirms. An Escape pressed inside an
+// input or textarea is left alone so the field handles it (the rename editor
+// cancels, a textarea just keeps focus) and full screen stays on.
+function onKeydown(e) {
+  if (e.key !== 'Escape' || !fullscreen.value) return
+  if (isEditableTarget(e.target)) return
+  e.preventDefault()
+  e.stopPropagation()
+  if (!escArmed.value) {
+    escArmed.value = true
+    escTimer = setTimeout(disarmEscape, ESC_CONFIRM_MS)
+    return
+  }
+  disarmEscape()
+  fullscreen.value = false
+  nextTick(() => { measurePorts(); fitView() })
 }
 // Capture phase so we intercept Escape before it bubbles anywhere else.
 onMounted(() => window.addEventListener('keydown', onKeydown, true))
-onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown, true))
+onBeforeUnmount(() => { disarmEscape(); window.removeEventListener('keydown', onKeydown, true) })
 
 // bezier between two canvas points, horizontal tangents
 function bezier(a, b) {
@@ -752,4 +787,34 @@ const startPos = computed(() => {
   transition: all 0.15s;
 }
 .flow-zoom-btn:hover { background: rgba(120, 113, 108, 0.15); color: var(--color-arena-200); }
+
+/* Escape confirmation toast, centred near the top like Chrome's hint */
+.esc-toast {
+  position: absolute;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 30;
+  padding: 8px 16px;
+  border-radius: 9999px;
+  background: rgba(26, 26, 29, 0.95);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(120, 113, 108, 0.25);
+  color: var(--color-arena-300);
+  font-size: 11px;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.esc-toast-key {
+  font-family: ui-monospace, monospace;
+  font-weight: 600;
+  color: var(--color-sol-300);
+}
+.esc-toast-enter-active { transition: all 0.15s ease-out; }
+.esc-toast-leave-active { transition: all 0.2s ease-in; }
+.esc-toast-enter-from,
+.esc-toast-leave-to {
+  opacity: 0;
+  transform: translateX(-50%) translateY(-6px);
+}
 </style>
