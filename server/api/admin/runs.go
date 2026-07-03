@@ -203,7 +203,10 @@ func projectActivations(events []runrecorder.EventRecord, runAppName, runInput s
 		if ev.Author != "" && ev.Author != runAppName {
 			key = ev.Author
 		} else if ev.NodePath != "" {
-			key = ev.NodePath
+			// Pure workflow nodes (joins) report the workflow name as Author,
+			// so their key is the composite NodeInfo path; only the node's own
+			// segment is meaningful to an operator.
+			key = nodePathSegment(ev.NodePath)
 		} else {
 			key = "workflow"
 		}
@@ -230,11 +233,28 @@ func projectActivations(events []runrecorder.EventRecord, runAppName, runInput s
 	return activations
 }
 
+// nodePathSegment extracts the node name from a composite NodeInfo path,
+// "<flow>@1/<node>@2" reads <node>. A path without separators comes back
+// unchanged.
+func nodePathSegment(path string) string {
+	segment := path
+	if idx := strings.LastIndex(segment, "/"); idx >= 0 {
+		segment = segment[idx+1:]
+	}
+	if idx := strings.Index(segment, "@"); idx >= 0 {
+		segment = segment[:idx]
+	}
+	if segment == "" {
+		return path
+	}
+	return segment
+}
+
 // nodeTypeFor resolves an activation's node type from the run's snapshot.
-// The activation key is the node ID for Magec-built nodes, but pure workflow
-// nodes (joins) report the workflow name as Author and are keyed by their
-// composite NodeInfo path, "<flow>@1/<node>@2", so the last path segment is
-// tried as a fallback.
+// The activation key is the node ID for Magec-built nodes and the node
+// segment of the NodeInfo path for pure workflow nodes (joins), so a direct
+// lookup covers both; the segment fallback guards records persisted before
+// keys were shortened.
 func nodeTypeFor(nodeTypes map[string]string, key string) string {
 	if len(nodeTypes) == 0 {
 		return ""
@@ -242,14 +262,7 @@ func nodeTypeFor(nodeTypes map[string]string, key string) string {
 	if t, ok := nodeTypes[key]; ok {
 		return t
 	}
-	segment := key
-	if idx := strings.LastIndex(segment, "/"); idx >= 0 {
-		segment = segment[idx+1:]
-	}
-	if idx := strings.Index(segment, "@"); idx >= 0 {
-		segment = segment[:idx]
-	}
-	return nodeTypes[segment]
+	return nodeTypes[nodePathSegment(key)]
 }
 
 // chainDerivedState walks activations in order, setting each InputPreview to

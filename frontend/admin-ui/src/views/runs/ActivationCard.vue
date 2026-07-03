@@ -21,11 +21,7 @@
           </span>
           <span class="w-px self-stretch bg-piedra-700 flex-shrink-0 mr-3" />
         </template>
-        <span class="text-xs font-semibold truncate">
-          <template v-for="(tok, i) in nameTokens" :key="i">
-            <span :class="tok.sep ? 'text-arena-600 font-normal' : 'text-arena-200'">{{ tok.text }}</span>
-          </template>
-        </span>
+        <span class="text-xs font-semibold text-arena-200 truncate">{{ activation.node }}</span>
         <span class="flex-1" />
         <span v-if="activation.error" class="w-1.5 h-1.5 rounded-full bg-lava-400 flex-shrink-0" title="This node failed" />
         <Icon
@@ -136,16 +132,6 @@ defineEmits(['toggle'])
 // shownState tracks which state keys have their value revealed; values start
 // hidden so large payloads do not flood the panel.
 const shownState = ref({})
-
-// nameTokens splits the node ID into words and their _/- separators so the
-// template can dim the separators: the real ID stays on screen, verbatim,
-// but the snake_case stops shouting.
-const nameTokens = computed(() => {
-  const parts = (props.activation.node || '').split(/([_-]+)/)
-  return parts
-    .filter(p => p !== '')
-    .map(p => ({ text: p, sep: /^[_-]+$/.test(p) }))
-})
 
 // NODE_TYPES mirrors the flow editor's per-type labels and icon paths (see
 // FlowNode.vue), rendered here in neutral gray: the timeline is an audit

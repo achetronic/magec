@@ -62,8 +62,8 @@ func TestProjectActivations(t *testing.T) {
 			},
 			runAppName: "my-app",
 			expected: []runActivation{
-				{Node: "path/to/node1", Seq: 1, StartedAt: t1, EndedAt: t1, Events: 1},
-				{Node: "path/to/node2", Seq: 2, StartedAt: t2, EndedAt: t2, Events: 1},
+				{Node: "node1", Seq: 1, StartedAt: t1, EndedAt: t1, Events: 1},
+				{Node: "node2", Seq: 2, StartedAt: t2, EndedAt: t2, Events: 1},
 				{Node: "workflow", Seq: 3, StartedAt: t3, EndedAt: t3, Events: 1},
 			},
 		},
@@ -261,6 +261,9 @@ func TestProjectActivations_NodeTypesResolved(t *testing.T) {
 	}
 	if got[1].NodeType != "join" {
 		t.Fatalf("composite path lookup failed: %q", got[1].NodeType)
+	}
+	if got[1].Node != "gather" {
+		t.Fatalf("composite path must be shortened to the node segment, got %q", got[1].Node)
 	}
 	if got[2].NodeType != "" {
 		t.Fatalf("unknown node must stay untyped, got %q", got[2].NodeType)
