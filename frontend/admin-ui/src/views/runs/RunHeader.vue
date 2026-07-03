@@ -23,9 +23,9 @@
         <template v-if="run?.status">
           <span class="text-[9px] font-semibold text-arena-600 uppercase tracking-wider">Status</span>
           <div class="flex flex-wrap items-center gap-1.5 min-w-0">
-            <Badge :variant="STATUS_BADGE_VARIANTS[run.status] || 'default'">
+            <StatusPill :color="STATUS_COLORS[run.status] || 'arena'">
               {{ STATUS_TEXT[run.status] || run.status }}
-            </Badge>
+            </StatusPill>
           </div>
         </template>
         <template v-if="metaPills.length">
@@ -58,6 +58,7 @@
 <script setup>
 import { computed } from 'vue'
 import Badge from '../../components/Badge.vue'
+import StatusPill from '../../components/StatusPill.vue'
 import Icon from '../../components/Icon.vue'
 
 const props = defineProps({
@@ -69,10 +70,10 @@ const props = defineProps({
 
 defineEmits(['back', 'delete'])
 
-const STATUS_BADGE_VARIANTS = {
+const STATUS_COLORS = {
   completed: 'green',
   failed: 'lava',
-  interrupted: 'default'
+  interrupted: 'arena'
 }
 
 const STATUS_TEXT = {
