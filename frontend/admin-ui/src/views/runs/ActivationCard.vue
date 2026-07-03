@@ -4,16 +4,28 @@
       class="bg-piedra-900 border border-piedra-800 rounded-xl overflow-hidden transition-colors"
       :class="expanded ? '' : 'hover:border-piedra-700'"
     >
-      <!-- Header row (click to expand): only the node title, everything else
-           lives in the expanded panel. -->
+      <!-- Header row (click to expand): type icon + type label, a vertical
+           separator, then the node name. Everything else lives in the
+           expanded panel. -->
       <button
         type="button"
         @click="$emit('toggle')"
         class="w-full text-left flex items-center gap-2 px-3.5 py-2.5 cursor-pointer focus:outline-none select-none"
       >
-        <span class="text-xs text-arena-500 flex-shrink-0">Node name:</span>
-        <span class="text-xs font-semibold text-arena-200 truncate">{{ prettyNodeName }}</span>
-        <span v-if="typeLabel" class="text-[10px] text-arena-600 flex-shrink-0">{{ typeLabel }}</span>
+        <template v-if="nodeType">
+          <span class="w-24 flex items-center gap-2 flex-shrink-0">
+            <svg class="w-3.5 h-3.5 text-arena-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.6">
+              <path stroke-linecap="round" stroke-linejoin="round" :d="nodeType.icon" />
+            </svg>
+            <span class="text-xs text-arena-500">{{ nodeType.label }}</span>
+          </span>
+          <span class="w-px self-stretch bg-piedra-700 flex-shrink-0 mr-3" />
+        </template>
+        <span class="text-xs font-semibold truncate">
+          <template v-for="(tok, i) in nameTokens" :key="i">
+            <span :class="tok.sep ? 'text-arena-600 font-normal' : 'text-arena-200'">{{ tok.text }}</span>
+          </template>
+        </span>
         <span class="flex-1" />
         <span v-if="activation.error" class="w-1.5 h-1.5 rounded-full bg-lava-400 flex-shrink-0" title="This node failed" />
         <Icon
@@ -125,32 +137,57 @@ defineEmits(['toggle'])
 // hidden so large payloads do not flood the panel.
 const shownState = ref({})
 
-// prettyNodeName renders the node ID for humans: separators become spaces
-// and each word is capitalized, so snake_case IDs read as titles.
-const prettyNodeName = computed(() => {
-  return (props.activation.node || '')
-    .split(/[_-]+/)
-    .filter(Boolean)
-    .map(w => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(' ')
+// nameTokens splits the node ID into words and their _/- separators so the
+// template can dim the separators: the real ID stays on screen, verbatim,
+// but the snake_case stops shouting.
+const nameTokens = computed(() => {
+  const parts = (props.activation.node || '').split(/([_-]+)/)
+  return parts
+    .filter(p => p !== '')
+    .map(p => ({ text: p, sep: /^[_-]+$/.test(p) }))
 })
 
-// NODE_TYPE_LABELS mirrors the operator-facing labels of the flow editor
-// (the parallel type is shown as Foreach there too).
-const NODE_TYPE_LABELS = {
-  agent: 'Agent',
-  router: 'Router',
-  join: 'Join',
-  parallel: 'Foreach',
-  subflow: 'Subflow',
-  expression: 'Expression',
-  template: 'Template',
-  code: 'Code',
+// NODE_TYPES mirrors the flow editor's per-type labels and icon paths (see
+// FlowNode.vue), rendered here in neutral gray: the timeline is an audit
+// surface, entity colors stay in the editor.
+const NODE_TYPES = {
+  agent: {
+    label: 'Agent',
+    icon: 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z',
+  },
+  router: {
+    label: 'Router',
+    icon: 'M3 12h4l3-9 4 18 3-9h4',
+  },
+  join: {
+    label: 'Join',
+    icon: 'M7 4v5a5 5 0 005 5 5 5 0 005-5V4M12 14v6',
+  },
+  parallel: {
+    label: 'Foreach',
+    icon: 'M4 6h16M4 12h16M4 18h16',
+  },
+  subflow: {
+    label: 'Subflow',
+    icon: 'M9 4H5a1 1 0 00-1 1v4m0 6v4a1 1 0 001 1h4m6-16h4a1 1 0 011 1v4m0 6v4a1 1 0 01-1 1h-4M9 9h6v6H9z',
+  },
+  expression: {
+    label: 'Expression',
+    icon: 'M8 9l3 3-3 3m5 0h3M4 4h16a1 1 0 011 1v14a1 1 0 01-1 1H4a1 1 0 01-1-1V5a1 1 0 011-1z',
+  },
+  template: {
+    label: 'Template',
+    icon: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z',
+  },
+  code: {
+    label: 'Code',
+    icon: 'M8 9l3 3-3 3m5 0h3M5 5h14a1 1 0 011 1v12a1 1 0 01-1 1H5a1 1 0 01-1-1V6a1 1 0 011-1z',
+  },
 }
 
-// typeLabel is empty for runs recorded before node-type snapshots existed
-// and for agent-only runs; the card simply shows nothing then.
-const typeLabel = computed(() => NODE_TYPE_LABELS[props.activation.nodeType] || '')
+// nodeType is null for runs recorded before node-type snapshots existed and
+// for agent-only runs; the card then shows just the name.
+const nodeType = computed(() => NODE_TYPES[props.activation.nodeType] || null)
 
 const routes = computed(() => {
   const r = props.activation.routes
