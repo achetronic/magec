@@ -996,3 +996,33 @@ queryable, own retention), not infra telemetry.
 Planned phase 2: rebuild the Conversations audit as a projection over recorded
 runs and retire the stream-buffering conversation middleware and the persisted
 dual perspective.
+
+
+## 32. Client metadata reaches flows as a synthetic `__meta__` prefilter node
+
+Clients (Telegram, Discord, Slack, webhooks) append a
+`<!--MAGEC_META:{...}:MAGEC_META-->` comment block to the user message so the
+agent knows the source, chat and user. Flows need that data too, but as
+structured state, not as noise inside `input` that every node would have to
+strip.
+
+The builder inserts a synthetic function node named `__meta__` between the
+`workflow.Start` sentinel and the entry node of every top-level flow
+(`server/agent/meta_prefilter.go`). It extracts the block, parses the JSON,
+writes it to flow state under `magec_meta`, and forwards the clean input.
+Subflows are not wrapped: their input already went through the parent's
+prefilter.
+
+The state key is deliberately `magec_meta`, visible and unprefixed, so router
+guards, expressions and templates can read `state.magec_meta.source` like any
+other key. Hiding it behind an internal prefix was rejected: the whole point
+is that flow authors use it.
+
+The `__` node-ID prefix is reserved for internal nodes: `flowgraph.Validate`
+rejects user-authored IDs starting with it (mirrored in the editor's rename
+validation), so synthetic names can never collide with authored ones.
+
+Phase 2, deliberately deferred to its own branch: emit the metadata as a
+StateDelta from the client bots themselves (instead of an inline comment
+block), inject a context block into agent instructions, and prefix messages
+with the human author's name in group chats.

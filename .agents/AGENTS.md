@@ -34,13 +34,15 @@ magec/
 ├── server/                     # Go backend
 │   ├── main.go                 # HTTP server (:8080 user + :8081 admin), routing, middleware
 │   ├── agent/
-│   │   ├── agent.go            # Multi-agent ADK setup, MCP transport, memory tools, ContextGuard wiring, BuildAgentInstance entry point
-│   │   ├── flow.go             # FlowDefinition graph -> adk v2 workflowagent builder (nodes + edges, Start->Entry)
-│   │   ├── router_node.go      # Router node: ordered CEL rules over flow state emit a route label
+│   │   ├── agent.go            # Multi-agent ADK setup, MCP transport, memory tools, ContextGuard + runrecorder wiring, BuildAgentInstance entry point
+│   │   ├── flow.go             # FlowDefinition graph -> adk v2 workflowagent builder (nodes + edges, Start->__meta__->Entry)
+│   │   ├── meta_prefilter.go   # Synthetic __meta__ node: strips the MAGEC_META block from flow input into state.magec_meta
+│   │   ├── router_node.go      # Router node: ordered CEL rules over input + flow state emit a route label
 │   │   ├── transform_nodes.go  # Expression (CEL value) and Template (placeholder) transform nodes
 │   │   ├── code_node.go        # Starlark code node via starlet, per-execution machine, timeout/step-budget/output cap
-│   │   ├── flowexit/           # CEL compile/evaluate for router guards and expression nodes (state + iterations)
-│   │   ├── flowgraph/          # Graph validation (Validate over store.FlowDefinition)
+│   │   ├── flowexit/           # CEL compile/evaluate for router guards (input + state + iterations) and expression nodes (input + state)
+│   │   ├── flowgraph/          # Graph validation (Validate over store.FlowDefinition, __ prefix reserved)
+│   │   ├── runrecorder/        # Run audit plugin: records every invocation's raw events into a Sink (decision #31)
 │   │   ├── tools/
 │   │   │   ├── artifacts/      # save/load/list/export/url artifact tools (decision #17, #25, #26, #27)
 │   │   │   ├── flowstate/      # set_state/get_state shared scratchpad (decision #28)
@@ -59,6 +61,7 @@ magec/
 │   │   │   ├── settings.go     # Global settings (session/longterm provider)
 │   │   │   ├── flows.go        # Flow CRUD + graph validation (flowgraph.Validate)
 │   │   │   ├── conversations.go # Conversation audit (list/get/delete/clear/stats/summary/pair/reset-session)
+│   │   │   ├── runs.go         # Run audit endpoints + on-read activation projection (decision #31)
 │   │   │   ├── backup.go       # Backup/restore (tar.gz of data/ directory)
 │   │   │   ├── voice.go        # Voice provider types endpoint
 │   │   │   └── docs/           # Generated swagger
@@ -74,6 +77,7 @@ magec/
 │   ├── middleware/
 │   │   ├── middleware.go       # AccessLog (httpsnoop), CORS, ClientAuth, AdminAuth (rate-limited)
 │   │   ├── recorder.go         # ConversationRecorder + ConversationRecorderSSE (dual-perspective)
+│   │   ├── run_audit.go        # RunAudit: annotates the run recorder with caller identity + captures SSE error frames
 │   │   ├── flowfilter.go       # Flow response filtering by responseAgent
 │   │   ├── normalize.go        # SnakeCaseNormalize: recursive snake_case→camelCase for /run and /run_sse
 │   │   ├── sessionensure.go    # Idempotent session creation (prevents overwriting ContextGuard state)
@@ -98,6 +102,7 @@ magec/
 │   │   ├── types.go            # All entity types (MCPServer includes Headers + Insecure)
 │   │   ├── crypto.go           # AES-256-GCM encryption/decryption for secrets (PBKDF2)
 │   │   └── conversations.go    # ConversationStore (data/conversations.json)
+│   ├── runs/                   # SQLite run store (data/runs.db, modernc.org/sqlite, implements runrecorder.Sink)
 │   ├── schema/validate.go      # JSON Schema validation (google/jsonschema-go)
 │   ├── config/config.go        # YAML config parsing (server + voice + log)
 │   ├── logging/logging.go      # Structured logging (slog)
@@ -129,7 +134,7 @@ magec/
 │   │   │   ├── lib/stores/data.js # Pinia central store
 │   │   │   ├── components/     # Shared: AppDialog, Card, Badge, FormInput, Icon, Toast, SegmentedControl, etc.
 │   │   │   └── views/          # Entity views (backends/, memory/, mcps/, agents/, skills/,
-│   │   │                       #   clients/, commands/, flows/, conversations/)
+│   │   │                       #   clients/, commands/, flows/, conversations/, runs/)
 │   │   ├── vite.config.js      # Vue + Tailwind plugin + dev proxy to :8081
 │   │   └── package.json        # vue, pinia, marked, js-yaml, tailwindcss v4
 │   └── voice-ui/               # Voice UI (Vue 3 + Vite + Tailwind v4 + Pinia)
@@ -198,6 +203,7 @@ magec/
 |        | **Secrets**                | CRUD: `/secrets`, `/secrets/{id}` (GET never returns value)                                                                                                                             |
 |        | **Settings**               | GET/PUT: `/settings` (global memory provider selection + `temporaryDir` for transient on-disk files)                                                                                  |
 |        | **Conversations**          | `/conversations`, `/conversations/{id}`, `/conversations/clear`, `/conversations/stats`, `/conversations/{id}/summary`, `/conversations/{id}/pair`, `/conversations/{id}/reset-session` |
+|        | **Runs**                   | GET `/runs` (filters: appName, status; paginated), GET `/runs/{id}` (activation timeline projection, `?raw=true` adds raw events)                                                       |
 |        | **Backup**                 | GET `/settings/backup`, POST `/settings/restore` (tar.gz of data/)                                                                                                                      |
 |        | **Voice**                  | GET `/voice/types` (registered voice providers with JSON Schemas)                                                                                                                       |
 
@@ -275,9 +281,10 @@ log:
 - **Dialog pattern**: `defineExpose({ open })`, parents call `ref.value?.open(data)`. Native `<dialog>` + `showModal()`
 - **JSON Schema form renderer**: `ClientDialog.vue` renders forms dynamically from `ConfigSchema()`
 - **Code node capabilities**: a `code` flow node runs user Starlark (via `github.com/1set/starlet`) over `input`+`state`, returning the script's top-level `output`. The admin, not the flow author, governs power: every starlet library ships enabled and the admin disables some in Settings (`Settings.Flows.DisabledLibraries`); a fresh starlet Machine is built per execution from a loader list prebuilt in `agent.New`. Execution limits (wall-clock timeout, output-size cap) have a global ceiling in Settings and an optional per-node override, effective = min(node, ceiling), 0 = unlimited; a runaway loop is cut by a Starlark step budget and the context deadline.
-- **Flow editor**: `FlowCanvas.vue` (pan/zoom, SVG bezier edges, drag-to-connect ports, grouped add-node toolbar, full-screen toggle) + `FlowNode.vue` (per-type node card, resizable, positions/size persisted as node x/y/w/h)
+- **Flow editor**: `FlowCanvas.vue` (pan/zoom, SVG bezier edges, drag-to-connect ports with fan-out from non-router nodes, grouped add-node toolbar, full-screen toggle with double-Escape exit) + `FlowNode.vue` (per-type node card with visible/renamable node ID chip, NodeHelp popover per type, resizable, positions/size persisted as node x/y/w/h)
+- **Runs view**: `RunsList.vue` (Card rows with app icon + status dot, filters, load-more) + `RunDetail.vue` orchestrating `RunHeader.vue` (labelled pill rows for run facts and client metadata) and `ActivationCard.vue` (expandable timeline rows with input/output/state/raw events)
 - **Tailwind v4**: `@tailwindcss/vite` plugin, `@theme` directive for custom colors
-- **11 active tabs**: backends, memory, mcps, agents, flows, commands, skills, clients, secrets, conversations, settings
+- **12 active tabs**: backends, memory, mcps, agents, flows, commands, skills, clients, secrets, conversations, runs, settings
 - **Keyboard shortcuts**: `n` (new entity), `r` (refresh), `Cmd+K` (search palette)
 - **Settings view**: Runtime (`temporaryDir` for transient files used by tools like `export_artifact`), Flows (Starlark code-node script libraries and execution limits) and backup/restore (tar.gz). Memory provider selection lives in the global settings struct but is not yet exposed in the UI.
 
@@ -332,7 +339,8 @@ GPU section commented out by default. Users who want cloud providers create diff
 - `google.golang.org/adk/v2`: Agent Development Kit (v2.0.0)
 - `github.com/1set/starlet`: Starlark runtime for code nodes
 - `google.golang.org/genai` — Google GenAI SDK (v1.40.0)
-- `github.com/achetronic/adk-utils-go` — ADK utilities (v0.16.0): providers, session, memory tools, ContextGuard plugin, Langfuse plugin, artifact filesystem service
+- `github.com/achetronic/adk-utils-go` — ADK utilities (v0.22.0): providers, Redis session service, memory tools, ContextGuard plugin, Langfuse plugin, artifact filesystem service
+- `modernc.org/sqlite` — pure Go SQLite driver for the run audit store (no CGO)
 - `github.com/a2aproject/a2a-go` — A2A protocol library (v0.3.10)
 - `github.com/modelcontextprotocol/go-sdk` — MCP client (v1.4.1)
 - `github.com/gorilla/mux` — HTTP router (v1.8.1)
@@ -348,7 +356,6 @@ GPU section commented out by default. Users who want cloud providers create diff
 **Frontends:**
 
 - Vue 3, Vite 7.3, Tailwind CSS 4.1, Pinia 3
-- vuedraggable (admin-ui list reordering)
 - marked (admin-ui markdown rendering in conversations)
 
 ## Gotchas
@@ -366,13 +373,15 @@ GPU section commented out by default. Users who want cloud providers create diff
 11. **Cron supports shorthands**: `@daily`, `@hourly`, `@weekly`, etc. expand to 5-field expressions.
 12. **Docker image includes default config.yaml**: Baked in at `/app/config.yaml`. Override with `-v`.
 13. **Git branch is `master`**, not `main`. All raw GitHub URLs use `master`.
-14. **Go 1.25+, Node 22+, Hugo v0.155+**.
-15. **A2A agent card endpoints bypass client auth**: `.well-known/agent-card.json` paths are exempted from `ClientAuth` middleware so external agents can discover cards.
-16. **Ephemeral artifact URLs bypass client auth**: `/api/v1/ephemeral/*` paths are exempted from `ClientAuth` because the HMAC-SHA256 signed token in the URL is the credential. Tokens are minted by the `get_artifact_url` tool and verified server-side with `server.encryptionKey`. See decision #27.
-17. **ContextGuard `safeSplitIndex`**: When splitting conversation history for summarization, the split point is adjusted to avoid orphaning Anthropic `tool_result` blocks.
-18. **Store env var expansion**: All store fields support `${VAR}` syntax. Secrets are injected as env vars (`os.Setenv`) before the store is expanded, so secrets can be referenced in backend URLs, bot tokens, etc.
-19. **Voice API routes always registered**: STT/TTS proxy endpoints are available regardless of Voice UI toggle, since Telegram/Discord/Slack clients need them.
-20. **ADK REST API accepts both camelCase and snake_case**: The `SnakeCaseNormalize` middleware converts snake_case keys recursively before ADK sees the request. This applies only to `/run` and `/run_sse` — the only ADK endpoints with multi-word JSON body fields. Session create/get/delete use single-word body fields (`state`, `events`) or path parameters only.
+14. **Node IDs starting with `__` are reserved**: graph validation rejects them; the builder uses the prefix for internal nodes (`__meta__`).
+15. **CGO surface is onnxruntime only**: the run store uses the pure Go SQLite driver on purpose; do not introduce CGO-backed dependencies.
+16. **Go 1.25+, Node 22+, Hugo v0.155+**.
+17. **A2A agent card endpoints bypass client auth**: `.well-known/agent-card.json` paths are exempted from `ClientAuth` middleware so external agents can discover cards.
+18. **Ephemeral artifact URLs bypass client auth**: `/api/v1/ephemeral/*` paths are exempted from `ClientAuth` because the HMAC-SHA256 signed token in the URL is the credential. Tokens are minted by the `get_artifact_url` tool and verified server-side with `server.encryptionKey`. See decision #27.
+19. **ContextGuard `safeSplitIndex`**: When splitting conversation history for summarization, the split point is adjusted to avoid orphaning Anthropic `tool_result` blocks.
+20. **Store env var expansion**: All store fields support `${VAR}` syntax. Secrets are injected as env vars (`os.Setenv`) before the store is expanded, so secrets can be referenced in backend URLs, bot tokens, etc.
+21. **Voice API routes always registered**: STT/TTS proxy endpoints are available regardless of Voice UI toggle, since Telegram/Discord/Slack clients need them.
+22. **ADK REST API accepts both camelCase and snake_case**: The `SnakeCaseNormalize` middleware converts snake_case keys recursively before ADK sees the request. This applies only to `/run` and `/run_sse` — the only ADK endpoints with multi-word JSON body fields. Session create/get/delete use single-word body fields (`state`, `events`) or path parameters only.
 
 ## Testing
 
@@ -403,5 +412,6 @@ make dev                # Build and run
 - `DISCORD_CLIENT.md`, `SLACK_CLIENT.md` — platform-specific client deep dives.
 - `ADMIN_UI_DESIGN_SYSTEM.md` — UI rulebook for the Admin frontend (Cards, Badges, spacing).
 - `ENTITY_COLORS.md` — canonical color-to-entity mapping used across Admin and Voice UIs.
+- `WORKFLOW_DESIGN.md` — living reference of the flow graph system (model, builder, nodes, editor, run auditing).
 - `RELEASE_NOTES_TEMPLATE.md` — format for changelog entries.
 - `TODO.md` — short-term roadmap and recently-shipped log.

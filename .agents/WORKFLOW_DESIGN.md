@@ -88,7 +88,7 @@ type FlowNode struct {
 }
 
 type FlowRule struct {
-    When  string // CEL expression over `state` (map) and `iterations` (int); must return bool
+    When  string // CEL expression over `input`, `state` (map) and `iterations` (int); must return bool
     Route string // label emitted when When is true
 }
 
@@ -120,13 +120,16 @@ value do so through `workflow.NewEmittingFunctionNode`, yielding a
 - **agent**: wraps the AgentDefinition (`AgentID`) built by `BuildAgentInstance`
   into `workflow.NewAgentNode`. The shared flow-state toolset is injected so
   the agent can `set_state`/`get_state`.
-- **router** (`server/agent/router_node.go`): a function node. Reads flow state,
-  evaluates `Rules` in order, emits the first matching `Route` (or
-  `DefaultRoute`) as `ev.Routes`. Outgoing edges carry `workflow.StringRoute`
-  labels that match. Passes `input` through unchanged. Increments a per-router
-  activation counter and exposes it to CEL as `iterations`.
+- **router** (`server/agent/router_node.go`): a function node. Reads the
+  incoming `input` and flow state, evaluates `Rules` in order, emits the first
+  matching `Route` (or `DefaultRoute`) as `ev.Routes`. Outgoing edges carry
+  `workflow.StringRoute` labels that match. Passes `input` through unchanged.
+  Increments a per-router activation counter and exposes it to CEL as
+  `iterations`.
 - **join**: `workflow.NewJoinNode`, a fan-in barrier that fires once after all
-  declared predecessors complete. Routed edges into a join are a config error.
+  declared predecessors complete. Its output is a map keyed by producing node
+  ID (`{nodeID: output}`), so downstream nodes address branch results by the
+  visible node IDs. Routed edges into a join are a config error.
 - **parallel**: wraps the `AgentID` agent node in `workflow.NewParallelWorker`,
   running it once per item of a list-typed input, `MaxConcurrency` in flight,
   aggregating per-item outputs into a list.
@@ -170,9 +173,9 @@ transform and code nodes writes into the same namespace.
 
 Two environments, both from `github.com/google/cel-go`:
 
-- Router guards: variables `state` (map) and `iterations` (int); must return
-  `bool`. Compiled by `Compile`, evaluated by `Evaluate` (a runtime error or a
-  non-bool result is treated as `false` and logged).
+- Router guards: variables `input` (dyn), `state` (map) and `iterations`
+  (int); must return `bool`. Compiled by `Compile`, evaluated by `Evaluate` (a
+  runtime error or a non-bool result is treated as `false` and logged).
 - Expression nodes: variables `input` (dyn) and `state` (map); returns any
   value. Compiled by `CompileValue`, evaluated by `EvaluateValue` (a runtime
   error fails the node). String and list extensions are enabled, so
@@ -203,11 +206,24 @@ Limits guard Magec's own availability and have two levels:
   result; over-cap output fails the node before it is emitted or written to
   state.
 
+## Client metadata prefilter (`server/agent/meta_prefilter.go`)
+
+Clients (Telegram, Discord, Slack, webhooks) append a
+`<!--MAGEC_META:{...}:MAGEC_META-->` block to the user message. For a
+top-level flow the builder inserts a synthetic `__meta__` node between the
+`workflow.Start` sentinel and the entry node: it strips the block from the
+input, stores the parsed object as `state.magec_meta` (a visible key on
+purpose, so guards and templates can read `state.magec_meta.source`), and
+hands the clean input to the entry node. Subflows never get the prefilter;
+their input already passed through the parent's. The `__` ID prefix is
+reserved for such internal nodes: validation rejects user nodes named with it.
+
 ## Validation (`server/agent/flowgraph/validate.go`)
 
 `Validate(*store.FlowDefinition)` runs on save (admin API `flows.go`):
 
-- Unique, safe node IDs (`[a-zA-Z_][a-zA-Z0-9_-]*`); `START` is reserved.
+- Unique, safe node IDs (`[a-zA-Z_][a-zA-Z0-9_-]*`); `START` and the `__`
+  prefix are reserved.
 - Per type: agent/parallel need `AgentID`; router needs at least one rule, a
   default route, and every rule `When` must compile as CEL; subflow needs
   `FlowID`; expression needs `Expression` (must compile); template needs
@@ -246,15 +262,24 @@ initial-settings construction in `store.go`). Exposed in the admin UI Settings
 ## Visual editor (`frontend/admin-ui/src/views/flows`)
 
 - `FlowCanvas.vue`: the canvas. Pan/zoom, an SVG bezier edge layer, drag from a
-  node's output port to another node to connect, a grouped add-node toolbar
-  (execution / flow control / data), a full-screen toggle, and a draggable
-  Start box whose port sets the entry.
+  node's output port to another node to connect (a non-router port accumulates
+  edges, so fan-out is drawn by dragging again; a router keeps one edge per
+  route label), a grouped add-node toolbar (execution / flow control / data),
+  a full-screen toggle exited with double-Escape (Chrome-style floating pill),
+  and a draggable Start box whose port sets the entry.
 - `FlowNode.vue`: one node card per type, colour-coded per its entity colour
   (see `ENTITY_COLORS.md`), with the per-type body (agent picker, router rules,
-  code editor with limit overrides, etc.). Nodes with growable content are
+  code editor with limit overrides, etc.). Every card shows its node ID as a
+  chip in the header, renamable inline (validated against the ID pattern and
+  reserved names, renames propagate to edges and entry). Each type's header
+  carries a `NodeHelp.vue` panel ("Need help?") built on the native Popover
+  API: `showPopover()` promotes the panel to the top layer without a modal
+  dialog making the rest of the editor inert. Nodes with growable content are
   resizable and persist `w/h`; selection-only nodes are fixed-size. Labels are
   operator-facing (the `parallel` type shows as "Foreach"). Entry is marked
   with a dot.
+- `StarlarkEditor.vue`: the code node's editor, a textarea with a
+  syntax-highlighting overlay (no external dependency).
 - `FlowDialog.vue`: wraps the canvas in the flow create/edit modal, binds the
   `{entry, nodes, edges}` model, serialises nodes/edges on save. The modal is
   persistent (Escape does not close it) so an unsaved graph is not lost.
@@ -270,8 +295,11 @@ derives the per-node activation timeline (consecutive events grouped by
 Author, falling back to `NodeInfo.Path`); `?raw=true` returns the untouched
 events. Run-fatal errors and client attribution do not exist at plugin level,
 so the `RunAudit` middleware feeds them in (`MarkRunError` from SSE error
-frames, `Annotate` from the Bearer token). The admin UI surfaces this as the
-Runs section (list plus timeline detail). Full rationale in decision #31.
+frames, `Annotate` from the Bearer token). The user's message is captured
+through `OnUserMessageCallback` (it fires before `BeforeRunCallback`, hence
+the idempotent accumulator) and stored as the run's `input`. The admin UI
+surfaces this as the Runs section (list plus timeline detail). Full rationale
+in decision #31.
 
 ## Key files
 
@@ -279,6 +307,7 @@ Runs section (list plus timeline detail). Full rationale in decision #31.
   `FlowRule`, `FlowsSettings`, node-type constants, `Settings.Flows`, and the
   `AgentIDs`/`ResponseAgentIDs`/`ResponseAgentNames`/`FirstAgentID` helpers.
 - `server/agent/flow.go`: `BuildFlowAgent`, `buildEdges`, `buildNode`.
+- `server/agent/meta_prefilter.go`: the `__meta__` client-metadata prefilter.
 - `server/agent/router_node.go`, `transform_nodes.go`, `code_node.go`: node
   builders.
 - `server/agent/flowexit/`: CEL compile/evaluate and flow-state extraction.
