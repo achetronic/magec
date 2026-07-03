@@ -58,6 +58,21 @@
 
 ## High Priority
 
+### Run recorder: interrupted status on shutdown
+
+A server restart mid-run produces a run record with status `completed` even
+though the run was decapitated (observed live: a flow whose agents had called
+tools but never emitted text was flushed as completed during the redeploy).
+The AfterRunCallback defer fires during shutdown and flushes with the default
+status. Fix candidates: flush as `interrupted` from Recorder.Close() for every
+live accumulator, and/or only mark `completed` when a terminal run event was
+observed. Tests: simulate Close() with a live accumulator and assert the
+persisted status.
+
+**Modify**: `server/agent/runrecorder/recorder.go` (+ test).
+
+---
+
 ### Flow run auditing: DONE except live verification
 
 Implemented on this branch (decision #31): `server/agent/runrecorder` plugin,
