@@ -60,12 +60,12 @@
           </div>
         </div>
 
-        <!-- State: a two-column grid so keys stay aligned. Values are
-             hidden behind a per-key toggle; a sol dot marks keys written by
-             this activation. -->
+        <!-- State: key, eye toggle and value columns; keys stay aligned and
+             values start hidden behind the per-key eye. A sol dot marks keys
+             written by this activation. -->
         <div class="space-y-1">
           <p class="text-[9px] font-semibold text-arena-500 uppercase tracking-wider">State</p>
-          <div v-if="activation.stateAfter && Object.keys(activation.stateAfter).length" class="bg-piedra-800/60 rounded-lg px-2 py-1 grid grid-cols-[auto_1fr] gap-x-3">
+          <div v-if="activation.stateAfter && Object.keys(activation.stateAfter).length" class="bg-piedra-800/60 rounded-lg px-2 py-1 grid grid-cols-[auto_auto_1fr] gap-x-4">
             <template v-for="(val, key) in activation.stateAfter" :key="key">
               <div class="flex items-start gap-2 py-1">
                 <span
@@ -75,14 +75,16 @@
                 />
                 <span class="font-mono text-[10px] text-sol-300 leading-tight">{{ key }}</span>
               </div>
+              <button
+                type="button"
+                @click="shownState[key] = !shownState[key]"
+                class="py-1 self-start text-arena-500 hover:text-arena-300 transition-colors cursor-pointer"
+                :title="shownState[key] ? 'Hide content' : 'Show content'"
+              >
+                <Icon :name="shownState[key] ? 'eyeOff' : 'eye'" size="xs" />
+              </button>
               <div class="py-1 min-w-0 self-start">
                 <p v-if="shownState[key]" class="font-mono text-[10px] text-arena-400 leading-tight break-all whitespace-pre-wrap">{{ formatStateValue(val) }}</p>
-                <button
-                  v-else
-                  type="button"
-                  @click="shownState[key] = true"
-                  class="block text-[10px] text-arena-500 hover:text-arena-300 leading-tight transition-colors cursor-pointer"
-                >Show content</button>
               </div>
             </template>
           </div>
