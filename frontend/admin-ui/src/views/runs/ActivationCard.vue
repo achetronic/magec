@@ -12,7 +12,7 @@
         class="w-full text-left flex items-center gap-2 px-3.5 py-2.5 cursor-pointer focus:outline-none select-none"
       >
         <span class="text-xs text-arena-500 flex-shrink-0">Node name:</span>
-        <span class="font-mono text-xs font-semibold text-arena-200 truncate">{{ activation.node }}</span>
+        <span class="text-xs font-semibold text-arena-200 truncate">{{ prettyNodeName }}</span>
         <span class="flex-1" />
         <span v-if="activation.error" class="w-1.5 h-1.5 rounded-full bg-lava-400 flex-shrink-0" title="This node failed" />
         <Icon
@@ -51,21 +51,31 @@
           </div>
         </div>
 
-        <!-- State -->
+        <!-- State: a two-column grid so keys stay aligned. Values are
+             hidden behind a per-key toggle; a sol dot marks keys written by
+             this activation. -->
         <div class="space-y-1">
           <p class="text-[9px] font-semibold text-arena-500 uppercase tracking-wider">State</p>
-          <div v-if="activation.stateAfter && Object.keys(activation.stateAfter).length" class="bg-piedra-800/60 rounded-lg divide-y divide-piedra-800/60">
-            <div
-              v-for="(val, key) in activation.stateAfter" :key="key"
-              class="flex items-start gap-2 px-2 py-1.5"
-            >
-              <span class="font-mono text-[10px] text-sol-300 flex-shrink-0">{{ key }}</span>
-              <span class="font-mono text-[10px] text-arena-300 break-all flex-1">{{ formatStateValue(val) }}</span>
-              <span
-                v-if="activation.stateDelta && key in activation.stateDelta"
-                class="text-[8px] bg-emerald-500/10 text-emerald-300 rounded px-1 py-px flex-shrink-0"
-              >written here</span>
-            </div>
+          <div v-if="activation.stateAfter && Object.keys(activation.stateAfter).length" class="bg-piedra-800/60 rounded-lg px-2 py-1 grid grid-cols-[auto_1fr] gap-x-3">
+            <template v-for="(val, key) in activation.stateAfter" :key="key">
+              <div class="flex items-start gap-2 py-1">
+                <span
+                  class="w-1.5 h-1.5 rounded-full flex-shrink-0 mt-[3px]"
+                  :class="activation.stateDelta && key in activation.stateDelta ? 'bg-sol-400' : 'bg-transparent'"
+                  :title="activation.stateDelta && key in activation.stateDelta ? 'Written by this node' : ''"
+                />
+                <span class="font-mono text-[10px] text-sol-300 leading-tight">{{ key }}</span>
+              </div>
+              <div class="py-1 min-w-0 self-start">
+                <p v-if="shownState[key]" class="font-mono text-[10px] text-arena-400 leading-tight break-all whitespace-pre-wrap">{{ formatStateValue(val) }}</p>
+                <button
+                  v-else
+                  type="button"
+                  @click="shownState[key] = true"
+                  class="block text-[10px] text-arena-500 hover:text-arena-300 leading-tight transition-colors cursor-pointer"
+                >Show content</button>
+              </div>
+            </template>
           </div>
           <p v-else class="text-[10px] text-arena-600 italic">empty</p>
         </div>
@@ -97,7 +107,7 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import Icon from '../../components/Icon.vue'
 
 const props = defineProps({
@@ -109,6 +119,20 @@ const props = defineProps({
 })
 
 defineEmits(['toggle'])
+
+// shownState tracks which state keys have their value revealed; values start
+// hidden so large payloads do not flood the panel.
+const shownState = ref({})
+
+// prettyNodeName renders the node ID for humans: separators become spaces
+// and each word is capitalized, so snake_case IDs read as titles.
+const prettyNodeName = computed(() => {
+  return (props.activation.node || '')
+    .split(/[_-]+/)
+    .filter(Boolean)
+    .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ')
+})
 
 const routes = computed(() => {
   const r = props.activation.routes
@@ -183,7 +207,7 @@ function formatStateValue(val) {
   padding: 0.5rem;
   font-family: ui-monospace, monospace;
   font-size: 10px;
-  color: var(--color-arena-300);
+  color: var(--color-arena-400);
   white-space: pre-wrap;
   word-break: break-word;
   max-height: 7rem;
