@@ -16,6 +16,7 @@ package flowgraph
 import (
 	"fmt"
 	"regexp"
+	"strings"
 
 	"github.com/achetronic/magec/server/agent/flowexit"
 	"github.com/achetronic/magec/server/store"
@@ -95,6 +96,9 @@ func validateNodes(d *store.FlowDefinition) error {
 		}
 		if n.ID == store.FlowStart {
 			return fmt.Errorf("node id %q is reserved for the entry sentinel", store.FlowStart)
+		}
+		if strings.HasPrefix(n.ID, "__") {
+			return fmt.Errorf("node id %q is reserved: the double-underscore prefix marks internal nodes", n.ID)
 		}
 		if !idPattern.MatchString(n.ID) {
 			return fmt.Errorf("node id %q must match [a-zA-Z_][a-zA-Z0-9_-]*", n.ID)

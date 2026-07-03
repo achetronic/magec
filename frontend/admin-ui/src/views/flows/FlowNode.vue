@@ -405,6 +405,9 @@ const idInputRef = ref(null)
 const idDraftValid = computed(() => {
   const draft = idDraft.value
   if (!ID_PATTERN.test(draft) || draft === RESERVED_ID) return false
+  // The double-underscore prefix is reserved for internal nodes, mirroring
+  // backend validation.
+  if (draft.startsWith('__')) return false
   return draft === props.node.id || !props.allIds.includes(draft)
 })
 

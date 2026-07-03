@@ -129,13 +129,20 @@ func TestValidate_RejectsInvalidGraphs(t *testing.T) {
 			wantSub: "no nodes",
 		},
 		{
-			name:    "duplicate node id",
-			mutate:  func(d *store.FlowDefinition) { d.Nodes = append(d.Nodes, store.FlowNode{ID: "a", Type: store.FlowNodeAgent, AgentID: "x"}) },
+			name: "duplicate node id",
+			mutate: func(d *store.FlowDefinition) {
+				d.Nodes = append(d.Nodes, store.FlowNode{ID: "a", Type: store.FlowNodeAgent, AgentID: "x"})
+			},
 			wantSub: "duplicate node id",
 		},
 		{
 			name:    "reserved start id",
 			mutate:  func(d *store.FlowDefinition) { d.Nodes[0].ID = store.FlowStart },
+			wantSub: "reserved",
+		},
+		{
+			name:    "reserved internal prefix",
+			mutate:  func(d *store.FlowDefinition) { d.Nodes[0].ID = "__meta__"; d.Entry = "__meta__" },
 			wantSub: "reserved",
 		},
 		{
@@ -169,8 +176,10 @@ func TestValidate_RejectsInvalidGraphs(t *testing.T) {
 			wantSub: "source node does not exist",
 		},
 		{
-			name:    "orphan node unreachable",
-			mutate:  func(d *store.FlowDefinition) { d.Nodes = append(d.Nodes, store.FlowNode{ID: "island", Type: store.FlowNodeAgent, AgentID: "x"}) },
+			name: "orphan node unreachable",
+			mutate: func(d *store.FlowDefinition) {
+				d.Nodes = append(d.Nodes, store.FlowNode{ID: "island", Type: store.FlowNodeAgent, AgentID: "x"})
+			},
 			wantSub: "not reachable",
 		},
 	}

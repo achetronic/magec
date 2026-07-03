@@ -59,16 +59,29 @@ type FlowBuildDeps struct {
 
 // BuildFlowAgent translates a FlowDefinition graph into an adk workflow agent
 // whose name is the flow ID (so the flow is addressable by ID, like an agent).
+// The top-level graph gets the metadata prefilter between Start and the entry
+// node; subflows do not, since their input arrives already cleaned.
 func BuildFlowAgent(flow store.FlowDefinition, deps FlowBuildDeps) (adkagent.Agent, error) {
 	edges, err := buildEdges(flow, deps)
 	if err != nil {
 		return nil, err
 	}
+	edges = insertMetaPrefilter(edges)
 	return workflowagent.New(workflowagent.Config{
 		Name:        flow.ID,
 		Description: flow.Description,
 		Edges:       edges,
 	})
+}
+
+// insertMetaPrefilter rewires the synthetic Start edge so the metadata
+// prefilter runs first: Start -> prefilter -> entry. buildEdges always places
+// the Start edge at index zero.
+func insertMetaPrefilter(edges []workflow.Edge) []workflow.Edge {
+	prefilter := buildMetaPrefilterNode()
+	entry := edges[0].To
+	edges[0] = workflow.Edge{From: workflow.Start, To: prefilter}
+	return append([]workflow.Edge{{From: prefilter, To: entry}}, edges...)
 }
 
 // buildEdges builds one workflow node per FlowNode and wires the operator's

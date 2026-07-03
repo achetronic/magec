@@ -123,9 +123,9 @@ func TestExtractFlowState_StripsPrefix(t *testing.T) {
 	s := &fakeReadonlyState{store: map[string]any{
 		toolsflowstate.StateKeyPrefix + "approved": true,
 		toolsflowstate.StateKeyPrefix + "score":    0.9,
-		"app:other":  "ignored",
-		"user:name":  "ignored",
-		"unprefixed": "ignored",
+		"app:other":                                "ignored",
+		"user:name":                                "ignored",
+		"unprefixed":                               "ignored",
 	}}
 	got := ExtractFlowState(s)
 	if len(got) != 2 {
