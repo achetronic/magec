@@ -244,9 +244,20 @@ function formatDuration(startedAt, endedAt) {
   return `${mins}m ${remSecs}s`
 }
 
-function formatTime(isoString) {
-  if (!isoString) return ''
-  return new Date(isoString).toLocaleString()
+// formatTime mirrors the conversations list: relative for the recent past,
+// short date plus time beyond a day.
+function formatTime(ts) {
+  if (!ts) return ''
+  const d = new Date(ts)
+  const now = new Date()
+  const diff = now - d
+
+  if (diff < 60000) return 'just now'
+  if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`
+  if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`
+
+  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) +
+    ' ' + d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
 }
 
 async function loadRuns(offset = 0) {
