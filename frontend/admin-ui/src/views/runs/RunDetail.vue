@@ -67,8 +67,8 @@
 
           <!-- Activation card -->
           <div
-            class="bg-piedra-900 border border-piedra-800 border-l-2 rounded-xl overflow-hidden transition-colors"
-            :class="[getBranchColors(act.branch).border, expandedCards[idx] ? '' : 'hover:border-piedra-700']"
+            class="bg-piedra-900 border border-piedra-800 rounded-xl overflow-hidden transition-colors"
+            :class="expandedCards[idx] ? '' : 'hover:border-piedra-700'"
           >
             <!-- Header row (click to expand) -->
             <button
@@ -213,16 +213,17 @@ const STATUS_TEXT = {
 }
 
 // Full literal class strings per branch lane so the Tailwind scanner sees
-// them. Each lane pairs a dot, a card border, a text tint and a legend chip.
+// them. Branch identity is expressed through the timeline dot, the branch
+// pill and the legend chip.
 const BRANCH_COLORS = [
-  { dot: 'bg-atlantico-400', border: 'border-l-atlantico-500/60', text: 'text-atlantico-300', chip: 'border-atlantico-500/30 bg-atlantico-500/10' },
-  { dot: 'bg-teal-400', border: 'border-l-teal-500/60', text: 'text-teal-300', chip: 'border-teal-500/30 bg-teal-500/10' },
-  { dot: 'bg-purple-400', border: 'border-l-purple-500/60', text: 'text-purple-300', chip: 'border-purple-500/30 bg-purple-500/10' },
-  { dot: 'bg-rose-400', border: 'border-l-rose-500/60', text: 'text-rose-300', chip: 'border-rose-500/30 bg-rose-500/10' },
-  { dot: 'bg-emerald-400', border: 'border-l-emerald-500/60', text: 'text-emerald-300', chip: 'border-emerald-500/30 bg-emerald-500/10' },
+  { dot: 'bg-atlantico-400', text: 'text-atlantico-300', chip: 'border-atlantico-500/30 bg-atlantico-500/10' },
+  { dot: 'bg-teal-400', text: 'text-teal-300', chip: 'border-teal-500/30 bg-teal-500/10' },
+  { dot: 'bg-purple-400', text: 'text-purple-300', chip: 'border-purple-500/30 bg-purple-500/10' },
+  { dot: 'bg-rose-400', text: 'text-rose-300', chip: 'border-rose-500/30 bg-rose-500/10' },
+  { dot: 'bg-emerald-400', text: 'text-emerald-300', chip: 'border-emerald-500/30 bg-emerald-500/10' },
 ]
 
-const NEUTRAL_BRANCH = { dot: 'bg-arena-500', border: 'border-l-piedra-700', text: 'text-arena-500', chip: 'border-piedra-700 bg-piedra-800/60' }
+const NEUTRAL_BRANCH = { dot: 'bg-arena-500', text: 'text-arena-500', chip: 'border-piedra-700 bg-piedra-800/60' }
 
 const branches = computed(() => {
   if (!run.value?.activations) return []
