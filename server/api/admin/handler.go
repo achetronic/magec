@@ -153,7 +153,9 @@ func (h *Handler) buildRouter() *mux.Router {
 
 	// Runs (audit)
 	r.HandleFunc("/runs", h.listRuns).Methods("GET")
+	r.HandleFunc("/runs/clear", h.clearRuns).Methods("DELETE")
 	r.HandleFunc("/runs/{id}", h.getRun).Methods("GET")
+	r.HandleFunc("/runs/{id}", h.deleteRun).Methods("DELETE")
 
 	// Backup & Restore
 	r.HandleFunc("/settings/backup", h.backupDownload).Methods("GET")

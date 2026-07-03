@@ -44,6 +44,14 @@
         </div>
       </div>
     </div>
+
+    <button
+      @click="$emit('delete')"
+      class="p-1.5 hover:bg-lava-500/10 rounded-lg transition-colors group/btn flex-shrink-0 self-start"
+      title="Delete run"
+    >
+      <Icon name="trash" size="sm" class="text-arena-500 group-hover/btn:text-lava-400 transition-colors" />
+    </button>
   </div>
 </template>
 
@@ -59,7 +67,7 @@ const props = defineProps({
   metaPills: { type: Array, default: () => [] },
 })
 
-defineEmits(['back'])
+defineEmits(['back', 'delete'])
 
 const STATUS_BADGE_VARIANTS = {
   completed: 'green',

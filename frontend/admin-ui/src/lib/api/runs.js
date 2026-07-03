@@ -15,5 +15,7 @@ export const runsApi = {
     if (params.raw != null) query.set('raw', String(params.raw))
     const qs = query.toString()
     return request(`/runs/${id}${qs ? '?' + qs : ''}`)
-  }
+  },
+  delete: (id) => request(`/runs/${id}`, { method: 'DELETE' }),
+  clear: () => request('/runs/clear', { method: 'DELETE' })
 }

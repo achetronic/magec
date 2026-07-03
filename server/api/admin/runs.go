@@ -184,6 +184,55 @@ func (h *Handler) getRun(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, detail)
 }
 
+// deleteRun handles DELETE /runs/{id} to remove a run and its events.
+// @Summary      Delete run
+// @Description  Deletes a run audit record and all its events.
+// @Tags         runs
+// @Param        id  path  string  true  "Run ID"
+// @Success      204
+// @Failure      404  {object}  ErrorResponse
+// @Security     AdminAuth
+// @Router       /runs/{id} [delete]
+func (h *Handler) deleteRun(w http.ResponseWriter, r *http.Request) {
+	if h.runs == nil {
+		writeError(w, http.StatusNotFound, "runs store not initialized")
+		return
+	}
+
+	id := mux.Vars(r)["id"]
+	deleted, err := h.runs.DeleteRun(id)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if !deleted {
+		writeError(w, http.StatusNotFound, "run not found")
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// clearRuns handles DELETE /runs/clear to remove every run audit record.
+// @Summary      Clear all runs
+// @Description  Deletes all run audit records and their events.
+// @Tags         runs
+// @Success      204
+// @Failure      500  {object}  ErrorResponse
+// @Security     AdminAuth
+// @Router       /runs/clear [delete]
+func (h *Handler) clearRuns(w http.ResponseWriter, r *http.Request) {
+	if h.runs == nil {
+		writeError(w, http.StatusNotFound, "runs store not initialized")
+		return
+	}
+
+	if err := h.runs.DeleteAll(); err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
 // projectActivations collapses raw event sequence into node activations.
 // It groups sequential events that represent a single execution phase, then
 // chains derived inputs (the run input for the first activation, the previous

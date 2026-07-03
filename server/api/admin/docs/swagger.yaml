@@ -2017,6 +2017,26 @@ paths:
       tags:
       - runs
   /runs/{id}:
+    delete:
+      description: Deletes a run audit record and all its events.
+      parameters:
+      - description: Run ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/admin.ErrorResponse'
+      security:
+      - AdminAuth: []
+      summary: Delete run
+      tags:
+      - runs
     get:
       description: Returns a run detail by ID, including its timeline of node activations
         and optionally raw events.
@@ -2045,6 +2065,21 @@ paths:
       security:
       - AdminAuth: []
       summary: Get run
+      tags:
+      - runs
+  /runs/clear:
+    delete:
+      description: Deletes all run audit records and their events.
+      responses:
+        "204":
+          description: No Content
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/admin.ErrorResponse'
+      security:
+      - AdminAuth: []
+      summary: Clear all runs
       tags:
       - runs
   /secrets:

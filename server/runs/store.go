@@ -138,6 +138,46 @@ func (s *Store) SetRunError(runID, message string) error {
 	return nil
 }
 
+// DeleteRun removes a run and its events. The boolean is false when the run
+// does not exist.
+func (s *Store) DeleteRun(runID string) (bool, error) {
+	tx, err := s.db.Begin()
+	if err != nil {
+		return false, fmt.Errorf("begin delete: %w", err)
+	}
+	defer tx.Rollback()
+
+	if _, err := tx.Exec(`DELETE FROM events WHERE run_id = ?`, runID); err != nil {
+		return false, fmt.Errorf("delete events of %s: %w", runID, err)
+	}
+	res, err := tx.Exec(`DELETE FROM runs WHERE run_id = ?`, runID)
+	if err != nil {
+		return false, fmt.Errorf("delete run %s: %w", runID, err)
+	}
+	affected, _ := res.RowsAffected()
+	if err := tx.Commit(); err != nil {
+		return false, fmt.Errorf("commit delete: %w", err)
+	}
+	return affected > 0, nil
+}
+
+// DeleteAll removes every run and event.
+func (s *Store) DeleteAll() error {
+	tx, err := s.db.Begin()
+	if err != nil {
+		return fmt.Errorf("begin clear: %w", err)
+	}
+	defer tx.Rollback()
+
+	if _, err := tx.Exec(`DELETE FROM events`); err != nil {
+		return fmt.Errorf("clear events: %w", err)
+	}
+	if _, err := tx.Exec(`DELETE FROM runs`); err != nil {
+		return fmt.Errorf("clear runs: %w", err)
+	}
+	return tx.Commit()
+}
+
 // ListRuns returns run summaries newest first, filtered and paginated, along
 // with the total number of matching runs.
 func (s *Store) ListRuns(f RunFilter) ([]RunSummary, int, error) {

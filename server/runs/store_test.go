@@ -264,3 +264,34 @@ func TestStore_NodeTypesRoundtrip(t *testing.T) {
 		t.Fatalf("expected nil node types for a run saved without them, got %+v", got.NodeTypes)
 	}
 }
+
+// TestStore_DeleteRunAndClear guards manual deletion: DeleteRun removes one
+// run with its events and reports existence, DeleteAll empties the store.
+func TestStore_DeleteRunAndClear(t *testing.T) {
+	s := openStore(t)
+	base := time.Now().Truncate(time.Millisecond)
+	if err := s.SaveRun(sampleRun("run_a", "app", base, 2)); err != nil {
+		t.Fatalf("SaveRun: %v", err)
+	}
+	if err := s.SaveRun(sampleRun("run_b", "app", base, 2)); err != nil {
+		t.Fatalf("SaveRun: %v", err)
+	}
+
+	deleted, err := s.DeleteRun("run_a")
+	if err != nil || !deleted {
+		t.Fatalf("DeleteRun: deleted=%v err=%v", deleted, err)
+	}
+	if _, ok, _ := s.GetRun("run_a"); ok {
+		t.Fatal("run_a still present after DeleteRun")
+	}
+	if deleted, _ := s.DeleteRun("run_a"); deleted {
+		t.Fatal("deleting a missing run must report false")
+	}
+
+	if err := s.DeleteAll(); err != nil {
+		t.Fatalf("DeleteAll: %v", err)
+	}
+	if _, total, _ := s.ListRuns(RunFilter{}); total != 0 {
+		t.Fatalf("expected empty store after DeleteAll, got %d runs", total)
+	}
+}

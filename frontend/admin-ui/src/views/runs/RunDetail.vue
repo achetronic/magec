@@ -7,12 +7,14 @@
       :appKind="appKind"
       :metaPills="metaPills"
       @back="$emit('back')"
+      @delete="handleDelete"
     />
 
-    <!-- Run error panel -->
-    <div v-if="run?.error" class="bg-piedra-900 rounded-xl p-3 space-y-1">
+    <!-- Run error panel: the client-pill palette (soft lava wash, strong
+         lava title, arena text), roomy inner padding. -->
+    <div v-if="run?.error" class="bg-lava-500/10 rounded-xl p-4 space-y-1.5">
       <p class="text-[9px] font-semibold text-lava-400 uppercase tracking-wider">Execution Error</p>
-      <p class="font-mono text-xs text-arena-400 whitespace-pre-wrap break-all">{{ run.error }}</p>
+      <p class="font-mono text-xs text-arena-500 whitespace-pre-wrap break-all">{{ run.error }}</p>
     </div>
 
     <!-- Run input -->
@@ -63,9 +65,10 @@ const props = defineProps({
   runId: { type: String, required: true }
 })
 
-defineEmits(['back'])
+const emit = defineEmits(['back'])
 
 const store = useDataStore()
+const requestDelete = inject('requestDelete')
 const toast = inject('toast', { error: console.error })
 
 const run = ref(null)
@@ -126,6 +129,18 @@ async function loadRunDetail() {
   } finally {
     loading.value = false
   }
+}
+
+function handleDelete() {
+  requestDelete('Delete this run? This cannot be undone.', async () => {
+    try {
+      await runsApi.delete(props.runId)
+      toast.success('Run deleted')
+      emit('back')
+    } catch (e) {
+      toast.error(e.message)
+    }
+  })
 }
 
 onMounted(loadRunDetail)

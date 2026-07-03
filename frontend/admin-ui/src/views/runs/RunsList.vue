@@ -21,32 +21,27 @@
                 : 'text-arena-500 group-hover/btn:text-arena-300'"
             />
           </button>
+          <button
+            v-if="runs.length"
+            @click="handleClearAll"
+            class="flex items-center gap-1 p-1.5 hover:bg-piedra-800 rounded-lg transition-colors group/btn"
+            title="Clear all runs"
+          >
+            <Icon name="trash" size="sm" class="text-arena-500 group-hover/btn:text-arena-300 transition-colors" />
+            <span class="text-[10px] font-medium text-arena-500 group-hover/btn:text-arena-300 transition-colors">All</span>
+          </button>
         </div>
       </div>
     </div>
 
     <!-- Filters -->
     <div class="flex flex-wrap items-center gap-2">
-      <!-- App Select -->
-      <select
-        v-model="filterApp"
-        class="bg-piedra-800 border border-piedra-700/50 text-arena-200 text-xs rounded-lg px-2.5 py-1.5 outline-none focus:border-piedra-600"
-      >
-        <option value="">All apps</option>
-        <option v-for="a in store.agents" :key="a.id" :value="a.id">{{ a.name }}</option>
-        <option v-for="f in store.flows" :key="f.id" :value="f.id">{{ f.name }} (flow)</option>
-      </select>
-
-      <!-- Status Select -->
-      <select
-        v-model="filterStatus"
-        class="bg-piedra-800 border border-piedra-700/50 text-arena-200 text-xs rounded-lg px-2.5 py-1.5 outline-none focus:border-piedra-600"
-      >
-        <option value="">All status</option>
-        <option value="completed">Completed</option>
-        <option value="failed">Failed</option>
-        <option value="interrupted">Interrupted</option>
-      </select>
+      <div class="w-44">
+        <FormSelect v-model="filterApp" :options="appOptions" placeholder="All apps" />
+      </div>
+      <div class="w-40">
+        <FormSelect v-model="filterStatus" :options="statusOptions" placeholder="All status" />
+      </div>
 
       <button
         v-if="filterApp || filterStatus"
@@ -148,11 +143,13 @@ import Icon from '../../components/Icon.vue'
 import EmptyState from '../../components/EmptyState.vue'
 import SkeletonCard from '../../components/SkeletonCard.vue'
 import SegmentedControl from '../../components/SegmentedControl.vue'
+import FormSelect from '../../components/FormSelect.vue'
 
 const PAGE_SIZE = 30
 
 const emit = defineEmits(['select'])
 const store = useDataStore()
+const requestDelete = inject('requestDelete')
 const toast = inject('toast', { error: console.error })
 
 const runs = ref([])
@@ -172,6 +169,21 @@ let refreshTimer = null
 
 const hasFilters = computed(() => !!(filterApp.value || filterStatus.value))
 const hasMore = computed(() => runs.value.length < totalCount.value)
+
+// Filter dropdown options; an empty value means no filter, surfaced through
+// the select placeholder.
+const appOptions = computed(() => [
+  { value: '', label: 'All apps' },
+  ...(store.agents || []).map(a => ({ value: a.id, label: a.name })),
+  ...(store.flows || []).map(f => ({ value: f.id, label: `${f.name} (flow)` })),
+])
+
+const statusOptions = [
+  { value: '', label: 'All status' },
+  { value: 'completed', label: 'Completed' },
+  { value: 'failed', label: 'Failed' },
+  { value: 'interrupted', label: 'Interrupted' },
+]
 
 // Full class strings per status so the Tailwind scanner sees them.
 const STATUS_DOT_CLASSES = {
@@ -255,6 +267,19 @@ function autoRefreshTick() {
 
 function loadMore() {
   loadRuns(runs.value.length)
+}
+
+function handleClearAll() {
+  requestDelete('Clear ALL run audit logs? This cannot be undone.', async () => {
+    try {
+      await runsApi.clear()
+      runs.value = []
+      totalCount.value = 0
+      toast.success('All runs cleared')
+    } catch (e) {
+      toast.error(e.message)
+    }
+  })
 }
 
 function setAutoRefresh(ms) {
