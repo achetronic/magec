@@ -54,3 +54,4 @@ server/data/
 website/public/
 website/.hugo_build.lock
 website/resources/
+server/vendor/

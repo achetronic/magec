@@ -5,7 +5,7 @@ go 1.25.7
 require (
 	github.com/1set/starlet v0.2.2
 	github.com/a2aproject/a2a-go v0.3.15
-	github.com/achetronic/adk-utils-go v0.21.2-0.20260630173226-b1fef7e33949
+	github.com/achetronic/adk-utils-go v0.22.0
 	github.com/bwmarrin/discordgo v0.29.0
 	github.com/felixge/httpsnoop v1.0.4
 	github.com/google/cel-go v0.28.0
