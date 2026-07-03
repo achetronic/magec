@@ -88,42 +88,40 @@
         v-for="r in runs"
         :key="r.runId"
         @click="$emit('select', r.runId)"
-        class="w-full text-left focus:outline-none"
+        class="w-full text-left"
       >
-        <div class="bg-piedra-900 border border-piedra-800 rounded-xl px-4 py-3 hover:border-piedra-700 transition-colors space-y-2">
-          <div class="flex items-center justify-between gap-3">
-            <div class="flex items-center gap-2 min-w-0">
-              <!-- Status dot -->
-              <span class="w-2 h-2 rounded-full flex-shrink-0" :class="STATUS_DOT_CLASSES[r.status] || 'bg-arena-500'" />
-              <!-- App Name -->
-              <span class="text-sm font-medium text-arena-100 truncate">
-                {{ getAppName(r.appName) }}
-              </span>
-              <!-- Source Badge -->
-              <Badge v-if="r.source" variant="muted" class="!py-0">{{ r.source }}</Badge>
+        <Card :color="appKind(r.appName) === 'flow' ? 'rose' : 'sol'" class="cursor-pointer group">
+          <div class="flex items-start gap-3">
+            <!-- App icon with status dot on its corner -->
+            <div class="relative w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" :class="appKind(r.appName) === 'flow' ? 'bg-rose-500/15' : 'bg-sol-500/15'">
+              <Icon :name="appKind(r.appName) === 'flow' ? 'flow' : 'users'" size="sm" :class="appKind(r.appName) === 'flow' ? 'text-rose-400' : 'text-sol-400'" />
+              <span
+                class="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full border-2 border-piedra-900"
+                :class="STATUS_DOT_CLASSES[r.status] || 'bg-arena-500'"
+              />
             </div>
-            <!-- Duration -->
-            <span class="text-[10px] text-arena-400 tabular-nums flex-shrink-0">
-              {{ formatDuration(r.startedAt, r.endedAt) }}
-            </span>
-          </div>
 
-          <div class="flex items-center justify-between gap-2 text-[10px] text-arena-500">
-            <div class="flex items-center gap-1.5 min-w-0">
-              <span class="truncate font-mono text-[9px] text-arena-600 max-w-[120px] sm:max-w-none">{{ r.runId }}</span>
-              <span v-if="r.eventCount != null" class="flex items-center gap-1.5 flex-shrink-0">
-                <span>•</span>
-                <span>{{ r.eventCount }} event{{ r.eventCount !== 1 ? 's' : '' }}</span>
-              </span>
+            <!-- Content -->
+            <div class="flex-1 min-w-0 space-y-2">
+              <div class="flex items-center gap-2">
+                <span class="text-sm font-medium text-arena-100 truncate">
+                  {{ getAppName(r.appName) }}
+                </span>
+                <span class="text-[10px] text-arena-400 tabular-nums flex-shrink-0">
+                  {{ formatDuration(r.startedAt, r.endedAt) }}
+                </span>
+              </div>
+              <div class="flex items-center gap-1.5">
+                <Badge variant="muted" class="!py-0 font-mono truncate max-w-[180px] sm:max-w-none">{{ r.runId }}</Badge>
+                <Badge v-if="r.eventCount != null" variant="muted" class="!py-0 flex-shrink-0">{{ r.eventCount }} event{{ r.eventCount !== 1 ? 's' : '' }}</Badge>
+              </div>
+              <span class="text-[10px] text-arena-600 tabular-nums">{{ formatTime(r.startedAt) }}</span>
             </div>
-            <span class="tabular-nums text-arena-600 flex-shrink-0">{{ formatTime(r.startedAt) }}</span>
-          </div>
 
-          <!-- Error line -->
-          <div v-if="r.status === 'failed' && r.error" class="text-lava-300 text-[10px] truncate pt-1.5 border-t border-piedra-800/40">
-            {{ r.error }}
+            <!-- Arrow -->
+            <Icon name="chevronRight" size="sm" class="text-arena-600 group-hover:text-arena-400 flex-shrink-0 mt-2 transition-colors" />
           </div>
-        </div>
+        </Card>
       </button>
 
       <!-- Load more button -->
@@ -144,6 +142,7 @@
 import { ref, computed, watch, inject, onMounted, onBeforeUnmount } from 'vue'
 import { useDataStore } from '../../lib/stores/data.js'
 import { runsApi } from '../../lib/api/index.js'
+import Card from '../../components/Card.vue'
 import Badge from '../../components/Badge.vue'
 import Icon from '../../components/Icon.vue'
 import EmptyState from '../../components/EmptyState.vue'
@@ -182,12 +181,19 @@ const STATUS_DOT_CLASSES = {
   running: 'bg-sol-400',
 }
 
+// appKind resolves whether an app id belongs to a flow or an agent, driving
+// the row icon. Unknown ids default to agent.
+function appKind(idOrName) {
+  if (store.flows?.find(f => f.id === idOrName || f.name === idOrName)) return 'flow'
+  return 'agent'
+}
+
 function getAppName(idOrName) {
   if (!idOrName) return 'App'
   const agent = store.agents?.find(a => a.id === idOrName || a.name === idOrName)
   if (agent) return agent.name
   const flow = store.flows?.find(f => f.id === idOrName || f.name === idOrName)
-  if (flow) return `${flow.name} (flow)`
+  if (flow) return flow.name
   return idOrName
 }
 
