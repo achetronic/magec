@@ -78,6 +78,7 @@ const sections = {
   commands:  { label: 'Commands',     icon: 'command',   color: 'indigo',    group: 'Agents' },
   clients:   { label: 'Clients',      icon: 'phone',     color: 'lava',      group: 'Connections' },
   conversations: { label: 'Conversations', icon: 'chat', color: 'teal',      group: 'Audit' },
+  runs:          { label: 'Runs',          icon: 'clock', color: 'arena',     group: 'Audit' },
   settings:      { label: 'Settings',      icon: 'automation', color: 'blue', group: 'System' },
 }
 

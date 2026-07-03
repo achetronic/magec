@@ -36,11 +36,12 @@
 
     <!-- Filters -->
     <div class="flex flex-wrap items-center gap-2">
-      <div class="w-44">
-        <FormSelect v-model="filterApp" :options="appOptions" placeholder="All apps" />
+      <SegmentedControl v-model="filterKind" :options="kindOptions" />
+      <div class="w-64">
+        <FormSelect v-model="filterApp" :options="appOptions" placeholder="All apps" size="sm" />
       </div>
       <div class="w-40">
-        <FormSelect v-model="filterStatus" :options="statusOptions" placeholder="All status" />
+        <FormSelect v-model="filterStatus" :options="statusOptions" placeholder="All status" size="sm" />
       </div>
 
       <button
@@ -53,7 +54,7 @@
 
       <div class="flex-1" />
       <span class="text-[10px] text-arena-500 tabular-nums">
-        {{ totalCount }} run{{ totalCount !== 1 ? 's' : '' }}
+        {{ visibleRuns.length }} run{{ visibleRuns.length !== 1 ? 's' : '' }}
       </span>
     </div>
 
@@ -62,7 +63,7 @@
 
     <!-- Empty states -->
     <EmptyState
-      v-else-if="!runs.length && !hasFilters"
+      v-else-if="!visibleRuns.length && !hasFilters"
       title="No runs yet"
       subtitle="Runs appear when agents or flows execute."
       icon="clock"
@@ -70,7 +71,7 @@
     />
 
     <EmptyState
-      v-else-if="!runs.length && hasFilters"
+      v-else-if="!visibleRuns.length && hasFilters"
       title="No matching runs"
       subtitle="Try adjusting your filters"
       icon="clock"
@@ -80,7 +81,7 @@
     <!-- Runs List -->
     <div v-else class="space-y-2">
       <button
-        v-for="r in runs"
+        v-for="r in visibleRuns"
         :key="r.runId"
         @click="$emit('select', r.runId)"
         class="w-full text-left"
@@ -157,6 +158,7 @@ const totalCount = ref(0)
 const loading = ref(false)
 const filterApp = ref('')
 const filterStatus = ref('')
+const filterKind = ref('all')
 const refreshInterval = ref(0)
 const refreshPulse = ref(false)
 const refreshOptions = [
@@ -167,16 +169,34 @@ const refreshOptions = [
 
 let refreshTimer = null
 
-const hasFilters = computed(() => !!(filterApp.value || filterStatus.value))
+const hasFilters = computed(() => !!(filterApp.value || filterStatus.value || filterKind.value !== 'all'))
 const hasMore = computed(() => runs.value.length < totalCount.value)
 
+// visibleRuns applies the kind toggle client-side: the API filters by exact
+// appName only, so kind is a presentation filter over the loaded page.
+const visibleRuns = computed(() => {
+  if (filterKind.value === 'all') return runs.value
+  const wanted = filterKind.value === 'flows' ? 'flow' : 'agent'
+  return runs.value.filter(r => appKind(r.appName) === wanted)
+})
+
 // Filter dropdown options; an empty value means no filter, surfaced through
-// the select placeholder.
-const appOptions = computed(() => [
-  { value: '', label: 'All apps' },
-  ...(store.agents || []).map(a => ({ value: a.id, label: a.name })),
-  ...(store.flows || []).map(f => ({ value: f.id, label: `${f.name} (flow)` })),
-])
+// the select placeholder. The kind toggle decides whether the app select
+// offers everything, flows or agents.
+const kindOptions = [
+  { label: 'All', value: 'all' },
+  { label: 'Flows', value: 'flows' },
+  { label: 'Agents', value: 'agents' },
+]
+
+const appOptions = computed(() => {
+  const flows = (store.flows || []).map(f => ({ value: f.id, label: f.name }))
+  const agents = (store.agents || []).map(a => ({ value: a.id, label: a.name }))
+  const items = filterKind.value === 'flows' ? flows
+    : filterKind.value === 'agents' ? agents
+    : [...flows, ...agents]
+  return [{ value: '', label: 'All apps' }, ...items]
+})
 
 const statusOptions = [
   { value: '', label: 'All status' },
@@ -298,10 +318,21 @@ watch([filterApp, filterStatus], () => {
   resetAndLoad()
 })
 
+// Switching kind invalidates a selected app that belongs to the other list;
+// clearing it also triggers the reload through the watcher above.
+watch(filterKind, () => {
+  if (!filterApp.value) return
+  const stillOffered = appOptions.value.some(o => o.value === filterApp.value)
+  if (!stillOffered) {
+    filterApp.value = ''
+  }
+})
+
 defineExpose({
   refresh() {
     filterApp.value = ''
     filterStatus.value = ''
+    filterKind.value = 'all'
     resetAndLoad()
   }
 })

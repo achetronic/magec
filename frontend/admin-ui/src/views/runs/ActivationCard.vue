@@ -105,7 +105,6 @@
               <summary class="cursor-pointer flex items-center gap-2 px-2 py-1.5 text-[10px] font-mono text-arena-400 hover:text-arena-200 select-none">
                 <span class="text-arena-600">#{{ activation.seq + evIdx }}</span>
                 <span>{{ eventAuthor(ev) }}</span>
-                <span v-if="eventRoutes(ev)" class="text-atlantico-300">&rarr; {{ eventRoutes(ev) }}</span>
                 <span class="flex-1 truncate text-arena-600">{{ eventPreview(ev) }}</span>
               </summary>
               <pre class="border-t border-piedra-800/60 p-2 text-[9px] font-mono text-arena-400 whitespace-pre-wrap break-all max-h-64 overflow-y-auto">{{ prettyEvent(ev) }}</pre>
@@ -205,13 +204,6 @@ const durationText = computed(() => {
 function eventAuthor(ev) {
   if (!ev) return 'unknown'
   return ev.Author || ev.author || 'unknown'
-}
-
-function eventRoutes(ev) {
-  if (!ev) return ''
-  const r = ev.Routes || ev.routes
-  if (!r) return ''
-  return Array.isArray(r) ? r.join(', ') : String(r)
 }
 
 function eventPreview(ev) {

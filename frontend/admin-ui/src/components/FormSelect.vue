@@ -4,10 +4,13 @@
       ref="buttonRef"
       type="button"
       @click="toggle"
-      class="w-full flex items-center justify-between bg-piedra-800 border rounded-lg px-3 py-2 text-sm text-left outline-none transition-colors cursor-pointer"
-      :class="open
-        ? 'border-sol-500 ring-1 ring-sol-500'
-        : 'border-piedra-700 hover:border-piedra-600'"
+      class="w-full flex items-center justify-between bg-piedra-800 border rounded-lg text-left outline-none transition-colors cursor-pointer"
+      :class="[
+        size === 'sm' ? 'px-2.5 py-1.5 text-[10px] font-medium' : 'px-3 py-2 text-sm',
+        open
+          ? 'border-sol-500 ring-1 ring-sol-500'
+          : 'border-piedra-700 hover:border-piedra-600',
+      ]"
     >
       <span :class="selectedLabel ? 'text-arena-300' : 'text-arena-600'">
         {{ selectedLabel || placeholder }}
@@ -33,7 +36,8 @@
         v-if="open"
         ref="listRef"
         :style="floatingStyle"
-        class="fixed z-[9999] max-h-48 overflow-auto rounded-lg border border-piedra-700 bg-piedra-800 py-1 shadow-lg shadow-black/30 text-sm"
+        class="fixed z-[9999] max-h-48 overflow-auto rounded-lg border border-piedra-700 bg-piedra-800 py-1 shadow-lg shadow-black/30"
+        :class="size === 'sm' ? 'text-xs' : 'text-sm'"
       >
         <li
           v-for="opt in normalizedOptions"
@@ -58,6 +62,9 @@ const props = defineProps({
   modelValue: { type: [String, Number], default: '' },
   options: { type: Array, default: () => [] },
   placeholder: { type: String, default: 'Select...' },
+  // size 'md' is the standard form height; 'sm' compresses the trigger to
+  // the SegmentedControl height for filter bars.
+  size: { type: String, default: 'md' },
 })
 
 const emit = defineEmits(['update:modelValue'])
