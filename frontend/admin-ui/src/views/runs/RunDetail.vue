@@ -10,9 +10,9 @@
     />
 
     <!-- Run error panel -->
-    <div v-if="run?.error" class="bg-lava-500/10 border border-lava-500/30 rounded-xl p-3 text-lava-300 text-xs">
-      <div class="font-semibold mb-1">Execution Error</div>
-      <div class="font-mono whitespace-pre-wrap break-all">{{ run.error }}</div>
+    <div v-if="run?.error" class="bg-piedra-900 rounded-xl p-3 space-y-1">
+      <p class="text-[9px] font-semibold text-lava-400 uppercase tracking-wider">Execution Error</p>
+      <p class="font-mono text-xs text-arena-400 whitespace-pre-wrap break-all">{{ run.error }}</p>
     </div>
 
     <!-- Run input -->

@@ -94,7 +94,7 @@
         <!-- Raw events of this activation -->
         <div class="space-y-1">
           <p class="text-[9px] font-semibold text-arena-500 uppercase tracking-wider">
-            Raw events ({{ activation.events }})
+            Raw events
           </p>
           <div v-if="!events" class="text-[10px] text-arena-600 italic">unavailable for this run</div>
           <div v-else class="space-y-1">
