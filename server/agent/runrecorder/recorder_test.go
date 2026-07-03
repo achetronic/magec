@@ -314,3 +314,31 @@ func TestRecorder_UserMessageCapturedAsRunInput(t *testing.T) {
 		t.Fatalf("accumulator metadata lost across ordering, got %+v", rec)
 	}
 }
+
+// TestRecorder_NodeTypesSnapshotAttachedToRun guards the node-type capture:
+// the snapshot registered for an app must travel to the flushed record of its
+// runs, and runs of unknown apps must record no types at all.
+func TestRecorder_NodeTypesSnapshotAttachedToRun(t *testing.T) {
+	sink := newFakeSink()
+	r := startRecorder(t, sink)
+	r.SetNodeTypes(map[string]map[string]string{
+		"flow-1": {"prep": "expression", "gather": "join"},
+	})
+
+	ic := newIC("inv_types", "flow-1", "sess_t", "u")
+	r.beforeRun(ic)
+	r.afterRun(ic)
+
+	rec := sink.lastSaved(t)
+	if rec.NodeTypes["prep"] != "expression" || rec.NodeTypes["gather"] != "join" {
+		t.Fatalf("node types not attached to the run: %+v", rec.NodeTypes)
+	}
+
+	other := newIC("inv_other", "plain-agent", "sess_o", "u")
+	r.beforeRun(other)
+	r.afterRun(other)
+
+	if rec := sink.lastSaved(t); len(rec.NodeTypes) != 0 {
+		t.Fatalf("run of an unknown app must carry no node types, got %+v", rec.NodeTypes)
+	}
+}

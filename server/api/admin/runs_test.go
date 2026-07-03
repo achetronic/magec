@@ -139,7 +139,7 @@ func TestProjectActivations(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			got := projectActivations(tc.events, tc.runAppName, "")
+			got := projectActivations(tc.events, tc.runAppName, "", nil)
 			if !reflect.DeepEqual(got, tc.expected) {
 				t.Errorf("expected %+v, got %+v", tc.expected, got)
 			}
@@ -162,7 +162,7 @@ func TestProjectActivations_DerivedInputAndState(t *testing.T) {
 			Payload: []byte(`{"output":"published","Actions":{"StateDelta":{"flow:done":true}}}`)},
 	}
 
-	got := projectActivations(events, "my-flow", "")
+	got := projectActivations(events, "my-flow", "", nil)
 
 	if len(got) != 3 {
 		t.Fatalf("expected 3 activations, got %d", len(got))
@@ -206,7 +206,7 @@ func TestBuildActivation_AgentContentTextFallback(t *testing.T) {
 			Payload: []byte(`{"Content":{"role":"model","parts":[{"text":"the final "},{"text":"answer"}]}}`)},
 	}
 
-	got := projectActivations(events, "my-flow", "")
+	got := projectActivations(events, "my-flow", "", nil)
 
 	if len(got) != 1 {
 		t.Fatalf("expected 1 activation, got %d", len(got))
@@ -226,12 +226,43 @@ func TestProjectActivations_RunInputSeedsFirstActivation(t *testing.T) {
 			Payload: []byte(`{"Content":{"role":"model","parts":[{"text":"the answer"}]}}`)},
 	}
 
-	got := projectActivations(events, "my-agent", "what is the answer?")
+	got := projectActivations(events, "my-agent", "what is the answer?", nil)
 
 	if len(got) != 1 {
 		t.Fatalf("expected 1 activation, got %d", len(got))
 	}
 	if got[0].InputPreview != "what is the answer?" {
 		t.Fatalf("run input must seed the first activation, got %q", got[0].InputPreview)
+	}
+}
+
+// TestProjectActivations_NodeTypesResolved guards the type lookup: activations
+// keyed by node ID resolve directly, join activations keyed by a composite
+// NodeInfo path resolve through their last path segment, and unknown keys
+// stay untyped.
+func TestProjectActivations_NodeTypesResolved(t *testing.T) {
+	t1 := time.Date(2025, 1, 1, 12, 0, 0, 0, time.UTC)
+	events := []runrecorder.EventRecord{
+		{Seq: 1, Timestamp: t1, Author: "prep"},
+		// A pure join node's Author is the workflow name, so the projection
+		// falls back to its NodePath as the activation key.
+		{Seq: 2, Timestamp: t1.Add(time.Second), Author: "my-flow", NodePath: "my-flow@1/gather@1"},
+		{Seq: 3, Timestamp: t1.Add(2 * time.Second), Author: "mystery"},
+	}
+	nodeTypes := map[string]string{"prep": "expression", "gather": "join"}
+
+	got := projectActivations(events, "my-flow", "", nodeTypes)
+
+	if len(got) != 3 {
+		t.Fatalf("expected 3 activations, got %d", len(got))
+	}
+	if got[0].NodeType != "expression" {
+		t.Fatalf("direct node ID lookup failed: %q", got[0].NodeType)
+	}
+	if got[1].NodeType != "join" {
+		t.Fatalf("composite path lookup failed: %q", got[1].NodeType)
+	}
+	if got[2].NodeType != "" {
+		t.Fatalf("unknown node must stay untyped, got %q", got[2].NodeType)
 	}
 }

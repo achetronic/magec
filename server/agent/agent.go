@@ -270,6 +270,21 @@ func New(ctx context.Context, agents []store.AgentDefinition, backends []store.B
 		slog.Info("Flow initialized", "id", flow.ID, "name", flow.Name)
 	}
 
+	// Snapshot every built flow's node ID -> type map for the run recorder,
+	// so a run's audit record states what each node was at execution time
+	// even if the flow is edited later. Subflow nodes are folded in because
+	// their events surface inside the parent flow's run.
+	if recorder != nil {
+		nodeTypes := make(map[string]map[string]string, len(flows))
+		for _, flow := range flows {
+			if _, ok := adkAgentMap[flow.ID]; !ok {
+				continue
+			}
+			nodeTypes[flow.ID] = collectNodeTypes(flow, flowDefMap, map[string]bool{})
+		}
+		recorder.SetNodeTypes(nodeTypes)
+	}
+
 	loader, err := agent.NewMultiLoader(rootAgent, otherAgents...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create multi-loader: %w", err)
@@ -309,6 +324,34 @@ func New(ctx context.Context, agents []store.AgentDefinition, backends []store.B
 		artifactSvc: artifactSvc,
 		adkAgents:   adkAgentMap,
 	}, nil
+}
+
+// collectNodeTypes flattens a flow's node ID -> node type map, recursing into
+// subflows since their nodes emit events inside the parent flow's run. The
+// parent's own IDs win on collision; visited guards against flow cycles.
+func collectNodeTypes(flow store.FlowDefinition, flowDefs map[string]store.FlowDefinition, visited map[string]bool) map[string]string {
+	types := map[string]string{}
+	if visited[flow.ID] {
+		return types
+	}
+	visited[flow.ID] = true
+
+	for _, node := range flow.Nodes {
+		if node.Type != store.FlowNodeSubflow {
+			continue
+		}
+		sub, ok := flowDefs[node.FlowID]
+		if !ok {
+			continue
+		}
+		for id, t := range collectNodeTypes(sub, flowDefs, visited) {
+			types[id] = t
+		}
+	}
+	for _, node := range flow.Nodes {
+		types[node.ID] = node.Type
+	}
+	return types
 }
 
 // sortFlowsTopologically performs a topological sort on the flow definitions.

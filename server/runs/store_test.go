@@ -231,3 +231,36 @@ func TestStore_SweepByMaxPerApp(t *testing.T) {
 func runID(i int) string {
 	return "run_" + string(rune('0'+i))
 }
+
+// TestStore_NodeTypesRoundtrip guards persistence of the node-type snapshot:
+// a saved map must rehydrate identical, and a run saved without one must read
+// back nil rather than an empty map artifact.
+func TestStore_NodeTypesRoundtrip(t *testing.T) {
+	s := openStore(t)
+	base := time.Now().Truncate(time.Millisecond)
+
+	withTypes := sampleRun("run_types", "flow-demo", base, 1)
+	withTypes.NodeTypes = map[string]string{"prep": "expression", "gather": "join"}
+	if err := s.SaveRun(withTypes); err != nil {
+		t.Fatalf("SaveRun: %v", err)
+	}
+	got, ok, err := s.GetRun("run_types")
+	if err != nil || !ok {
+		t.Fatalf("GetRun: ok=%v err=%v", ok, err)
+	}
+	if got.NodeTypes["prep"] != "expression" || got.NodeTypes["gather"] != "join" {
+		t.Fatalf("node types mismatch after roundtrip: %+v", got.NodeTypes)
+	}
+
+	without := sampleRun("run_no_types", "flow-demo", base, 1)
+	if err := s.SaveRun(without); err != nil {
+		t.Fatalf("SaveRun: %v", err)
+	}
+	got, ok, err = s.GetRun("run_no_types")
+	if err != nil || !ok {
+		t.Fatalf("GetRun: ok=%v err=%v", ok, err)
+	}
+	if got.NodeTypes != nil {
+		t.Fatalf("expected nil node types for a run saved without them, got %+v", got.NodeTypes)
+	}
+}

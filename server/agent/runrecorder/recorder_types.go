@@ -40,7 +40,11 @@ type RunRecord struct {
 	EndedAt   time.Time     `json:"endedAt,omitempty"`
 	Status    string        `json:"status"`
 	Error     string        `json:"error,omitempty"`
-	Events    []EventRecord `json:"events"`
+	// NodeTypes snapshots the flow's node ID -> node type map at execution
+	// time, so the audit record stays truthful even if the flow is edited
+	// later. Empty for runs of plain agents.
+	NodeTypes map[string]string `json:"nodeTypes,omitempty"`
+	Events    []EventRecord     `json:"events"`
 }
 
 // EventRecord is a single workflow/agent event captured during a run, in
@@ -78,6 +82,7 @@ type runAccumulator struct {
 	clientID  string
 	source    string
 	input     string
+	nodeTypes map[string]string
 	startedAt time.Time
 	lastSeen  time.Time
 

@@ -13,6 +13,7 @@
       >
         <span class="text-xs text-arena-500 flex-shrink-0">Node name:</span>
         <span class="text-xs font-semibold text-arena-200 truncate">{{ prettyNodeName }}</span>
+        <span v-if="typeLabel" class="text-[10px] text-arena-600 flex-shrink-0">{{ typeLabel }}</span>
         <span class="flex-1" />
         <span v-if="activation.error" class="w-1.5 h-1.5 rounded-full bg-lava-400 flex-shrink-0" title="This node failed" />
         <Icon
@@ -133,6 +134,23 @@ const prettyNodeName = computed(() => {
     .map(w => w.charAt(0).toUpperCase() + w.slice(1))
     .join(' ')
 })
+
+// NODE_TYPE_LABELS mirrors the operator-facing labels of the flow editor
+// (the parallel type is shown as Foreach there too).
+const NODE_TYPE_LABELS = {
+  agent: 'Agent',
+  router: 'Router',
+  join: 'Join',
+  parallel: 'Foreach',
+  subflow: 'Subflow',
+  expression: 'Expression',
+  template: 'Template',
+  code: 'Code',
+}
+
+// typeLabel is empty for runs recorded before node-type snapshots existed
+// and for agent-only runs; the card simply shows nothing then.
+const typeLabel = computed(() => NODE_TYPE_LABELS[props.activation.nodeType] || '')
 
 const routes = computed(() => {
   const r = props.activation.routes

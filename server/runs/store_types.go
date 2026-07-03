@@ -30,6 +30,7 @@ CREATE TABLE IF NOT EXISTS runs (
 	client_id  TEXT,
 	source     TEXT,
 	input      TEXT,
+	node_types TEXT,
 	started_at INTEGER NOT NULL,
 	ended_at   INTEGER,
 	status     TEXT NOT NULL,

@@ -60,6 +60,11 @@ type Recorder struct {
 	mu           sync.Mutex
 	live         map[string]*runAccumulator
 	attributions map[string]attribution
+	// nodeTypes holds one node ID -> node type map per app name (flow ID),
+	// consulted when a run starts. Replaced wholesale on agent rebuilds;
+	// inner maps are never mutated after being set, so accumulators may
+	// share them.
+	nodeTypes map[string]map[string]string
 
 	stop chan struct{}
 	done chan struct{}
@@ -125,6 +130,16 @@ func (r *Recorder) Annotate(sessionID, clientID, source string) {
 	}
 }
 
+// SetNodeTypes replaces the per-app node type snapshots. Keyed by app name
+// (the flow ID), each inner map goes from node ID to flow node type. The
+// agent builder calls it after every rebuild; runs of apps without an entry
+// (plain agents) record no types.
+func (r *Recorder) SetNodeTypes(types map[string]map[string]string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.nodeTypes = types
+}
+
 // MarkRunError flags a run as failed. If the run is still live the flag is
 // applied on flush; if it was already flushed the sink record is updated.
 func (r *Recorder) MarkRunError(invocationID, message string) {
@@ -177,6 +192,7 @@ func (r *Recorder) ensureAccumulator(ictx adkagent.InvocationContext) *runAccumu
 	}
 	if ag := ictx.Agent(); ag != nil {
 		acc.appName = ag.Name()
+		acc.nodeTypes = r.nodeTypes[acc.appName]
 	}
 	if sess := ictx.Session(); sess != nil {
 		acc.sessionID = sess.ID()
@@ -291,6 +307,7 @@ func (r *Recorder) flush(acc *runAccumulator, statusOverride string) {
 		EndedAt:   time.Now(),
 		Status:    acc.status,
 		Error:     acc.errMsg,
+		NodeTypes: acc.nodeTypes,
 		Events:    acc.events,
 	}
 	acc.mu.Unlock()

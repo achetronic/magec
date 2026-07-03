@@ -36,6 +36,10 @@ type runActivation struct {
 	Branch        string    `json:"branch,omitempty"`
 	OutputPreview string    `json:"outputPreview,omitempty"`
 	Error         string    `json:"error,omitempty"`
+	// NodeType is the flow node type this activation's node had at execution
+	// time, resolved from the run's node-type snapshot. Empty for agent-only
+	// runs and for runs recorded before the snapshot existed.
+	NodeType string `json:"nodeType,omitempty"`
 	// InputPreview is derived, not captured: a node's input is the output of
 	// the activation that preceded it (routers and joins pass input through).
 	InputPreview string `json:"inputPreview,omitempty"`
@@ -173,7 +177,7 @@ func (h *Handler) getRun(w http.ResponseWriter, r *http.Request) {
 		EndedAt:     run.EndedAt,
 		Status:      run.Status,
 		Error:       run.Error,
-		Activations: projectActivations(run.Events, run.AppName, run.Input),
+		Activations: projectActivations(run.Events, run.AppName, run.Input, run.NodeTypes),
 		Events:      eventsRaw,
 	}
 
@@ -185,7 +189,7 @@ func (h *Handler) getRun(w http.ResponseWriter, r *http.Request) {
 // chains derived inputs (the run input for the first activation, the previous
 // activation's output for the rest) and folds state deltas into an
 // accumulated flow-state snapshot per activation.
-func projectActivations(events []runrecorder.EventRecord, runAppName, runInput string) []runActivation {
+func projectActivations(events []runrecorder.EventRecord, runAppName, runInput string, nodeTypes map[string]string) []runActivation {
 	if len(events) == 0 {
 		return nil
 	}
@@ -219,8 +223,33 @@ func projectActivations(events []runrecorder.EventRecord, runAppName, runInput s
 		activations = append(activations, buildActivation(currentKey, currentEvents))
 	}
 
+	for i := range activations {
+		activations[i].NodeType = nodeTypeFor(nodeTypes, activations[i].Node)
+	}
 	chainDerivedState(activations, runInput)
 	return activations
+}
+
+// nodeTypeFor resolves an activation's node type from the run's snapshot.
+// The activation key is the node ID for Magec-built nodes, but pure workflow
+// nodes (joins) report the workflow name as Author and are keyed by their
+// composite NodeInfo path, "<flow>@1/<node>@2", so the last path segment is
+// tried as a fallback.
+func nodeTypeFor(nodeTypes map[string]string, key string) string {
+	if len(nodeTypes) == 0 {
+		return ""
+	}
+	if t, ok := nodeTypes[key]; ok {
+		return t
+	}
+	segment := key
+	if idx := strings.LastIndex(segment, "/"); idx >= 0 {
+		segment = segment[idx+1:]
+	}
+	if idx := strings.Index(segment, "@"); idx >= 0 {
+		segment = segment[:idx]
+	}
+	return nodeTypes[segment]
 }
 
 // chainDerivedState walks activations in order, setting each InputPreview to

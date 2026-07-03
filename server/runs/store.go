@@ -55,11 +55,16 @@ func Open(path string) (*Store, error) {
 		db.Close()
 		return nil, fmt.Errorf("apply runs schema: %w", err)
 	}
-	// Databases created before the input column existed are migrated in
-	// place; a duplicate column error means the schema is already current.
-	if _, err := db.Exec(`ALTER TABLE runs ADD COLUMN input TEXT`); err != nil && !strings.Contains(err.Error(), "duplicate column") {
-		db.Close()
-		return nil, fmt.Errorf("migrate runs schema: %w", err)
+	// Databases created before newer columns existed are migrated in place;
+	// a duplicate column error means the schema is already current.
+	for _, migration := range []string{
+		`ALTER TABLE runs ADD COLUMN input TEXT`,
+		`ALTER TABLE runs ADD COLUMN node_types TEXT`,
+	} {
+		if _, err := db.Exec(migration); err != nil && !strings.Contains(err.Error(), "duplicate column") {
+			db.Close()
+			return nil, fmt.Errorf("migrate runs schema: %w", err)
+		}
 	}
 	return &Store{db: db}, nil
 }
@@ -81,11 +86,20 @@ func (s *Store) SaveRun(record runrecorder.RunRecord) error {
 	}
 	defer tx.Rollback()
 
+	// Node types travel as a JSON object; an empty map is stored as NULL so
+	// old and new rows read back the same way.
+	var nodeTypes any
+	if len(record.NodeTypes) > 0 {
+		if encoded, err := json.Marshal(record.NodeTypes); err == nil {
+			nodeTypes = string(encoded)
+		}
+	}
+
 	if _, err := tx.Exec(
-		`INSERT INTO runs (run_id, app_name, session_id, user_id, client_id, source, input, started_at, ended_at, status, error)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		`INSERT INTO runs (run_id, app_name, session_id, user_id, client_id, source, input, node_types, started_at, ended_at, status, error)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		record.RunID, record.AppName, record.SessionID, record.UserID, record.ClientID,
-		record.Source, record.Input, record.StartedAt.UnixMilli(), record.EndedAt.UnixMilli(),
+		record.Source, record.Input, nodeTypes, record.StartedAt.UnixMilli(), record.EndedAt.UnixMilli(),
 		record.Status, record.Error,
 	); err != nil {
 		return fmt.Errorf("insert run %s: %w", record.RunID, err)
@@ -178,12 +192,12 @@ func (s *Store) ListRuns(f RunFilter) ([]RunSummary, int, error) {
 func (s *Store) GetRun(runID string) (runrecorder.RunRecord, bool, error) {
 	var record runrecorder.RunRecord
 	var startedAt, endedAt int64
-	var input sql.NullString
+	var input, nodeTypes sql.NullString
 	err := s.db.QueryRow(
-		`SELECT run_id, app_name, session_id, user_id, client_id, source, input, started_at, ended_at, status, error
+		`SELECT run_id, app_name, session_id, user_id, client_id, source, input, node_types, started_at, ended_at, status, error
 		 FROM runs WHERE run_id = ?`, runID,
 	).Scan(&record.RunID, &record.AppName, &record.SessionID, &record.UserID,
-		&record.ClientID, &record.Source, &input, &startedAt, &endedAt, &record.Status, &record.Error)
+		&record.ClientID, &record.Source, &input, &nodeTypes, &startedAt, &endedAt, &record.Status, &record.Error)
 	if err == sql.ErrNoRows {
 		return record, false, nil
 	}
@@ -191,6 +205,9 @@ func (s *Store) GetRun(runID string) (runrecorder.RunRecord, bool, error) {
 		return record, false, fmt.Errorf("get run %s: %w", runID, err)
 	}
 	record.Input = input.String
+	if nodeTypes.String != "" {
+		json.Unmarshal([]byte(nodeTypes.String), &record.NodeTypes)
+	}
 	record.StartedAt = time.UnixMilli(startedAt)
 	record.EndedAt = time.UnixMilli(endedAt)
 
