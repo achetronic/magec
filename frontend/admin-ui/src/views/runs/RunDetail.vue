@@ -32,8 +32,9 @@
     <div v-else-if="run?.activations && run.activations.length" class="space-y-3 pt-6">
       <h3 class="text-xs font-semibold text-arena-300 uppercase tracking-wider">Timeline</h3>
 
-      <!-- The vertical line is only a reading hint, kept deliberately faint. -->
-      <div class="relative pl-6 border-l border-piedra-800/50 space-y-4 ml-3">
+      <!-- The vertical line is only a reading hint, kept deliberately faint.
+           A status dot caps it where the pipeline ended. -->
+      <div class="relative pl-6 border-l border-piedra-800/50 space-y-4 ml-3 pb-4">
         <ActivationCard
           v-for="(act, idx) in run.activations"
           :key="idx"
@@ -41,6 +42,11 @@
           :expanded="!!expandedCards[idx]"
           :events="activationEvents(act)"
           @toggle="toggleExpand(idx)"
+        />
+        <span
+          class="absolute -left-[4.5px] bottom-0 w-2 h-2 rounded-full"
+          :class="STATUS_DOT_CLASSES[run.status] || 'bg-arena-500'"
+          :title="run.status"
         />
       </div>
     </div>
@@ -74,6 +80,14 @@ const toast = inject('toast', { error: console.error })
 const run = ref(null)
 const loading = ref(false)
 const expandedCards = ref({})
+
+// Full class strings per status so the Tailwind scanner sees them; mirrors
+// the status dot palette of the runs list.
+const STATUS_DOT_CLASSES = {
+  completed: 'bg-green-400',
+  failed: 'bg-lava-400',
+  interrupted: 'bg-arena-500',
+}
 
 // runInput is the user message that started the run, with client metadata
 // blocks stripped for display.
