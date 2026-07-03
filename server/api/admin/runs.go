@@ -279,7 +279,19 @@ func projectActivations(events []runrecorder.EventRecord, runAppName, runInput s
 		activations[i].NodeType = nodeTypeFor(nodeTypes, activations[i].Node)
 	}
 	chainDerivedState(activations, runInput)
-	return activations
+
+	// Internal nodes (the __ prefix is reserved, e.g. the __meta__ client
+	// metadata prefilter) are plumbing, not part of the operator's graph.
+	// They are dropped only after state chaining so their writes (like
+	// state.magec_meta) still surface on downstream activations.
+	visible := activations[:0]
+	for _, act := range activations {
+		if strings.HasPrefix(act.Node, "__") {
+			continue
+		}
+		visible = append(visible, act)
+	}
+	return visible
 }
 
 // nodePathSegment extracts the node name from a composite NodeInfo path,

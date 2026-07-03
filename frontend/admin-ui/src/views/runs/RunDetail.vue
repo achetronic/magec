@@ -12,7 +12,7 @@
 
     <!-- Run error panel: the client-pill palette (soft lava wash, strong
          lava title, arena text), roomy inner padding. -->
-    <div v-if="run?.error" class="bg-lava-500/10 rounded-xl p-4 space-y-1.5">
+    <div v-if="run?.error" class="bg-lava-500/10 rounded-xl p-5 space-y-2">
       <p class="text-[9px] font-semibold text-lava-400 uppercase tracking-wider">Execution Error</p>
       <p class="font-mono text-xs text-arena-500 whitespace-pre-wrap break-all">{{ run.error }}</p>
     </div>
@@ -29,7 +29,7 @@
     </div>
 
     <!-- Timeline -->
-    <div v-else-if="run?.activations && run.activations.length" class="space-y-3 pt-3">
+    <div v-else-if="run?.activations && run.activations.length" class="space-y-3 pt-6">
       <h3 class="text-xs font-semibold text-arena-300 uppercase tracking-wider">Timeline</h3>
 
       <!-- The vertical line is only a reading hint, kept deliberately faint. -->

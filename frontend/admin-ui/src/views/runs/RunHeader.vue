@@ -1,5 +1,5 @@
 <template>
-  <div class="flex items-center gap-3">
+  <div class="flex items-start gap-3 pt-2">
     <button
       @click="$emit('back')"
       class="w-7 h-7 rounded-lg flex items-center justify-center text-arena-400 hover:text-arena-200 hover:bg-piedra-800/80 transition-colors flex-shrink-0"

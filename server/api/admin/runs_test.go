@@ -269,3 +269,30 @@ func TestProjectActivations_NodeTypesResolved(t *testing.T) {
 		t.Fatalf("unknown node must stay untyped, got %q", got[2].NodeType)
 	}
 }
+
+// TestProjectActivations_InternalNodesHidden guards the plumbing filter: the
+// __meta__ prefilter activation must not surface in the timeline, but the
+// state it wrote must still appear on downstream activations.
+func TestProjectActivations_InternalNodesHidden(t *testing.T) {
+	t1 := time.Date(2025, 1, 1, 12, 0, 0, 0, time.UTC)
+	metaPayload := []byte(`{"Author":"__meta__","Output":"clean input","Actions":{"StateDelta":{"flow:magec_meta":{"source":"telegram"}}}}`)
+	events := []runrecorder.EventRecord{
+		{Seq: 1, Timestamp: t1, Author: "__meta__", Payload: metaPayload},
+		{Seq: 2, Timestamp: t1.Add(time.Second), Author: "prep"},
+	}
+
+	got := projectActivations(events, "my-flow", "raw input", nil)
+
+	if len(got) != 1 {
+		t.Fatalf("expected the internal node to be hidden, got %d activations", len(got))
+	}
+	if got[0].Node != "prep" {
+		t.Fatalf("expected prep, got %q", got[0].Node)
+	}
+	if got[0].InputPreview != "clean input" {
+		t.Fatalf("derived input must chain through the hidden node, got %q", got[0].InputPreview)
+	}
+	if _, ok := got[0].StateAfter["magec_meta"]; !ok {
+		t.Fatalf("state written by the hidden node must surface downstream: %+v", got[0].StateAfter)
+	}
+}
