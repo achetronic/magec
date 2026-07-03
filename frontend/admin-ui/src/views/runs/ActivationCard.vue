@@ -73,7 +73,7 @@
                   :class="activation.stateDelta && key in activation.stateDelta ? 'bg-sol-400' : 'bg-transparent'"
                   :title="activation.stateDelta && key in activation.stateDelta ? 'Written by this node' : ''"
                 />
-                <span class="font-mono text-[10px] text-sol-300 leading-tight">{{ key }}</span>
+                <span class="font-mono text-[10px] text-arena-300 leading-tight">{{ key }}</span>
               </div>
               <button
                 type="button"
