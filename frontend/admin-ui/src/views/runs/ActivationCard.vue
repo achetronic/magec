@@ -10,7 +10,7 @@
       <button
         type="button"
         @click="$emit('toggle')"
-        class="w-full text-left flex items-center gap-2 px-3.5 py-2.5 cursor-pointer focus:outline-none select-none"
+        class="w-full text-left flex items-center gap-2 px-3.5 py-3.5 cursor-pointer focus:outline-none select-none"
       >
         <template v-if="nodeType">
           <span class="w-24 flex items-center gap-2 flex-shrink-0">

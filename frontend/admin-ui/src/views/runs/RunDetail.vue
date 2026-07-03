@@ -27,11 +27,11 @@
     </div>
 
     <!-- Timeline -->
-    <div v-else-if="run?.activations && run.activations.length" class="space-y-3">
+    <div v-else-if="run?.activations && run.activations.length" class="space-y-3 pt-3">
       <h3 class="text-xs font-semibold text-arena-300 uppercase tracking-wider">Timeline</h3>
 
       <!-- The vertical line is only a reading hint, kept deliberately faint. -->
-      <div class="relative pl-6 border-l border-piedra-800/50 space-y-3 ml-3">
+      <div class="relative pl-6 border-l border-piedra-800/50 space-y-4 ml-3">
         <ActivationCard
           v-for="(act, idx) in run.activations"
           :key="idx"
