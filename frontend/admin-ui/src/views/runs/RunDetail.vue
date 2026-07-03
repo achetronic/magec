@@ -28,28 +28,15 @@
 
     <!-- Timeline -->
     <div v-else-if="run?.activations && run.activations.length" class="space-y-3">
-      <div class="flex items-center justify-between">
-        <h3 class="text-xs font-semibold text-arena-300 uppercase tracking-wider">Timeline</h3>
-        <!-- Branch legend -->
-        <div v-if="branches.length >= 2" class="flex flex-wrap items-center gap-2">
-          <div
-            v-for="br in branches" :key="br"
-            class="flex items-center gap-1.5 rounded-full border px-2 py-0.5"
-            :class="getBranchColors(br).chip"
-          >
-            <span class="w-1.5 h-1.5 rounded-full" :class="getBranchColors(br).dot" />
-            <span class="font-mono text-[9px]" :class="getBranchColors(br).text">{{ shortBranch(br) }}</span>
-          </div>
-        </div>
-      </div>
+      <h3 class="text-xs font-semibold text-arena-300 uppercase tracking-wider">Timeline</h3>
 
-      <div class="relative pl-6 border-l border-piedra-800 space-y-3 ml-3">
+      <!-- The vertical line is only a reading hint, kept deliberately faint. -->
+      <div class="relative pl-6 border-l border-piedra-800/50 space-y-3 ml-3">
         <ActivationCard
           v-for="(act, idx) in run.activations"
           :key="idx"
           :activation="act"
           :expanded="!!expandedCards[idx]"
-          :colors="getBranchColors(act.branch)"
           :events="activationEvents(act)"
           @toggle="toggleExpand(idx)"
         />
@@ -118,42 +105,6 @@ const appKind = computed(() => {
   if (store.flows?.find(f => f.id === idOrName || f.name === idOrName)) return 'flow'
   return 'agent'
 })
-
-// Full literal class strings per branch lane so the Tailwind scanner sees
-// them. Branch identity is expressed through the timeline dot, the branch
-// pill and the legend chip.
-const BRANCH_COLORS = [
-  { dot: 'bg-atlantico-400', text: 'text-atlantico-300', chip: 'border-atlantico-500/30 bg-atlantico-500/10' },
-  { dot: 'bg-teal-400', text: 'text-teal-300', chip: 'border-teal-500/30 bg-teal-500/10' },
-  { dot: 'bg-purple-400', text: 'text-purple-300', chip: 'border-purple-500/30 bg-purple-500/10' },
-  { dot: 'bg-rose-400', text: 'text-rose-300', chip: 'border-rose-500/30 bg-rose-500/10' },
-  { dot: 'bg-emerald-400', text: 'text-emerald-300', chip: 'border-emerald-500/30 bg-emerald-500/10' },
-]
-
-const NEUTRAL_BRANCH = { dot: 'bg-arena-500', text: 'text-arena-500', chip: 'border-piedra-700 bg-piedra-800/60' }
-
-const branches = computed(() => {
-  if (!run.value?.activations) return []
-  const list = []
-  for (const act of run.value.activations) {
-    if (act.branch && !list.includes(act.branch)) list.push(act.branch)
-  }
-  return list
-})
-
-function getBranchColors(branch) {
-  if (!branch) return NEUTRAL_BRANCH
-  const idx = branches.value.indexOf(branch)
-  if (idx === -1) return NEUTRAL_BRANCH
-  return BRANCH_COLORS[idx % BRANCH_COLORS.length]
-}
-
-// shortBranch keeps the last meaningful segments of a composite branch path
-// so legend chips stay compact.
-function shortBranch(branch) {
-  const parts = branch.split('.')
-  return parts.length > 2 ? parts.slice(-2).join('.') : branch
-}
 
 function toggleExpand(idx) {
   expandedCards.value[idx] = !expandedCards.value[idx]

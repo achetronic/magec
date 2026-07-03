@@ -15,28 +15,33 @@
     <div class="flex-1 min-w-0 space-y-2">
       <div class="flex items-center gap-2">
         <h2 class="text-sm font-semibold text-arena-200 truncate">{{ appName }}</h2>
-        <Badge v-if="run?.status" :variant="STATUS_BADGE_VARIANTS[run.status] || 'default'">
-          {{ STATUS_TEXT[run.status] || run.status }}
-        </Badge>
       </div>
 
       <!-- Run facts and client metadata: a label column and a pills column,
            so wrapped pills stay aligned under their own column. -->
       <div class="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5 items-baseline">
-        <span class="text-[9px] font-semibold text-arena-600 uppercase tracking-wider">Run</span>
-        <div class="flex flex-wrap items-center gap-1.5 min-w-0">
-          <Badge v-for="pill in factPills" :key="pill.key" variant="muted" class="!py-0">
-            <span class="text-arena-600">{{ pill.key }}</span> {{ pill.value }}
-          </Badge>
-        </div>
+        <template v-if="run?.status">
+          <span class="text-[9px] font-semibold text-arena-600 uppercase tracking-wider">Status</span>
+          <div class="flex flex-wrap items-center gap-1.5 min-w-0">
+            <Badge :variant="STATUS_BADGE_VARIANTS[run.status] || 'default'">
+              {{ STATUS_TEXT[run.status] || run.status }}
+            </Badge>
+          </div>
+        </template>
         <template v-if="metaPills.length">
           <span class="text-[9px] font-semibold text-arena-600 uppercase tracking-wider">Client</span>
           <div class="flex flex-wrap items-center gap-1.5 min-w-0">
-            <Badge v-for="pill in metaPills" :key="pill.key" variant="muted" class="!py-0">
+            <Badge v-for="pill in metaPills" :key="pill.key" variant="muted">
               <span class="text-arena-600">{{ pill.key }}</span> {{ pill.value }}
             </Badge>
           </div>
         </template>
+        <span class="text-[9px] font-semibold text-arena-600 uppercase tracking-wider">Run</span>
+        <div class="flex flex-wrap items-center gap-1.5 min-w-0">
+          <Badge v-for="pill in factPills" :key="pill.key" variant="muted">
+            <span class="text-arena-600">{{ pill.key }}</span> {{ pill.value }}
+          </Badge>
+        </div>
       </div>
     </div>
   </div>
