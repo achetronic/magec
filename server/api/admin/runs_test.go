@@ -139,7 +139,7 @@ func TestProjectActivations(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			got := projectActivations(tc.events, tc.runAppName)
+			got := projectActivations(tc.events, tc.runAppName, "")
 			if !reflect.DeepEqual(got, tc.expected) {
 				t.Errorf("expected %+v, got %+v", tc.expected, got)
 			}
@@ -162,7 +162,7 @@ func TestProjectActivations_DerivedInputAndState(t *testing.T) {
 			Payload: []byte(`{"output":"published","Actions":{"StateDelta":{"flow:done":true}}}`)},
 	}
 
-	got := projectActivations(events, "my-flow")
+	got := projectActivations(events, "my-flow", "")
 
 	if len(got) != 3 {
 		t.Fatalf("expected 3 activations, got %d", len(got))
@@ -206,12 +206,32 @@ func TestBuildActivation_AgentContentTextFallback(t *testing.T) {
 			Payload: []byte(`{"Content":{"role":"model","parts":[{"text":"the final "},{"text":"answer"}]}}`)},
 	}
 
-	got := projectActivations(events, "my-flow")
+	got := projectActivations(events, "my-flow", "")
 
 	if len(got) != 1 {
 		t.Fatalf("expected 1 activation, got %d", len(got))
 	}
 	if got[0].OutputPreview != "the final answer" {
 		t.Fatalf("expected content text as output preview, got %q", got[0].OutputPreview)
+	}
+}
+
+// TestProjectActivations_RunInputSeedsFirstActivation verifies that the run's
+// own input becomes the first activation's input, which is how standalone
+// agent runs (a single activation) surface what the user asked.
+func TestProjectActivations_RunInputSeedsFirstActivation(t *testing.T) {
+	t1 := time.Date(2025, 1, 1, 12, 0, 0, 0, time.UTC)
+	events := []runrecorder.EventRecord{
+		{Seq: 0, Timestamp: t1, Author: "agent_1",
+			Payload: []byte(`{"Content":{"role":"model","parts":[{"text":"the answer"}]}}`)},
+	}
+
+	got := projectActivations(events, "my-agent", "what is the answer?")
+
+	if len(got) != 1 {
+		t.Fatalf("expected 1 activation, got %d", len(got))
+	}
+	if got[0].InputPreview != "what is the answer?" {
+		t.Fatalf("run input must seed the first activation, got %q", got[0].InputPreview)
 	}
 }

@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"strings"
 	"sync"
 	"time"
 
@@ -150,18 +151,24 @@ func (r *Recorder) MarkRunError(invocationID, message string) {
 // panic-safe and side-effect free towards the run it observes.
 func (r *Recorder) Plugin() (*plugin.Plugin, error) {
 	return plugin.New(plugin.Config{
-		Name:              "runrecorder",
-		BeforeRunCallback: r.beforeRun,
-		OnEventCallback:   r.onEvent,
-		AfterRunCallback:  r.afterRun,
+		Name:                  "runrecorder",
+		OnUserMessageCallback: r.onUserMessage,
+		BeforeRunCallback:     r.beforeRun,
+		OnEventCallback:       r.onEvent,
+		AfterRunCallback:      r.afterRun,
 	})
 }
 
-// beforeRun opens the accumulator for a fresh invocation and consumes any
-// pending attribution for its session.
-func (r *Recorder) beforeRun(ictx adkagent.InvocationContext) (*genai.Content, error) {
-	defer r.recoverPanic("beforeRun")
+// ensureAccumulator returns the live accumulator for the invocation, creating
+// it on first sight. Both onUserMessage and beforeRun can be the first caller
+// depending on the runner's internal ordering, so creation is idempotent.
+func (r *Recorder) ensureAccumulator(ictx adkagent.InvocationContext) *runAccumulator {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 
+	if acc, ok := r.live[ictx.InvocationID()]; ok {
+		return acc
+	}
 	acc := &runAccumulator{
 		runID:     ictx.InvocationID(),
 		startedAt: time.Now(),
@@ -175,14 +182,47 @@ func (r *Recorder) beforeRun(ictx adkagent.InvocationContext) (*genai.Content, e
 		acc.sessionID = sess.ID()
 		acc.userID = sess.UserID()
 	}
-
-	r.mu.Lock()
 	if attr, ok := r.attributions[acc.sessionID]; ok && time.Now().Before(attr.expiresAt) {
 		acc.clientID = attr.clientID
 		acc.source = attr.source
 	}
 	r.live[acc.runID] = acc
-	r.mu.Unlock()
+	return acc
+}
+
+// onUserMessage captures the text of the message that starts the invocation.
+// The user message never travels through OnEventCallback, so this is the only
+// hook where the run's input is visible to the plugin.
+func (r *Recorder) onUserMessage(ictx adkagent.InvocationContext, msg *genai.Content) (*genai.Content, error) {
+	defer r.recoverPanic("onUserMessage")
+
+	if msg == nil {
+		return nil, nil
+	}
+	var text strings.Builder
+	for _, part := range msg.Parts {
+		if part != nil && part.Text != "" {
+			text.WriteString(part.Text)
+		}
+	}
+	if text.Len() == 0 {
+		return nil, nil
+	}
+
+	acc := r.ensureAccumulator(ictx)
+	acc.mu.Lock()
+	acc.input = text.String()
+	acc.lastSeen = time.Now()
+	acc.mu.Unlock()
+	return nil, nil
+}
+
+// beforeRun opens the accumulator for a fresh invocation and consumes any
+// pending attribution for its session.
+func (r *Recorder) beforeRun(ictx adkagent.InvocationContext) (*genai.Content, error) {
+	defer r.recoverPanic("beforeRun")
+
+	r.ensureAccumulator(ictx)
 	return nil, nil
 }
 
@@ -246,6 +286,7 @@ func (r *Recorder) flush(acc *runAccumulator, statusOverride string) {
 		UserID:    acc.userID,
 		ClientID:  acc.clientID,
 		Source:    acc.source,
+		Input:     acc.input,
 		StartedAt: acc.startedAt,
 		EndedAt:   time.Now(),
 		Status:    acc.status,

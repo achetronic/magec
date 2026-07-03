@@ -29,6 +29,7 @@ CREATE TABLE IF NOT EXISTS runs (
 	user_id    TEXT,
 	client_id  TEXT,
 	source     TEXT,
+	input      TEXT,
 	started_at INTEGER NOT NULL,
 	ended_at   INTEGER,
 	status     TEXT NOT NULL,

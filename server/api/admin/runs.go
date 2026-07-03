@@ -54,6 +54,7 @@ type runDetail struct {
 	UserID      string            `json:"userId,omitempty"`
 	ClientID    string            `json:"clientId,omitempty"`
 	Source      string            `json:"source,omitempty"`
+	Input       string            `json:"input,omitempty"`
 	StartedAt   time.Time         `json:"startedAt"`
 	EndedAt     time.Time         `json:"endedAt,omitempty"`
 	Status      string            `json:"status"`
@@ -167,11 +168,12 @@ func (h *Handler) getRun(w http.ResponseWriter, r *http.Request) {
 		UserID:      run.UserID,
 		ClientID:    run.ClientID,
 		Source:      run.Source,
+		Input:       run.Input,
 		StartedAt:   run.StartedAt,
 		EndedAt:     run.EndedAt,
 		Status:      run.Status,
 		Error:       run.Error,
-		Activations: projectActivations(run.Events, run.AppName),
+		Activations: projectActivations(run.Events, run.AppName, run.Input),
 		Events:      eventsRaw,
 	}
 
@@ -180,9 +182,10 @@ func (h *Handler) getRun(w http.ResponseWriter, r *http.Request) {
 
 // projectActivations collapses raw event sequence into node activations.
 // It groups sequential events that represent a single execution phase, then
-// chains derived inputs (previous activation's output) and folds state deltas
-// into an accumulated flow-state snapshot per activation.
-func projectActivations(events []runrecorder.EventRecord, runAppName string) []runActivation {
+// chains derived inputs (the run input for the first activation, the previous
+// activation's output for the rest) and folds state deltas into an
+// accumulated flow-state snapshot per activation.
+func projectActivations(events []runrecorder.EventRecord, runAppName, runInput string) []runActivation {
 	if len(events) == 0 {
 		return nil
 	}
@@ -216,17 +219,18 @@ func projectActivations(events []runrecorder.EventRecord, runAppName string) []r
 		activations = append(activations, buildActivation(currentKey, currentEvents))
 	}
 
-	chainDerivedState(activations)
+	chainDerivedState(activations, runInput)
 	return activations
 }
 
 // chainDerivedState walks activations in order, setting each InputPreview to
-// the previous activation's output and StateAfter to the flow state folded up
-// to that point. The input is an approximation for fan-out branches, where
-// several successors share the same upstream output.
-func chainDerivedState(activations []runActivation) {
+// the previous activation's output (seeded with the run's own input for the
+// first one) and StateAfter to the flow state folded up to that point. The
+// input is an approximation for fan-out branches, where several successors
+// share the same upstream output.
+func chainDerivedState(activations []runActivation, runInput string) {
 	state := map[string]any{}
-	prevOutput := ""
+	prevOutput := runInput
 	for i := range activations {
 		activations[i].InputPreview = prevOutput
 		for k, v := range activations[i].StateDelta {

@@ -23,6 +23,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"strings"
 	"time"
 
 	_ "modernc.org/sqlite"
@@ -54,6 +55,12 @@ func Open(path string) (*Store, error) {
 		db.Close()
 		return nil, fmt.Errorf("apply runs schema: %w", err)
 	}
+	// Databases created before the input column existed are migrated in
+	// place; a duplicate column error means the schema is already current.
+	if _, err := db.Exec(`ALTER TABLE runs ADD COLUMN input TEXT`); err != nil && !strings.Contains(err.Error(), "duplicate column") {
+		db.Close()
+		return nil, fmt.Errorf("migrate runs schema: %w", err)
+	}
 	return &Store{db: db}, nil
 }
 
@@ -75,10 +82,10 @@ func (s *Store) SaveRun(record runrecorder.RunRecord) error {
 	defer tx.Rollback()
 
 	if _, err := tx.Exec(
-		`INSERT INTO runs (run_id, app_name, session_id, user_id, client_id, source, started_at, ended_at, status, error)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		`INSERT INTO runs (run_id, app_name, session_id, user_id, client_id, source, input, started_at, ended_at, status, error)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		record.RunID, record.AppName, record.SessionID, record.UserID, record.ClientID,
-		record.Source, record.StartedAt.UnixMilli(), record.EndedAt.UnixMilli(),
+		record.Source, record.Input, record.StartedAt.UnixMilli(), record.EndedAt.UnixMilli(),
 		record.Status, record.Error,
 	); err != nil {
 		return fmt.Errorf("insert run %s: %w", record.RunID, err)
@@ -171,17 +178,19 @@ func (s *Store) ListRuns(f RunFilter) ([]RunSummary, int, error) {
 func (s *Store) GetRun(runID string) (runrecorder.RunRecord, bool, error) {
 	var record runrecorder.RunRecord
 	var startedAt, endedAt int64
+	var input sql.NullString
 	err := s.db.QueryRow(
-		`SELECT run_id, app_name, session_id, user_id, client_id, source, started_at, ended_at, status, error
+		`SELECT run_id, app_name, session_id, user_id, client_id, source, input, started_at, ended_at, status, error
 		 FROM runs WHERE run_id = ?`, runID,
 	).Scan(&record.RunID, &record.AppName, &record.SessionID, &record.UserID,
-		&record.ClientID, &record.Source, &startedAt, &endedAt, &record.Status, &record.Error)
+		&record.ClientID, &record.Source, &input, &startedAt, &endedAt, &record.Status, &record.Error)
 	if err == sql.ErrNoRows {
 		return record, false, nil
 	}
 	if err != nil {
 		return record, false, fmt.Errorf("get run %s: %w", runID, err)
 	}
+	record.Input = input.String
 	record.StartedAt = time.UnixMilli(startedAt)
 	record.EndedAt = time.UnixMilli(endedAt)
 

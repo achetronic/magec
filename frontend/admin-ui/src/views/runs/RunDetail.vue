@@ -35,6 +35,12 @@
       <div class="font-mono whitespace-pre-wrap break-all">{{ run.error }}</div>
     </div>
 
+    <!-- Run input -->
+    <div v-if="runInput" class="bg-piedra-900 border border-piedra-700/50 rounded-xl p-3 space-y-1">
+      <p class="text-[9px] font-semibold text-arena-500 uppercase tracking-wider">Input</p>
+      <p class="text-xs text-arena-300 whitespace-pre-wrap break-words">{{ runInput }}</p>
+    </div>
+
     <!-- Loading -->
     <div v-if="loading" class="space-y-4">
       <SkeletonCard />
@@ -183,6 +189,7 @@
 import { ref, inject, onMounted, computed } from 'vue'
 import { useDataStore } from '../../lib/stores/data.js'
 import { runsApi } from '../../lib/api/index.js'
+import { stripMetadata } from '../../lib/metadata.js'
 import Badge from '../../components/Badge.vue'
 import Icon from '../../components/Icon.vue'
 import SkeletonCard from '../../components/SkeletonCard.vue'
@@ -199,6 +206,10 @@ const toast = inject('toast', { error: console.error })
 const run = ref(null)
 const loading = ref(false)
 const expandedCards = ref({})
+
+// runInput is the user message that started the run, with client metadata
+// blocks stripped for display.
+const runInput = computed(() => run.value?.input ? stripMetadata(run.value.input).trim() : '')
 
 const STATUS_BADGE_VARIANTS = {
   completed: 'green',

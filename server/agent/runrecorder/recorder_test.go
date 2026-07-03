@@ -23,6 +23,7 @@ import (
 
 	adkagent "google.golang.org/adk/v2/agent"
 	"google.golang.org/adk/v2/session"
+	"google.golang.org/genai"
 )
 
 // fakeSink records calls. SaveRun can be made to fail via failSave.
@@ -284,5 +285,32 @@ func TestRecorder_EventCarriesRoutesAndPayload(t *testing.T) {
 	}
 	if !strings.Contains(string(got.Payload), "router_1") {
 		t.Fatal("payload does not contain the raw event")
+	}
+}
+
+// TestRecorder_UserMessageCapturedAsRunInput guards the input capture: the
+// user message arrives through OnUserMessageCallback (never as an event) and
+// must land on the flushed record regardless of callback ordering.
+func TestRecorder_UserMessageCapturedAsRunInput(t *testing.T) {
+	sink := newFakeSink()
+	r := startRecorder(t, sink)
+	ic := newIC("inv_in", "agent-app", "sess_in", "u")
+
+	msg := &genai.Content{Parts: []*genai.Part{{Text: "what is "}, {Text: "the answer?"}}}
+
+	// onUserMessage fires before beforeRun in the runner; the accumulator
+	// must survive both orderings.
+	if _, err := r.onUserMessage(ic, msg); err != nil {
+		t.Fatalf("onUserMessage: %v", err)
+	}
+	r.beforeRun(ic)
+	r.afterRun(ic)
+
+	rec := sink.lastSaved(t)
+	if rec.Input != "what is the answer?" {
+		t.Fatalf("expected concatenated user text as input, got %q", rec.Input)
+	}
+	if rec.AppName != "agent-app" {
+		t.Fatalf("accumulator metadata lost across ordering, got %+v", rec)
 	}
 }

@@ -35,6 +35,7 @@ type RunRecord struct {
 	UserID    string        `json:"userId,omitempty"`
 	ClientID  string        `json:"clientId,omitempty"`
 	Source    string        `json:"source,omitempty"`
+	Input     string        `json:"input,omitempty"`
 	StartedAt time.Time     `json:"startedAt"`
 	EndedAt   time.Time     `json:"endedAt,omitempty"`
 	Status    string        `json:"status"`
@@ -76,6 +77,7 @@ type runAccumulator struct {
 	userID    string
 	clientID  string
 	source    string
+	input     string
 	startedAt time.Time
 	lastSeen  time.Time
 
