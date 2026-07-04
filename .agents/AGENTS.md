@@ -61,7 +61,7 @@ magec/
 │   │   │   ├── settings.go     # Global settings (session/longterm provider)
 │   │   │   ├── flows.go        # Flow CRUD + graph validation (flowgraph.Validate)
 │   │   │   ├── conversations.go # Conversation audit (list/get/delete/clear/stats/summary/pair/reset-session)
-│   │   │   ├── runs.go         # Run audit endpoints + on-read activation projection (decision #31)
+│   │   │   ├── runs.go         # Run audit endpoints + on-read activation projection (decision #31); delete/clear
 │   │   │   ├── backup.go       # Backup/restore (tar.gz of data/ directory)
 │   │   │   ├── voice.go        # Voice provider types endpoint
 │   │   │   └── docs/           # Generated swagger
@@ -132,7 +132,7 @@ magec/
 │   │   │   ├── lib/api/        # Fetch wrapper + CRUD per resource
 │   │   │   ├── lib/frontmatter.js # YAML frontmatter parser for skill cards (uses js-yaml)
 │   │   │   ├── lib/stores/data.js # Pinia central store
-│   │   │   ├── components/     # Shared: AppDialog, Card, Badge, FormInput, Icon, Toast, SegmentedControl, etc.
+│   │   │   ├── components/     # Shared: AppDialog, Card, Badge, StatusPill, FormInput, FormSelect, Icon, Toast, SegmentedControl, etc.
 │   │   │   └── views/          # Entity views (backends/, memory/, mcps/, agents/, skills/,
 │   │   │                       #   clients/, commands/, flows/, conversations/, runs/)
 │   │   ├── vite.config.js      # Vue + Tailwind plugin + dev proxy to :8081
@@ -203,7 +203,7 @@ magec/
 |        | **Secrets**                | CRUD: `/secrets`, `/secrets/{id}` (GET never returns value)                                                                                                                             |
 |        | **Settings**               | GET/PUT: `/settings` (global memory provider selection + `temporaryDir` for transient on-disk files)                                                                                  |
 |        | **Conversations**          | `/conversations`, `/conversations/{id}`, `/conversations/clear`, `/conversations/stats`, `/conversations/{id}/summary`, `/conversations/{id}/pair`, `/conversations/{id}/reset-session` |
-|        | **Runs**                   | GET `/runs` (filters: appName, status; paginated), GET `/runs/{id}` (activation timeline projection, `?raw=true` adds raw events)                                                       |
+|        | **Runs**                   | GET `/runs` (filters: appName, status; paginated), GET `/runs/{id}` (activation timeline projection, `?raw=true` adds raw events), DELETE `/runs/{id}`, DELETE `/runs/clear`         |
 |        | **Backup**                 | GET `/settings/backup`, POST `/settings/restore` (tar.gz of data/)                                                                                                                      |
 |        | **Voice**                  | GET `/voice/types` (registered voice providers with JSON Schemas)                                                                                                                       |
 
@@ -282,7 +282,8 @@ log:
 - **JSON Schema form renderer**: `ClientDialog.vue` renders forms dynamically from `ConfigSchema()`
 - **Code node capabilities**: a `code` flow node runs user Starlark (via `github.com/1set/starlet`) over `input`+`state`, returning the script's top-level `output`. The admin, not the flow author, governs power: every starlet library ships enabled and the admin disables some in Settings (`Settings.Flows.DisabledLibraries`); a fresh starlet Machine is built per execution from a loader list prebuilt in `agent.New`. Execution limits (wall-clock timeout, output-size cap) have a global ceiling in Settings and an optional per-node override, effective = min(node, ceiling), 0 = unlimited; a runaway loop is cut by a Starlark step budget and the context deadline.
 - **Flow editor**: `FlowCanvas.vue` (pan/zoom, SVG bezier edges, drag-to-connect ports with fan-out from non-router nodes, grouped add-node toolbar, full-screen toggle with double-Escape exit) + `FlowNode.vue` (per-type node card with visible/renamable node ID chip, NodeHelp popover per type, resizable, positions/size persisted as node x/y/w/h)
-- **Runs view**: `RunsList.vue` (Card rows with app icon + status dot, filters, load-more) + `RunDetail.vue` orchestrating `RunHeader.vue` (labelled pill rows for run facts and client metadata) and `ActivationCard.vue` (expandable timeline rows with input/output/state/raw events)
+- **Runs view**: `RunsList.vue` (Card rows with app icon + status dot, kind toggle + compressed FormSelect filters, load-more, clear-all) + `RunDetail.vue` orchestrating `RunHeader.vue` (STATUS/CLIENT/RUN labelled pill rows, StatusPill, delete button) and `ActivationCard.vue` (type icon + label + node name titles, expandable panels with input/output, eye-toggled state grid, raw events)
+- **StatusPill**: shared split pill (colored block + muted body) for status-like values; **FormSelect** takes `size="sm"` to match the SegmentedControl height in filter bars
 - **Tailwind v4**: `@tailwindcss/vite` plugin, `@theme` directive for custom colors
 - **12 active tabs**: backends, memory, mcps, agents, flows, commands, skills, clients, secrets, conversations, runs, settings
 - **Keyboard shortcuts**: `n` (new entity), `r` (refresh), `Cmd+K` (search palette)

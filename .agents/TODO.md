@@ -12,10 +12,12 @@
   Decisions #30, #28. Reference: `WORKFLOW_DESIGN.md`.
 - **Run auditing end to end** — `runrecorder` plugin (raw ordered events +
   user input via OnUserMessageCallback), `server/runs` SQLite store
-  (modernc.org/sqlite, retention sweeps), `RunAudit` middleware (attribution +
-  SSE error capture), admin API with on-read activation projection, Runs UI
-  (list + timeline detail with RunHeader/ActivationCard). Verified live on a
-  14-node torture flow. Decision #31.
+  (modernc.org/sqlite, retention sweeps, manual delete/clear), `RunAudit`
+  middleware (attribution + SSE error capture), admin API with on-read
+  activation projection (node-type snapshots per run, internal `__` nodes
+  hidden), Runs UI (list with kind toggle + timeline detail with
+  RunHeader/ActivationCard/StatusPill). Verified live on a 14-node torture
+  flow. Decisions #31, #33.
 - **Client metadata prefilter** — synthetic `__meta__` node strips the
   MAGEC_META block into `state.magec_meta`; `__` ID prefix reserved.
   Decision #32.
@@ -44,20 +46,32 @@ persisted status.
 
 ### Runs UI: event presentation polish
 
-Three cosmetic issues observed on real runs:
+Remaining cosmetic issues observed on real runs:
 
-- **Join NodePath is unreadable** — a pure join/function node's Author is the
-  workflow name, so the timeline falls back to `NodeInfo.Path` and shows
-  `<flow-id>@1/gather@1`. The projection should shorten it to the node name
-  (`gather`).
 - **Raw event summaries** — collapsed raw events show generic JSON; summarise
   the interesting shape instead (`functionCall: search_memory`,
   `functionResponse`, text preview).
-- **MAGEC_META leaks into previews** — runs recorded before the prefilter (and
-  the `__meta__` node's own event) show the raw metadata block in input/output
-  previews. Presentation-level filtering.
+- **MAGEC_META leaks into previews of pre-prefilter runs** — runs recorded
+  before the `__meta__` prefilter existed still show the raw metadata block
+  in input/output previews. Presentation-level filtering.
 
 **Modify**: `server/api/admin/runs.go` (projection), `frontend/admin-ui/src/views/runs/`.
+
+---
+
+### Runs timeline: branch-aware projection
+
+With fan-out, events of concurrent branches interleave in the single event
+queue, which fragments the consecutive-author grouping (author A, B, A yields
+three activations where two nodes ran) and makes branches hard to follow.
+Agreed first steps, deliberately short of a git-graph redesign:
+
+- Group activations by (author, branch) instead of author alone.
+- Within a fan-out segment (between the forking node and its join), order
+  activations branch by branch while keeping global chronology across
+  segments.
+
+**Modify**: `server/api/admin/runs.go` (projection + tests).
 
 ---
 
@@ -85,16 +99,6 @@ middleware and the persisted dual perspective. Clean break, no migrator.
 Decision #31.
 
 ---
-
-### Website docs: flows section rewrite (after the flows branch ships)
-
-The public docs must cover the graph editor: node types and their help,
-CEL variables (`input`, `state.<key>`, `iterations`), loops via router back
-edges (the recipe: agent to router, exit rule, OTHERWISE back edge, optional
-template on the loop-back), fan-out semantics (unconditional edges all fire,
-copies to each target), Join contract (map keyed by producing node ID, Code
-node `list(input.values())` pattern), node ID chip and renaming, Starlark code
-node with the starlet library link, flows settings (libraries + limits).
 
 ---
 

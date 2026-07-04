@@ -289,11 +289,17 @@ initial-settings construction in `store.go`). Exposed in the admin UI Settings
 Every runner invocation is recorded by the `runrecorder` adk plugin (a pure
 observer registered next to contextguard) and persisted as raw ordered
 `session.Event` payloads plus run metadata in SQLite (`data/runs.db`,
-`modernc.org/sqlite`, pure Go, retention swept hourly). Views are projections
-computed at read time: `GET /runs` lists summaries and `GET /runs/{id}`
-derives the per-node activation timeline (consecutive events grouped by
-Author, falling back to `NodeInfo.Path`); `?raw=true` returns the untouched
-events. Run-fatal errors and client attribution do not exist at plugin level,
+`modernc.org/sqlite`, pure Go, retention swept hourly; runs can also be
+deleted manually through the admin API and UI). Each flow run also stores a
+node ID to node type snapshot taken at build time, so the audit stays
+truthful when the flow is edited later. Views are projections computed at
+read time: `GET /runs` lists summaries and `GET /runs/{id}` derives the
+per-node activation timeline (consecutive events grouped by Author, falling
+back to the node segment of `NodeInfo.Path`, each activation resolved to its
+node type; internal `__`-prefixed nodes such as the `__meta__` prefilter are
+hidden after their state writes are folded in); `?raw=true` returns the
+untouched events. Run-fatal errors and client attribution do not exist at
+plugin level,
 so the `RunAudit` middleware feeds them in (`MarkRunError` from SSE error
 frames, `Annotate` from the Bearer token). The user's message is captured
 through `OnUserMessageCallback` (it fires before `BeforeRunCallback`, hence

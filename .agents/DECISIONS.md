@@ -1026,3 +1026,23 @@ Phase 2, deliberately deferred to its own branch: emit the metadata as a
 StateDelta from the client bots themselves (instead of an inline comment
 block), inject a context block into agent instructions, and prefix messages
 with the human author's name in group chats.
+
+## 33. Run audit records snapshot node types at execution time
+
+The Runs UI wants to show what kind of node each activation was (router,
+join, code...). The `session.Event` carries no node type, and resolving
+against the current FlowDefinition would lie whenever a flow is edited after
+the run.
+
+So the type map is a per-run snapshot: `agent.New` collects every built
+flow's node ID to type map (subflow nodes folded in, since their events
+surface inside the parent's run) and hands it to the recorder via
+`SetNodeTypes`. The accumulator attaches its app's map when a run starts,
+and the map is persisted with the run (`node_types` JSON column, in-place
+migration). The projection resolves each activation's `nodeType` from the
+snapshot; runs of plain agents and runs recorded before the snapshot simply
+have none, and the UI shows nothing for them.
+
+Events stay untouched: no metadata is injected into event payloads (half the
+events are emitted by adk internals we cannot reach) and no state keys are
+polluted. The recorder remains a pure observer.
