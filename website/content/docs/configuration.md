@@ -93,7 +93,7 @@ This is Magec's internal database. Every agent, backend, memory provider, MCP se
 | **Agents** | AI entities with their own LLM, prompt, memory, voice, and tools | [Agents](/docs/agents/) |
 | **Commands** | Reusable prompts referenced by cron and webhook clients | [Commands](/docs/commands/) |
 | **Clients** | Access points — Voice UI, Telegram, webhooks, cron — each with its own token | [Clients](/docs/clients/) |
-| **Flows** | Multi-agent workflows with sequential, parallel, and loop steps | [Flows](/docs/flows/) |
+| **Flows** | Multi-agent workflows as directed graphs: routers, joins, transforms, loops | [Flows](/docs/flows/) |
 | **Secrets** | Encrypted key-value pairs for API keys, tokens, and passwords | [Secrets](/docs/secrets/) |
 
 ### Hot-reload

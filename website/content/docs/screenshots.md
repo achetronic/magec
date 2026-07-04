@@ -26,12 +26,12 @@ title: "Screenshots"
     <span class="gallery-desktop__label">Agentic Flows</span>
   </div>
   <div class="gallery-desktop__item">
-    {{< screenshot src="img/screenshots/admin-flow-simple.png" alt="Simple flow in the visual editor" >}}
-    <span class="gallery-desktop__label">Flow editor — simple</span>
+    {{< screenshot src="img/screenshots/admin-flow-editor.png" alt="Flow graph in the visual editor" >}}
+    <span class="gallery-desktop__label">Flow editor</span>
   </div>
   <div class="gallery-desktop__item">
-    {{< screenshot src="img/screenshots/admin-flow-complex.png" alt="Complex flow with parallel and loop steps" >}}
-    <span class="gallery-desktop__label">Flow editor — parallel & loops</span>
+    {{< screenshot src="img/screenshots/admin-flow-node-help.png" alt="Flow editor with node help open" >}}
+    <span class="gallery-desktop__label">Flow editor — node help</span>
   </div>
   <div class="gallery-desktop__item">
     {{< screenshot src="img/screenshots/admin-memory.png" alt="Memory providers" >}}

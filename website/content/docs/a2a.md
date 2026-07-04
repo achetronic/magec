@@ -36,7 +36,7 @@ You don't configure any of this manually. The card and skills are derived from t
 
 ### Flows
 
-Agentic flows (sequential, parallel, loop) can also be exposed via A2A. The process is the same — open the flow in the editor, enable the A2A toggle, and save.
+Agentic flows can also be exposed via A2A. The process is the same: open the flow in the editor, enable the A2A toggle, and save.
 
 The external client sees the flow as a single agent. The internal orchestration (which steps run in sequence, which run in parallel) is completely transparent. The agent card auto-generates skills that describe the flow's sub-agents and their capabilities, so the client understands what the flow can do without knowing how it's structured internally.
 
