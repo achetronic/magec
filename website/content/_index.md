@@ -239,7 +239,7 @@ title: "Magec: Self-hosted Multi-Agent AI Platform"
     </div>
     <div class="screenshots reveal">
       <img src="img/screenshots/admin-agents.png" alt="Admin UI: Agents" class="screenshot screenshot--desktop">
-      <img src="img/screenshots/admin-flow-editor.png" alt="Admin UI: Flow editor" class="screenshot screenshot--desktop">
+      <img src="img/screenshots/admin-flow-editor.png" alt="Admin UI: Flow editor" class="screenshot screenshot--desktop screenshot--crop">
     </div>
     <div class="screenshots reveal" style="margin-top: 1rem;">
       <img src="img/screenshots/admin-backends.png" alt="Admin UI: Backends" class="screenshot screenshot--desktop">

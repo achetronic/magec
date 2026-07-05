@@ -237,16 +237,15 @@ section { padding: 6rem 0; }
 .feature-card:hover { border-color: rgba(245,158,11,.2); transform: translateY(-2px); box-shadow: 0 8px 32px rgba(0,0,0,.2); }
 
 .feature-card__icon {
-  width: 40px; height: 40px; border-radius: 10px;
-  display: flex; align-items: center; justify-content: center;
-  margin-bottom: 1rem; font-size: 1.25rem;
+  display: flex; align-items: center;
+  margin-bottom: 1rem; font-size: 1.5rem; line-height: 1;
 }
-.feature-card__icon--sol { background: rgba(245,158,11,.12); color: var(--sol-400); }
-.feature-card__icon--atlantico { background: rgba(56,188,216,.12); color: var(--atlantico-400); }
-.feature-card__icon--lava { background: rgba(248,113,113,.12); color: var(--lava-400); }
-.feature-card__icon--purple { background: rgba(167,139,250,.12); color: #a78bfa; }
-.feature-card__icon--green { background: rgba(74,222,128,.12); color: #4ade80; }
-.feature-card__icon--pink { background: rgba(244,114,182,.12); color: #f472b6; }
+.feature-card__icon--sol { color: var(--sol-400); }
+.feature-card__icon--atlantico { color: var(--atlantico-400); }
+.feature-card__icon--lava { color: var(--lava-400); }
+.feature-card__icon--purple { color: #a78bfa; }
+.feature-card__icon--green { color: #4ade80; }
+.feature-card__icon--pink { color: #f472b6; }
 
 .feature-card__title { font-size: 1.0625rem; font-weight: 700; margin-bottom: .5rem; color: var(--arena-50); }
 .feature-card__desc { font-size: .875rem; color: var(--arena-400); line-height: 1.65; }
@@ -272,6 +271,11 @@ section { padding: 6rem 0; }
 .screenshot:hover { transform: translateY(-4px) scale(1.02); box-shadow: 0 12px 48px rgba(0,0,0,.4); }
 .screenshot--phone { width: 200px; border-radius: 20px; }
 .screenshot--desktop { width: 420px; }
+
+/* Very wide captures (the flow editor) turn into a blurry strip when scaled
+   to thumbnail width. The crop variant shows a legible slice instead; the
+   lightbox still opens the full image. */
+.screenshot--crop { width: 420px; height: 240px; object-fit: cover; object-position: left center; }
 
 @media (max-width: 900px) {
   .screenshot--desktop { width: 100%; max-width: 420px; }
@@ -543,14 +547,13 @@ section { padding: 6rem 0; }
 }
 
 .step__icon {
-  width: 56px; height: 56px; border-radius: 16px;
   display: flex; align-items: center; justify-content: center;
-  margin: 0 auto 1rem;
+  margin: 0 auto 1rem; height: 44px;
 }
-.step__icon svg { width: 28px; height: 28px; }
-.step__icon--sol { background: rgba(245,158,11,.1); color: var(--sol-400); }
-.step__icon--pink { background: rgba(244,114,182,.1); color: #f472b6; }
-.step__icon--atlantico { background: rgba(56,188,216,.1); color: var(--atlantico-400); }
+.step__icon svg { width: 32px; height: 32px; }
+.step__icon--sol { color: var(--sol-400); }
+.step__icon--pink { color: #f472b6; }
+.step__icon--atlantico { color: var(--atlantico-400); }
 
 .step__title {
   font-size: 1.0625rem; font-weight: 700; color: var(--arena-50); margin-bottom: .5rem;
@@ -586,15 +589,14 @@ section { padding: 6rem 0; }
 .pillar:hover { border-color: rgba(245,158,11,.15); transform: translateY(-2px); box-shadow: 0 8px 32px rgba(0,0,0,.2); }
 
 .pillar__icon {
-  width: 48px; height: 48px; border-radius: 14px;
-  display: flex; align-items: center; justify-content: center;
-  margin-bottom: 1.25rem;
+  display: flex; align-items: center;
+  margin-bottom: 1.25rem; height: 32px;
 }
-.pillar__icon svg { width: 24px; height: 24px; }
-.pillar__icon--sol { background: rgba(245,158,11,.12); color: var(--sol-400); }
-.pillar__icon--pink { background: rgba(244,114,182,.12); color: #f472b6; }
-.pillar__icon--atlantico { background: rgba(56,188,216,.12); color: var(--atlantico-400); }
-.pillar__icon--green { background: rgba(74,222,128,.12); color: #4ade80; }
+.pillar__icon svg { width: 28px; height: 28px; }
+.pillar__icon--sol { color: var(--sol-400); }
+.pillar__icon--pink { color: #f472b6; }
+.pillar__icon--atlantico { color: var(--atlantico-400); }
+.pillar__icon--green { color: #4ade80; }
 
 .pillar__title {
   font-size: 1.125rem; font-weight: 700; color: var(--arena-50); margin-bottom: .5rem;
