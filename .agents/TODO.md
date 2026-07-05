@@ -147,9 +147,6 @@ no validation and bad UX — explicitly not worth doing half-way.
 
 ### Workflow graph: remaining debt
 
-- **Seeds** — `data/seeds/examples.json` and `data/store.json` still hold flows
-  in the old tree format (`root`/`steps`). They must be re-authored as graphs
-  (`entry`/`nodes`/`edges`) or emptied; a tree-format flow fails to build.
 - **HITL pause/resume** — adk v2's `NewRequestInputEvent` + `NodeConfig.RerunOnResume`
   let a node pause for human input mid-flow (distinct from per-tool confirmation
   below). Phase 2 of the redesign.
