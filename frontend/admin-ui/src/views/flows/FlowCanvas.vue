@@ -8,6 +8,21 @@
     @pointermove="onCanvasPointerMove"
     @pointerup="onCanvasPointerUp"
   >
+    <!-- Minimized veil: the small canvas is a preview, not a workspace.
+         The graph renders blurred behind it and one click opens the real
+         editor in full screen. -->
+    <div
+      v-if="!fullscreen"
+      class="flow-canvas-veil"
+      @pointerdown.stop
+      @wheel.stop
+    >
+      <button type="button" class="flow-canvas-veil-btn" @click.stop="toggleFullscreen">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 8V4h4m8 0h4v4m0 8v4h-4m-8 0H4v-4" /></svg>
+        <span>Edit in full screen</span>
+      </button>
+    </div>
+
     <!-- Toolbar -->
     <div class="flow-toolbar">
       <span class="text-[9px] text-arena-500 uppercase tracking-wider font-semibold px-1 select-none">Add node</span>
@@ -638,6 +653,41 @@ const startPos = computed(() => {
   height: 100vh;
   z-index: 60;
   border-radius: 0;
+}
+
+/* The minimized canvas is a blurred preview: the veil sits above the toolbar
+   and zoom bar (z 20/21/30) and swallows every interaction except its own
+   button, which opens the full-screen editor. */
+.flow-canvas-veil {
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(3px);
+  background: rgba(24, 24, 27, 0.35);
+  border-radius: inherit;
+}
+
+.flow-canvas-veil-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(120, 113, 108, 0.4);
+  background: rgba(33, 33, 37, 0.9);
+  color: var(--color-arena-300);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.flow-canvas-veil-btn:hover {
+  color: var(--color-arena-100);
+  border-color: rgba(120, 113, 108, 0.7);
 }
 
 .flow-canvas-inner {
