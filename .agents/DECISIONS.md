@@ -1046,3 +1046,21 @@ have none, and the UI shows nothing for them.
 Events stay untouched: no metadata is injected into event payloads (half the
 events are emitted by adk internals we cannot reach) and no state keys are
 polluted. The recorder remains a pure observer.
+
+## 34. The router's fallback route is the fixed label "otherwise"
+
+Routers originally carried a DefaultRoute field: the author named the
+fallback label. In practice that produced arbitrary names (default, short,
+retry) for a concept that is always the same thing, and every consumer
+(editor, docs, projections) had to carry the field around.
+
+The field is gone. Every router's fallback emits the reserved label
+`otherwise` (`store.RouterOtherwiseRoute`): rules carry whatever names the
+author wants, the fallback is always called otherwise. Validation rejects a
+rule that tries to use the reserved name, and router coherence checks the
+rules plus the fixed label. The editor's otherwise row connects with the
+fixed label and serialises nothing.
+
+Breaking for pre-existing graph flows with a custom default label: their
+default edge must be renamed to `otherwise`. No migrator; the flows shipped
+so far live on this branch's own instances.

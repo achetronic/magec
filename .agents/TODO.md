@@ -6,9 +6,11 @@
 
 - **Flows as a directed graph on adk-go v2** — 8 node types (agent, router,
   join, parallel/Foreach, subflow, expression, template, code), CEL guards
-  with `input` + `state` + `iterations`, Starlark code node with admin-governed
+  with `input` + `state` + `iterations`, fixed `otherwise` fallback route
+  (decision #34), Starlark code node with admin-governed
   libraries and limits, graph validation, visual editor (fan-out, renamable
-  node ID chips, NodeHelp popovers, StarlarkEditor, double-Escape fullscreen).
+  node ID chips, NodeHelp popovers, StarlarkEditor, double-Escape fullscreen,
+  blurred preview when minimized).
   Decisions #30, #28. Reference: `WORKFLOW_DESIGN.md`.
 - **Run auditing end to end** — `runrecorder` plugin (raw ordered events +
   user input via OnUserMessageCallback), `server/runs` SQLite store
@@ -24,6 +26,9 @@
 - **adk-utils-go v0.22.0** — Redis session service parity fixes (StateDelta
   applied to the live session, temp: key semantics, timestamps, List/Get
   validation); consumed from the remote module, vendor dropped.
+- **Website flows docs rewritten for the graph model** — single concept-first
+  page (Flow Control folded in), hardened through adversarial audit rounds,
+  screenshots captured live from the admin UI.
 
 ---
 

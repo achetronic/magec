@@ -73,8 +73,7 @@ type FlowNode struct {
 
     AgentID       string     // agent, parallel: the AgentDefinition to run
     ResponseAgent bool       // agent: include this node's output in the flow response
-    Rules         []FlowRule // router: ordered CEL branches
-    DefaultRoute  string     // router: label emitted when no rule matches
+    Rules         []FlowRule // router: ordered CEL branches; the fallback is the fixed "otherwise" route
     MaxConcurrency int       // parallel: max items in flight, 0 = unlimited
     FlowID        string     // subflow: the FlowDefinition to embed
     Expression    string     // expression: CEL value over input + state
@@ -122,7 +121,8 @@ value do so through `workflow.NewEmittingFunctionNode`, yielding a
   the agent can `set_state`/`get_state`.
 - **router** (`server/agent/router_node.go`): a function node. Reads the
   incoming `input` and flow state, evaluates `Rules` in order, emits the first
-  matching `Route` (or `DefaultRoute`) as `ev.Routes`. Outgoing edges carry
+  matching `Route` (or `store.RouterOtherwiseRoute`, the fixed `"otherwise"`
+  label, when none matches) as `ev.Routes`. Outgoing edges carry
   `workflow.StringRoute` labels that match. Passes `input` through unchanged.
   Increments a per-router activation counter and exposes it to CEL as
   `iterations`.
@@ -224,13 +224,15 @@ reserved for such internal nodes: validation rejects user nodes named with it.
 
 - Unique, safe node IDs (`[a-zA-Z_][a-zA-Z0-9_-]*`); `START` and the `__`
   prefix are reserved.
-- Per type: agent/parallel need `AgentID`; router needs at least one rule, a
-  default route, and every rule `When` must compile as CEL; subflow needs
+- Per type: agent/parallel need `AgentID`; router needs at least one rule,
+  every rule `When` must compile as CEL, and no rule may use the reserved
+  `otherwise` route; subflow needs
   `FlowID`; expression needs `Expression` (must compile); template needs
   `Template`; code needs `Script`. `OutputKey`, when present, must match the
   state-key pattern. `TimeoutMs`/`MaxOutputBytes` must be non-negative.
 - `Entry` exists. Every edge endpoint exists; edges never reference `START`.
-- Router coherence: each label a router can emit has exactly one outgoing edge,
+- Router coherence: each label a router can emit (its rules plus `otherwise`)
+  has exactly one outgoing edge,
   and every routed edge's label is one the router can emit; non-router nodes
   have no routed outgoing edges.
 - No routed edge targets a join.
@@ -266,7 +268,9 @@ initial-settings construction in `store.go`). Exposed in the admin UI Settings
   edges, so fan-out is drawn by dragging again; a router keeps one edge per
   route label), a grouped add-node toolbar (execution / flow control / data),
   a full-screen toggle exited with double-Escape (Chrome-style floating pill),
-  and a draggable Start box whose port sets the entry.
+  and a draggable Start box whose port sets the entry. Minimized (inside the
+  dialog) the canvas renders behind a blurred veil with a single "Edit in
+  full screen" button; all editing happens in full screen.
 - `FlowNode.vue`: one node card per type, colour-coded per its entity colour
   (see `ENTITY_COLORS.md`), with the per-type body (agent picker, router rules,
   code editor with limit overrides, etc.). Every card shows its node ID as a
