@@ -8,7 +8,7 @@ This page helps you decide.
 
 ## One agent, many skills
 
-You have a single agent and attach multiple skills to it — product knowledge, return policy, shipping rules, escalation procedures. The agent handles everything.
+You have a single agent and attach multiple skills to it: product knowledge, return policy, shipping rules, escalation procedures. The agent handles everything.
 
 **When this works best:**
 
@@ -32,7 +32,7 @@ The user writes *"I want to return the headphones I bought last week, and also a
 **Trade-offs:**
 
 - The agent's context grows with each skill (instructions + reference files all get injected). Very large contexts can reduce response quality or hit token limits.
-- The agent must decide which skill's knowledge applies to each question — it usually gets this right, but ambiguous cases can happen.
+- The agent must decide which skill's knowledge applies to each question. It usually gets this right, but ambiguous cases can happen.
 - All skills share the same LLM and system prompt personality.
 
 ## Many specialized agents
@@ -98,7 +98,7 @@ Agent: DevOps Monitor
   └── MCP: PagerDuty
 ```
 
-The Product Catalog skill is shared between Customer Support and Sales — update it once, both agents benefit. But Customer Support and DevOps Monitor are completely different domains with different tools, so they're separate agents.
+The Product Catalog skill is shared between Customer Support and Sales. Update it once and both agents benefit. But Customer Support and DevOps Monitor are completely different domains with different tools, so they're separate agents.
 
 ## Flows: the best of both worlds
 
@@ -113,7 +113,7 @@ Flow: Weekly Business Report
 
 Each agent in the flow has its own skills, tools, and model. The Data Agent might use a cheap, fast model with a database MCP. The Analyst might use a reasoning-heavy model. The Writer might use a creative model with a "report template" skill.
 
-This is where the combination of skills and specialized agents really shines — each agent is an expert at its step, and skills provide the domain knowledge each expert needs.
+The combination pays off: each agent is an expert at its step, and skills provide the domain knowledge it needs.
 
 {{< callout type="info" >}}
 Start simple. One agent with a few skills covers most use cases. Split into multiple agents when you notice that one agent is trying to do too many different things, needs different tools for different tasks, or when response quality drops because the context is too large.

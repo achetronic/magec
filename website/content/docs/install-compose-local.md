@@ -11,7 +11,7 @@ The fully local deployment. Everything runs on your machine: LLM, speech-to-text
 
 ## One-line install
 
-The interactive installer walks you through the full setup — LLM provider, voice, memory, NVIDIA GPU support — and generates a ready-to-run Docker Compose deployment:
+The interactive installer walks you through the full setup (LLM provider, voice, memory, NVIDIA GPU support) and generates a ready-to-run Docker Compose deployment:
 
 ```bash
 curl -fsSL https://magec.dev/install | bash
@@ -63,7 +63,7 @@ docker compose up -d
 
 | Container | Purpose | Port |
 |-----------|---------|------|
-| **magec** | Magec server — Admin UI, Voice UI, API, agent runtime | 8080, 8081 |
+| **magec** | Magec server: Admin UI, Voice UI, API, agent runtime | 8080, 8081 |
 | **redis** | Session memory storage | 6379 |
 | **postgres** | Long-term memory (pgvector) | 5432 |
 | **ollama** | LLM and embeddings (Qwen 3 8B, nomic-embed-text) | 11434 |
@@ -77,9 +77,9 @@ Once everything is running, open the **Admin UI** at `http://localhost:8081`.
 
 ### Create backends
 
-You need three backends — one for the LLM/embeddings, one for STT, one for TTS:
+You need three backends: one for the LLM/embeddings, one for STT, and one for TTS.
 
-**Ollama (LLM + Embeddings)** — Backends → New:
+**Ollama (LLM + Embeddings)** (Backends → New):
 
 | Field | Value |
 |-------|-------|
@@ -88,7 +88,7 @@ You need three backends — one for the LLM/embeddings, one for STT, one for TTS
 | URL | `http://ollama:11434/v1` |
 | API Key | *(leave empty)* |
 
-**Parakeet (STT)** — Backends → New:
+**Parakeet (STT)** (Backends → New):
 
 | Field | Value |
 |-------|-------|
@@ -97,7 +97,7 @@ You need three backends — one for the LLM/embeddings, one for STT, one for TTS
 | URL | `http://parakeet:5092` |
 | API Key | *(leave empty)* |
 
-**Edge TTS (TTS)** — Backends → New:
+**Edge TTS (TTS)** (Backends → New):
 
 | Field | Value |
 |-------|-------|
@@ -108,14 +108,14 @@ You need three backends — one for the LLM/embeddings, one for STT, one for TTS
 
 ### Create memory providers
 
-**Session memory** — Memory → New Session Provider:
+**Session memory** (Memory → New Session Provider):
 
 | Field | Value |
 |-------|-------|
 | Type | `redis` |
 | URL | `redis://redis:6379` |
 
-**Long-term memory** — Memory → New Long-term Provider:
+**Long-term memory** (Memory → New Long-term Provider):
 
 | Field | Value |
 |-------|-------|
@@ -159,7 +159,7 @@ Copy the **pairing token**, open `http://localhost:8080`, paste it, and start ta
 
 ## Using cloud providers instead
 
-The Docker Compose includes all the local AI services, but you can use cloud providers by simply creating different backends in the Admin UI. The local services will still be running but unused — or you can stop them.
+The Docker Compose includes all the local AI services, but you can use cloud providers by simply creating different backends in the Admin UI. The local services will still be running but unused, or you can stop them.
 
 ### OpenAI (handles everything)
 
@@ -182,7 +182,7 @@ docker compose stop ollama ollama-setup parakeet tts
 
 ### Anthropic / Gemini (LLM only)
 
-These providers only offer LLM — STT, TTS, and embeddings stay local. Create the cloud backend for the LLM and keep using Parakeet, Edge TTS, and Ollama (for embeddings) as configured above.
+These providers only offer LLM. STT, TTS, and embeddings stay local. Create the cloud backend for the LLM and keep using Parakeet, Edge TTS, and Ollama (for embeddings) as configured above.
 
 | Provider | Backend type | Model example |
 |----------|-------------|---------------|
@@ -271,7 +271,7 @@ On macOS and Windows, `host.docker.internal` works automatically. On Linux, you 
 
 ## Next steps
 
-- **[Configuration](/docs/configuration/)** — understand `config.yaml` vs. Admin UI resources
-- **[Agents](/docs/agents/)** — customize agent behavior, prompts, and voice
-- **[MCP Tools](/docs/mcp/)** — connect external tools (Home Assistant, GitHub, databases, etc.)
-- **[Flows](/docs/flows/)** — chain agents into multi-step workflows
+- **[Configuration](/docs/configuration/).** Understand `config.yaml` vs. Admin UI resources
+- **[Agents](/docs/agents/).** Customize agent behavior, prompts, and voice
+- **[MCP Tools](/docs/mcp/).** Connect external tools (Home Assistant, GitHub, databases, etc.)
+- **[Flows](/docs/flows/).** Chain agents into multi-step workflows

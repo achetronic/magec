@@ -31,7 +31,7 @@ title: "Screenshots"
   </div>
   <div class="gallery-desktop__item">
     {{< screenshot src="img/screenshots/admin-flow-node-help.png" alt="Flow editor with node help open" >}}
-    <span class="gallery-desktop__label">Flow editor — node help</span>
+    <span class="gallery-desktop__label">Flow editor: node help</span>
   </div>
   <div class="gallery-desktop__item">
     {{< screenshot src="img/screenshots/admin-memory.png" alt="Memory providers" >}}
@@ -93,11 +93,11 @@ title: "Screenshots"
     <span class="gallery-phones__label">Pairing</span>
   </div>
   <div class="gallery-phones__item">
-    {{< screenshot src="img/screenshots/voice-ui-home-idle.png" alt="Home — idle" class="screenshot--phone" >}}
+    {{< screenshot src="img/screenshots/voice-ui-home-idle.png" alt="Home, idle" class="screenshot--phone" >}}
     <span class="gallery-phones__label">Home</span>
   </div>
   <div class="gallery-phones__item">
-    {{< screenshot src="img/screenshots/voice-ui-home-recording.png" alt="Home — recording" class="screenshot--phone" >}}
+    {{< screenshot src="img/screenshots/voice-ui-home-recording.png" alt="Home, recording" class="screenshot--phone" >}}
     <span class="gallery-phones__label">Recording</span>
   </div>
   <div class="gallery-phones__item">

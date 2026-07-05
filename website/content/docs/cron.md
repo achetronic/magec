@@ -2,13 +2,13 @@
 title: "Cron"
 ---
 
-Cron clients run [commands](/docs/commands/) on a schedule. Define when and what, and Magec handles the rest — no external scheduler, no extra infrastructure. The command fires at the specified time, the agent processes it, and the result is logged.
+Cron clients run [commands](/docs/commands/) on a schedule. Define when and what, and Magec handles the rest. No external scheduler, no extra infrastructure. The command fires at the specified time, the agent processes it, and the result is logged.
 
 This is how you automate tasks that need to happen regularly without anyone pressing a button.
 
 ## How it works
 
-1. You create a [command](/docs/commands/) — a reusable prompt paired with an agent
+1. You create a [command](/docs/commands/): a reusable prompt paired with an agent
 2. You create a cron client and select that command
 3. You set the schedule (when it should fire)
 4. Magec's built-in scheduler triggers the command at the specified times
@@ -19,7 +19,7 @@ The command defines **what** happens (the prompt and which agent processes it). 
 
 | Field | Description |
 |-------|-------------|
-| `name` | Display name — helps you identify this job in the Admin UI |
+| `name` | Display name (helps you identify this job in the Admin UI) |
 | `schedule` | Cron expression or shorthand (see below) |
 | `commandId` | Which command to run |
 | `allowedAgents` | Which agents/flows this cron job can access |
@@ -97,5 +97,5 @@ Command prompt: *"Run the maintenance routine: check disk space, clean temporary
 Schedule: `0 2 * * *`
 
 {{< callout type="info" >}}
-Cron clients use Magec's built-in scheduler — no need for system crontab, external schedulers, or additional containers. The scheduler polls every 30 seconds and automatically picks up changes when you modify a cron client's schedule.
+Cron clients use Magec's built-in scheduler. No system crontab, external schedulers, or additional containers needed. The scheduler polls every 30 seconds and automatically picks up changes when you modify a cron client's schedule.
 {{< /callout >}}

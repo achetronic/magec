@@ -2,7 +2,7 @@
 title: "Admin Password"
 ---
 
-By default, the Admin UI and Admin API are open — anyone who can reach port `8081` can view and modify your entire configuration. Setting an admin password adds authentication to all admin endpoints.
+By default, the Admin UI and Admin API are open. Anyone who can reach port `8081` can view and modify your entire configuration. Setting an admin password adds authentication to all admin endpoints.
 
 ## Enabling authentication
 
@@ -23,30 +23,30 @@ export MAGEC_ADMIN_PASSWORD="your-strong-password"
 magec --config config.yaml
 ```
 
-When the password is set, every request to `/api/` endpoints requires a `Authorization: Bearer <password>` header. The Admin UI handles this automatically — it shows a login screen on first load and sends the header on every subsequent request.
+When the password is set, every request to `/api/` endpoints requires a `Authorization: Bearer <password>` header. The Admin UI handles this automatically: it shows a login screen on first load and sends the header on every subsequent request.
 
 ## How it works
 
 | Aspect | Detail |
 |--------|--------|
 | **Header** | `Authorization: Bearer <password>` on all `/api/` requests |
-| **Comparison** | Constant-time (`crypto/subtle`) — immune to timing attacks |
+| **Comparison** | Constant-time (`crypto/subtle`), immune to timing attacks |
 | **Rate limiting** | 5 failed attempts per minute per IP address |
-| **Static files** | The Admin UI itself (HTML, CSS, JS) is always accessible — only API calls require auth |
+| **Static files** | The Admin UI itself (HTML, CSS, JS) is always accessible. Only API calls require auth |
 | **CORS preflight** | `OPTIONS` requests bypass authentication |
-| **Auth check** | `GET /api/v1/admin/auth/check` — returns `200` if the password is correct, `401` otherwise |
+| **Auth check** | `GET /api/v1/admin/auth/check`: returns `200` if the password is correct, `401` otherwise |
 
 ## Login screen
 
 When authentication is enabled, the Admin UI shows a password prompt before anything else:
 
-- The password is stored **in memory only** — closing the browser tab requires re-authentication
+- The password is stored **in memory only**. Closing the browser tab requires re-authentication
 - No cookies, no `localStorage`, no session tokens
 - The UI calls `/api/v1/admin/auth/check` on load to determine if authentication is needed
 
 ## Docker and Kubernetes
 
-Pass the password as an environment variable — never hardcode it in `config.yaml`:
+Pass the password as an environment variable. Never hardcode it in `config.yaml`:
 
 ### Docker Compose
 
@@ -84,5 +84,5 @@ All admin endpoints work without authentication. This is fine for local developm
 The admin password also serves as the encryption key for [Secrets](/docs/secrets/). When a password is set, secret values are encrypted at rest using AES-256-GCM with a PBKDF2-derived key. Without a password, secrets are stored in plain text and a warning is logged.
 
 {{< callout type="info" >}}
-The admin password is a single shared credential — there are no user accounts or roles. If you need network-level isolation, restrict access to the admin port using firewall rules or a reverse proxy.
+The admin password is a single shared credential. There are no user accounts or roles. If you need network-level isolation, restrict access to the admin port using firewall rules or a reverse proxy.
 {{< /callout >}}

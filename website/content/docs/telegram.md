@@ -4,10 +4,10 @@ title: "Telegram"
 
 Magec can connect to Telegram through a bot. Users send text or voice messages to the bot, and the bot responds using your configured agents. It supports multiple response modes, per-chat agent switching, and voice messages in both directions.
 
-This is a great way to access your agents from anywhere — your phone, desktop, or any Telegram client — without opening the Voice UI or writing API calls.
+This is a great way to access your agents from anywhere (your phone, desktop, or any Telegram client) without opening the Voice UI or writing API calls.
 
 <div class="screenshots" style="margin-bottom: 2rem;">
-{{< screenshot src="img/screenshots/admin-clients-telegram.png" alt="Admin UI — Telegram client" >}}
+{{< screenshot src="img/screenshots/admin-clients-telegram.png" alt="Telegram client" >}}
 </div>
 
 ## Setup
@@ -19,11 +19,11 @@ Open Telegram and talk to [@BotFather](https://t.me/BotFather):
 1. Send `/newbot`
 2. Choose a name (e.g., "My Magec Assistant")
 3. Choose a username (e.g., `my_magec_bot`)
-4. BotFather gives you a token — copy it
+4. BotFather gives you a token. Copy it.
 
 ### 2. Get your user ID
 
-Talk to [@userinfobot](https://t.me/userinfobot) — it replies with your Telegram user ID (a number). You'll need this to restrict who can use your bot.
+Talk to [@userinfobot](https://t.me/userinfobot). It replies with your Telegram user ID (a number). You'll need this to restrict who can use your bot.
 
 ### 3. Create a Telegram client in Magec
 
@@ -35,7 +35,7 @@ In the Admin UI, go to **Clients** → **New** → **Telegram**:
 | `botToken` | The token from BotFather |
 | `allowedUsers` | Comma-separated list of Telegram user IDs that can use this bot |
 | `allowedChats` | Comma-separated list of chat IDs where the bot can respond (for group chats) |
-| `responseMode` | How the bot responds — see below |
+| `responseMode` | How the bot responds (see below) |
 | `allowedAgents` | Which agents and flows this bot can access |
 
 ### 4. Start chatting
@@ -50,7 +50,7 @@ The response mode controls the format of the bot's replies:
 |------|----------|
 | `text` | Always respond with text (default). Simple and reliable. |
 | `voice` | Always respond with a voice message. Requires the agent to have TTS configured. |
-| `mirror` | Mirror the user's format — text replies to text, voice replies to voice messages. |
+| `mirror` | Mirror the user's format: text replies to text, voice replies to voice messages. |
 | `both` | Respond with both a text message and a voice message. |
 
 Users can change the response mode at runtime with the `/responsemode` command.
@@ -70,7 +70,7 @@ Telegram voice messages work in both directions:
 2. Gets the audio back
 3. Sends it as a Telegram voice message
 
-This means you can have a fully voice-based conversation through Telegram — speak a question, hear the answer.
+This means you can have a fully voice-based conversation through Telegram: speak a question, hear the answer.
 
 ## Bot commands
 
@@ -85,12 +85,12 @@ The `/agent` command shows a list of all agents and flows the bot has access to.
 
 ## Context metadata
 
-When a message arrives from Telegram, Magec injects metadata about the source — the Telegram user ID, username, display name, and chat ID. This information is available to the agent as part of the message context. You can use this in system prompts to personalize responses (e.g., *"Address the user by their first name when available"*).
+When a message arrives from Telegram, Magec injects metadata about the source: the Telegram user ID, username, display name, and chat ID. You can use this in system prompts to personalize responses (e.g., *"Address the user by their first name when available"*).
 
 ## Security
 
 {{< callout >}}
-**Always restrict access.** Set `allowedUsers` and/or `allowedChats` to control who can use your bot. Without restrictions, anyone who discovers your bot's username can interact with your agents — and through them, any MCP tools those agents have access to.
+**Always restrict access.** Set `allowedUsers` and/or `allowedChats` to control who can use your bot. Without restrictions, anyone who discovers your bot's username can interact with your agents, and through them, any MCP tools those agents have access to.
 {{< /callout >}}
 
 If a user not in the allowed list tries to message the bot, the message is silently ignored. The same applies for chats not in the allowed chats list.

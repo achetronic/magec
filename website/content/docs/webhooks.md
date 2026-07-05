@@ -8,13 +8,13 @@ Each webhook gets a unique URL and its own authentication token. There are two m
 
 ## Command mode
 
-The webhook runs a preconfigured [command](/docs/commands/) — a reusable prompt that you define once and trigger as many times as you want. The request body is ignored; the prompt is always the same command.
+The webhook runs a preconfigured [command](/docs/commands/): a reusable prompt that you define once and trigger as many times as you want. The request body is ignored; the prompt is always the same command.
 
 This is useful for recurring tasks that always do the same thing:
 
-- **Daily reports** — A monitoring system hits the webhook every morning, the agent queries data and generates a summary
-- **CI/CD integration** — A pipeline triggers the webhook after each deploy, the agent reviews the changelog
-- **Scheduled checks** — An external scheduler calls the webhook, the agent runs a security audit
+- **Daily reports.** A monitoring system hits the webhook every morning, the agent queries data and generates a summary
+- **CI/CD integration.** A pipeline triggers the webhook after each deploy, the agent reviews the changelog
+- **Scheduled checks.** An external scheduler calls the webhook, the agent runs a security audit
 
 The agent, prompt, and behavior are all defined in the command. The webhook is just the trigger.
 
@@ -33,10 +33,10 @@ The prompt comes from the outside. Whatever is sent in the request body gets for
 
 This is the mode you want when the input is dynamic:
 
-- **Form submissions** — A contact form sends the message to the agent for processing or classification
-- **Alert handling** — A monitoring system sends an alert, the agent analyzes it and decides on action
-- **Chat integrations** — A custom frontend or third-party service sends user messages through the webhook
-- **Data processing** — External systems send data for the agent to analyze, summarize, or transform
+- **Form submissions.** A contact form sends the message to the agent for processing or classification
+- **Alert handling.** A monitoring system sends an alert, the agent analyzes it and decides on action
+- **Chat integrations.** A custom frontend or third-party service sends user messages through the webhook
+- **Data processing.** External systems send data for the agent to analyze, summarize, or transform
 
 ### Configuration
 
@@ -68,7 +68,7 @@ curl -X POST http://localhost:8080/api/v1/webhooks/YOUR_WEBHOOK_ID \
   -d '{"prompt": "Analyze this error: connection timeout on service X"}'
 ```
 
-The agent processes the request synchronously and the response is returned in the HTTP response body. This makes webhooks easy to integrate with any system that can make HTTP requests and read responses.
+Magec processes the request synchronously and returns the response in the HTTP response body.
 
 ## Example integrations
 

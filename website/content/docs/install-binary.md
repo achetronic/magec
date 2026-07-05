@@ -4,13 +4,13 @@ title: "Binary Installation"
 
 Run Magec as a native binary on your machine. This is the best option when you want to use **local MCP tools** (filesystem access, git, shell commands), need full control over the process, or are developing on Magec itself.
 
-Dependencies like Redis, PostgreSQL, or Ollama can be installed natively or run as Docker containers — the installer guides you through both options. Docker is the recommended way to manage dependencies: spinning up a database or an Ollama instance takes seconds and keeps your system clean.
+Dependencies like Redis, PostgreSQL, or Ollama can be installed natively or run as Docker containers; the installer guides you through both options. Docker is the recommended way to manage dependencies: spinning up a database or an Ollama instance takes seconds and keeps your system clean.
 
-The Magec binary is self-contained — it includes the Admin UI, Voice UI, wake word models, and all auxiliary ONNX models baked in. You just need the binary, a `config.yaml`, and the external services you want to use.
+The Magec binary is self-contained: it includes the Admin UI, Voice UI, wake word models, and all auxiliary ONNX models baked in. You just need the binary, a `config.yaml`, and the external services you want to use.
 
 ## One-line install
 
-The interactive installer can also set up Magec as a binary — select **binary** mode when prompted and it will download the right binary for your platform, set up external dependencies, and generate the configuration:
+The interactive installer can also set up Magec as a binary: select **binary** mode when prompted and it will download the right binary for your platform, set up external dependencies, and generate the configuration:
 
 ```bash
 curl -fsSL https://magec.dev/install | bash
@@ -103,7 +103,7 @@ No installation needed. Create a backend in the Admin UI:
 
 **Anthropic / Gemini:**
 
-Same — create the appropriate backend type in the Admin UI with your API key.
+Create the appropriate backend type in the Admin UI with your API key.
 
 ### Optional: ffmpeg (for voice messages)
 
@@ -124,7 +124,7 @@ Magec checks for `ffmpeg` in your PATH at startup and logs a warning if it's mis
 
 ### Optional: ONNX Runtime (for wake word detection)
 
-The wake word ("Oye Magec") and voice activity detection use ONNX models. The ONNX Runtime shared library is needed for these features. Without it, voice still works — you just use push-to-talk instead of wake word.
+The wake word ("Oye Magec") and voice activity detection use ONNX models. The ONNX Runtime shared library is needed for these features. Without it, voice still works: you just use push-to-talk instead of wake word.
 
 ```bash
 # Download ONNX Runtime 1.23.2
@@ -151,7 +151,7 @@ voice:
   onnxLibraryPath: /path/to/libonnxruntime.so
 ```
 
-Magec logs a warning at startup if ONNX Runtime is not found. If the Voice UI is enabled, **ONNX Runtime is required** — the voice system needs it for both wake word detection and push-to-talk. Without it, the Voice UI will fail to initialize.
+Magec logs a warning at startup if ONNX Runtime is not found. If the Voice UI is enabled, **ONNX Runtime is required:** the voice system needs it for both wake word detection and push-to-talk. Without it, the Voice UI will fail to initialize.
 
 ### Optional: Local STT / TTS
 
@@ -173,7 +173,7 @@ docker run -d -p 5050:5050 -e REQUIRE_API_KEY=False travisvn/openai-edge-tts:lat
 
 Backend: Type `openai`, URL `http://localhost:5050`
 
-These are small containers that don't need GPU. You can also run them natively if you prefer — any service implementing the OpenAI-compatible `/v1/audio/transcriptions` (STT) or `/v1/audio/speech` (TTS) endpoints works.
+These are small containers that don't need GPU. You can also run them natively if you prefer. Any service implementing the OpenAI-compatible `/v1/audio/transcriptions` (STT) or `/v1/audio/speech` (TTS) endpoints works.
 
 ## Optional: Memory (Redis + PostgreSQL)
 
@@ -201,12 +201,12 @@ Or use existing Redis/PostgreSQL instances on your network.
 
 1. Open `http://localhost:8081`
 2. Create a **backend** (e.g., Ollama at `http://localhost:11434/v1`)
-3. Create an **agent** — give it a name, system prompt, and select the backend + model
+3. Create an **agent**: give it a name, system prompt, and select the backend + model
 4. Optionally add voice (STT/TTS backends + models)
 5. Create a **client** (Voice UI type) and copy the pairing token
 6. Open `http://localhost:8080`, paste the token, and start talking
 
-## MCP Tools — The killer feature
+## MCP tools
 
 The main reason to run Magec as a binary is **direct access to local MCP tools**. When Magec runs as a binary on your machine, stdio-based MCP servers can access your local filesystem, run shell commands, interact with git repositories, and do anything your user account can do.
 
@@ -229,7 +229,7 @@ npx -y @anthropic/mcp-sqlite --db /path/to/database.db
 /path/to/your/custom-mcp-server
 ```
 
-This is what makes the binary install particularly powerful — your agents can interact with your entire local environment through MCP tools, something that's harder to set up with Docker (you'd need to mount volumes, expose ports, or run MCP servers on the host).
+With the binary install, your agents can interact with your entire local environment through MCP tools. This is harder to set up with Docker (you'd need to mount volumes, expose ports, or run MCP servers on the host).
 
 ## Running as a service
 
@@ -307,8 +307,8 @@ Back up `store.json` to preserve your entire configuration. To restore, copy it 
 
 ## Next steps
 
-- **[Configuration](/docs/configuration/)** — understand `config.yaml` vs. Admin UI resources
-- **[Agents](/docs/agents/)** — create agents with custom prompts and tools
-- **[MCP Tools](/docs/mcp/)** — connect local and remote tools to your agents
-- **[Flows](/docs/flows/)** — chain agents into multi-step workflows
-- **[Voice UI](/docs/voice-ui/)** — wake word, push-to-talk, PWA installation
+- **[Configuration](/docs/configuration/).** Understand `config.yaml` vs. Admin UI resources
+- **[Agents](/docs/agents/).** Create agents with custom prompts and tools
+- **[MCP Tools](/docs/mcp/).** Connect local and remote tools to your agents
+- **[Flows](/docs/flows/).** Chain agents into multi-step workflows
+- **[Voice UI](/docs/voice-ui/).** Wake word, push-to-talk, PWA installation
