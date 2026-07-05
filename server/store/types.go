@@ -253,6 +253,11 @@ const (
 // builder. Reserved so an operator cannot name a real node "START".
 const FlowStart = "START"
 
+// RouterOtherwiseRoute is the fixed label of every router's fallback route,
+// emitted when no rule matches. It is not configurable: rules may carry any
+// name, the otherwise route is always called "otherwise".
+const RouterOtherwiseRoute = "otherwise"
+
 // FlowRule is one ordered branch of a router node. When the CEL guard When
 // evaluates to true against the flow state, the router emits Route as its
 // label and stops evaluating later rules. When sees a `state` map (keys
@@ -282,11 +287,10 @@ type FlowNode struct {
 	// Only meaningful when Type is FlowNodeAgent.
 	ResponseAgent bool `json:"responseAgent,omitempty" yaml:"responseAgent,omitempty"`
 
-	// Rules and DefaultRoute drive a router node. Rules are evaluated in order;
-	// DefaultRoute is emitted when no rule matches. Only meaningful when Type
+	// Rules drive a router node, evaluated in order; when none matches the
+	// router emits RouterOtherwiseRoute. Only meaningful when Type
 	// is FlowNodeRouter.
-	Rules        []FlowRule `json:"rules,omitempty" yaml:"rules,omitempty"`
-	DefaultRoute string     `json:"defaultRoute,omitempty" yaml:"defaultRoute,omitempty"`
+	Rules []FlowRule `json:"rules,omitempty" yaml:"rules,omitempty"`
 
 	// MaxConcurrency caps how many items a parallel node processes at once.
 	// 0 means unlimited. Only meaningful when Type is FlowNodeParallel.

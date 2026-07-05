@@ -64,7 +64,7 @@ func buildRouterNode(node store.FlowNode) (workflow.Node, error) {
 		rules = append(rules, compiledRule{prog: prog, expr: r.When, route: r.Route})
 	}
 
-	defaultRoute := node.DefaultRoute
+	defaultRoute := store.RouterOtherwiseRoute
 	counterKey := iterationKeyPrefix + node.ID
 
 	fn := func(ctx adkagent.Context, input any, emit func(*session.Event) error) (any, error) {

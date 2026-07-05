@@ -161,9 +161,9 @@
           <span class="flex-1 text-[9px] font-medium text-arena-500 uppercase tracking-wide">otherwise</span>
           <span
             class="flow-port flow-port-out"
-            :data-port="'out:' + node.id + '|' + (node.defaultRoute || '')"
-            :title="'Drag to connect the default branch'"
-            @pointerdown.stop.prevent="$emit('start-edge', { nodeId: node.id, route: node.defaultRoute })"
+            :data-port="'out:' + node.id + '|otherwise'"
+            :title="'Drag to connect the otherwise branch'"
+            @pointerdown.stop.prevent="$emit('start-edge', { nodeId: node.id, route: 'otherwise' })"
           />
         </div>
       </div>

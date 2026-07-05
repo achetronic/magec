@@ -248,9 +248,8 @@ function addNode(type) {
   if (type === 'code') { node.script = ''; node.outputKey = ''; node.timeoutMs = 0; node.maxOutputBytes = 0; node.w = 400; node.h = 320 }
   if (type === 'router') {
     // Three empty rows so the rotating placeholders show a full example ladder
-    // of score conditions.
+    // of score conditions. The otherwise route is fixed, not configurable.
     node.rules = [{ when: '', route: '' }, { when: '', route: '' }, { when: '', route: '' }]
-    node.defaultRoute = 'default'
   }
   const nextNodes = [...nodes.value, node]
   // First node added becomes the entry by default.

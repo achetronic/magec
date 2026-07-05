@@ -130,11 +130,11 @@ function cleanNode(n) {
     if (n.responseAgent) clean.responseAgent = true
   } else if (n.type === 'router') {
     // Untouched placeholder rows (both fields empty) are dropped so they do
-    // not trip the backend validation that requires a route per rule.
+    // not trip the backend validation that requires a route per rule. The
+    // otherwise route is fixed server-side, nothing to serialise.
     clean.rules = (n.rules || [])
       .filter(r => (r.when || '').trim() !== '' || (r.route || '').trim() !== '')
       .map(r => ({ when: r.when || '', route: r.route || '' }))
-    clean.defaultRoute = n.defaultRoute || ''
   } else if (n.type === 'parallel') {
     clean.agentId = n.agentId || ''
     if (n.maxConcurrency) clean.maxConcurrency = n.maxConcurrency

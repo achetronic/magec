@@ -92,7 +92,7 @@ func TestFirstAgentID_FromEntryBreadthFirst(t *testing.T) {
 		ID:    "flow1",
 		Entry: "decide",
 		Nodes: []FlowNode{
-			{ID: "decide", Type: FlowNodeRouter, DefaultRoute: "go", Rules: []FlowRule{{When: "true", Route: "go"}}},
+			{ID: "decide", Type: FlowNodeRouter, Rules: []FlowRule{{When: "true", Route: "go"}}},
 			{ID: "worker", Type: FlowNodeAgent, AgentID: "agent-worker"},
 		},
 		Edges: []FlowEdge{{From: "decide", To: "worker", Route: "go"}},
@@ -123,7 +123,7 @@ func TestAgentIDs_UniqueAcrossNodes(t *testing.T) {
 		Entry: "a",
 		Nodes: []FlowNode{
 			{ID: "a", Type: FlowNodeAgent, AgentID: "shared"},
-			{ID: "router", Type: FlowNodeRouter, DefaultRoute: "x", Rules: []FlowRule{{When: "true", Route: "x"}}},
+			{ID: "router", Type: FlowNodeRouter, Rules: []FlowRule{{When: "true", Route: "x"}}},
 			{ID: "b", Type: FlowNodeAgent, AgentID: "shared"}, // same AgentID, deduped
 			{ID: "c", Type: FlowNodeAgent, AgentID: "other"},
 		},

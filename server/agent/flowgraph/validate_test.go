@@ -39,7 +39,7 @@ func routerFlow() *store.FlowDefinition {
 		Name:  "router",
 		Entry: "classify",
 		Nodes: []store.FlowNode{
-			{ID: "classify", Type: store.FlowNodeRouter, DefaultRoute: "revise", Rules: []store.FlowRule{
+			{ID: "classify", Type: store.FlowNodeRouter, Rules: []store.FlowRule{
 				{When: "state.score >= 0.8", Route: "accept"},
 				{When: "state.score < 0.3", Route: "reject"},
 			}},
@@ -50,7 +50,7 @@ func routerFlow() *store.FlowDefinition {
 		Edges: []store.FlowEdge{
 			{From: "classify", To: "publish", Route: "accept"},
 			{From: "classify", To: "discard", Route: "reject"},
-			{From: "classify", To: "rewrite", Route: "revise"},
+			{From: "classify", To: "rewrite", Route: "otherwise"},
 		},
 	}
 }
@@ -88,14 +88,14 @@ func loopFlow() *store.FlowDefinition {
 		Entry: "work",
 		Nodes: []store.FlowNode{
 			{ID: "work", Type: store.FlowNodeAgent, AgentID: "ag-work"},
-			{ID: "again", Type: store.FlowNodeRouter, DefaultRoute: "continue", Rules: []store.FlowRule{
+			{ID: "again", Type: store.FlowNodeRouter, Rules: []store.FlowRule{
 				{When: "state.done == true || iterations >= 5", Route: "exit"},
 			}},
 			{ID: "out", Type: store.FlowNodeAgent, AgentID: "ag-out", ResponseAgent: true},
 		},
 		Edges: []store.FlowEdge{
 			{From: "work", To: "again"},
-			{From: "again", To: "work", Route: "continue"},
+			{From: "again", To: "work", Route: "otherwise"},
 			{From: "again", To: "out", Route: "exit"},
 		},
 	}
@@ -210,9 +210,9 @@ func TestValidate_RouterRules(t *testing.T) {
 			wantSub: "at least one rule",
 		},
 		{
-			name:    "router without default",
-			mutate:  func(d *store.FlowDefinition) { d.Nodes[0].DefaultRoute = "" },
-			wantSub: "requires a defaultRoute",
+			name:    "rule uses the reserved otherwise route",
+			mutate:  func(d *store.FlowDefinition) { d.Nodes[0].Rules[0].Route = "otherwise" },
+			wantSub: "reserved route",
 		},
 		{
 			name:    "invalid CEL guard",
@@ -289,7 +289,7 @@ func TestValidate_RoutedEdgeIntoJoinIsRejected(t *testing.T) {
 		Name:  "badjoin",
 		Entry: "decide",
 		Nodes: []store.FlowNode{
-			{ID: "decide", Type: store.FlowNodeRouter, DefaultRoute: "skip", Rules: []store.FlowRule{
+			{ID: "decide", Type: store.FlowNodeRouter, Rules: []store.FlowRule{
 				{When: "state.go == true", Route: "go"},
 			}},
 			{ID: "merge", Type: store.FlowNodeJoin},
@@ -298,7 +298,7 @@ func TestValidate_RoutedEdgeIntoJoinIsRejected(t *testing.T) {
 		},
 		Edges: []store.FlowEdge{
 			{From: "decide", To: "merge", Route: "go"},
-			{From: "decide", To: "skipped", Route: "skip"},
+			{From: "decide", To: "skipped", Route: "otherwise"},
 			{From: "merge", To: "done"},
 		},
 	}

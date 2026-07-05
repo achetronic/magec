@@ -117,9 +117,6 @@ func validateNodes(d *store.FlowDefinition) error {
 			if len(n.Rules) == 0 {
 				return fmt.Errorf("router node %q requires at least one rule", n.ID)
 			}
-			if n.DefaultRoute == "" {
-				return fmt.Errorf("router node %q requires a defaultRoute", n.ID)
-			}
 			for j := range n.Rules {
 				r := n.Rules[j]
 				if r.Route == "" {
@@ -128,15 +125,15 @@ func validateNodes(d *store.FlowDefinition) error {
 				if !idPattern.MatchString(r.Route) {
 					return fmt.Errorf("router node %q route %q must match [a-zA-Z_][a-zA-Z0-9_-]*", n.ID, r.Route)
 				}
+				if r.Route == store.RouterOtherwiseRoute {
+					return fmt.Errorf("router node %q rule %d uses the reserved route %q", n.ID, j, store.RouterOtherwiseRoute)
+				}
 				// CEL guards are compiled here so malformed expressions are
 				// caught at save time, not at flow build time. Compile also
 				// rejects non-bool expressions.
 				if _, err := flowexit.Compile(r.When); err != nil {
 					return fmt.Errorf("router node %q rule %d: %w", n.ID, j, err)
 				}
-			}
-			if !idPattern.MatchString(n.DefaultRoute) {
-				return fmt.Errorf("router node %q defaultRoute %q must match [a-zA-Z_][a-zA-Z0-9_-]*", n.ID, n.DefaultRoute)
 			}
 		case store.FlowNodeJoin:
 			// No per-node fields; structural checks happen in validateJoins.
@@ -224,7 +221,7 @@ func validateEdges(d *store.FlowDefinition, index map[string]*store.FlowNode) er
 }
 
 // validateRouters enforces that every label a router can emit (each rule Route
-// plus DefaultRoute) has exactly one matching outgoing edge, and that every
+// plus the fixed otherwise route) has exactly one matching outgoing edge, and that every
 // outgoing edge of a router carries a Route the router can actually emit.
 // Non-router nodes must not carry routed outgoing edges.
 func validateRouters(d *store.FlowDefinition) error {
@@ -246,7 +243,7 @@ func validateRouters(d *store.FlowDefinition) error {
 		for _, r := range n.Rules {
 			labels[r.Route] = true
 		}
-		labels[n.DefaultRoute] = true
+		labels[store.RouterOtherwiseRoute] = true
 
 		// Each emittable label needs exactly one outgoing edge.
 		edgeByRoute := make(map[string]int, len(out))
