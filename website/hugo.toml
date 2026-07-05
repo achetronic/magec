@@ -1,6 +1,6 @@
 baseURL = 'https://magec.dev/'
 languageCode = 'en'
-title = 'Magec — Self-hosted Multi-Agent AI Platform'
+title = 'Magec: Self-hosted Multi-Agent AI Platform'
 theme = 'magec'
 
 [params]
