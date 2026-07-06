@@ -14,7 +14,6 @@
             <h2 class="text-sm font-semibold text-arena-200 truncate">
               {{ conversation?.agentName || conversation?.agentId || 'Conversation' }}
             </h2>
-            <Badge v-if="conversation?.summary" variant="green">summarized</Badge>
             <!-- Info popover -->
             <div class="relative group/info flex-shrink-0">
               <Icon name="eye" size="sm" class="text-arena-600 group-hover/info:text-arena-400 transition-colors cursor-default" />
@@ -77,11 +76,8 @@
 
         <div class="w-px h-4 bg-piedra-700/50" />
 
-        <!-- Perspective toggle -->
-        <SegmentedControl v-if="pairId || conversation?.perspective" :modelValue="activePerspective" @update:modelValue="switchPerspective" :options="perspectiveOptions" />
-
-        <!-- View toggle -->
-        <SegmentedControl v-model="showRaw" :options="viewOptions" />
+        <!-- Perspective toggle: an on-read filter over the same runs -->
+        <SegmentedControl :modelValue="view" @update:modelValue="switchView" :options="perspectiveOptions" />
 
         <!-- Actions -->
         <button
@@ -111,35 +107,9 @@
       </div>
     </div>
 
-    <!-- Summary -->
-    <div v-if="conversation?.summary" class="bg-green-500/5 border border-green-500/20 rounded-xl p-4">
-      <div class="flex items-center gap-2 mb-2">
-        <div class="w-5 h-5 rounded-md bg-green-500/15 flex items-center justify-center">
-          <Icon name="command" size="xs" class="text-green-400" />
-        </div>
-        <span class="text-[10px] font-semibold text-green-300 uppercase tracking-wider">Context Summary</span>
-      </div>
-      <div class="text-xs text-arena-300 leading-relaxed prose-content" v-html="renderMarkdown(conversation.summary)" />
-    </div>
-
     <!-- Loading -->
     <div v-if="loading && !messages.length" class="flex items-center justify-center py-20">
       <Icon name="refresh" size="lg" class="text-arena-500 animate-spin" />
-    </div>
-
-    <!-- Raw events -->
-    <div v-else-if="showRaw && rawEvents.length" class="space-y-2">
-      <div class="bg-piedra-900 border border-piedra-700/50 rounded-xl overflow-hidden">
-        <div class="px-4 py-2 border-b border-piedra-700/50 flex items-center justify-between">
-          <span class="text-[10px] font-semibold text-arena-400 uppercase tracking-wider">
-            Raw ADK Events ({{ rawEvents.length }})
-          </span>
-          <button @click="copyRaw" class="text-[10px] text-arena-500 hover:text-arena-300 transition-colors">
-            Copy JSON
-          </button>
-        </div>
-        <pre class="p-4 text-[11px] text-arena-300 font-mono overflow-x-auto max-h-[70vh] leading-relaxed">{{ formatJSON(rawEvents) }}</pre>
-      </div>
     </div>
 
     <!-- Messages -->
@@ -181,6 +151,12 @@
               class="text-[13px] leading-[1.7] text-arena-300 prose-content"
               v-html="renderMarkdown(stripMetadata(msg.content))"
             />
+
+            <!-- Failed turn -->
+            <div v-if="msg.error" class="mt-1 px-2.5 py-1.5 rounded-lg bg-lava-500/10">
+              <span class="text-[9px] font-semibold text-lava-400 uppercase tracking-wider">Execution error</span>
+              <p class="text-[11px] text-arena-500 font-mono mt-0.5">{{ msg.error }}</p>
+            </div>
 
             <!-- Tool calls -->
             <div v-if="msg.toolCalls?.length" class="mt-2 space-y-1">
@@ -261,41 +237,33 @@ const requestDelete = inject('requestDelete')
 
 const conversation = ref(null)
 const messages = ref([])
-const rawEvents = ref([])
 const totalMessages = ref(0)
 const loading = ref(false)
 const loadingOlder = ref(false)
-const showRaw = ref(false)
 const expandedTools = reactive({})
-const pairId = ref(null)
+// view is the on-read perspective: the same runs, filtered (user) or not
+// (admin). Switching refetches the projection.
+const view = ref('admin')
 const autoRefreshMs = ref(0)
 const refreshPulse = ref(false)
 
 let keyCounter = 0
 let autoRefreshTimer = null
 
-const activePerspective = computed(() => conversation.value?.perspective || 'user')
 const hasOlderMessages = computed(() => messages.value.length < totalMessages.value)
 const displayMessages = computed(() => [...messages.value].reverse())
 
-function canSwitch(target) {
-  if (activePerspective.value === target) return false
-  return !!pairId.value
-}
-
-const perspectiveOptions = computed(() => [
-  { label: 'User', value: 'user', disabled: !canSwitch('user') },
-  { label: 'Admin', value: 'admin', disabled: !canSwitch('admin') },
-])
-
-const viewOptions = [
-  { label: 'Messages', value: false },
-  { label: 'Raw', value: true },
+const perspectiveOptions = [
+  { label: 'User', value: 'user' },
+  { label: 'Admin', value: 'admin' },
 ]
 
-function switchPerspective(target) {
-  if (!canSwitch(target)) return
-  emit('navigate', pairId.value)
+function switchView(target) {
+  if (view.value === target) return
+  view.value = target
+  messages.value = []
+  totalMessages.value = 0
+  loadConversation(props.conversationId)
 }
 
 function shouldShowTimestamp(prev, curr) {
@@ -330,17 +298,11 @@ function tagMessages(msgs) {
 async function loadConversation(id) {
   if (!id) return
   loading.value = true
-  pairId.value = null
   try {
-    const result = await conversationsApi.get(id, { msgLimit: MSG_PAGE_SIZE, msgOffset: 0 })
+    const result = await conversationsApi.get(id, { view: view.value, msgLimit: MSG_PAGE_SIZE, msgOffset: 0 })
     conversation.value = result.conversation
     totalMessages.value = result.totalMessages || 0
     messages.value = tagMessages(result.conversation?.messages || [])
-    rawEvents.value = result.conversation?.rawEvents || []
-
-    conversationsApi.findPair(id).then(r => {
-      pairId.value = r.pairId || null
-    }).catch(() => {})
   } catch (e) {
     toast.error(e.message)
   } finally {
@@ -354,13 +316,13 @@ async function loadOlder() {
   try {
     const msgOffset = messages.value.length
     const result = await conversationsApi.get(props.conversationId, {
+      view: view.value,
       msgLimit: MSG_PAGE_SIZE,
       msgOffset,
     })
     const olderMsgs = result.conversation?.messages || []
     if (olderMsgs.length) {
       messages.value = [...tagMessages(olderMsgs), ...messages.value]
-      rawEvents.value = [...(result.conversation?.rawEvents || []), ...rawEvents.value]
     }
   } catch (e) {
     toast.error(e.message)
@@ -393,11 +355,9 @@ function setAutoRefresh(ms) {
 }
 
 watch(() => props.conversationId, (id) => {
-  showRaw.value = false
   setAutoRefresh(0)
   Object.keys(expandedTools).forEach(k => delete expandedTools[k])
   messages.value = []
-  rawEvents.value = []
   totalMessages.value = 0
   keyCounter = 0
   loadConversation(id)
@@ -450,31 +410,6 @@ function formatSource(source) {
   return map[source] || source
 }
 
-function copyRaw() {
-  if (!rawEvents.value.length) return
-  const text = JSON.stringify(rawEvents.value, null, 2)
-  if (navigator.clipboard?.writeText) {
-    navigator.clipboard.writeText(text).then(
-      () => toast.success('Copied to clipboard'),
-      () => { fallbackCopy(text); toast.success('Copied to clipboard') }
-    )
-  } else {
-    fallbackCopy(text)
-    toast.success('Copied to clipboard')
-  }
-}
-
-function fallbackCopy(text) {
-  const ta = document.createElement('textarea')
-  ta.value = text
-  ta.style.position = 'fixed'
-  ta.style.opacity = '0'
-  document.body.appendChild(ta)
-  ta.select()
-  document.execCommand('copy')
-  document.body.removeChild(ta)
-}
-
 function handleDelete() {
   requestDelete('Delete this conversation? This cannot be undone.', async () => {
     try {
@@ -504,17 +439,13 @@ async function handleExportPDF() {
   toast.success('Preparing PDF…')
 
   try {
-    const ids = [props.conversationId]
-    if (pairId.value) ids.push(pairId.value)
-
+    // Both perspectives are on-read filters over the same runs.
     const perspectives = await Promise.all(
-      ids.map(async (id) => {
-        const result = await conversationsApi.get(id, { msgLimit: 9999, msgOffset: 0 })
+      ['user', 'admin'].map(async (v) => {
+        const result = await conversationsApi.get(props.conversationId, { view: v, msgLimit: 0, msgOffset: 0 })
         return result.conversation
       })
     )
-
-    perspectives.sort((a, b) => (a.perspective === 'user' ? -1 : 1))
 
     const title = conversation.value.agentName || conversation.value.agentId || 'Conversation'
     const meta = [
@@ -536,7 +467,7 @@ async function handleExportPDF() {
     }).join('')
 
     const sections = perspectives.map((p) => {
-      const label = p.perspective === 'user' ? 'User Perspective' : 'Admin Perspective'
+      const label = p.view === 'user' ? 'User Perspective' : 'Admin Perspective'
       const msgs = p.messages || []
       return `<div class="section"><h2>${label} <span class="msg-count">(${msgs.length} messages)</span></h2>${msgs.length ? renderMessages(msgs) : '<p class="empty">No messages</p>'}</div>`
     }).join('')

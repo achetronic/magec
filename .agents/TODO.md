@@ -4,16 +4,6 @@ Pending work only. History lives in git and DECISIONS.md.
 
 ## High Priority
 
-### ▶ NEXT: Run auditing phase 2: Conversations as a projection over runs
-
-Rebuild the Conversations audit as a projection over recorded runs
-(conversation = runs of one session; user perspective = on-read filter by
-ResponseAgentNames). Retires the body-buffering ConversationRecorder
-middleware and the persisted dual perspective. Clean break, no migrator.
-Decision #31.
-
----
-
 ### Secrets usable by the LLM without exposure
 
 Today secrets only reach server config (env-var expansion at store load,

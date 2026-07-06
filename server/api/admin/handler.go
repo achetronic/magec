@@ -19,7 +19,6 @@ type ErrorResponse struct {
 // Handler provides the admin API router.
 type Handler struct {
 	store          *store.Store
-	conversations  *store.ConversationStore
 	runs           *runs.Store
 	sessionService session.Service
 	router         *mux.Router
@@ -32,20 +31,9 @@ func New(s *store.Store) *Handler {
 	return h
 }
 
-// SetConversationStore injects the conversation store for the audit endpoints.
-func (h *Handler) SetConversationStore(cs *store.ConversationStore) {
-	h.conversations = cs
-}
-
 // SetRunsStore injects the runs store for run auditing endpoints.
 func (h *Handler) SetRunsStore(rs *runs.Store) {
 	h.runs = rs
-}
-
-// ConversationStore returns the conversation store (used by external components
-// that need to log conversations).
-func (h *Handler) ConversationStore() *store.ConversationStore {
-	return h.conversations
 }
 
 // SetSessionService injects the ADK session service for direct session operations.
@@ -141,14 +129,12 @@ func (h *Handler) buildRouter() *mux.Router {
 	r.HandleFunc("/secrets/{id}", h.updateSecret).Methods("PUT")
 	r.HandleFunc("/secrets/{id}", h.deleteSecret).Methods("DELETE")
 
-	// Conversations (audit)
+	// Conversations (audit): a projection over recorded runs, decision #31.
 	r.HandleFunc("/conversations", h.listConversations).Methods("GET")
 	r.HandleFunc("/conversations/stats", h.conversationStats).Methods("GET")
 	r.HandleFunc("/conversations/clear", h.clearConversations).Methods("DELETE")
 	r.HandleFunc("/conversations/{id}", h.getConversation).Methods("GET")
 	r.HandleFunc("/conversations/{id}", h.deleteConversation).Methods("DELETE")
-	r.HandleFunc("/conversations/{id}/pair", h.findPerspectivePair).Methods("GET")
-	r.HandleFunc("/conversations/{id}/summary", h.updateConversationSummary).Methods("PUT")
 	r.HandleFunc("/conversations/{id}/reset-session", h.resetConversationSession).Methods("POST")
 
 	// Runs (audit)

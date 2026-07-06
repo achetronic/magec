@@ -93,7 +93,7 @@ func main() {
 	ctx := context.Background()
 
 	// Initialize stores
-	dataStore, convoStore := initStores(cfg)
+	dataStore := initStore(cfg)
 
 	// Run auditing: SQLite-backed store plus the recorder plugin that feeds it.
 	// A failure here degrades gracefully: runs are simply not audited.
@@ -111,7 +111,6 @@ func main() {
 
 	// Admin API setup
 	adminHandler := admin.New(dataStore)
-	adminHandler.SetConversationStore(convoStore)
 	if runsStore != nil {
 		adminHandler.SetRunsStore(runsStore)
 	}
@@ -135,7 +134,7 @@ func main() {
 	agentRouter.rebuild(ctx, dataStore)
 
 	// Executor and User Server setup
-	executor, userServer, userCtx, userCancel, voiceDetector := startUserServer(cfg, dataStore, convoStore, agentRouter, a2aHandler)
+	executor, userServer, userCtx, userCancel, voiceDetector := startUserServer(cfg, dataStore, agentRouter, a2aHandler)
 
 	// Watch for store changes
 	watchStoreChanges(ctx, dataStore, agentRouter)
@@ -147,9 +146,9 @@ func main() {
 	startGracefulShutdown(adminServer, adminCtx, adminCancel, userServer, userCtx, userCancel, cronScheduler, clientManager, voiceDetector)
 }
 
-// initStores initializes the primary JSON file stores for application data
-// (agents, backends, secrets) and the conversation history store.
-func initStores(cfg *config.Config) (*store.Store, *store.ConversationStore) {
+// initStore initializes the primary JSON file store for application data
+// (agents, backends, secrets).
+func initStore(cfg *config.Config) *store.Store {
 	dataStore, err := store.New("data/store.json", cfg.Server.EncryptionKey)
 	if err != nil {
 		slog.Error("Failed to initialize store", "error", err)
@@ -161,14 +160,7 @@ func initStores(cfg *config.Config) (*store.Store, *store.ConversationStore) {
 		slog.Warn("Secrets are stored without encryption — set server.encryptionKey in config")
 	}
 
-	convoStore, err := store.NewConversationStore("data/conversations.json")
-	if err != nil {
-		slog.Warn("Failed to initialize conversation store", "error", err)
-		convoStore, _ = store.NewConversationStore("")
-	}
-	slog.Info("Conversation store initialized", "conversations", convoStore.Count())
-
-	return dataStore, convoStore
+	return dataStore
 }
 
 // getA2APublicURL resolves the public base URL used for the Agent-to-Agent protocol.
@@ -259,28 +251,18 @@ func startAdminServer(cfg *config.Config, adminHandler *admin.Handler) (*http.Se
 func startUserServer(
 	cfg *config.Config,
 	dataStore *store.Store,
-	convoStore *store.ConversationStore,
 	agentRouter *agentRouterHandler,
 	a2aHandler *mageca2a.Handler,
 ) (*clients.Executor, *http.Server, context.Context, context.CancelFunc, *voice.Detector) {
 	agentURL := fmt.Sprintf("http://127.0.0.1:%d/api/v1/agent", cfg.Server.Port)
 	executor := clients.NewExecutor(dataStore, agentURL, slog.Default())
-	executor.SetConversationStore(convoStore)
 
 	httpMux := http.NewServeMux()
 	idleGuarded := middleware.SSEIdleTimeout(agentRouter, 15*time.Minute)
 	seeded := middleware.SessionEnsure(middleware.SessionStateSeed(idleGuarded, dataStore))
-	adminRecorded := middleware.ConversationRecorder(
-		middleware.ConversationRecorderSSE(seeded, executor, dataStore, "admin"),
-		executor, dataStore, "admin",
-	)
-	filtered := middleware.FlowResponseFilter(adminRecorded, dataStore)
-	userRecorded := middleware.ConversationRecorder(
-		middleware.ConversationRecorderSSE(filtered, executor, dataStore, "user"),
-		executor, dataStore, "user",
-	)
+	filtered := middleware.FlowResponseFilter(seeded, dataStore)
 
-	httpMux.Handle("/api/v1/agent/", middleware.SnakeCaseNormalize(middleware.RunAudit(userRecorded, agentRouter.runRecorder, dataStore)))
+	httpMux.Handle("/api/v1/agent/", middleware.SnakeCaseNormalize(middleware.RunAudit(filtered, agentRouter.runRecorder, dataStore)))
 	httpMux.Handle("/api/v1/voice/", newVoiceHandler(dataStore, agentRouter))
 	httpMux.HandleFunc("/api/v1/a2a/", a2aHandler.ServeA2A)
 	httpMux.Handle("/api/v1/ephemeral/artifacts/", newEphemeralArtifactHandler(

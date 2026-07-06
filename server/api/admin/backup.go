@@ -14,7 +14,7 @@ import (
 
 // backupDownload streams a .tar.gz of the entire data/ directory.
 // @Summary      Download backup
-// @Description  Streams a .tar.gz archive containing the entire data directory (store.json, conversations.json, skills files).
+// @Description  Streams a .tar.gz archive containing the entire data directory (store.json, runs.db, skills files).
 // @Tags         backup
 // @Produce      application/gzip
 // @Success      200  {file}    binary  "Backup archive"
@@ -180,12 +180,6 @@ func (h *Handler) backupRestore(w http.ResponseWriter, r *http.Request) {
 	if err := h.store.Reload(); err != nil {
 		writeError(w, http.StatusInternalServerError, "data restored but store reload failed: "+err.Error())
 		return
-	}
-	if h.conversations != nil {
-		if err := h.conversations.Reload(); err != nil {
-			writeError(w, http.StatusInternalServerError, "data restored but conversations reload failed: "+err.Error())
-			return
-		}
 	}
 
 	writeJSON(w, http.StatusOK, map[string]string{"status": "restored"})

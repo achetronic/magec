@@ -176,16 +176,21 @@ Same registry pattern as `/clients/types` and `/memory/types`. Decision #21.
 
 ### Conversations
 
-| Method | Path                                | Description                                             |
-| ------ | ----------------------------------- | ------------------------------------------------------- |
-| GET    | `/conversations`                    | List (with filters: agent, source, client, perspective) |
-| GET    | `/conversations/{id}`               | Get conversation with full messages                     |
-| DELETE | `/conversations/{id}`               | Delete conversation                                     |
-| DELETE | `/conversations/clear`              | Clear all conversations                                 |
-| GET    | `/conversations/stats`              | Aggregated stats (by agent, source, time)               |
-| PUT    | `/conversations/{id}/summary`       | Generate AI summary of conversation                     |
-| GET    | `/conversations/{id}/pair`          | Find paired perspective (admin↔user)                    |
-| POST   | `/conversations/{id}/reset-session` | Delete ADK session for this conversation                |
+Conversations are a projection over recorded runs (decision #37): one
+conversation per `(session, app)` pair, each run is one turn, and the
+perspective is the `view` query parameter (`admin` shows every agent's
+messages, `user` filters flows to their response agents). Nothing
+conversation-shaped is persisted; deleting a conversation deletes its runs.
+The conversation ID is `appId:sessionId`.
+
+| Method | Path                                | Description                                              |
+| ------ | ----------------------------------- | -------------------------------------------------------- |
+| GET    | `/conversations`                    | List (filters: agentId, source, clientId; paginated)     |
+| GET    | `/conversations/{id}`               | Get projected messages (`view=admin\|user`, paginated)   |
+| DELETE | `/conversations/{id}`               | Delete the session's runs                                 |
+| DELETE | `/conversations/clear`              | Delete every run belonging to a session                   |
+| GET    | `/conversations/stats`              | Aggregated counts (total, byAgents, bySources)            |
+| POST   | `/conversations/{id}/reset-session` | Delete the ADK session (recorded runs are preserved)      |
 
 ### Auth
 
