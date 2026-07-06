@@ -415,4 +415,4 @@ make dev                # Build and run
 - `ENTITY_COLORS.md` — canonical color-to-entity mapping used across Admin and Voice UIs.
 - `WORKFLOW_DESIGN.md` — living reference of the flow graph system (model, builder, nodes, editor, run auditing).
 - `RELEASE_NOTES_TEMPLATE.md` — format for changelog entries.
-- `TODO.md` — short-term roadmap and recently-shipped log.
+- `TODO.md` — pending work only, ordered by priority.
