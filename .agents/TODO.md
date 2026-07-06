@@ -4,20 +4,6 @@ Pending work only. History lives in git and DECISIONS.md.
 
 ## High Priority
 
-### Admin UI: notifications are invisible
-
-The toast notifications (Toast.vue) render at the bottom-right corner and go
-unnoticed; they carry important information (save failures, deletions,
-validation errors). Move them to the top of the screen and redesign the
-component to Magec standards so they actually get seen: proper Magec palette
-and spacing, clear per-severity styling, comfortable reading size. Follow the
-existing design system (`ADMIN_UI_DESIGN_SYSTEM.md`); clone patterns from
-existing components, do not approximate from memory.
-
-**Modify**: `frontend/admin-ui/src/components/Toast.vue` (+ callers if the API changes).
-
----
-
 ### Run recorder: interrupted status on shutdown
 
 A server restart mid-run produces a run record with status `completed` even

@@ -294,3 +294,27 @@ Colored badges draw the eye away from the card title and create visual hierarchy
 | Meta / hint   | `text-[10px] text-arena-500`                                      |
 | Badge         | `text-[10px] font-medium`                                         |
 | Section label | `text-[10px] font-medium text-arena-500 uppercase tracking-wider` |
+
+## Toast Notifications (`Toast.vue`)
+
+Borderless opaque card, two rows:
+
+- **Container**: `bg-piedra-800 rounded-xl px-4 py-3 shadow-lg shadow-black/30`,
+  no border. Stack anchored bottom-right.
+- **Header row**: status dot `w-2 h-2 rounded-full` (`bg-sol-400`; `bg-lava-400`
+  for errors) + bold greeting `text-[11px] font-bold text-arena-300` ("Hey!",
+  "Ouch!" on errors) + dismiss button on the right.
+- **Message**: `text-xs font-medium text-arena-400` below, `mt-1.5`.
+
+The container is a `popover="manual"` element whose Teleport target moves
+inside the topmost open modal dialog (and back to body) so toasts always paint
+above dialogs AND stay clickable — see decision #35 before touching it.
+
+## Dialogs (`AppDialog.vue`)
+
+- `size`: `sm | md | lg | xl | 2xl`. Pick the smallest that fits; FlowDialog
+  is `xl` now that the canvas is a preview.
+- `persistent`: blocks native Escape-to-close (heavy unsaved forms only).
+- `footerDivider` (default `true`): border between content and the Cancel/Save
+  row. Turn off when the content already ends in a strong visual block (the
+  flow canvas preview); keep on for scrolling forms.

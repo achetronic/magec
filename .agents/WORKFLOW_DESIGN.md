@@ -269,8 +269,14 @@ initial-settings construction in `store.go`). Exposed in the admin UI Settings
   route label), a grouped add-node toolbar (execution / flow control / data),
   a full-screen toggle exited with double-Escape (Chrome-style floating pill),
   and a draggable Start box whose port sets the entry. Minimized (inside the
-  dialog) the canvas renders behind a blurred veil with a single "Edit in
-  full screen" button; all editing happens in full screen.
+  dialog) the canvas is a 340px frosted-glass preview: heavy blur plus a
+  decorative aurora of Magec-palette blobs (so an empty graph still shows
+  color) and a single "Edit in full screen" button; all editing happens in
+  full screen. On an empty flow the Start box floats centred above the
+  welcome text with a gentle bob (position from a ResizeObserver-fed
+  `viewSize`, since the canvas mounts while the dialog is still closed and
+  measures 0×0 — gotcha #24); dragging it or adding the first node dissolves
+  the scene.
 - `FlowNode.vue`: one node card per type, colour-coded per its entity colour
   (see `ENTITY_COLORS.md`), with the per-type body (agent picker, router rules,
   code editor with limit overrides, etc.). Every card shows its node ID as a
