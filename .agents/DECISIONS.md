@@ -1090,3 +1090,34 @@ order, which is fine for this UI. A corollary for anything mounted inside a
 dialog: the dialog is `display: none` until opened, so measurements taken at
 mount time read 0×0 — use a ResizeObserver, never a one-shot
 `getBoundingClientRect()` (FlowCanvas learned this with the Start box).
+
+## 36. Referential integrity on delete: restrict with a force scrub, no GC
+
+Entities reference each other across the store (clients → agents/flows,
+flows → agents/subflows, agents → backends/MCPs/memory/skills, cron/webhook
+clients → commands, settings → memory providers). Deleting a referenced
+entity used to leave dead IDs behind silently; a stale allowedAgents entry
+aimed the Voice UI at a ghost for weeks.
+
+A single reference-graph walker in the store (`collectRefs`, integrity.go)
+feeds every integrity operation, so the graph cannot drift between them.
+Each reference is classified: membership (list entries and optional fields
+whose removal leaves the referrer valid) or structural (flow nodes,
+llm.backend, cron/webhook commandId — removal breaks the referrer).
+
+Deletes follow restrict-with-force, for every entity type: a referenced
+entity answers 409 with the structured breakdown, and `?force=true` scrubs
+first — list entries filtered, optional fields cleared, flow nodes removed
+with their edges and the entry pointer, in one transaction over both the
+expanded and raw store copies. The 409 is a demolition quote, not a refusal:
+the UI renders it in a dialog with Cancel and Force delete. Flows left
+invalid by a scrub stay saved; validation and the builder report them.
+
+For corpses predating this feature there is exactly one tool: a Settings
+button that scans, lists what it found for confirmation, and cleans.
+Rejected alternatives: a background GC (config that mutates on its own
+erodes trust in the store and races the router rebuilds), silent cascade on
+delete (deleting an agent should not quietly rewrite flows), and passive
+badges/views for dead references (noise; the button is enough). Tolerant
+reads (ClientInfo skipping stale IDs) remain as the safety net for stores
+nobody has cleaned yet.
