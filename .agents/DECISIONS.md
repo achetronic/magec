@@ -1064,3 +1064,29 @@ fixed label and serialises nothing.
 Breaking for pre-existing graph flows with a custom default label: their
 default edge must be renamed to `otherwise`. No migrator; the flows shipped
 so far live on this branch's own instances.
+
+## 35. Global overlays that must outlive modal dialogs: Popover API + inside the dialog subtree
+
+The Admin UI's dialogs use `<dialog>.showModal()`, which has two properties
+no z-index can negotiate with: the dialog paints in the browser top layer
+(above everything in the normal stacking order), and everything outside the
+dialog's DOM subtree becomes inert — visible, but deaf to the mouse.
+
+Any overlay that must remain visible AND interactive while a modal is open
+therefore follows one pattern, applied first to NodeHelp and now to Toast:
+
+- **Visibility**: the overlay is a `popover="manual"` element. Popovers also
+  enter the top layer, and the most recently shown wins, so re-showing the
+  popover after each change keeps it above any open dialog.
+- **Interactivity**: the element must live inside the dialog's DOM subtree.
+  Toast does it with a dynamic Teleport target: into the topmost open
+  `dialog:modal` while one exists (tracked via capture listeners for the
+  non-bubbling `toggle`/`close` events), back to `body` when it closes.
+  Position is unaffected — popover + `position: fixed` resolve against the
+  viewport from any DOM location.
+
+Accepted trade-off: with stacked modals the "topmost" is approximated by DOM
+order, which is fine for this UI. A corollary for anything mounted inside a
+dialog: the dialog is `display: none` until opened, so measurements taken at
+mount time read 0×0 — use a ResizeObserver, never a one-shot
+`getBoundingClientRect()` (FlowCanvas learned this with the Start box).

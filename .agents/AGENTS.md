@@ -383,6 +383,8 @@ GPU section commented out by default. Users who want cloud providers create diff
 20. **Store env var expansion**: All store fields support `${VAR}` syntax. Secrets are injected as env vars (`os.Setenv`) before the store is expanded, so secrets can be referenced in backend URLs, bot tokens, etc.
 21. **Voice API routes always registered**: STT/TTS proxy endpoints are available regardless of Voice UI toggle, since Telegram/Discord/Slack clients need them.
 22. **ADK REST API accepts both camelCase and snake_case**: The `SnakeCaseNormalize` middleware converts snake_case keys recursively before ADK sees the request. This applies only to `/run` and `/run_sse` — the only ADK endpoints with multi-word JSON body fields. Session create/get/delete use single-word body fields (`state`, `events`) or path parameters only.
+23. **Go doc comments with `{{ }}` break swagger silently**: swag copies doc comments into the Go template it renders at runtime; a literal `{{ input }}` (e.g. flow template placeholders on `store.FlowNode`) fails the template parse and swaggo serves the RAW template — the UI shows `{{.Version}}` unexpanded. `make swagger` generates with `--templateDelims "[[,]]"` so doc comments may mention `{{ }}` freely; never drop that flag. Canary tests in `server/api/{admin,user}/docs/docs_render_test.go`.
+24. **`<dialog>.showModal()` bites three ways**: (a) the top layer beats any z-index — overlays that must paint above a modal need the Popover API; (b) everything outside the dialog's DOM subtree is inert (visible but dead to clicks) — interactive overlays must live/teleport INSIDE the dialog (NodeHelp, Toast); (c) content mounts while the dialog is still closed (`display:none`), so one-shot `getBoundingClientRect()` in `onMounted` measures 0×0 — use a ResizeObserver (FlowCanvas `viewSize`). See decision #35.
 
 ## Testing
 
@@ -415,4 +417,4 @@ make dev                # Build and run
 - `ENTITY_COLORS.md` — canonical color-to-entity mapping used across Admin and Voice UIs.
 - `WORKFLOW_DESIGN.md` — living reference of the flow graph system (model, builder, nodes, editor, run auditing).
 - `RELEASE_NOTES_TEMPLATE.md` — format for changelog entries.
-- `TODO.md` — short-term roadmap and recently-shipped log.
+- `TODO.md` — pending work only, ordered by priority.
