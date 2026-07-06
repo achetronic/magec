@@ -4,16 +4,16 @@ package docs
 import "github.com/swaggo/swag"
 
 const docTemplate = `{
-    "schemes": {{ marshal .Schemes }},
+    "schemes": [[ marshal .Schemes ]],
     "swagger": "2.0",
     "info": {
-        "description": "{{escape .Description}}",
-        "title": "{{.Title}}",
+        "description": "[[escape .Description]]",
+        "title": "[[.Title]]",
         "contact": {},
-        "version": "{{.Version}}"
+        "version": "[[.Version]]"
     },
-    "host": "{{.Host}}",
-    "basePath": "{{.BasePath}}",
+    "host": "[[.Host]]",
+    "basePath": "[[.BasePath]]",
     "paths": {
         "/agents": {
             "get": {
@@ -3377,9 +3377,6 @@ const docTemplate = `{
                     "description": "AgentID references an AgentDefinition by ID. Required when Type is\nFlowNodeAgent (the agent to run) or FlowNodeParallel (the agent run once\nper list item). Ignored for other types.",
                     "type": "string"
                 },
-                "defaultRoute": {
-                    "type": "string"
-                },
                 "expression": {
                     "description": "Expression is a CEL expression evaluated over ` + "`" + `input` + "`" + ` (the previous\nnode's output) and ` + "`" + `state` + "`" + ` (the shared flow state). Its result becomes\nthis node's output. Required when Type is FlowNodeExpression.",
                     "type": "string"
@@ -3411,7 +3408,7 @@ const docTemplate = `{
                     "type": "boolean"
                 },
                 "rules": {
-                    "description": "Rules and DefaultRoute drive a router node. Rules are evaluated in order;\nDefaultRoute is emitted when no rule matches. Only meaningful when Type\nis FlowNodeRouter.",
+                    "description": "Rules drive a router node, evaluated in order; when none matches the\nrouter emits RouterOtherwiseRoute. Only meaningful when Type\nis FlowNodeRouter.",
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/store.FlowRule"
@@ -3755,8 +3752,8 @@ var SwaggerInfo = &swag.Spec{
 	Description:      "Administration API for managing Magec resources.\nWhen server.adminPassword is configured, all /api/ endpoints require a Bearer token.",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,
-	LeftDelim:        "{{",
-	RightDelim:       "}}",
+	LeftDelim:        "[[",
+	RightDelim:       "]]",
 }
 
 func init() {

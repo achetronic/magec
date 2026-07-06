@@ -54,9 +54,9 @@ embed-models: download-model
 	@echo "Models copied to server/models/"
 
 swagger:
-	@cd server && go run github.com/swaggo/swag/cmd/swag init --dir ./api/admin --generalInfo doc.go --output ./api/admin/docs --parseDependency --parseInternal
+	@cd server && go run github.com/swaggo/swag/cmd/swag init --dir ./api/admin --generalInfo doc.go --output ./api/admin/docs --parseDependency --parseInternal --templateDelims "[[,]]"
 	@echo "Admin API swagger generated in server/api/admin/docs/"
-	@cd server && go run github.com/swaggo/swag/cmd/swag init --dir ./api/user --generalInfo doc.go --output ./api/user/docs --parseDependency --parseInternal --instanceName userapi
+	@cd server && go run github.com/swaggo/swag/cmd/swag init --dir ./api/user --generalInfo doc.go --output ./api/user/docs --parseDependency --parseInternal --instanceName userapi --templateDelims "[[,]]"
 	@echo "User API swagger generated in server/api/user/docs/"
 
 dev: build
