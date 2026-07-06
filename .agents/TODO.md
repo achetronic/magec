@@ -37,6 +37,43 @@ Desired pattern (precedent: baifo's `${secret:NAME}` + log redactor):
 
 ---
 
+### Referential integrity on delete (restrict + force) and dead-reference cleanup
+
+Entities reference each other across the store (clients → agents/flows, flows →
+agents/subflows, agents → backends/MCPs/memory/skills…). Deleting a referenced
+entity today leaves dead IDs behind; a stale `allowedAgents` entry made the
+Voice UI aim every call at a ghost (fixed on read in PR #55, but the corpses
+stay in the store).
+
+**Delete flow — for EVERY entity type, not just agents**:
+
+1. `referrers(id)` in the store walks the known reference graph and returns
+   who references the entity, classifying each reference:
+   - *Membership* (list entries: `allowedAgents`, MCP/skill lists…): scrubbing
+     is harmless, the referrer stays valid.
+   - *Structural* (flow nodes pointing at agents/subflows, `llm.backend`…):
+     scrubbing breaks the referrer (invalid node, broken graph, agent without
+     backend).
+2. `DELETE /{entity}/{id}` with referrers → **409** with the structured
+   breakdown (who, which field, membership vs structural).
+3. `DELETE ...?force=true` → executes the scrub in one store transaction:
+   removes list entries, removes flow nodes + their edges, clears structural
+   refs. Flows left invalid stay saved; editor validation and the builder
+   already report them loudly.
+4. Admin UI: ConfirmDialog shows the 409 breakdown grouped by entity
+   (membership items neutral, structural damage highlighted), with Cancel and
+   **Force** buttons. The 409 is a demolition quote, not a refusal.
+
+**Existing corpses**: a button in Settings — "Clean up dead references" — that
+runs the reverse check (IDs referenced but not present), shows what it found
+in a ConfirmDialog following the usual Magec patterns, and scrubs on confirm.
+No new views, no passive badges, no auto-scrub on boot. Tolerant reads (like
+ClientInfo's) remain the safety net until someone presses it.
+
+**Modify**: `server/store/` (referrers + scrub + tests), every admin delete handler, `frontend/admin-ui/` (ConfirmDialog breakdown + Settings button).
+
+---
+
 ### Run recorder: interrupted status on shutdown
 
 A server restart mid-run produces a run record with status `completed` even
