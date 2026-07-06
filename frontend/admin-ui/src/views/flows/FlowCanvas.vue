@@ -100,7 +100,7 @@
       </svg>
 
       <!-- START sentinel -->
-      <div class="flow-start" :style="{ left: startPos.x + 'px', top: startPos.y + 'px' }" @pointerdown.stop="onStartPointerDown" title="Drag to move. Drag from the dot to pick the entry node.">
+      <div class="flow-start" :class="{ 'flow-start-floating': startIsFloating }" :style="{ left: startPos.x + 'px', top: startPos.y + 'px' }" @pointerdown.stop="onStartPointerDown" title="Drag to move. Drag from the dot to pick the entry node.">
         <div class="flow-start-card">
           <div class="flow-start-ic">
             <svg class="w-3.5 h-3.5 text-rose-400" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
@@ -134,7 +134,6 @@
       <div class="text-center">
         <p class="text-sm font-medium text-arena-300">Build your workflow graph</p>
         <p class="text-[10px] text-arena-500 mt-1">Add nodes from the toolbar, then drag from a node's right port to another's left port to connect them.</p>
-        <p class="text-[10px] text-rose-400/80 mt-1.5">Drag from the <span class="font-semibold">Start</span> dot to the node where execution begins.</p>
       </div>
     </div>
 
@@ -519,7 +518,22 @@ function measurePorts() {
 
 // Recompute when the structure changes or the view transforms.
 watch([nodes, edges, scale, panX, panY], () => nextTick(measurePorts), { deep: true })
-onMounted(() => { nextTick(() => { measurePorts(); fitView() }) })
+
+// viewSize tracks the canvas element's real size reactively. The canvas is
+// mounted while the parent <dialog> is still closed (display: none), where
+// getBoundingClientRect() reports 0x0; the ResizeObserver fires when the
+// dialog opens and again on every fullscreen toggle or window resize.
+const viewSize = ref({ w: 0, h: 0 })
+let resizeObserver = null
+onMounted(() => {
+  nextTick(() => { measurePorts(); fitView() })
+  resizeObserver = new ResizeObserver((entries) => {
+    const box = entries[0]?.contentRect
+    if (box) viewSize.value = { w: box.width, h: box.height }
+  })
+  if (canvasRef.value) resizeObserver.observe(canvasRef.value)
+})
+onBeforeUnmount(() => resizeObserver?.disconnect())
 
 // ── full screen ──────────────────────────────────────────────────────────────
 // CSS-based full screen (a fixed overlay), not the native Fullscreen API, so we
@@ -617,7 +631,9 @@ const ghostPath = computed(() => {
 })
 
 // START sentinel position: the operator's placement (startX/startY) if set,
-// else pinned to the left of the entry node, else a default spot.
+// else pinned to the left of the entry node, else centred above the empty-state
+// message so the very first thing a new flow shows is Start hovering over the
+// onboarding text (dragging it or adding a node leaves this branch).
 const startPos = computed(() => {
   const g = graph.value
   if (typeof g.startX === 'number' && typeof g.startY === 'number') {
@@ -625,7 +641,23 @@ const startPos = computed(() => {
   }
   const entryNode = nodes.value.find(n => n.id === entry.value)
   if (entryNode) return { x: entryNode.x - 150, y: entryNode.y + 4 }
+  // viewSize is reactive (ResizeObserver), so this recomputes when the dialog
+  // actually opens and whenever the canvas changes size (fullscreen, resize).
+  if (viewSize.value.w) {
+    return {
+      x: Math.round((viewSize.value.w / 2 - panX.value) / scale.value - 45),
+      y: Math.round((viewSize.value.h / 2 - panY.value) / scale.value - 92),
+    }
+  }
   return { x: 40, y: 60 }
+})
+
+// The Start box bobs gently while it sits on the empty-state message (no
+// custom position, no nodes yet) to signal it is a live element, not decor.
+// Any interaction that leaves the default branch also stops the animation.
+const startIsFloating = computed(() => {
+  const g = graph.value
+  return !nodes.value.length && typeof g.startX !== 'number'
 })
 </script>
 
@@ -743,6 +775,19 @@ const startPos = computed(() => {
 /* START sentinel */
 .flow-start { position: absolute; cursor: grab; }
 .flow-start:active { cursor: grabbing; }
+
+/* Gentle idle bobbing for the empty-state Start box: a hint that the box is
+   draggable and real. transform only (left/top stay untouched), so dragging
+   and port-anchor math are unaffected; the animation class simply drops off
+   once a node exists or the box has been placed. */
+@keyframes flow-start-bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-7px); }
+}
+.flow-start-floating {
+  animation: flow-start-bob 2.4s ease-in-out infinite;
+}
+.flow-start-floating:active { animation: none; }
 .flow-start-card {
   display: flex;
   align-items: center;
