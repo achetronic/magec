@@ -633,7 +633,7 @@ const startPos = computed(() => {
 .flow-canvas {
   position: relative;
   width: 100%;
-  height: 520px;
+  height: 340px;
   overflow: hidden;
   border-radius: 0.75rem;
   border: 1px solid rgba(120, 113, 108, 0.25);
@@ -665,9 +665,31 @@ const startPos = computed(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  backdrop-filter: blur(3px);
+  /* Heavy spread: nodes dissolve into soft color blobs, keeping only a hint
+     of what lives inside; saturate lifts the colors the blur washes out. */
+  backdrop-filter: blur(28px) saturate(1.6);
   background: rgba(24, 24, 27, 0.35);
   border-radius: inherit;
+  overflow: hidden;
+}
+
+/* Decorative aurora so the frosted glass always has color to diffuse, even
+   over an empty graph: soft radial blobs in the Magec palette (sol,
+   atlantico, rose, purple, green), melted together by their own blur. Real
+   nodes still shine through from behind and add their glow on top of it. */
+.flow-canvas-veil::before {
+  content: '';
+  position: absolute;
+  inset: -40px;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(38% 55% at 12% 20%, rgba(250, 204, 21, 0.28), transparent 70%),
+    radial-gradient(45% 60% at 85% 15%, rgba(56, 189, 248, 0.26), transparent 70%),
+    radial-gradient(40% 55% at 25% 85%, rgba(251, 113, 133, 0.24), transparent 70%),
+    radial-gradient(45% 60% at 75% 80%, rgba(192, 132, 252, 0.22), transparent 70%),
+    radial-gradient(35% 50% at 50% 45%, rgba(74, 222, 128, 0.16), transparent 70%);
+  filter: blur(34px) saturate(1.4);
 }
 
 .flow-canvas-veil-btn {

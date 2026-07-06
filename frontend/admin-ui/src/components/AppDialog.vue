@@ -18,7 +18,10 @@
       <div class="p-5 overflow-y-auto flex-1">
         <slot />
       </div>
-      <div class="flex justify-end gap-3 p-5 border-t border-piedra-700/50 flex-shrink-0">
+      <div
+        class="flex justify-end gap-3 p-5 flex-shrink-0"
+        :class="footerDivider ? 'border-t border-piedra-700/50' : 'pt-0'"
+      >
         <slot name="footer">
           <button type="button" @click="close" class="px-4 py-2 text-sm text-arena-400 hover:text-arena-200 hover:bg-piedra-800 rounded-lg transition-colors">
             Cancel
@@ -41,6 +44,10 @@ const props = defineProps({
   // persistent blocks the native <dialog> Escape-to-close so a heavy,
   // unsaved form (e.g. the flow editor) is only dismissed via Cancel/Save/X.
   persistent: { type: Boolean, default: false },
+  // footerDivider draws the border between the content area and the footer
+  // buttons. Dialogs whose content already ends in a strong visual block
+  // (e.g. the flow canvas) can switch it off.
+  footerDivider: { type: Boolean, default: true },
 })
 
 defineEmits(['close', 'save'])
