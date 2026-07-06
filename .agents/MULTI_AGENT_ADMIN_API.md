@@ -34,7 +34,7 @@ Store (in-memory + JSON persistence → data/store.json)
 │   ├── id, name, description, prompt
 ├── Flows[]             — multi-agent workflows
 │   ├── id, name, description
-│   ├── root: FlowStep (recursive tree with responseAgent flag)
+│   ├── entry, nodes[], edges[]  — directed graph (agent, router, join, parallel, subflow, expression, template, code)
 │   └── a2a: {enabled}  — exposes flow via A2A protocol
 ├── Secrets[]           — encrypted key-value pairs for env var injection
 │   ├── id, name, key, value, description
@@ -52,6 +52,31 @@ Backends (AI infra) → Memory (data infra) → MCPs (tools) → Skills (knowled
 ## API Reference
 
 Base path: `/api/v1/admin`. All endpoints return JSON. Errors: `{"error": "message"}`.
+
+### Deletes and referential integrity
+
+Every entity `DELETE` runs a shared guard (decision #36). Deleting an entity
+still referenced by others returns `409` with the breakdown:
+
+```json
+{"error": "entity is referenced by other entities",
+ "references": [{"referrerType": "client", "referrerId": "...", "referrerName": "UI",
+                 "field": "allowedAgents", "kind": "membership"}]}
+```
+
+`kind` is `membership` (list entries, optional fields — scrubbing is harmless)
+or `structural` (flow nodes, `llm.backend`, cron/webhook `commandId` —
+scrubbing breaks the referrer). Repeating the `DELETE` with `?force=true`
+scrubs every reference in one transaction and proceeds.
+
+| Method | Path                                | Description                                              |
+| ------ | ----------------------------------- | -------------------------------------------------------- |
+| GET    | `/integrity/dead-references`        | References whose target no longer exists                 |
+| POST   | `/integrity/dead-references/clean`  | Scrub every dead reference, returns `{"removed": n}`     |
+
+Backs the Settings → Maintenance → Scan & Clean button. Readers report the
+store as it is: dead references are fixed by cleaning, never worked around
+on read.
 
 ### Backends
 
