@@ -5,7 +5,7 @@ export const clientsApi = {
   get: (id) => request(`/clients/${id}`),
   create: (c) => request('/clients', { method: 'POST', body: JSON.stringify(c) }),
   update: (id, c) => request(`/clients/${id}`, { method: 'PUT', body: JSON.stringify(c) }),
-  delete: (id) => request(`/clients/${id}`, { method: 'DELETE' }),
+  delete: (id, force = false) => request(`/clients/${id}${force ? '?force=true' : ''}`, { method: 'DELETE' }),
   regenerateToken: (id) => request(`/clients/${id}/regenerate-token`, { method: 'POST' }),
   listTypes: () => request('/clients/types'),
 }

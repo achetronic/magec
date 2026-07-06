@@ -5,7 +5,7 @@ export const memoryApi = {
   get: (id) => request(`/memory/${id}`),
   create: (m) => request('/memory', { method: 'POST', body: JSON.stringify(m) }),
   update: (id, m) => request(`/memory/${id}`, { method: 'PUT', body: JSON.stringify(m) }),
-  delete: (id) => request(`/memory/${id}`, { method: 'DELETE' }),
+  delete: (id, force = false) => request(`/memory/${id}${force ? '?force=true' : ''}`, { method: 'DELETE' }),
   checkHealth: (id) => request(`/memory/${id}/health`),
   listTypes: () => request('/memory/types'),
 }

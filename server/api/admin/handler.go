@@ -161,6 +161,10 @@ func (h *Handler) buildRouter() *mux.Router {
 	r.HandleFunc("/settings/backup", h.backupDownload).Methods("GET")
 	r.HandleFunc("/settings/restore", h.backupRestore).Methods("POST")
 
+	// Referential integrity
+	r.HandleFunc("/integrity/dead-references", h.listDeadReferences).Methods("GET")
+	r.HandleFunc("/integrity/dead-references/clean", h.cleanDeadReferences).Methods("POST")
+
 	// Voice provider types
 	r.HandleFunc("/voice/types", h.listVoiceTypes).Methods("GET")
 

@@ -104,13 +104,18 @@ func (h *Handler) updateAgent(w http.ResponseWriter, r *http.Request) {
 // @Summary      Delete agent
 // @Description  Deletes an agent by ID
 // @Tags         agents
-// @Param        id  path  string  true  "Agent ID"
+// @Param        id     path   string   true   "Agent ID"
+// @Param        force  query  boolean  false  "Scrub all references to this agent and delete anyway"
 // @Success      204
 // @Failure      404  {object}  ErrorResponse
+// @Failure      409  {object}  ReferencesResponse  "Agent is referenced by other entities"
 // @Security     AdminAuth
 // @Router       /agents/{id} [delete]
 func (h *Handler) deleteAgent(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
+	if !h.deleteGuard(w, r, id) {
+		return
+	}
 	if err := h.store.DeleteAgent(id); err != nil {
 		writeError(w, http.StatusNotFound, err.Error())
 		return

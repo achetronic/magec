@@ -1,5 +1,10 @@
 basePath: /api/v1/admin
 definitions:
+  admin.CleanDeadReferencesResponse:
+    properties:
+      removed:
+        type: integer
+    type: object
   admin.ClientTypeInfo:
     properties:
       configSchema:
@@ -10,6 +15,13 @@ definitions:
       type:
         example: telegram
         type: string
+    type: object
+  admin.DeadReferencesResponse:
+    properties:
+      references:
+        items:
+          $ref: '#/definitions/store.DeadReference'
+        type: array
     type: object
   admin.ErrorResponse:
     properties:
@@ -33,6 +45,16 @@ definitions:
       type:
         example: redis
         type: string
+    type: object
+  admin.ReferencesResponse:
+    properties:
+      error:
+        example: entity is referenced by other entities
+        type: string
+      references:
+        items:
+          $ref: '#/definitions/store.Reference'
+        type: array
     type: object
   admin.SecretCreateRequest:
     properties:
@@ -342,6 +364,28 @@ definitions:
       schedule:
         type: string
     type: object
+  store.DeadReference:
+    properties:
+      field:
+        description: |-
+          Field names where inside the referrer the reference lives, in a
+          human-readable form ("allowedAgents", "llm.backend", "node bender_pros").
+        type: string
+      kind:
+        description: Kind is RefMembership or RefStructural.
+        type: string
+      referrerId:
+        type: string
+      referrerName:
+        type: string
+      referrerType:
+        description: |-
+          ReferrerType is the entity kind holding the reference: agent, client,
+          flow, memoryProvider or settings.
+        type: string
+      targetId:
+        type: string
+    type: object
   store.DiscordClientConfig:
     properties:
       allowedChannels:
@@ -595,6 +639,26 @@ definitions:
       total:
         type: integer
     type: object
+  store.Reference:
+    properties:
+      field:
+        description: |-
+          Field names where inside the referrer the reference lives, in a
+          human-readable form ("allowedAgents", "llm.backend", "node bender_pros").
+        type: string
+      kind:
+        description: Kind is RefMembership or RefStructural.
+        type: string
+      referrerId:
+        type: string
+      referrerName:
+        type: string
+      referrerType:
+        description: |-
+          ReferrerType is the entity kind holding the reference: agent, client,
+          flow, memoryProvider or settings.
+        type: string
+    type: object
   store.STTConfig:
     properties:
       gemini:
@@ -760,6 +824,10 @@ paths:
         name: id
         required: true
         type: string
+      - description: Scrub all references to this agent and delete anyway
+        in: query
+        name: force
+        type: boolean
       responses:
         "204":
           description: No Content
@@ -767,6 +835,10 @@ paths:
           description: Not Found
           schema:
             $ref: '#/definitions/admin.ErrorResponse'
+        "409":
+          description: Agent is referenced by other entities
+          schema:
+            $ref: '#/definitions/admin.ReferencesResponse'
       security:
       - AdminAuth: []
       summary: Delete agent
@@ -968,6 +1040,10 @@ paths:
         name: id
         required: true
         type: string
+      - description: Scrub all references to this entity and delete anyway
+        in: query
+        name: force
+        type: boolean
       responses:
         "204":
           description: No Content
@@ -975,6 +1051,10 @@ paths:
           description: Not Found
           schema:
             $ref: '#/definitions/admin.ErrorResponse'
+        "409":
+          description: Backend is referenced by other entities
+          schema:
+            $ref: '#/definitions/admin.ReferencesResponse'
       security:
       - AdminAuth: []
       summary: Delete backend
@@ -1097,6 +1177,10 @@ paths:
         name: id
         required: true
         type: string
+      - description: Scrub all references to this entity and delete anyway
+        in: query
+        name: force
+        type: boolean
       responses:
         "204":
           description: No Content
@@ -1104,6 +1188,10 @@ paths:
           description: Not Found
           schema:
             $ref: '#/definitions/admin.ErrorResponse'
+        "409":
+          description: Client is referenced by other entities
+          schema:
+            $ref: '#/definitions/admin.ReferencesResponse'
       security:
       - AdminAuth: []
       summary: Delete client
@@ -1270,6 +1358,10 @@ paths:
         name: id
         required: true
         type: string
+      - description: Scrub all references to this entity and delete anyway
+        in: query
+        name: force
+        type: boolean
       responses:
         "204":
           description: No Content
@@ -1277,6 +1369,10 @@ paths:
           description: Not Found
           schema:
             $ref: '#/definitions/admin.ErrorResponse'
+        "409":
+          description: Command is referenced by other entities
+          schema:
+            $ref: '#/definitions/admin.ReferencesResponse'
       security:
       - AdminAuth: []
       summary: Delete command
@@ -1607,6 +1703,10 @@ paths:
         name: id
         required: true
         type: string
+      - description: Scrub all references to this entity and delete anyway
+        in: query
+        name: force
+        type: boolean
       responses:
         "204":
           description: No Content
@@ -1614,6 +1714,10 @@ paths:
           description: Not Found
           schema:
             $ref: '#/definitions/admin.ErrorResponse'
+        "409":
+          description: Flow is referenced by other entities
+          schema:
+            $ref: '#/definitions/admin.ReferencesResponse'
       security:
       - AdminAuth: []
       summary: Delete flow
@@ -1679,6 +1783,41 @@ paths:
       summary: Update flow
       tags:
       - flows
+  /integrity/dead-references:
+    get:
+      description: Returns references pointing at entities that no longer exist (left
+        behind by deletes performed before referential integrity existed)
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/admin.DeadReferencesResponse'
+      security:
+      - AdminAuth: []
+      summary: List dead references
+      tags:
+      - integrity
+  /integrity/dead-references/clean:
+    post:
+      description: Removes every reference pointing at entities that no longer exist
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/admin.CleanDeadReferencesResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/admin.ErrorResponse'
+      security:
+      - AdminAuth: []
+      summary: Clean dead references
+      tags:
+      - integrity
   /mcps:
     get:
       description: Returns all configured MCP (Model Context Protocol) servers
@@ -1736,6 +1875,10 @@ paths:
         name: id
         required: true
         type: string
+      - description: Scrub all references to this entity and delete anyway
+        in: query
+        name: force
+        type: boolean
       responses:
         "204":
           description: No Content
@@ -1743,6 +1886,10 @@ paths:
           description: Not Found
           schema:
             $ref: '#/definitions/admin.ErrorResponse'
+        "409":
+          description: MCP server is referenced by other entities
+          schema:
+            $ref: '#/definitions/admin.ReferencesResponse'
       security:
       - AdminAuth: []
       summary: Delete MCP server
@@ -1865,6 +2012,10 @@ paths:
         name: id
         required: true
         type: string
+      - description: Scrub all references to this entity and delete anyway
+        in: query
+        name: force
+        type: boolean
       responses:
         "204":
           description: No Content
@@ -1872,6 +2023,10 @@ paths:
           description: Not Found
           schema:
             $ref: '#/definitions/admin.ErrorResponse'
+        "409":
+          description: Memory provider is referenced by other entities
+          schema:
+            $ref: '#/definitions/admin.ReferencesResponse'
       security:
       - AdminAuth: []
       summary: Delete memory provider
@@ -2138,6 +2293,10 @@ paths:
         name: id
         required: true
         type: string
+      - description: Scrub all references to this entity and delete anyway
+        in: query
+        name: force
+        type: boolean
       responses:
         "204":
           description: No Content
@@ -2145,6 +2304,10 @@ paths:
           description: Not Found
           schema:
             $ref: '#/definitions/admin.ErrorResponse'
+        "409":
+          description: Secret is referenced by other entities
+          schema:
+            $ref: '#/definitions/admin.ReferencesResponse'
       security:
       - AdminAuth: []
       summary: Delete secret
@@ -2343,6 +2506,10 @@ paths:
         name: id
         required: true
         type: string
+      - description: Scrub all references to this entity and delete anyway
+        in: query
+        name: force
+        type: boolean
       responses:
         "204":
           description: No Content
@@ -2350,6 +2517,10 @@ paths:
           description: Not Found
           schema:
             $ref: '#/definitions/admin.ErrorResponse'
+        "409":
+          description: Skill is referenced by other entities
+          schema:
+            $ref: '#/definitions/admin.ReferencesResponse'
       security:
       - AdminAuth: []
       summary: Delete skill

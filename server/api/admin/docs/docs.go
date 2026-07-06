@@ -205,6 +205,12 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Scrub all references to this agent and delete anyway",
+                        "name": "force",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -215,6 +221,12 @@ const docTemplate = `{
                         "description": "Not Found",
                         "schema": {
                             "$ref": "#/definitions/admin.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Agent is referenced by other entities",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ReferencesResponse"
                         }
                     }
                 }
@@ -533,6 +545,12 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Scrub all references to this entity and delete anyway",
+                        "name": "force",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -543,6 +561,12 @@ const docTemplate = `{
                         "description": "Not Found",
                         "schema": {
                             "$ref": "#/definitions/admin.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Backend is referenced by other entities",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ReferencesResponse"
                         }
                     }
                 }
@@ -766,6 +790,12 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Scrub all references to this entity and delete anyway",
+                        "name": "force",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -776,6 +806,12 @@ const docTemplate = `{
                         "description": "Not Found",
                         "schema": {
                             "$ref": "#/definitions/admin.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Client is referenced by other entities",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ReferencesResponse"
                         }
                     }
                 }
@@ -1011,6 +1047,12 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Scrub all references to this entity and delete anyway",
+                        "name": "force",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -1021,6 +1063,12 @@ const docTemplate = `{
                         "description": "Not Found",
                         "schema": {
                             "$ref": "#/definitions/admin.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Command is referenced by other entities",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ReferencesResponse"
                         }
                     }
                 }
@@ -1532,6 +1580,12 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Scrub all references to this entity and delete anyway",
+                        "name": "force",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -1540,6 +1594,68 @@ const docTemplate = `{
                     },
                     "404": {
                         "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Flow is referenced by other entities",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ReferencesResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/integrity/dead-references": {
+            "get": {
+                "security": [
+                    {
+                        "AdminAuth": []
+                    }
+                ],
+                "description": "Returns references pointing at entities that no longer exist (left behind by deletes performed before referential integrity existed)",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "integrity"
+                ],
+                "summary": "List dead references",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/admin.DeadReferencesResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/integrity/dead-references/clean": {
+            "post": {
+                "security": [
+                    {
+                        "AdminAuth": []
+                    }
+                ],
+                "description": "Removes every reference pointing at entities that no longer exist",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "integrity"
+                ],
+                "summary": "Clean dead references",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/admin.CleanDeadReferencesResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
                         "schema": {
                             "$ref": "#/definitions/admin.ErrorResponse"
                         }
@@ -1737,6 +1853,12 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Scrub all references to this entity and delete anyway",
+                        "name": "force",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -1747,6 +1869,12 @@ const docTemplate = `{
                         "description": "Not Found",
                         "schema": {
                             "$ref": "#/definitions/admin.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "MCP server is referenced by other entities",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ReferencesResponse"
                         }
                     }
                 }
@@ -1970,6 +2098,12 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Scrub all references to this entity and delete anyway",
+                        "name": "force",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -1980,6 +2114,12 @@ const docTemplate = `{
                         "description": "Not Found",
                         "schema": {
                             "$ref": "#/definitions/admin.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Memory provider is referenced by other entities",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ReferencesResponse"
                         }
                     }
                 }
@@ -2371,6 +2511,12 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Scrub all references to this entity and delete anyway",
+                        "name": "force",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -2381,6 +2527,12 @@ const docTemplate = `{
                         "description": "Not Found",
                         "schema": {
                             "$ref": "#/definitions/admin.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Secret is referenced by other entities",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ReferencesResponse"
                         }
                     }
                 }
@@ -2694,6 +2846,12 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Scrub all references to this entity and delete anyway",
+                        "name": "force",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -2704,6 +2862,12 @@ const docTemplate = `{
                         "description": "Not Found",
                         "schema": {
                             "$ref": "#/definitions/admin.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Skill is referenced by other entities",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ReferencesResponse"
                         }
                     }
                 }
@@ -2776,6 +2940,14 @@ const docTemplate = `{
         }
     },
     "definitions": {
+        "admin.CleanDeadReferencesResponse": {
+            "type": "object",
+            "properties": {
+                "removed": {
+                    "type": "integer"
+                }
+            }
+        },
         "admin.ClientTypeInfo": {
             "type": "object",
             "properties": {
@@ -2789,6 +2961,17 @@ const docTemplate = `{
                 "type": {
                     "type": "string",
                     "example": "telegram"
+                }
+            }
+        },
+        "admin.DeadReferencesResponse": {
+            "type": "object",
+            "properties": {
+                "references": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/store.DeadReference"
+                    }
                 }
             }
         },
@@ -2823,6 +3006,21 @@ const docTemplate = `{
                 "type": {
                     "type": "string",
                     "example": "redis"
+                }
+            }
+        },
+        "admin.ReferencesResponse": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string",
+                    "example": "entity is referenced by other entities"
+                },
+                "references": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/store.Reference"
+                    }
                 }
             }
         },
@@ -3288,6 +3486,32 @@ const docTemplate = `{
                 }
             }
         },
+        "store.DeadReference": {
+            "type": "object",
+            "properties": {
+                "field": {
+                    "description": "Field names where inside the referrer the reference lives, in a\nhuman-readable form (\"allowedAgents\", \"llm.backend\", \"node bender_pros\").",
+                    "type": "string"
+                },
+                "kind": {
+                    "description": "Kind is RefMembership or RefStructural.",
+                    "type": "string"
+                },
+                "referrerId": {
+                    "type": "string"
+                },
+                "referrerName": {
+                    "type": "string"
+                },
+                "referrerType": {
+                    "description": "ReferrerType is the entity kind holding the reference: agent, client,\nflow, memoryProvider or settings.",
+                    "type": "string"
+                },
+                "targetId": {
+                    "type": "string"
+                }
+            }
+        },
         "store.DiscordClientConfig": {
             "type": "object",
             "properties": {
@@ -3583,6 +3807,29 @@ const docTemplate = `{
                 },
                 "total": {
                     "type": "integer"
+                }
+            }
+        },
+        "store.Reference": {
+            "type": "object",
+            "properties": {
+                "field": {
+                    "description": "Field names where inside the referrer the reference lives, in a\nhuman-readable form (\"allowedAgents\", \"llm.backend\", \"node bender_pros\").",
+                    "type": "string"
+                },
+                "kind": {
+                    "description": "Kind is RefMembership or RefStructural.",
+                    "type": "string"
+                },
+                "referrerId": {
+                    "type": "string"
+                },
+                "referrerName": {
+                    "type": "string"
+                },
+                "referrerType": {
+                    "description": "ReferrerType is the entity kind holding the reference: agent, client,\nflow, memoryProvider or settings.",
+                    "type": "string"
                 }
             }
         },

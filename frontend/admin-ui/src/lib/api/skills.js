@@ -11,7 +11,7 @@ const BASE = '/api/v1/admin'
 export const skillsApi = {
   list: () => request('/skills'),
   get: (id) => request(`/skills/${id}`),
-  delete: (id) => request(`/skills/${id}`, { method: 'DELETE' }),
+  delete: (id, force = false) => request(`/skills/${id}${force ? '?force=true' : ''}`, { method: 'DELETE' }),
 
   // upload accepts a SKILL.md or a .zip/.tar.gz package. Pass
   // replace=true to overwrite an existing skill that owns the same

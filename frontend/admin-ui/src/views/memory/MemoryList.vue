@@ -37,7 +37,7 @@ import MemoryDialog from './MemoryDialog.vue'
 
 const store = useDataStore()
 const dialog = ref(null)
-const requestDelete = inject('requestDelete')
+const deleteEntity = inject('deleteEntity')
 const toast = inject('toast')
 const registerNew = inject('registerNew')
 onMounted(() => registerNew(() => openDialog()))
@@ -66,13 +66,11 @@ function openDialog(mem = null) {
 }
 
 function handleDelete(m) {
-  requestDelete(`Delete memory provider "${m.name}"? This cannot be undone.`, async () => {
-    try {
-      await memoryApi.delete(m.id)
-      await store.refresh()
-    } catch (e) {
-      toast.error(e.message)
-    }
+  deleteEntity({
+    message: `Delete memory provider "${m.name}"? This cannot be undone.`,
+    label: m.name,
+    doDelete: (force) => memoryApi.delete(m.id, force),
+    after: () => store.refresh(),
   })
 }
 </script>

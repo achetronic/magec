@@ -123,13 +123,18 @@ func (h *Handler) updateClient(w http.ResponseWriter, r *http.Request) {
 // @Summary      Delete client
 // @Description  Deletes a client by ID, revoking its access token
 // @Tags         clients
-// @Param        id  path  string  true  "Client ID"
+// @Param        id     path   string   true   "Client ID"
+// @Param        force  query  boolean  false  "Scrub all references to this entity and delete anyway"
 // @Success      204
 // @Failure      404  {object}  ErrorResponse
+// @Failure      409  {object}  ReferencesResponse  "Client is referenced by other entities"
 // @Security     AdminAuth
 // @Router       /clients/{id} [delete]
 func (h *Handler) deleteClient(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
+	if !h.deleteGuard(w, r, id) {
+		return
+	}
 	if err := h.store.DeleteClient(id); err != nil {
 		writeError(w, http.StatusNotFound, err.Error())
 		return

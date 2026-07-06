@@ -124,13 +124,18 @@ func (h *Handler) updateMemoryProvider(w http.ResponseWriter, r *http.Request) {
 // @Summary      Delete memory provider
 // @Description  Deletes a memory provider by ID
 // @Tags         memory
-// @Param        id  path  string  true  "Memory Provider ID"
+// @Param        id     path   string   true   "Memory Provider ID"
+// @Param        force  query  boolean  false  "Scrub all references to this entity and delete anyway"
 // @Success      204
 // @Failure      404  {object}  ErrorResponse
+// @Failure      409  {object}  ReferencesResponse  "Memory provider is referenced by other entities"
 // @Security     AdminAuth
 // @Router       /memory/{id} [delete]
 func (h *Handler) deleteMemoryProvider(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
+	if !h.deleteGuard(w, r, id) {
+		return
+	}
 	if err := h.store.DeleteMemoryProvider(id); err != nil {
 		writeError(w, http.StatusNotFound, err.Error())
 		return

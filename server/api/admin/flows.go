@@ -113,13 +113,18 @@ func (h *Handler) updateFlow(w http.ResponseWriter, r *http.Request) {
 // @Summary      Delete flow
 // @Description  Deletes a flow by ID
 // @Tags         flows
-// @Param        id  path  string  true  "Flow ID"
+// @Param        id     path   string   true   "Flow ID"
+// @Param        force  query  boolean  false  "Scrub all references to this entity and delete anyway"
 // @Success      204
 // @Failure      404  {object}  ErrorResponse
+// @Failure      409  {object}  ReferencesResponse  "Flow is referenced by other entities"
 // @Security     AdminAuth
 // @Router       /flows/{id} [delete]
 func (h *Handler) deleteFlow(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
+	if !h.deleteGuard(w, r, id) {
+		return
+	}
 	if err := h.store.DeleteFlow(id); err != nil {
 		writeError(w, http.StatusNotFound, err.Error())
 		return

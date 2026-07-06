@@ -108,13 +108,18 @@ func (h *Handler) updateBackend(w http.ResponseWriter, r *http.Request) {
 // @Summary      Delete backend
 // @Description  Deletes a backend by ID
 // @Tags         backends
-// @Param        id  path  string  true  "Backend ID"
+// @Param        id     path   string   true   "Backend ID"
+// @Param        force  query  boolean  false  "Scrub all references to this entity and delete anyway"
 // @Success      204
 // @Failure      404  {object}  ErrorResponse
+// @Failure      409  {object}  ReferencesResponse  "Backend is referenced by other entities"
 // @Security     AdminAuth
 // @Router       /backends/{id} [delete]
 func (h *Handler) deleteBackend(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
+	if !h.deleteGuard(w, r, id) {
+		return
+	}
 	if err := h.store.DeleteBackend(id); err != nil {
 		writeError(w, http.StatusNotFound, err.Error())
 		return

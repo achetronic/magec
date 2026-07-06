@@ -52,7 +52,7 @@ import CommandDialog from './CommandDialog.vue'
 
 const store = useDataStore()
 const dialog = ref(null)
-const requestDelete = inject('requestDelete')
+const deleteEntity = inject('deleteEntity')
 const toast = inject('toast')
 const registerNew = inject('registerNew')
 onMounted(() => registerNew(() => openDialog()))
@@ -63,13 +63,11 @@ function openDialog(cmd = null) {
 }
 
 function handleDelete(c) {
-  requestDelete(`Delete command "${c.name}"? This cannot be undone.`, async () => {
-    try {
-      await commandsApi.delete(c.id)
-      await store.refresh()
-    } catch (e) {
-      toast.error(e.message)
-    }
+  deleteEntity({
+    message: `Delete command "${c.name}"? This cannot be undone.`,
+    label: c.name,
+    doDelete: (force) => commandsApi.delete(c.id, force),
+    after: () => store.refresh(),
   })
 }
 </script>
