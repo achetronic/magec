@@ -104,13 +104,18 @@ func (h *Handler) updateMCPServer(w http.ResponseWriter, r *http.Request) {
 // @Summary      Delete MCP server
 // @Description  Deletes an MCP server by ID
 // @Tags         mcps
-// @Param        id  path  string  true  "MCP Server ID"
+// @Param        id     path   string   true   "MCP Server ID"
+// @Param        force  query  boolean  false  "Scrub all references to this entity and delete anyway"
 // @Success      204
 // @Failure      404  {object}  ErrorResponse
+// @Failure      409  {object}  ReferencesResponse  "MCP server is referenced by other entities"
 // @Security     AdminAuth
 // @Router       /mcps/{id} [delete]
 func (h *Handler) deleteMCPServer(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
+	if !h.deleteGuard(w, r, id) {
+		return
+	}
 	if err := h.store.DeleteMCPServer(id); err != nil {
 		writeError(w, http.StatusNotFound, err.Error())
 		return

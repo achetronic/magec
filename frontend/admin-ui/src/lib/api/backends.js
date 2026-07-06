@@ -5,5 +5,5 @@ export const backendsApi = {
   get: (id) => request(`/backends/${id}`),
   create: (b) => request('/backends', { method: 'POST', body: JSON.stringify(b) }),
   update: (id, b) => request(`/backends/${id}`, { method: 'PUT', body: JSON.stringify(b) }),
-  delete: (id) => request(`/backends/${id}`, { method: 'DELETE' }),
+  delete: (id, force = false) => request(`/backends/${id}${force ? '?force=true' : ''}`, { method: 'DELETE' }),
 }

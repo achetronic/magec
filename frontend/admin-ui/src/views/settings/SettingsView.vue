@@ -39,6 +39,7 @@ import { ref, computed, watch, nextTick, onMounted, onUnmounted, markRaw } from 
 import Icon from '../../components/Icon.vue'
 import BackupSection from './BackupSection.vue'
 import FlowsSection from './FlowsSection.vue'
+import MaintenanceSection from './MaintenanceSection.vue'
 import RuntimeSection from './RuntimeSection.vue'
 
 const search = ref('')
@@ -59,6 +60,11 @@ const sections = [
     id: 'backup',
     keywords: ['backup', 'restore', 'export', 'import', 'download', 'upload', 'data', 'archive', 'tar'],
     component: markRaw(BackupSection),
+  },
+  {
+    id: 'maintenance',
+    keywords: ['maintenance', 'dead', 'references', 'integrity', 'clean', 'cleanup', 'orphan', 'stale', 'broken'],
+    component: markRaw(MaintenanceSection),
   },
 ]
 

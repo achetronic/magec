@@ -151,7 +151,7 @@ const store = useDataStore()
 const dialog = ref(null)
 const expandedId = ref(null)
 const expandedTags = reactive({})
-const requestDelete = inject('requestDelete')
+const deleteEntity = inject('deleteEntity')
 const toast = inject('toast')
 const registerNew = inject('registerNew')
 onMounted(() => registerNew(() => openDialog()))
@@ -219,13 +219,11 @@ function openDialog(agent = null) {
 }
 
 function handleDelete(a) {
-  requestDelete(`Delete agent "${a.name || a.id}"? This cannot be undone.`, async () => {
-    try {
-      await agentsApi.delete(a.id)
-      await store.refresh()
-    } catch (e) {
-      toast.error(e.message)
-    }
+  deleteEntity({
+    message: `Delete agent "${a.name || a.id}"? This cannot be undone.`,
+    label: a.name || a.id,
+    doDelete: (force) => agentsApi.delete(a.id, force),
+    after: () => store.refresh(),
   })
 }
 </script>

@@ -156,12 +156,17 @@ func (h *Handler) updateSecret(w http.ResponseWriter, r *http.Request) {
 // @Description  Deletes a secret by ID
 // @Tags         secrets
 // @Security     AdminAuth
-// @Param        id  path  string  true  "Secret ID"
+// @Param        id     path   string   true   "Secret ID"
+// @Param        force  query  boolean  false  "Scrub all references to this entity and delete anyway"
 // @Success      204
 // @Failure      404  {object}  ErrorResponse
+// @Failure      409  {object}  ReferencesResponse  "Secret is referenced by other entities"
 // @Router       /secrets/{id} [delete]
 func (h *Handler) deleteSecret(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
+	if !h.deleteGuard(w, r, id) {
+		return
+	}
 	if err := h.store.DeleteSecret(id); err != nil {
 		writeError(w, http.StatusNotFound, err.Error())
 		return

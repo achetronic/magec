@@ -63,7 +63,7 @@ import McpDialog from './McpDialog.vue'
 
 const store = useDataStore()
 const dialog = ref(null)
-const requestDelete = inject('requestDelete')
+const deleteEntity = inject('deleteEntity')
 const toast = inject('toast')
 const registerNew = inject('registerNew')
 onMounted(() => registerNew(() => openDialog()))
@@ -86,13 +86,11 @@ function usedBy(id) {
 }
 
 function handleDelete(m) {
-  requestDelete(`Delete MCP server "${m.name}"? This cannot be undone.`, async () => {
-    try {
-      await mcpsApi.delete(m.id)
-      await store.refresh()
-    } catch (e) {
-      toast.error(e.message)
-    }
+  deleteEntity({
+    message: `Delete MCP server "${m.name}"? This cannot be undone.`,
+    label: m.name,
+    doDelete: (force) => mcpsApi.delete(m.id, force),
+    after: () => store.refresh(),
   })
 }
 </script>

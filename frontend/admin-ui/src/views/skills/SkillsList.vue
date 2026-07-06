@@ -65,7 +65,7 @@ import SkillViewDialog from './SkillViewDialog.vue'
 const store = useDataStore()
 const uploadDialog = ref(null)
 const viewDialog = ref(null)
-const requestDelete = inject('requestDelete')
+const deleteEntity = inject('deleteEntity')
 const toast = inject('toast')
 const registerNew = inject('registerNew')
 onMounted(() => registerNew(() => openUpload()))
@@ -114,13 +114,11 @@ function usedBy(id) {
 
 function handleDelete(sk) {
   const label = sk.name || sk.slug
-  requestDelete(`Delete skill "${label}"? This removes the on-disk package and cannot be undone.`, async () => {
-    try {
-      await skillsApi.delete(sk.id)
-      await store.refresh()
-    } catch (e) {
-      toast.error(e.message)
-    }
+  deleteEntity({
+    message: `Delete skill "${label}"? This removes the on-disk package and cannot be undone.`,
+    label,
+    doDelete: (force) => skillsApi.delete(sk.id, force),
+    after: () => store.refresh(),
   })
 }
 </script>

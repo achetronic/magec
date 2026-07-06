@@ -59,7 +59,7 @@ import BackendDialog from './BackendDialog.vue'
 
 const store = useDataStore()
 const dialog = ref(null)
-const requestDelete = inject('requestDelete')
+const deleteEntity = inject('deleteEntity')
 const toast = inject('toast')
 const registerNew = inject('registerNew')
 onMounted(() => registerNew(() => openDialog()))
@@ -87,13 +87,11 @@ function usedBy(id) {
 }
 
 function handleDelete(b) {
-  requestDelete(`Delete backend "${b.name}"? This cannot be undone.`, async () => {
-    try {
-      await backendsApi.delete(b.id)
-      await store.refresh()
-    } catch (e) {
-      toast.error(e.message)
-    }
+  deleteEntity({
+    message: `Delete backend "${b.name}"? This cannot be undone.`,
+    label: b.name,
+    doDelete: (force) => backendsApi.delete(b.id, force),
+    after: () => store.refresh(),
   })
 }
 </script>

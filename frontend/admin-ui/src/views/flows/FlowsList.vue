@@ -51,7 +51,7 @@ import FlowDialog from './FlowDialog.vue'
 
 const store = useDataStore()
 const dialog = ref(null)
-const requestDelete = inject('requestDelete')
+const deleteEntity = inject('deleteEntity')
 const toast = inject('toast')
 const registerNew = inject('registerNew')
 onMounted(() => registerNew(() => openDialog()))
@@ -62,13 +62,11 @@ function openDialog(flow = null) {
 }
 
 function handleDelete(f) {
-  requestDelete(`Delete flow "${f.name}"? This cannot be undone.`, async () => {
-    try {
-      await flowsApi.delete(f.id)
-      await store.refresh()
-    } catch (e) {
-      toast.error(e.message)
-    }
+  deleteEntity({
+    message: `Delete flow "${f.name}"? This cannot be undone.`,
+    label: f.name,
+    doDelete: (force) => flowsApi.delete(f.id, force),
+    after: () => store.refresh(),
   })
 }
 </script>

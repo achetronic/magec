@@ -5,5 +5,5 @@ export const flowsApi = {
   get: (id) => request(`/flows/${id}`),
   create: (f) => request('/flows', { method: 'POST', body: JSON.stringify(f) }),
   update: (id, f) => request(`/flows/${id}`, { method: 'PUT', body: JSON.stringify(f) }),
-  delete: (id) => request(`/flows/${id}`, { method: 'DELETE' }),
+  delete: (id, force = false) => request(`/flows/${id}${force ? '?force=true' : ''}`, { method: 'DELETE' }),
 }

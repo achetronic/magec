@@ -108,13 +108,18 @@ func (h *Handler) updateCommand(w http.ResponseWriter, r *http.Request) {
 // @Summary      Delete command
 // @Description  Deletes a command by ID
 // @Tags         commands
-// @Param        id  path  string  true  "Command ID"
+// @Param        id     path   string   true   "Command ID"
+// @Param        force  query  boolean  false  "Scrub all references to this entity and delete anyway"
 // @Success      204
 // @Failure      404  {object}  ErrorResponse
+// @Failure      409  {object}  ReferencesResponse  "Command is referenced by other entities"
 // @Security     AdminAuth
 // @Router       /commands/{id} [delete]
 func (h *Handler) deleteCommand(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
+	if !h.deleteGuard(w, r, id) {
+		return
+	}
 	if err := h.store.DeleteCommand(id); err != nil {
 		writeError(w, http.StatusNotFound, err.Error())
 		return

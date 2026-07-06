@@ -47,6 +47,12 @@
       :message="confirmMessage"
       @confirm="onConfirmDelete"
     />
+    <ForceDeleteDialog
+      ref="forceDialog"
+      :label="forceLabel"
+      :references="forceReferences"
+      @confirm="onConfirmForce"
+    />
     <Toast ref="toastRef" />
     <SearchPalette ref="searchRef" @navigate="activeTab = $event" />
   </div>
@@ -60,6 +66,7 @@ import LoginScreen from './components/LoginScreen.vue'
 import Sidebar from './components/Sidebar.vue'
 import TopBar from './components/TopBar.vue'
 import ConfirmDialog from './components/ConfirmDialog.vue'
+import ForceDeleteDialog from './components/ForceDeleteDialog.vue'
 import Toast from './components/Toast.vue'
 import SearchPalette from './components/SearchPalette.vue'
 import BackendsList from './views/backends/BackendsList.vue'
@@ -132,6 +139,49 @@ function onConfirmDelete() {
 
 provide('requestDelete', requestDelete)
 provide('toast', toast)
+
+// deleteEntity runs the referential-integrity delete dance: the usual confirm
+// dialog first, and when the API answers 409 with the reference breakdown, a
+// second dialog showing the demolition quote with a Force button that retries
+// the delete with ?force=true.
+const forceDialog = ref(null)
+const forceLabel = ref('')
+const forceReferences = ref([])
+let forceCallback = null
+
+function onConfirmForce() {
+  if (forceCallback) {
+    forceCallback()
+    forceCallback = null
+  }
+}
+
+function deleteEntity({ message, label, doDelete, after }) {
+  requestDelete(message, async () => {
+    try {
+      await doDelete(false)
+      await after?.()
+    } catch (e) {
+      if (e.status === 409 && e.data?.references) {
+        forceLabel.value = label
+        forceReferences.value = e.data.references
+        forceCallback = async () => {
+          try {
+            await doDelete(true)
+            await after?.()
+          } catch (e2) {
+            toast.error(e2.message)
+          }
+        }
+        forceDialog.value?.open()
+      } else {
+        toast.error(e.message)
+      }
+    }
+  })
+}
+
+provide('deleteEntity', deleteEntity)
 
 const newEntityHandler = ref(null)
 provide('registerNew', (fn) => { newEntityHandler.value = fn })

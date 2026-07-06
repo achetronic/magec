@@ -214,13 +214,18 @@ func (h *Handler) uploadSkill(w http.ResponseWriter, r *http.Request) {
 // @Summary      Delete skill
 // @Description  Deletes a skill and its on-disk package
 // @Tags         skills
-// @Param        id  path  string  true  "Skill ID"
+// @Param        id     path   string   true   "Skill ID"
+// @Param        force  query  boolean  false  "Scrub all references to this entity and delete anyway"
 // @Success      204
 // @Failure      404  {object}  ErrorResponse
+// @Failure      409  {object}  ReferencesResponse  "Skill is referenced by other entities"
 // @Security     AdminAuth
 // @Router       /skills/{id} [delete]
 func (h *Handler) deleteSkill(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
+	if !h.deleteGuard(w, r, id) {
+		return
+	}
 	if err := h.store.DeleteSkill(id); err != nil {
 		writeError(w, http.StatusNotFound, err.Error())
 		return
