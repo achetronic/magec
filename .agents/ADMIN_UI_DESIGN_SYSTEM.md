@@ -318,3 +318,17 @@ above dialogs AND stay clickable — see decision #35 before touching it.
 - `footerDivider` (default `true`): border between content and the Cancel/Save
   row. Turn off when the content already ends in a strong visual block (the
   flow canvas preview); keep on for scrolling forms.
+
+## Delete Confirmations (`ConfirmDialog`, `ForceDeleteDialog`, `ReferenceListDialog`)
+
+Deletes go through `deleteEntity()` (provided by App.vue), never raw
+`requestDelete` + api calls in views:
+
+- `deleteEntity({message, label, doDelete, after})` shows the standard
+  ConfirmDialog; when the API answers `409` with a reference breakdown, it
+  chains a `ForceDeleteDialog` and retries `doDelete(true)` on confirm.
+- `ReferenceListDialog` is the shared shell for "these entities are affected"
+  lists (title/subtitle/rows/confirm props; rows are display-ready). Both
+  `ForceDeleteDialog` (lava rows for structural damage, arena for harmless
+  unlinks) and the Settings Maintenance cleanup (blue rows) build on it.
+  New affected-entities dialogs must reuse it, not clone the row markup.
