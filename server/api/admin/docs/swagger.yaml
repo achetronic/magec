@@ -408,8 +408,6 @@ definitions:
           FlowNodeAgent (the agent to run) or FlowNodeParallel (the agent run once
           per list item). Ignored for other types.
         type: string
-      defaultRoute:
-        type: string
       expression:
         description: |-
           Expression is a CEL expression evaluated over `input` (the previous
@@ -453,8 +451,8 @@ definitions:
         type: boolean
       rules:
         description: |-
-          Rules and DefaultRoute drive a router node. Rules are evaluated in order;
-          DefaultRoute is emitted when no rule matches. Only meaningful when Type
+          Rules drive a router node, evaluated in order; when none matches the
+          router emits RouterOtherwiseRoute. Only meaningful when Type
           is FlowNodeRouter.
         items:
           $ref: '#/definitions/store.FlowRule'
