@@ -4,6 +4,39 @@ Pending work only. History lives in git and DECISIONS.md.
 
 ## High Priority
 
+### ▶ NEXT: Run auditing phase 2: Conversations as a projection over runs
+
+Rebuild the Conversations audit as a projection over recorded runs
+(conversation = runs of one session; user perspective = on-read filter by
+ResponseAgentNames). Retires the body-buffering ConversationRecorder
+middleware and the persisted dual perspective. Clean break, no migrator.
+Decision #31.
+
+---
+
+### Secrets usable by the LLM without exposure
+
+Today secrets only reach server config (env-var expansion at store load,
+gotcha #20). Agents cannot use a secret in a tool call without the raw value
+entering the LLM context — and everything the LLM sees is also persisted by
+the run recorder, so one leak is a leak forever.
+
+Desired pattern (precedent: baifo's `${secret:NAME}` + log redactor):
+
+- **Expansion**: the LLM writes `${secret:NAME}` placeholders in tool
+  arguments; the runtime expands them to the real value just before the MCP
+  call executes. The raw value never appears in the request context.
+- **Redaction at rest**: tool results, session events, run recorder payloads
+  and logs are scrubbed — any occurrence of a known secret value is replaced
+  by its placeholder BEFORE persisting or feeding back into the LLM context.
+  Mind the recorder: raw events are stored verbatim today.
+- **Scope**: decide which agents may reference which secrets (likely an
+  allowlist on AgentDefinition, mirroring MCP/tool wiring).
+
+**Modify**: `server/agent/agent.go` (toolset wrapping), `server/agent/runrecorder/`, `server/store/` (secret scope), redactor helper (new package).
+
+---
+
 ### Run recorder: interrupted status on shutdown
 
 A server restart mid-run produces a run record with status `completed` even
@@ -62,18 +95,6 @@ for its own branch:
   multi-user conversations are attributable.
 
 **Modify**: `server/clients/{telegram,discord,slack}/bot.go`, `server/clients/executor.go`, instruction builder in `server/agent/agent.go`.
-
----
-
-### Run auditing phase 2: Conversations as a projection over runs
-
-Rebuild the Conversations audit as a projection over recorded runs
-(conversation = runs of one session; user perspective = on-read filter by
-ResponseAgentNames). Retires the body-buffering ConversationRecorder
-middleware and the persisted dual perspective. Clean break, no migrator.
-Decision #31.
-
----
 
 ---
 
@@ -162,6 +183,19 @@ See `.agents/ADK_TOOLS.md` for protocol details.
 ---
 
 ## Medium Priority
+
+### Website: redo the landing page
+
+The landing (layouts + `hugo.toml` front page) got incremental cleanups after
+the v2.0.0 docs rewrite (emdashes out, naked accent icons, cropped editor
+screenshot) but the page itself is still the old structure. Redo it properly:
+structure, messaging and visuals decided with the user before building.
+Follow `DOCS_STYLE.md` for prose; screenshots via the established sanitize →
+capture → restore pipeline.
+
+**Modify**: `website/layouts/`, `website/hugo.toml`, `website/assets/`.
+
+---
 
 ### Use `artifact.Service.GetArtifactVersion` for richer metadata
 
