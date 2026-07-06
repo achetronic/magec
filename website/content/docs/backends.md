@@ -2,12 +2,12 @@
 title: "AI Backends"
 ---
 
-A backend is a connection to an AI provider. It tells Magec where to send requests for text generation, embeddings, speech-to-text, or text-to-speech. You can have as many backends as you want — one per provider, or several pointing at different models or instances of the same provider.
+A backend is a connection to an AI provider. It tells Magec where to send requests for text generation, embeddings, speech-to-text, or text-to-speech. You can have as many backends as you want: one per provider, or several pointing at different models or instances of the same provider.
 
 Every agent references a backend for its LLM. Optionally, an agent can also reference backends for voice (STT, TTS) and the memory system references one for embeddings. This means you can mix providers freely: one agent can use OpenAI for its brain and a local Ollama for embeddings, another can use Anthropic for reasoning and the same OpenAI for voice.
 
 <div class="screenshots" style="margin-bottom: 2rem;">
-{{< screenshot src="img/screenshots/admin-backends.png" alt="Admin UI — Backends" >}}
+{{< screenshot src="img/screenshots/admin-backends.png" alt="Backends" >}}
 </div>
 
 ## Backend types
@@ -15,7 +15,7 @@ Every agent references a backend for its LLM. Optionally, an agent can also refe
 Click **+ New Backend** to create one. All types share the same dialog:
 
 <div class="screenshots" style="margin-bottom: 2rem;">
-{{< screenshot src="img/screenshots/admin-backend-dialog.png" alt="Admin UI — New Backend dialog" >}}
+{{< screenshot src="img/screenshots/admin-backend-dialog.png" alt="New Backend dialog" >}}
 </div>
 
 ### OpenAI (`openai`)
@@ -93,17 +93,17 @@ Not every backend supports every role. OpenAI supports all four. Ollama supports
 
 ## Creating a backend
 
-In the Admin UI, go to **Backends** and click **New**. Choose the type, fill in the connection details, and save. The backend is available immediately — no restart needed.
+In the Admin UI, go to **Backends** and click **New**. Choose the type, fill in the connection details, and save. The backend is available immediately. No restart needed.
 
 You can then reference this backend in:
-- **Agent → LLM** — for text generation
-- **Agent → Transcription (STT)** — for speech-to-text
-- **Agent → TTS** — for text-to-speech
-- **Memory Provider → Embedding** — for semantic search in long-term memory
+- **Agent → LLM.** For text generation
+- **Agent → Transcription (STT).** For speech-to-text
+- **Agent → TTS.** For text-to-speech
+- **Memory Provider → Embedding.** For semantic search in long-term memory
 
 ## Mixing backends
 
-One of Magec's strengths is that each agent picks its own backend independently. In a single flow, you could have:
+Each agent picks its own backend independently. In a single flow, you could have:
 
 - Agent A using **GPT-4** (OpenAI) for complex reasoning
 - Agent B using **Qwen 3 8B** (local Ollama) for fast, simple tasks

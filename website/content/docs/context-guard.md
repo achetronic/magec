@@ -7,9 +7,9 @@ badge: "Experimental"
 Context Guard is **experimental**. It works and has been tested with real conversations, but there are edge cases not fully covered yet. Read [Limitations](#limitations) for details.
 {{< /callout >}}
 
-AI models can only handle a certain amount of text at once. This is called the **context window** — think of it as the model's short-term memory. The longer a conversation gets, the more of that memory it uses up. When it fills up, the conversation breaks.
+AI models can only handle a certain amount of text at once. This is called the **context window** (think of it as the model's short-term memory). The longer a conversation gets, the more of that memory it uses up. When it fills up, the conversation breaks.
 
-Context Guard keeps that from happening. It watches the conversation size and, when things start getting tight, compresses the older messages into a short summary. The recent messages stay exactly as they are. The agent doesn't lose track of anything — the conversation just takes up less space.
+Context Guard keeps that from happening. It watches the conversation size and, when things start getting tight, compresses the older messages into a short summary. The recent messages stay exactly as they are. The agent doesn't lose track of anything; the conversation just takes up less space.
 
 **Without Context Guard**, long conversations eventually fail. **With it**, they can go on as long as you need.
 
@@ -17,14 +17,14 @@ Context Guard keeps that from happening. It watches the conversation size and, w
 
 Before every message is sent to the model, Context Guard checks the conversation:
 
-1. **Is it getting too long?** — It checks either the token count or the number of messages, depending on which strategy you chose.
-2. **No** — Nothing happens. Everything goes through normally.
-3. **Yes** — It splits the conversation in two: the **old stuff** and the **recent stuff**.
+1. **Is it getting too long?** It checks either the token count or the number of messages, depending on which strategy you chose.
+2. **No.** Nothing happens. Everything goes through normally.
+3. **Yes.** It splits the conversation in two: the **old stuff** and the **recent stuff**.
 4. It asks the agent's own model to write a summary of the old stuff.
 5. It swaps out all those old messages for the summary.
 6. The model now sees: `[summary of earlier conversation] + [recent messages in full]`.
 
-The summary is saved between messages, so it doesn't disappear. Each time Context Guard runs again, it folds the previous summary into the new one. Nothing is forgotten — it just gets more compact over time.
+The summary is saved between messages, so it doesn't disappear. Each time Context Guard runs again, it folds the previous summary into the new one. Nothing is forgotten; it just gets more compact over time.
 
 If anything goes wrong during summarization (model error, timeout, empty response), Context Guard steps aside and lets the original conversation through. It never blocks anything.
 
@@ -49,12 +49,12 @@ This is the best choice when the agent uses tools, does complex work, or when yo
 
 Simpler. It counts messages. When there are more than `maxTurns` messages, everything except the last `maxTurns` gets summarized.
 
-It doesn't look at token counts at all — just the number of messages.
+It doesn't look at token counts at all, just the number of messages.
 
 Good for chatbots, Q&A agents, or any case where old messages stop being useful quickly.
 
 {{< callout type="info" >}}
-**Heads up if the agent uses tools.** Tool calls add hidden messages — the model's request to call the tool and the tool's response each count as separate messages. One question where the agent calls a tool creates 4 messages, not 2. With `maxTurns: 20`, that's only about 5 tool-using exchanges before summarization fires. If the agent uses tools a lot, set a higher value (40–80) or just use token threshold instead.
+**Heads up if the agent uses tools.** Tool calls add hidden messages: the model's request to call the tool and the tool's response each count as separate messages. One question where the agent calls a tool creates 4 messages, not 2. With `maxTurns: 20`, that's only about 5 tool-using exchanges before summarization fires. If the agent uses tools a lot, set a higher value (40–80) or just use token threshold instead.
 {{< /callout >}}
 
 ## Setup
@@ -65,7 +65,7 @@ Open an agent in the Admin UI, expand the **LLM** section, and turn on **Context
 |---------|-------------|
 | Enabled | Turns Context Guard on or off |
 | Strategy | `Token threshold` (default) or `Sliding window` |
-| Max turns | Sliding window only — how many messages to keep. Default: `20` |
+| Max turns | Sliding window only: how many messages to keep. Default: `20` |
 
 If it's off, nothing changes for the agent. Zero overhead.
 
@@ -81,10 +81,10 @@ If it's off, nothing changes for the agent. Zero overhead.
 
 Context Guard asks the agent's own model to write a summary with four sections:
 
-- **Current State** — What's being worked on, what's done, what's next
-- **Key Information** — Names, dates, numbers, URLs, preferences, specifics
-- **Context & Decisions** — What was decided and why, what was tried and dropped
-- **Exact Next Steps** — What to do next, specifically, not just "keep going"
+- **Current State.** What's being worked on, what's done, what's next
+- **Key Information.** Names, dates, numbers, URLs, preferences, specifics
+- **Context & Decisions.** What was decided and why, what was tried and dropped
+- **Exact Next Steps.** What to do next, specifically, not just "keep going"
 
 The idea: someone reading only this summary should be able to continue the conversation without asking "what were we talking about?"
 
@@ -96,7 +96,7 @@ If the model returns nothing (rare), Context Guard falls back to grabbing the fi
 
 ### Tool responses disappear from summaries
 
-When old messages get summarized, tool calls show up as just `[tool X returned a result]`. The actual data the tool returned — files, search results, API responses — is not included in the summary prompt.
+When old messages get summarized, tool calls show up as just `[tool X returned a result]`. The actual data the tool returned (files, search results, API responses) is not included in the summary prompt.
 
 The agent's conclusions based on that data will still be in the conversation, but the raw data itself is gone. This is how Google's [ADK Python](https://github.com/google/adk-python) handles it too.
 
@@ -104,9 +104,9 @@ The agent's conclusions based on that data will still be in the conversation, bu
 
 If a tool dumps a massive response into the conversation (100k+ tokens), that whole blob is sitting in the message history. Context Guard will catch it on the *next* message and compress, but the current message already has the giant response in it.
 
-With the token threshold strategy this usually isn't a problem — the safety buffer absorbs it. But if a single tool response is bigger than the whole buffer, the model might reject the request before Context Guard can do anything about it.
+With the token threshold strategy this usually isn't a problem: the safety buffer absorbs it. But if a single tool response is bigger than the whole buffer, the model might reject the request before Context Guard can do anything about it.
 
-**How to avoid this:** Don't let your tools return unlimited data. Limit results, paginate, or return a reference instead of the full content. [Claude Code](https://github.com/charmbracelet/crush) caps every tool — bash output at 30k characters, file reads at 5MB, search at 100 results. Follow that pattern.
+**How to avoid this:** Don't let your tools return unlimited data. Limit results, paginate, or return a reference instead of the full content. [Claude Code](https://github.com/charmbracelet/crush) caps every tool: bash output at 30k characters, file reads at 5MB, search at 100 results. Follow that pattern.
 
 ### No retry after a failure
 
@@ -126,4 +126,4 @@ Sliding window counts messages, not their size. A message with 50,000 tokens cou
 
 Context Guard needs each model's context window size to know when to compress. It loads this from a model catalog that refreshes every 6 hours.
 
-If a model isn't in the catalog, it assumes 128,000 tokens — safe enough for most current models.
+If a model isn't in the catalog, it assumes 128,000 tokens (safe enough for most current models).

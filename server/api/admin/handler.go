@@ -5,8 +5,9 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
-	"google.golang.org/adk/session"
+	"google.golang.org/adk/v2/session"
 
+	"github.com/achetronic/magec/server/runs"
 	"github.com/achetronic/magec/server/store"
 )
 
@@ -19,6 +20,7 @@ type ErrorResponse struct {
 type Handler struct {
 	store          *store.Store
 	conversations  *store.ConversationStore
+	runs           *runs.Store
 	sessionService session.Service
 	router         *mux.Router
 }
@@ -33,6 +35,11 @@ func New(s *store.Store) *Handler {
 // SetConversationStore injects the conversation store for the audit endpoints.
 func (h *Handler) SetConversationStore(cs *store.ConversationStore) {
 	h.conversations = cs
+}
+
+// SetRunsStore injects the runs store for run auditing endpoints.
+func (h *Handler) SetRunsStore(rs *runs.Store) {
+	h.runs = rs
 }
 
 // ConversationStore returns the conversation store (used by external components
@@ -143,6 +150,12 @@ func (h *Handler) buildRouter() *mux.Router {
 	r.HandleFunc("/conversations/{id}/pair", h.findPerspectivePair).Methods("GET")
 	r.HandleFunc("/conversations/{id}/summary", h.updateConversationSummary).Methods("PUT")
 	r.HandleFunc("/conversations/{id}/reset-session", h.resetConversationSession).Methods("POST")
+
+	// Runs (audit)
+	r.HandleFunc("/runs", h.listRuns).Methods("GET")
+	r.HandleFunc("/runs/clear", h.clearRuns).Methods("DELETE")
+	r.HandleFunc("/runs/{id}", h.getRun).Methods("GET")
+	r.HandleFunc("/runs/{id}", h.deleteRun).Methods("DELETE")
 
 	// Backup & Restore
 	r.HandleFunc("/settings/backup", h.backupDownload).Methods("GET")

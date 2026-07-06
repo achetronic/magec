@@ -2,7 +2,7 @@
 title: "Configuration"
 ---
 
-Magec uses two separate configuration layers. Understanding this split is important because they work differently and serve different purposes.
+Magec uses two separate configuration layers. They work differently and serve different purposes.
 
 ## The two layers
 
@@ -15,9 +15,9 @@ Magec uses two separate configuration layers. Understanding this split is import
 
 Think of it like this: `config.yaml` is the wiring of your house (ports, protocols, switches). `store.json` is the furniture and appliances inside (your agents, their tools, who can talk to them).
 
-## config.yaml — Infrastructure
+## config.yaml: Infrastructure
 
-This file is read once at startup. Changes require a server restart. It controls only the server process itself — nothing about agents, backends, or AI.
+This file is read once at startup. Changes require a server restart. It controls only the server process itself: nothing about agents, backends, or AI.
 
 ```yaml
 server:
@@ -39,7 +39,7 @@ log:
 
 ### Server
 
-Controls where the server listens. Magec runs two HTTP servers on separate ports — one for users (API, Voice UI, webhooks) and one for administration (Admin UI, management API).
+Controls where the server listens. Magec runs two HTTP servers on separate ports: one for users (API, Voice UI, webhooks) and one for administration (Admin UI, management API).
 
 | Field | Default | Description |
 |-------|---------|-------------|
@@ -51,7 +51,7 @@ Controls where the server listens. Magec runs two HTTP servers on separate ports
 
 ### Voice
 
-Controls voice features at the server level. This is independent of per-agent voice settings — it's a global switch.
+Controls voice features at the server level. This is independent of per-agent voice settings. It's a global switch.
 
 | Field | Default | Description |
 |-------|---------|-------------|
@@ -77,7 +77,7 @@ log:
   level: ${LOG_LEVEL:-info}
 ```
 
-## data/store.json — Resources
+## data/store.json: Resources
 
 This is Magec's internal database. Every agent, backend, memory provider, MCP server, client, command, and flow is stored here. The server keeps it in memory for fast access and writes to disk on every change.
 
@@ -92,13 +92,13 @@ This is Magec's internal database. Every agent, backend, memory provider, MCP se
 | **MCP Servers** | External tool connections via Model Context Protocol | [MCP Tools](/docs/mcp/) |
 | **Agents** | AI entities with their own LLM, prompt, memory, voice, and tools | [Agents](/docs/agents/) |
 | **Commands** | Reusable prompts referenced by cron and webhook clients | [Commands](/docs/commands/) |
-| **Clients** | Access points — Voice UI, Telegram, webhooks, cron — each with its own token | [Clients](/docs/clients/) |
-| **Flows** | Multi-agent workflows with sequential, parallel, and loop steps | [Flows](/docs/flows/) |
+| **Clients** | Access points (Voice UI, Telegram, webhooks, cron), each with its own token | [Clients](/docs/clients/) |
+| **Flows** | Multi-agent workflows as directed graphs: routers, joins, transforms, loops | [Flows](/docs/flows/) |
 | **Secrets** | Encrypted key-value pairs for API keys, tokens, and passwords | [Secrets](/docs/secrets/) |
 
 ### Hot-reload
 
-Changes made through the Admin UI or API take effect **immediately** — no server restart needed. When you update an agent's prompt, add a new backend, or modify a flow, the change is persisted to `store.json` and the server picks it up in real time.
+Changes made through the Admin UI or API take effect **immediately**. No restart needed. When you update an agent's prompt, add a new backend, or modify a flow, the change is persisted to `store.json` and the server picks it up in real time.
 
 ### Environment variables in store.json
 
@@ -112,7 +112,7 @@ Like `config.yaml`, the store also supports `${VAR}` substitution. This is parti
 
 The installer uses this for cloud deployments, so your API keys come from environment variables rather than being stored in plain text.
 
-For a more convenient way to manage sensitive values, see [Secrets](/docs/secrets/) — they let you store API keys through the Admin UI and reference them with the same `${VAR}` syntax.
+For a more convenient way to manage sensitive values, see [Secrets](/docs/secrets/): store API keys through the Admin UI and reference them with the same `${VAR}` syntax.
 
 ### Backup and restore
 

@@ -44,10 +44,10 @@ func TestCompile_RejectsEmpty(t *testing.T) {
 
 func TestCompile_RejectsSyntaxErrors(t *testing.T) {
 	cases := []string{
-		`state.x ==`,                 // dangling operator
-		`state.x ===`,                // bad operator
-		`state.x &&& state.y`,        // bad operator
-		`state.(x)`,                  // bad selector
+		`state.x ==`,          // dangling operator
+		`state.x ===`,         // bad operator
+		`state.x &&& state.y`, // bad operator
+		`state.(x)`,           // bad selector
 	}
 	for _, expr := range cases {
 		t.Run(expr, func(t *testing.T) {
@@ -68,9 +68,9 @@ func TestCompile_RejectsUndeclaredVariable(t *testing.T) {
 
 func TestCompile_RejectsNonBooleanOutput(t *testing.T) {
 	cases := []string{
-		`state.x + 1`,        // int
-		`state.name`,         // dyn / string
-		`size(state.items)`,  // int
+		`state.x + 1`,       // int
+		`state.name`,        // dyn / string
+		`size(state.items)`, // int
 	}
 	for _, expr := range cases {
 		t.Run(expr, func(t *testing.T) {

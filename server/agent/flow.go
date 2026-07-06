@@ -11,215 +11,203 @@ package agent
 import (
 	"context"
 	"fmt"
-	"iter"
 
-	adkagent "google.golang.org/adk/agent"
-	"google.golang.org/adk/agent/workflowagents/loopagent"
-	"google.golang.org/adk/agent/workflowagents/parallelagent"
-	"google.golang.org/adk/agent/workflowagents/sequentialagent"
-	"google.golang.org/adk/memory"
-	"google.golang.org/adk/session"
-	"google.golang.org/adk/tool"
+	"github.com/1set/starlet"
+	adkagent "google.golang.org/adk/v2/agent"
+	"google.golang.org/adk/v2/agent/workflowagent"
+	"google.golang.org/adk/v2/memory"
+	"google.golang.org/adk/v2/tool"
+	"google.golang.org/adk/v2/workflow"
 
-	"github.com/achetronic/magec/server/agent/flowexit"
 	"github.com/achetronic/magec/server/store"
 )
 
-// FlowBuildDeps bundles every dependency needed to construct the ADK agent
-// instances inside a flow tree. The flow builder uses these to invoke
-// BuildAgentInstance once per agent appearance, with extra toolsets that
-// reflect the surrounding flow scope (e.g. exit_loop only inside a loop
-// that opted into LLM-driven exit).
+// FlowBuildDeps bundles every dependency needed to construct the adk workflow
+// nodes of a flow graph. The builder invokes BuildAgentInstance once per agent
+// node, naming the instance after the node ID so the response filter can match
+// event.Author against the node IDs the operator declared.
 //
-// The standalone agent catalogue still lives in agent.New: that copy is
-// what direct callers (clients invoking an agent by its ID) reach. Flows
-// build separate instances so a single AgentDefinition can appear in
-// multiple flows with different surrounding capabilities, and so it can
-// even appear several times inside the same flow tree without violating
-// ADK's single-parent constraint.
-//
-// FlowAgents holds previously-built flow agents indexed by flow ID so a
-// flow step can reference another flow as its agent (flow-as-step
-// composition). Such referenced flow agents are reused as-is via wrapAgent
-// — they are themselves graphs of fresh leaf instances.
+// FlowDefs holds every flow definition by ID so a subflow node can embed
+// another flow as a nested workflow (adk's WorkflowNode), built from that
+// flow's own edges.
 //
 // FlowStateToolset is the shared set_state/get_state toolset injected into
-// every agent inside any flow. ExitLoopTool is the singleton exit_loop
-// tool, conditionally injected only into agents that descend from a loop
-// step whose ExitLoop flag is true. Both are stateless and safe to share.
+// every agent node so agents in the same flow share a scratchpad. It is
+// stateless and safe to share.
 type FlowBuildDeps struct {
 	Ctx          context.Context
 	AgentDefs    map[string]store.AgentDefinition
-	FlowAgents   map[string]adkagent.Agent
+	FlowDefs     map[string]store.FlowDefinition
 	BackendMap   map[string]store.BackendDefinition
 	MCPServerMap map[string]store.MCPServer
-	// SkillSlugs maps skill ID -> on-disk slug. Forwarded verbatim
-	// to BuildAgentInstance so per-flow agent instances build their
-	// own skilltoolset filtered by the agent's whitelist.
-	SkillSlugs map[string]string
-	// SkillsDir is the absolute path to data/skills/. Empty disables
-	// skill loading for every agent in the flow.
+	// SkillSlugs maps skill ID -> on-disk slug. Forwarded verbatim to
+	// BuildAgentInstance so per-flow agent instances build their own
+	// skilltoolset filtered by the agent's whitelist.
+	SkillSlugs       map[string]string
 	SkillsDir        string
 	MemorySvc        memory.Service
 	BaseToolset      tool.Toolset
 	FlowStateToolset tool.Toolset
-	ExitLoopTool     tool.Tool
+	// StarletLoaders is the prebuilt list of enabled Starlark module loaders.
+	// Safe to share across concurrent code-node executions; each run builds
+	// its own fresh Machine.
+	StarletLoaders starlet.ModuleLoaderList
+	// FlowsSettings carries the admin ceilings (timeout, output cap) for code
+	// nodes. Computed once in agent.New and forwarded through FlowBuildDeps.
+	FlowsSettings store.FlowsSettings
 }
 
-// BuildFlowAgent recursively translates a FlowDefinition into an ADK agent
-// tree, building a fresh ADK instance for every agent appearance. The root
-// step uses the flow ID as its ADK agent name so flows are addressable by
-// ID, consistent with how individual agents are addressed.
+// BuildFlowAgent translates a FlowDefinition graph into an adk workflow agent
+// whose name is the flow ID (so the flow is addressable by ID, like an agent).
+// The top-level graph gets the metadata prefilter between Start and the entry
+// node; subflows do not, since their input arrives already cleaned.
 func BuildFlowAgent(flow store.FlowDefinition, deps FlowBuildDeps) (adkagent.Agent, error) {
-	return buildStep(flow.ID, &flow.Root, deps, "", false)
-}
-
-// buildStep recurses through the flow tree. insideLoopWithExitLoop is
-// inherited from the closest enclosing loop step that opted into the
-// exit_loop tool — once enabled, every agent in the subtree (including
-// agents nested arbitrarily deep through other sequential/parallel/loop
-// containers) gets the tool, since ADK's loopagent reacts to the
-// Escalate event regardless of which descendant emitted it.
-func buildStep(flowID string, step *store.FlowStep, deps FlowBuildDeps, path string, insideLoopWithExitLoop bool) (adkagent.Agent, error) {
-	stepName := flowID
-	if path != "" {
-		stepName = fmt.Sprintf("%s_%s", flowID, path)
+	edges, err := buildEdges(flow, deps)
+	if err != nil {
+		return nil, err
 	}
-
-	switch step.Type {
-	case store.FlowStepAgent:
-		if def, ok := deps.AgentDefs[step.AgentID]; ok {
-			extraToolsets := []tool.Toolset{}
-			if deps.FlowStateToolset != nil {
-				extraToolsets = append(extraToolsets, deps.FlowStateToolset)
-			}
-			var extraTools []tool.Tool
-			if insideLoopWithExitLoop && deps.ExitLoopTool != nil {
-				extraTools = append(extraTools, deps.ExitLoopTool)
-			}
-			instance, _, err := BuildAgentInstance(BuildAgentInstanceParams{
-				Ctx:                         deps.Ctx,
-				AgentDef:                    def,
-				BackendMap:                  deps.BackendMap,
-				MCPServerMap:                deps.MCPServerMap,
-				SkillSlugs:                  deps.SkillSlugs,
-				SkillsDir:                   deps.SkillsDir,
-				MemorySvc:                   deps.MemorySvc,
-				BaseToolset:                 deps.BaseToolset,
-				InstanceName:                stepName,
-				ExtraToolsets:               extraToolsets,
-				ExtraTools:                  extraTools,
-				IncludeFlowStateInstruction: deps.FlowStateToolset != nil,
-				IncludeExitLoopInstruction:  insideLoopWithExitLoop && deps.ExitLoopTool != nil,
-			})
-			if err != nil {
-				return nil, fmt.Errorf("flow %q step %q: %w", flowID, stepName, err)
-			}
-			return instance, nil
-		}
-		// Flow-as-step composition: the referenced ID names another flow.
-		// Re-use its already-built ADK tree behind a wrapper so it can hang
-		// off the parent flow without violating ADK's single-parent
-		// constraint.
-		if subFlow, ok := deps.FlowAgents[step.AgentID]; ok {
-			return wrapAgent(stepName, subFlow)
-		}
-		return nil, fmt.Errorf("agent %q referenced by flow not found", step.AgentID)
-
-	case store.FlowStepSequential:
-		children, err := buildChildren(flowID, step.Steps, deps, path, insideLoopWithExitLoop)
-		if err != nil {
-			return nil, err
-		}
-		return sequentialagent.New(sequentialagent.Config{
-			AgentConfig: adkagent.Config{
-				Name:      stepName,
-				SubAgents: children,
-			},
-		})
-
-	case store.FlowStepParallel:
-		children, err := buildChildren(flowID, step.Steps, deps, path, insideLoopWithExitLoop)
-		if err != nil {
-			return nil, err
-		}
-		return parallelagent.New(parallelagent.Config{
-			AgentConfig: adkagent.Config{
-				Name:      stepName,
-				SubAgents: children,
-			},
-		})
-
-	case store.FlowStepLoop:
-		// A loop step turns on the exit_loop injection for its entire
-		// subtree when ExitLoop is set. If we are already inside an
-		// outer loop with exit_loop enabled, we keep it on regardless
-		// (nested loops inherit the capability — exit_loop bubbles
-		// Escalate up to the nearest loopagent that owns the iteration).
-		childInside := insideLoopWithExitLoop || step.ExitLoop
-		children, err := buildChildren(flowID, step.Steps, deps, path, childInside)
-		if err != nil {
-			return nil, err
-		}
-		// When the operator supplied an ExitWhen CEL expression, append a
-		// synthetic evaluator agent as the last child of the loop. ADK
-		// runs it after every iteration of the user-defined sub-agents;
-		// when the expression evaluates to true it emits an event with
-		// Actions.Escalate=true, which the surrounding loopagent already
-		// honours by terminating the loop. The expression has been
-		// validated at admin save time but is recompiled here because
-		// programs are not serialisable.
-		if step.ExitWhen != "" {
-			prog, err := flowexit.Compile(step.ExitWhen)
-			if err != nil {
-				return nil, fmt.Errorf("flow %q step %q: invalid exitWhen: %w", flowID, stepName, err)
-			}
-			evalAgent, err := flowexit.NewExitWhenAgent(stepName+"_exitwhen", prog, step.ExitWhen)
-			if err != nil {
-				return nil, fmt.Errorf("flow %q step %q: %w", flowID, stepName, err)
-			}
-			children = append(children, evalAgent)
-		}
-		return loopagent.New(loopagent.Config{
-			AgentConfig: adkagent.Config{
-				Name:      stepName,
-				SubAgents: children,
-			},
-			MaxIterations: step.MaxIterations,
-		})
-
-	default:
-		return nil, fmt.Errorf("unknown flow step type %q", step.Type)
-	}
-}
-
-// wrapAgent creates a uniquely-named agent that delegates execution to the
-// original. Used only for flow-as-step composition (a leaf whose AgentID
-// names another flow): each flow tree is built once at startup with its
-// own fresh leaves, and the wrapper lets it appear under a different
-// parent flow without violating ADK's single-parent constraint.
-func wrapAgent(uniqueName string, delegate adkagent.Agent) (adkagent.Agent, error) {
-	return adkagent.New(adkagent.Config{
-		Name:        uniqueName,
-		Description: delegate.Description(),
-		Run: func(ctx adkagent.InvocationContext) iter.Seq2[*session.Event, error] {
-			return delegate.Run(ctx)
-		},
+	edges = insertMetaPrefilter(edges)
+	return workflowagent.New(workflowagent.Config{
+		Name:        flow.ID,
+		Description: flow.Description,
+		Edges:       edges,
 	})
 }
 
-func buildChildren(flowID string, steps []store.FlowStep, deps FlowBuildDeps, parentPath string, insideLoopWithExitLoop bool) ([]adkagent.Agent, error) {
-	children := make([]adkagent.Agent, 0, len(steps))
-	for i := range steps {
-		childPath := fmt.Sprintf("%d", i)
-		if parentPath != "" {
-			childPath = fmt.Sprintf("%s_%d", parentPath, i)
+// insertMetaPrefilter rewires the synthetic Start edge so the metadata
+// prefilter runs first: Start -> prefilter -> entry. buildEdges always places
+// the Start edge at index zero.
+func insertMetaPrefilter(edges []workflow.Edge) []workflow.Edge {
+	prefilter := buildMetaPrefilterNode()
+	entry := edges[0].To
+	edges[0] = workflow.Edge{From: workflow.Start, To: prefilter}
+	return append([]workflow.Edge{{From: prefilter, To: entry}}, edges...)
+}
+
+// buildEdges builds one workflow node per FlowNode and wires the operator's
+// edges plus a synthetic Start -> Entry edge. It is reused both for a top-level
+// flow agent and for a subflow embedded via WorkflowNode.
+func buildEdges(flow store.FlowDefinition, deps FlowBuildDeps) ([]workflow.Edge, error) {
+	nodeMap := make(map[string]workflow.Node, len(flow.Nodes))
+	for i := range flow.Nodes {
+		n := flow.Nodes[i]
+		node, err := buildNode(n, deps)
+		if err != nil {
+			return nil, fmt.Errorf("flow %q node %q: %w", flow.ID, n.ID, err)
 		}
-		child, err := buildStep(flowID, &steps[i], deps, childPath, insideLoopWithExitLoop)
+		nodeMap[n.ID] = node
+	}
+
+	entryNode, ok := nodeMap[flow.Entry]
+	if !ok {
+		return nil, fmt.Errorf("flow %q: entry node %q not found", flow.ID, flow.Entry)
+	}
+
+	// Entry is the single source of truth for where the graph starts: wire the
+	// Start sentinel to it. Operators never manage the Start node themselves.
+	edges := []workflow.Edge{{From: workflow.Start, To: entryNode}}
+
+	for _, e := range flow.Edges {
+		from, ok := nodeMap[e.From]
+		if !ok {
+			return nil, fmt.Errorf("flow %q: edge from unknown node %q", flow.ID, e.From)
+		}
+		to, ok := nodeMap[e.To]
+		if !ok {
+			return nil, fmt.Errorf("flow %q: edge to unknown node %q", flow.ID, e.To)
+		}
+		edge := workflow.Edge{From: from, To: to}
+		if e.Route != "" {
+			edge.Route = workflow.StringRoute(e.Route)
+		}
+		edges = append(edges, edge)
+	}
+	return edges, nil
+}
+
+// buildNode constructs the adk workflow node for a single FlowNode. The node
+// name is always the FlowNode ID, which keeps node ID == adk Node.Name() ==
+// event.Author and lets the response filter work off the operator's IDs.
+func buildNode(n store.FlowNode, deps FlowBuildDeps) (workflow.Node, error) {
+	switch n.Type {
+	case store.FlowNodeAgent:
+		instance, err := buildFlowScopedAgent(n.ID, n.AgentID, deps)
 		if err != nil {
 			return nil, err
 		}
-		children = append(children, child)
+		return workflow.NewAgentNode(instance, workflow.NodeConfig{})
+
+	case store.FlowNodeRouter:
+		return buildRouterNode(n)
+
+	case store.FlowNodeJoin:
+		return workflow.NewJoinNode(n.ID), nil
+
+	case store.FlowNodeParallel:
+		// Wrap the agent in an AgentNode, then run it once per list item.
+		instance, err := buildFlowScopedAgent(n.ID, n.AgentID, deps)
+		if err != nil {
+			return nil, err
+		}
+		inner, err := workflow.NewAgentNode(instance, workflow.NodeConfig{})
+		if err != nil {
+			return nil, err
+		}
+		return workflow.NewParallelWorker(n.ID, inner, n.MaxConcurrency, workflow.NodeConfig{})
+
+	case store.FlowNodeSubflow:
+		sub, ok := deps.FlowDefs[n.FlowID]
+		if !ok {
+			return nil, fmt.Errorf("subflow node %q references unknown flow %q", n.ID, n.FlowID)
+		}
+		subEdges, err := buildEdges(sub, deps)
+		if err != nil {
+			return nil, fmt.Errorf("subflow node %q: %w", n.ID, err)
+		}
+		return workflow.NewWorkflowNode(n.ID, subEdges)
+
+	case store.FlowNodeExpression:
+		return buildExpressionNode(n)
+
+	case store.FlowNodeTemplate:
+		return buildTemplateNode(n)
+
+	case store.FlowNodeCode:
+		return buildCodeNode(n, deps)
+
+	default:
+		return nil, fmt.Errorf("unknown node type %q", n.Type)
 	}
-	return children, nil
+}
+
+// buildFlowScopedAgent builds a fresh adk agent instance for an AgentDefinition,
+// named after the graph node (so event.Author == node ID), with the shared
+// flow-state toolset injected. instanceName is the node ID; agentID is the
+// referenced AgentDefinition.
+func buildFlowScopedAgent(instanceName, agentID string, deps FlowBuildDeps) (adkagent.Agent, error) {
+	def, ok := deps.AgentDefs[agentID]
+	if !ok {
+		return nil, fmt.Errorf("agent %q referenced by node not found", agentID)
+	}
+	var extraToolsets []tool.Toolset
+	if deps.FlowStateToolset != nil {
+		extraToolsets = append(extraToolsets, deps.FlowStateToolset)
+	}
+	instance, _, err := BuildAgentInstance(BuildAgentInstanceParams{
+		Ctx:                         deps.Ctx,
+		AgentDef:                    def,
+		BackendMap:                  deps.BackendMap,
+		MCPServerMap:                deps.MCPServerMap,
+		SkillSlugs:                  deps.SkillSlugs,
+		SkillsDir:                   deps.SkillsDir,
+		MemorySvc:                   deps.MemorySvc,
+		BaseToolset:                 deps.BaseToolset,
+		InstanceName:                instanceName,
+		ExtraToolsets:               extraToolsets,
+		IncludeFlowStateInstruction: deps.FlowStateToolset != nil,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return instance, nil
 }

@@ -2,7 +2,7 @@
 title: "Secrets"
 ---
 
-Secrets let you store sensitive values — API keys, tokens, passwords — in the Admin UI and reference them anywhere in your configuration with `${KEY}` syntax. No more hardcoding credentials or juggling environment variables across deployments.
+Secrets let you store sensitive values (API keys, tokens, passwords) in the Admin UI and reference them anywhere in your configuration with `${KEY}` syntax. No more hardcoding credentials or juggling environment variables across deployments.
 
 ## Creating a secret
 
@@ -24,7 +24,7 @@ Fill in the form:
 Click **Save**. The secret is ready to use immediately.
 
 {{< callout type="warning" >}}
-Secret values are **write-only**. After saving, the value is never displayed again — not in the UI, not in the API. When editing a secret, leave the value field empty to keep the current value, or enter a new one to replace it.
+Secret values are **write-only**. After saving, the value is never displayed again (not in the UI, not in the API). When editing a secret, leave the value field empty to keep the current value, or enter a new one to replace it.
 {{< /callout >}}
 
 ## Using secrets in your configuration
@@ -33,7 +33,7 @@ Once created, reference a secret anywhere by wrapping its key in `${...}`. For e
 
 {{< screenshot src="img/screenshots/admin-secret-usage.png" alt="Memory provider using ${POSTGRES_PASSWORD} in the connection string" >}}
 
-Here the connection string uses `${POSTGRES_PASSWORD}` — Magec replaces it with the actual secret value at runtime.
+Here the connection string uses `${POSTGRES_PASSWORD}`. Magec replaces it with the actual secret value at runtime.
 
 ### Where you can use `${KEY}`
 
@@ -47,7 +47,7 @@ Secrets work in every resource field:
 | **MCP Servers** | Environment | `GITHUB_TOKEN: ${GITHUB_TOKEN}` |
 | **Clients** | Token | `${TELEGRAM_BOT_TOKEN}` |
 
-The `${VAR:-default}` syntax is also supported — if the variable is unset or empty, the default value after `:-` is used instead.
+The `${VAR:-default}` syntax is also supported: if the variable is unset or empty, the default value after `:-` is used instead.
 
 ## How it works under the hood
 
@@ -57,6 +57,6 @@ If you need to understand the expansion pipeline, encryption details, external e
 
 ## Encryption
 
-When `server.encryptionKey` is set in `config.yaml`, all secret values are encrypted on disk using AES-256-GCM. Without an encryption key, secrets are stored in plain text — a warning is logged to remind you to set one.
+When `server.encryptionKey` is set in `config.yaml`, all secret values are encrypted on disk using AES-256-GCM. Without an encryption key, secrets are stored in plain text and a warning is logged.
 
-See [Advanced Secrets — Encryption at rest](/docs/secrets-advanced/#encryption-at-rest) for the full technical details.
+See [Advanced Secrets: Encryption at rest](/docs/secrets-advanced/#encryption-at-rest) for the full technical details.

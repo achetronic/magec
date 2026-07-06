@@ -38,6 +38,7 @@
 import { ref, computed, watch, nextTick, onMounted, onUnmounted, markRaw } from 'vue'
 import Icon from '../../components/Icon.vue'
 import BackupSection from './BackupSection.vue'
+import FlowsSection from './FlowsSection.vue'
 import RuntimeSection from './RuntimeSection.vue'
 
 const search = ref('')
@@ -48,6 +49,11 @@ const sections = [
     id: 'runtime',
     keywords: ['runtime', 'temporary', 'temp', 'directory', 'dir', 'workdir', 'filesystem', 'path'],
     component: markRaw(RuntimeSection),
+  },
+  {
+    id: 'flows',
+    keywords: ['flows','flow','starlark','code','script','library','libraries','timeout','limit','sandbox'],
+    component: markRaw(FlowsSection),
   },
   {
     id: 'backup',

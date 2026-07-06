@@ -367,31 +367,161 @@ definitions:
         $ref: '#/definitions/store.A2AConfig'
       description:
         type: string
+      edges:
+        items:
+          $ref: '#/definitions/store.FlowEdge'
+        type: array
+      entry:
+        type: string
       id:
         type: string
       name:
         type: string
-      root:
-        $ref: '#/definitions/store.FlowStep'
+      nodes:
+        items:
+          $ref: '#/definitions/store.FlowNode'
+        type: array
+      startX:
+        description: |-
+          StartX and StartY are the position of the Start sentinel box on the
+          visual editor canvas. Like the per-node X/Y they are an admin-UI layout
+          hint ignored by the builder and validation. Persisted so the operator's
+          placement of the Start box survives a round-trip.
+        type: number
+      startY:
+        type: number
     type: object
-  store.FlowStep:
+  store.FlowEdge:
+    properties:
+      from:
+        type: string
+      route:
+        type: string
+      to:
+        type: string
+    type: object
+  store.FlowNode:
     properties:
       agentId:
+        description: |-
+          AgentID references an AgentDefinition by ID. Required when Type is
+          FlowNodeAgent (the agent to run) or FlowNodeParallel (the agent run once
+          per list item). Ignored for other types.
         type: string
-      exitLoop:
-        type: boolean
-      exitWhen:
+      defaultRoute:
         type: string
-      maxIterations:
+      expression:
+        description: |-
+          Expression is a CEL expression evaluated over `input` (the previous
+          node's output) and `state` (the shared flow state). Its result becomes
+          this node's output. Required when Type is FlowNodeExpression.
+        type: string
+      flowId:
+        description: |-
+          FlowID references another FlowDefinition embedded as a nested workflow.
+          Required when Type is FlowNodeSubflow, ignored otherwise.
+        type: string
+      h:
+        type: number
+      id:
+        type: string
+      maxConcurrency:
+        description: |-
+          MaxConcurrency caps how many items a parallel node processes at once.
+          0 means unlimited. Only meaningful when Type is FlowNodeParallel.
         type: integer
+      maxOutputBytes:
+        description: |-
+          MaxOutputBytes is the per-node cap on the JSON-serialised output size.
+          0 means "defer to the global ceiling in Settings.Flows.MaxOutputBytes".
+          The effective cap is min(MaxOutputBytes, ceiling) when both are non-zero.
+        type: integer
+      outputKey:
+        description: |-
+          OutputKey, when set, also writes this node's output into the shared flow
+          state under that key, readable downstream as state.<key>. It must be a
+          valid CEL identifier (letters, digits, underscore; no hyphen) so
+          downstream expressions can reference it. Meaningful for expression,
+          template, and code nodes.
+        type: string
       responseAgent:
+        description: |-
+          ResponseAgent marks an agent node whose output is included in the final
+          response when the flow is invoked via webhook/cron. If no agent in the
+          flow is marked, all agent outputs are concatenated (default behaviour).
+          Only meaningful when Type is FlowNodeAgent.
         type: boolean
-      steps:
+      rules:
+        description: |-
+          Rules and DefaultRoute drive a router node. Rules are evaluated in order;
+          DefaultRoute is emitted when no rule matches. Only meaningful when Type
+          is FlowNodeRouter.
         items:
-          $ref: '#/definitions/store.FlowStep'
+          $ref: '#/definitions/store.FlowRule'
         type: array
+      script:
+        description: |-
+          Script is the Starlark source code to execute. Required when Type is
+          FlowNodeCode; the script must assign a top-level variable named `output`.
+        type: string
+      template:
+        description: |-
+          Template is text with {{ input }}, {{ input.field }} and {{ state.key }}
+          placeholders; the rendered string becomes this node's output. Required
+          when Type is FlowNodeTemplate.
+        type: string
+      timeoutMs:
+        description: |-
+          TimeoutMs is the per-node wall-clock execution ceiling in milliseconds.
+          0 means "defer to the global ceiling in Settings.Flows.ExecutionTimeoutMs".
+          The effective timeout is min(TimeoutMs, ceiling) when both are non-zero.
+        type: integer
       type:
         type: string
+      w:
+        description: |-
+          W and H are the node's size on the visual editor canvas, in pixels. Like
+          X/Y they are an admin-UI layout hint ignored by the builder and
+          validation. Zero means "use the default size". Persisted so a node the
+          operator resized (e.g. to read a long expression) keeps that size.
+        type: number
+      x:
+        description: |-
+          X and Y are the node's position on the visual editor canvas. They are a
+          layout hint for the admin UI only: the builder and validation ignore
+          them, so a flow authored without an editor (or with them omitted) still
+          runs. Persisted so the operator's arrangement survives a round-trip.
+        type: number
+      "y":
+        type: number
+    type: object
+  store.FlowRule:
+    properties:
+      route:
+        type: string
+      when:
+        type: string
+    type: object
+  store.FlowsSettings:
+    properties:
+      disabledLibraries:
+        description: |-
+          DisabledLibraries lists starlet built-in module names the admin has
+          turned off. Every built-in module not listed here is enabled. nil or
+          empty means all modules are available.
+        items:
+          type: string
+        type: array
+      executionTimeoutMs:
+        description: |-
+          ExecutionTimeoutMs is the global ceiling for a code node's wall-clock
+          execution time in milliseconds. 0 means no limit.
+        type: integer
+      maxOutputBytes:
+        description: |-
+          MaxOutputBytes is the global ceiling for a code node's JSON-serialised
+          output size in bytes. 0 means no limit.
+        type: integer
     type: object
   store.GeminiSTTConfig:
     type: object
@@ -476,6 +606,10 @@ definitions:
     type: object
   store.Settings:
     properties:
+      flows:
+        allOf:
+        - $ref: '#/definitions/store.FlowsSettings'
+        description: Flows holds global settings for the Starlark code-node feature.
       longTermProvider:
         type: string
       sessionProvider:
@@ -1437,9 +1571,10 @@ paths:
     post:
       consumes:
       - application/json
-      description: Creates a new agent orchestration flow with a recursive step tree
+      description: Creates a new agent orchestration flow defined as a directed graph
+        of nodes and edges
       parameters:
-      - description: Flow definition with root step tree
+      - description: Flow definition (nodes + edges graph)
         in: body
         name: body
         required: true
@@ -1847,6 +1982,106 @@ paths:
       summary: List memory types
       tags:
       - memory
+  /runs:
+    get:
+      description: Returns a paginated list of run audit logs, newest first. Filters
+        by appName or status.
+      parameters:
+      - description: Filter by app name
+        in: query
+        name: appName
+        type: string
+      - description: Filter by status
+        in: query
+        name: status
+        type: string
+      - description: Max items to return (default 30, 0 for all)
+        in: query
+        name: limit
+        type: integer
+      - description: Items to skip (default 0)
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - AdminAuth: []
+      summary: List runs
+      tags:
+      - runs
+  /runs/{id}:
+    delete:
+      description: Deletes a run audit record and all its events.
+      parameters:
+      - description: Run ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/admin.ErrorResponse'
+      security:
+      - AdminAuth: []
+      summary: Delete run
+      tags:
+      - runs
+    get:
+      description: Returns a run detail by ID, including its timeline of node activations
+        and optionally raw events.
+      parameters:
+      - description: Run ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Include raw events payload
+        in: query
+        name: raw
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/admin.ErrorResponse'
+      security:
+      - AdminAuth: []
+      summary: Get run
+      tags:
+      - runs
+  /runs/clear:
+    delete:
+      description: Deletes all run audit records and their events.
+      responses:
+        "204":
+          description: No Content
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/admin.ErrorResponse'
+      security:
+      - AdminAuth: []
+      summary: Clear all runs
+      tags:
+      - runs
   /secrets:
     get:
       description: Returns all configured secrets without their values

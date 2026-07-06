@@ -30,21 +30,21 @@ import (
 	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
-	"google.golang.org/adk/agent"
-	"google.golang.org/adk/agent/llmagent"
-	"google.golang.org/adk/artifact"
-	"google.golang.org/adk/memory"
-	"google.golang.org/adk/model"
-	"google.golang.org/adk/model/gemini"
-	"google.golang.org/adk/runner"
-	"google.golang.org/adk/server/adkrest"
-	"google.golang.org/adk/session"
-	"google.golang.org/adk/tool"
-	"google.golang.org/adk/tool/exitlooptool"
-	"google.golang.org/adk/tool/mcptoolset"
-	"google.golang.org/adk/tool/skilltoolset"
+	"google.golang.org/adk/v2/agent"
+	"google.golang.org/adk/v2/agent/llmagent"
+	"google.golang.org/adk/v2/artifact"
+	"google.golang.org/adk/v2/memory"
+	"google.golang.org/adk/v2/model"
+	"google.golang.org/adk/v2/model/gemini"
+	"google.golang.org/adk/v2/runner"
+	"google.golang.org/adk/v2/server/adkrest"
+	"google.golang.org/adk/v2/session"
+	"google.golang.org/adk/v2/tool"
+	"google.golang.org/adk/v2/tool/mcptoolset"
+	"google.golang.org/adk/v2/tool/skilltoolset"
 	"google.golang.org/genai"
 
+	"github.com/1set/starlet"
 	artifactfs "github.com/achetronic/adk-utils-go/artifact/filesystem"
 	genaianthro "github.com/achetronic/adk-utils-go/genai/anthropic"
 	genaiopenai "github.com/achetronic/adk-utils-go/genai/openai"
@@ -53,6 +53,7 @@ import (
 	sessionredis "github.com/achetronic/adk-utils-go/session/redis"
 	toolsmemory "github.com/achetronic/adk-utils-go/tools/memory"
 
+	"github.com/achetronic/magec/server/agent/runrecorder"
 	toolsartifacts "github.com/achetronic/magec/server/agent/tools/artifacts"
 	toolsflowstate "github.com/achetronic/magec/server/agent/tools/flowstate"
 	toolsskills "github.com/achetronic/magec/server/agent/tools/skills"
@@ -95,9 +96,6 @@ You are running inside a multi-agent workflow. You have shared state tools avail
 
 Use shared state for orchestration signals (e.g. an approval flag, a quality score, a list of pending items), not for bulky content — keep large outputs in artifacts.`
 
-const exitLoopInstruction = `
-You are inside a loop step. When you decide the work is complete and the loop should not iterate again, call the 'exit_loop' tool. Do not call it on the first iteration unless the work is genuinely done. The current iteration always finishes before the loop terminates, so other agents in this iteration may still produce output after your call.`
-
 // Service wraps the ADK REST handler that serves all configured agents.
 // Incoming requests are routed to the correct agent by the appName field.
 type Service struct {
@@ -127,7 +125,7 @@ type Service struct {
 // by the get_artifact_url tool). May be nil; when nil the tool is not
 // registered, so deployments that have not configured the signing secret do
 // not advertise a capability that always fails.
-func New(ctx context.Context, agents []store.AgentDefinition, backends []store.BackendDefinition, memoryProviders []store.MemoryProvider, mcpServers []store.MCPServer, skills []store.Skill, flows []store.FlowDefinition, settings store.Settings, registry contextguard.ModelRegistry, tempDirProvider func() string, skillsDir string, artifactURLBuilder toolsartifacts.ArtifactURLBuilder) (*Service, error) {
+func New(ctx context.Context, agents []store.AgentDefinition, backends []store.BackendDefinition, memoryProviders []store.MemoryProvider, mcpServers []store.MCPServer, skills []store.Skill, flows []store.FlowDefinition, settings store.Settings, registry contextguard.ModelRegistry, tempDirProvider func() string, skillsDir string, artifactURLBuilder toolsartifacts.ArtifactURLBuilder, recorder *runrecorder.Recorder) (*Service, error) {
 	if len(agents) == 0 {
 		return nil, fmt.Errorf("no agents defined")
 	}
@@ -218,15 +216,37 @@ func New(ctx context.Context, agents []store.AgentDefinition, backends []store.B
 		return nil, fmt.Errorf("failed to create flow_state toolset: %w", err)
 	}
 
-	exitLoopTool, err := exitlooptool.New()
-	if err != nil {
-		return nil, fmt.Errorf("failed to create exit_loop tool: %w", err)
+	flowDefMap := make(map[string]store.FlowDefinition, len(flows))
+	for _, f := range flows {
+		flowDefMap[f.ID] = f
+	}
+
+	// Build the enabled starlet module loader list once: all built-in modules
+	// minus whatever the admin disabled. Shared safely across code-node runs
+	// (each run builds its own fresh Machine). If the loader list cannot be
+	// built (e.g. an unknown name in DisabledLibraries), log and fall back to
+	// an empty list so the server still starts.
+	allNames := starlet.GetAllBuiltinModuleNames()
+	disabledSet := make(map[string]bool, len(settings.Flows.DisabledLibraries))
+	for _, n := range settings.Flows.DisabledLibraries {
+		disabledSet[n] = true
+	}
+	enabledNames := make([]string, 0, len(allNames))
+	for _, n := range allNames {
+		if !disabledSet[n] {
+			enabledNames = append(enabledNames, n)
+		}
+	}
+	starletLoaders, loaderErr := starlet.MakeBuiltinModuleLoaderList(enabledNames...)
+	if loaderErr != nil {
+		slog.Warn("Failed to build Starlark module loader list; code nodes will have no modules", "error", loaderErr)
+		starletLoaders = nil
 	}
 
 	flowDeps := FlowBuildDeps{
 		Ctx:              ctx,
 		AgentDefs:        agentDefMap,
-		FlowAgents:       make(map[string]agent.Agent, len(flows)),
+		FlowDefs:         flowDefMap,
 		BackendMap:       backendMap,
 		MCPServerMap:     mcpServerMap,
 		SkillSlugs:       skillSlugIndex,
@@ -234,7 +254,8 @@ func New(ctx context.Context, agents []store.AgentDefinition, backends []store.B
 		MemorySvc:        memorySvc,
 		BaseToolset:      baseTset,
 		FlowStateToolset: flowStateToolset,
-		ExitLoopTool:     exitLoopTool,
+		StarletLoaders:   starletLoaders,
+		FlowsSettings:    settings.Flows,
 	}
 
 	// Build flows
@@ -246,8 +267,22 @@ func New(ctx context.Context, agents []store.AgentDefinition, backends []store.B
 		}
 		otherAgents = append(otherAgents, flowAgent)
 		adkAgentMap[flow.ID] = flowAgent
-		flowDeps.FlowAgents[flow.ID] = flowAgent
 		slog.Info("Flow initialized", "id", flow.ID, "name", flow.Name)
+	}
+
+	// Snapshot every built flow's node ID -> type map for the run recorder,
+	// so a run's audit record states what each node was at execution time
+	// even if the flow is edited later. Subflow nodes are folded in because
+	// their events surface inside the parent flow's run.
+	if recorder != nil {
+		nodeTypes := make(map[string]map[string]string, len(flows))
+		for _, flow := range flows {
+			if _, ok := adkAgentMap[flow.ID]; !ok {
+				continue
+			}
+			nodeTypes[flow.ID] = collectNodeTypes(flow, flowDefMap, map[string]bool{})
+		}
+		recorder.SetNodeTypes(nodeTypes)
 	}
 
 	loader, err := agent.NewMultiLoader(rootAgent, otherAgents...)
@@ -266,6 +301,16 @@ func New(ctx context.Context, agents []store.AgentDefinition, backends []store.B
 	if registry != nil {
 		restCfg.PluginConfig = buildContextGuardConfig(agents, llmMap, registry)
 	}
+	// The run recorder plugin coexists with contextguard: PluginConfig.Plugins
+	// is a slice and the runner invokes every plugin's callbacks.
+	if recorder != nil {
+		recorderPlugin, err := recorder.Plugin()
+		if err != nil {
+			slog.Warn("Failed to build runrecorder plugin; runs will not be audited", "error", err)
+		} else {
+			restCfg.PluginConfig.Plugins = append(restCfg.PluginConfig.Plugins, recorderPlugin)
+		}
+	}
 
 	restServer, err := adkrest.NewServer(restCfg)
 	if err != nil {
@@ -279,6 +324,34 @@ func New(ctx context.Context, agents []store.AgentDefinition, backends []store.B
 		artifactSvc: artifactSvc,
 		adkAgents:   adkAgentMap,
 	}, nil
+}
+
+// collectNodeTypes flattens a flow's node ID -> node type map, recursing into
+// subflows since their nodes emit events inside the parent flow's run. The
+// parent's own IDs win on collision; visited guards against flow cycles.
+func collectNodeTypes(flow store.FlowDefinition, flowDefs map[string]store.FlowDefinition, visited map[string]bool) map[string]string {
+	types := map[string]string{}
+	if visited[flow.ID] {
+		return types
+	}
+	visited[flow.ID] = true
+
+	for _, node := range flow.Nodes {
+		if node.Type != store.FlowNodeSubflow {
+			continue
+		}
+		sub, ok := flowDefs[node.FlowID]
+		if !ok {
+			continue
+		}
+		for id, t := range collectNodeTypes(sub, flowDefs, visited) {
+			types[id] = t
+		}
+	}
+	for _, node := range flow.Nodes {
+		types[node.ID] = node.Type
+	}
+	return types
 }
 
 // sortFlowsTopologically performs a topological sort on the flow definitions.
@@ -385,9 +458,6 @@ type BuildAgentInstanceParams struct {
 	// the agent instruction. Set by the flow builder for every agent inside
 	// a flow so the model knows it can call set_state and get_state.
 	IncludeFlowStateInstruction bool
-	// IncludeExitLoopInstruction appends the exit_loop usage paragraph. Set
-	// only for agents that descend from a loop step with ExitLoop enabled.
-	IncludeExitLoopInstruction bool
 }
 
 // BuildAgentInstance constructs an individual ADK agent instance from its
@@ -426,9 +496,6 @@ func BuildAgentInstance(p BuildAgentInstanceParams) (agent.Agent, model.LLM, err
 	instruction := buildInstruction(p.AgentDef, p.MCPServerMap, p.MemorySvc)
 	if p.IncludeFlowStateInstruction {
 		instruction += flowStateInstruction
-	}
-	if p.IncludeExitLoopInstruction {
-		instruction += exitLoopInstruction
 	}
 
 	name := p.InstanceName

@@ -2,12 +2,12 @@
 title: "Slack"
 ---
 
-Magec can connect to Slack through a bot. Users send text or voice messages to the bot in DMs or @mention it in channels, and the bot responds using your configured agents. It supports multiple response modes, per-channel agent switching, and voice messages via audio clips. No public URL needed — the bot connects outward using Slack's Socket Mode.
+Magec can connect to Slack through a bot. Users send text or voice messages to the bot in DMs or @mention it in channels, and the bot responds using your configured agents. It supports multiple response modes, per-channel agent switching, and voice messages via audio clips. No public URL needed: the bot connects outward using Slack's Socket Mode.
 
 This is ideal for teams already on Slack who want to interact with their agents without leaving their workspace.
 
 <div class="screenshots" style="margin-bottom: 2rem;">
-{{< screenshot src="img/screenshots/admin-clients-slack.png" alt="Admin UI — Slack client" >}}
+{{< screenshot src="img/screenshots/admin-clients-slack.png" alt="Slack client" >}}
 </div>
 
 ## Setup
@@ -18,28 +18,28 @@ Go to [api.slack.com/apps](https://api.slack.com/apps) and create a new app:
 
 1. Click **Create New App** → **From scratch**
 2. Name it (e.g., "Magec Assistant") and select your workspace
-3. Under **Socket Mode**, enable it — Slack generates an **App Token** (`xapp-...`). Copy it.
+3. Under **Socket Mode**, enable it. Slack generates an **App Token** (`xapp-...`). Copy it.
 4. Under **OAuth & Permissions**, add these **Bot Token Scopes**:
-   - `app_mentions:read` — receive @mentions in channels
-   - `channels:history` — read messages in public channels (thread context)
-   - `chat:write` — send messages
-   - `files:read` — download audio clips and file attachments
-   - `files:write` — upload voice response files
-   - `groups:history` — read messages in private channels (thread context)
-   - `im:history` — read DM messages
-   - `im:read` — access DM conversations
-   - `im:write` — send DMs
-   - `mpim:history` — read messages in group DMs (thread context)
-   - `reactions:write` — add emoji reactions to messages (progress indicators)
-   - `users:read` — look up user info (name, display name)
-   - `users:read.email` — access user email addresses
+   - `app_mentions:read`: receive @mentions in channels
+   - `channels:history`: read messages in public channels (thread context)
+   - `chat:write`: send messages
+   - `files:read`: download audio clips and file attachments
+   - `files:write`: upload voice response files
+   - `groups:history`: read messages in private channels (thread context)
+   - `im:history`: read DM messages
+   - `im:read`: access DM conversations
+   - `im:write`: send DMs
+   - `mpim:history`: read messages in group DMs (thread context)
+   - `reactions:write`: add emoji reactions to messages (progress indicators)
+   - `users:read`: look up user info (name, display name)
+   - `users:read.email`: access user email addresses
 5. Under **Event Subscriptions**, enable events and subscribe to:
-   - `app_mention` — triggers when someone @mentions the bot
-   - `message.im` — triggers on direct messages to the bot
+   - `app_mention`: triggers when someone @mentions the bot
+   - `message.im`: triggers on direct messages to the bot
 6. Under **App Home**:
-   - Enable **"Allow users to send Slash commands and messages from the messages tab"** — required for users to DM the bot
-   - Enable **"Show My Bot as Online"** — shows a green presence dot when the Magec server is running
-7. Install the app to your workspace — copy the **Bot Token** (`xoxb-...`)
+   - Enable **"Allow users to send Slash commands and messages from the messages tab"** (required for users to DM the bot)
+   - Enable **"Show My Bot as Online"** (shows a green presence dot when the Magec server is running)
+7. Install the app to your workspace. Copy the **Bot Token** (`xoxb-...`).
 
 {{< callout >}}
 **Changes not taking effect?** After modifying scopes or App Home settings, you may need to reinstall the app under **Install App** → **Reinstall to Workspace**. Some users also need to restart their Slack client.
@@ -60,7 +60,7 @@ In the Admin UI, go to **Clients** → **New** → **Slack**:
 | `appToken` | The App Token from Socket Mode settings (`xapp-...`) |
 | `allowedUsers` | Slack user IDs that can use this bot (empty = everyone in the workspace) |
 | `allowedChannels` | Slack channel IDs where the bot can respond (empty = all channels) |
-| `responseMode` | How the bot responds — see [Response modes](#response-modes) |
+| `responseMode` | How the bot responds (see [Response modes](#response-modes)) |
 | `allowedAgents` | Which agents and flows this bot can access |
 
 ### 4. Start chatting
@@ -69,11 +69,11 @@ Open a DM with the bot or @mention it in a channel. It responds using the first 
 
 ## How it works
 
-Magec uses Slack's **Socket Mode** — the bot opens a WebSocket connection to Slack's servers. This means:
+Magec uses Slack's **Socket Mode**: the bot opens a WebSocket connection to Slack's servers. This means:
 
-- **No public URL needed** — works behind firewalls, NATs, on your local machine
-- **No webhook setup** — no need to expose ports or configure SSL certificates
-- **Outbound only** — the bot connects outward, nothing connects inward
+- **No public URL needed.** Works behind firewalls, NATs, on your local machine.
+- **No webhook setup.** No need to expose ports or configure SSL certificates.
+- **Outbound only.** The bot connects outward; nothing connects inward.
 
 This fits Magec's self-hosted approach: everything runs on your infrastructure with no external dependencies.
 
@@ -92,7 +92,7 @@ The response mode controls the format of the bot's replies:
 |------|----------|
 | `text` | Always respond with text (default) |
 | `voice` | Always respond with a voice file (requires TTS configured on the agent) |
-| `mirror` | Match the user's format — text replies to text, voice replies to audio clips |
+| `mirror` | Match the user's format: text replies to text, voice replies to audio clips |
 | `both` | Respond with both text and a voice file |
 
 Users can override the default at runtime with the `!responsemode` command.
@@ -150,16 +150,16 @@ Magec injects metadata about each incoming Slack message into the agent context 
 
 ## Thread Context
 
-When you @mention the bot inside a **thread**, it automatically reads up to 20 previous messages from that thread and includes them as context for the agent. This means the agent can see what other users said in the thread — not just messages directed at the bot.
+When you @mention the bot inside a **thread**, it automatically reads up to 20 previous messages from that thread and includes them as context for the agent. The agent can see what other users said in the thread, not just messages directed at the bot.
 
-This only applies to actual threads in channels. In DMs and top-level channel messages, thread context is not injected — the agent relies on its own session history.
+This only applies to actual threads in channels. In DMs and top-level channel messages, thread context is not injected: the agent relies on its own session history.
 
 The required scopes for this feature (`channels:history`, `groups:history`, `mpim:history`) are already listed in the [setup](#1-create-a-slack-app) section above.
 
 ## Security
 
 {{< callout >}}
-**Always restrict access.** Set `allowedUsers` and/or `allowedChannels` to control who can interact with the bot. Without restrictions, anyone in your workspace who can DM the bot or invite it to a channel can talk to your agents — and use any MCP tools those agents have access to.
+**Always restrict access.** Set `allowedUsers` and/or `allowedChannels` to control who can interact with the bot. Without restrictions, anyone in your workspace who can DM the bot or invite it to a channel can talk to your agents and use any MCP tools those agents have access to.
 {{< /callout >}}
 
 Messages from users or channels not in the allowed lists are silently ignored.

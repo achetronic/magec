@@ -883,3 +883,184 @@ no automatic conversion, no "try harder" repair pass.
 - `frontend/admin-ui/src/views/skills/SkillsList.vue` — opens viewer on click, upload from header button.
 - `frontend/admin-ui/src/lib/api/skills.js` — upload/get/list/delete/download.
 - `frontend/admin-ui/src/lib/markdown.js` + style.css `.magec-markdown` block — Magec-flavoured markdown renderer for skill instructions.
+
+
+## 30. Flows are a directed graph on adk-go v2
+
+Flows are a directed graph of typed nodes joined by edges, built on the
+adk-go v2 workflow engine (`google.golang.org/adk/v2`). A `FlowDefinition`
+holds `Entry`, `Nodes` and `Edges`; the builder emits a single
+`workflowagent` and synthesizes the `Start -> Entry` edge. A node's ID is its
+adk `Node.Name()` and the `event.Author`, so output filtering matches node IDs
+directly with no synthetic naming scheme.
+
+Node types: `agent` (runs an AgentDefinition), `router` (ordered CEL rules over
+flow state emit a route label matched by outgoing `StringRoute` edges),
+`join` (fan-in barrier), `parallel` (runs one agent once per list item via
+`ParallelWorker`), `subflow` (embeds another flow as a `WorkflowNode` built
+from its edges), `expression` (CEL value over `input`+`state`), `template`
+(placeholder text), and `code` (Starlark). Loops are back edges gated by a
+router; there is no loop container.
+
+### Why a graph
+
+A visual flow editor is a graph (boxes and arrows), so the data model, the
+builder and the editor share one shape. Sequencing is an edge, fan-out is
+edges plus a `join`, a loop is a back edge gated by a `router`; none of these
+need a container node or an escalate/exit-loop mechanism. Flows persist only in
+graph form (`Entry`/`Nodes`/`Edges`); there is no importer for other shapes.
+
+### Code node capabilities and limits
+
+The `code` node runs user Starlark via `github.com/1set/starlet`. The admin
+who deploys governs capability, not the flow author: every starlet library
+ships enabled, and the admin disables some in `Settings.Flows.DisabledLibraries`.
+A fresh starlet Machine is built per execution from a loader list prebuilt in
+`agent.New`. Execution limits (wall-clock timeout, output-size cap) have a
+global ceiling in `Settings.Flows` and an optional per-node override, with
+effective = min(node, ceiling) and 0 = unlimited; a runaway script is cut by a
+Starlark step budget and the context deadline. This keeps the sandbox decision
+where it belongs: the operator knows whether the deployment is an isolated
+distroless container or an exposed binary.
+
+### Do not
+
+- Reintroduce `sequential`/`parallel`/`loop` container node types. Sequencing
+  is edges, fan-out is edges plus a `join`, loops are a back edge plus a
+  router; container nodes would reintroduce nesting.
+- Hardcode a library allowlist for the code node. Capability is an admin
+  runtime decision (Settings), not a compile-time policy.
+- Drop the code-node execution limits as non-configurable. They guard Magec's
+  own availability (a runaway loop or huge output), independent of the
+  network/disk capability question, and the admin can disable them knowingly.
+- Evaluate anything in an edge. Edges only match a label; the source router
+  node decides routing by emitting `ev.Routes`.
+
+**Files**:
+
+- `server/store/types.go`: `FlowDefinition{Entry,Nodes,Edges,StartX,StartY}`, `FlowNode`, `FlowEdge`, `FlowRule`, node-type constants, `FlowsSettings` on `Settings`.
+- `server/agent/flow.go`: `buildEdges`/`buildNode`, `workflowagent.New`, subflow via `WorkflowNode`, parallel via `ParallelWorker`.
+- `server/agent/router_node.go`: CEL router with the `iterations` counter and `maxLoopIterations` guard.
+- `server/agent/transform_nodes.go`: expression and template nodes.
+- `server/agent/code_node.go`: Starlark code node, `effectiveLimit`, per-execution machine.
+- `server/agent/flowexit/`: CEL compile/evaluate for router guards and expression values.
+- `server/agent/flowgraph/validate.go` + tests: graph validation.
+- `server/api/admin/flows.go`: `flowgraph.Validate` on save.
+- `frontend/admin-ui/src/views/flows/`: `FlowCanvas.vue`, `FlowNode.vue` (graph editor, resizable nodes, full-screen, draggable Start).
+- `frontend/admin-ui/src/views/settings/FlowsSection.vue`: library pills and execution limits.
+
+
+## 31. Run auditing: raw events recorded by a runner plugin, projected on read
+
+Every runner invocation (agent or flow, from any entry point) is recorded by
+`server/agent/runrecorder`, an adk v2 plugin registered in
+`runner.PluginConfig.Plugins` alongside contextguard. The recorder is a pure
+observer: it never mutates events, never returns an error from a callback, and
+swallows sink failures, so auditing can never break a run.
+
+What is persisted per run: the ordered raw `session.Event` list (the adk
+workflow scheduler yields events through a single queue, so per-run order is
+total) plus run metadata (app, session, user, client, source, timestamps,
+status, error). No distilled format is stored; the admin API derives the
+per-node activation timeline at read time (`projectActivations` in
+`server/api/admin/runs.go`). Views can therefore evolve or be fixed without
+data migration, and `?raw=true` exposes the untouched events for replay.
+
+Storage is SQLite at `data/runs.db` through `server/runs`, using
+`modernc.org/sqlite` (pure Go). CGO surface stays at its current minimum
+(onnxruntime only); this was an explicit constraint. SQLite is scoped to runs
+only; `store.json` is untouched. Retention is SQL (`Sweep` by age and by
+newest-N per app, swept hourly). Sessions live in Redis and are ephemeral, so
+this database is the durable audit copy.
+
+Two facts about the adk plugin API shaped the design (verified empirically):
+run-fatal node errors are not events and never reach the plugin (they surface
+only as the run iterator's error, consumed inside adkrest), and
+`AfterRunCallback` carries no outcome. The recorder therefore exposes
+`MarkRunError`, called by the `RunAudit` middleware, which also annotates
+client attribution (`Annotate`) since the plugin cannot see HTTP. The
+middleware scans the SSE response incrementally for `event: error` frames; it
+does not buffer the stream.
+
+`event.Author` for plain function/join workflow nodes is the workflow agent's
+name, not the node name; Magec's own nodes set `Author` to the node ID. The
+recorder persists both `Author` and `NodeInfo.Path`, and the projection groups
+by consecutive runs of Author (falling back to NodePath) so loop reactivations
+appear as separate activations.
+
+OpenTelemetry was considered and excluded: adk v2 already emits `invoke_node`
+spans natively for users with a collector, and persisting spans locally would
+reimplement a tracing backend. The recorder is a product feature (embedded,
+queryable, own retention), not infra telemetry.
+
+Planned phase 2: rebuild the Conversations audit as a projection over recorded
+runs and retire the stream-buffering conversation middleware and the persisted
+dual perspective.
+
+
+## 32. Client metadata reaches flows as a synthetic `__meta__` prefilter node
+
+Clients (Telegram, Discord, Slack, webhooks) append a
+`<!--MAGEC_META:{...}:MAGEC_META-->` comment block to the user message so the
+agent knows the source, chat and user. Flows need that data too, but as
+structured state, not as noise inside `input` that every node would have to
+strip.
+
+The builder inserts a synthetic function node named `__meta__` between the
+`workflow.Start` sentinel and the entry node of every top-level flow
+(`server/agent/meta_prefilter.go`). It extracts the block, parses the JSON,
+writes it to flow state under `magec_meta`, and forwards the clean input.
+Subflows are not wrapped: their input already went through the parent's
+prefilter.
+
+The state key is deliberately `magec_meta`, visible and unprefixed, so router
+guards, expressions and templates can read `state.magec_meta.source` like any
+other key. Hiding it behind an internal prefix was rejected: the whole point
+is that flow authors use it.
+
+The `__` node-ID prefix is reserved for internal nodes: `flowgraph.Validate`
+rejects user-authored IDs starting with it (mirrored in the editor's rename
+validation), so synthetic names can never collide with authored ones.
+
+Phase 2, deliberately deferred to its own branch: emit the metadata as a
+StateDelta from the client bots themselves (instead of an inline comment
+block), inject a context block into agent instructions, and prefix messages
+with the human author's name in group chats.
+
+## 33. Run audit records snapshot node types at execution time
+
+The Runs UI wants to show what kind of node each activation was (router,
+join, code...). The `session.Event` carries no node type, and resolving
+against the current FlowDefinition would lie whenever a flow is edited after
+the run.
+
+So the type map is a per-run snapshot: `agent.New` collects every built
+flow's node ID to type map (subflow nodes folded in, since their events
+surface inside the parent's run) and hands it to the recorder via
+`SetNodeTypes`. The accumulator attaches its app's map when a run starts,
+and the map is persisted with the run (`node_types` JSON column, in-place
+migration). The projection resolves each activation's `nodeType` from the
+snapshot; runs of plain agents and runs recorded before the snapshot simply
+have none, and the UI shows nothing for them.
+
+Events stay untouched: no metadata is injected into event payloads (half the
+events are emitted by adk internals we cannot reach) and no state keys are
+polluted. The recorder remains a pure observer.
+
+## 34. The router's fallback route is the fixed label "otherwise"
+
+Routers originally carried a DefaultRoute field: the author named the
+fallback label. In practice that produced arbitrary names (default, short,
+retry) for a concept that is always the same thing, and every consumer
+(editor, docs, projections) had to carry the field around.
+
+The field is gone. Every router's fallback emits the reserved label
+`otherwise` (`store.RouterOtherwiseRoute`): rules carry whatever names the
+author wants, the fallback is always called otherwise. Validation rejects a
+rule that tries to use the reserved name, and router coherence checks the
+rules plus the fixed label. The editor's otherwise row connects with the
+fixed label and serialises nothing.
+
+Breaking for pre-existing graph flows with a custom default label: their
+default edge must be renamed to `otherwise`. No migrator; the flows shipped
+so far live on this branch's own instances.

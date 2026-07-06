@@ -23,9 +23,9 @@ import (
 	"fmt"
 	"regexp"
 
-	"google.golang.org/adk/agent"
-	"google.golang.org/adk/tool"
-	"google.golang.org/adk/tool/functiontool"
+	"google.golang.org/adk/v2/agent"
+	"google.golang.org/adk/v2/tool"
+	"google.golang.org/adk/v2/tool/functiontool"
 )
 
 // StateKeyPrefix namespaces every key written by this toolset inside the
@@ -114,7 +114,7 @@ type SetResult struct {
 // service for persistence. Validation failures are returned as
 // SetResult{Success:false} rather than as Go errors so the LLM gets a
 // structured message it can act on.
-func setState(ctx tool.Context, args SetArgs) (SetResult, error) {
+func setState(ctx agent.Context, args SetArgs) (SetResult, error) {
 	if args.Key == "" {
 		return SetResult{Success: false, Message: "key is required"}, nil
 	}
@@ -152,7 +152,7 @@ type GetResult struct {
 // value, not the pre-event one. A missing key is not an error: it returns
 // {found: false} so the model can branch on absence without spurious
 // failures.
-func getState(ctx tool.Context, args GetArgs) (GetResult, error) {
+func getState(ctx agent.Context, args GetArgs) (GetResult, error) {
 	if args.Key == "" {
 		return GetResult{Found: false, Message: "key is required"}, nil
 	}

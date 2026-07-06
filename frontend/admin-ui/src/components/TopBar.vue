@@ -20,29 +20,18 @@
       </div>
     </div>
 
-    <!-- Right: search + stats + refresh -->
+    <!-- Right: search + refresh -->
     <div class="flex items-center gap-2">
       <button
         @click="$emit('search')"
-        class="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-piedra-700/50 text-arena-500 hover:text-arena-300 hover:border-piedra-600 transition-colors"
+        class="hidden sm:flex items-center gap-2 w-72 px-3 py-1.5 rounded-lg border border-piedra-700/50 text-arena-500 hover:text-arena-300 hover:border-piedra-600 transition-colors"
       >
-        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
         </svg>
-        <span class="text-[10px]">Search</span>
+        <span class="text-xs flex-1 text-left">Search</span>
         <kbd class="px-1 py-0.5 text-[9px] font-mono bg-piedra-800 border border-piedra-700/50 rounded">⌘K</kbd>
       </button>
-      <div class="hidden sm:flex items-center gap-1.5">
-        <span
-          v-for="stat in stats"
-          :key="stat.label"
-          class="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium"
-          :class="stat.classes"
-        >
-          <span class="tabular-nums">{{ stat.count }}</span>
-          <span class="text-arena-500">{{ stat.label }}</span>
-        </span>
-      </div>
       <div class="w-px h-5 bg-piedra-700/50 hidden sm:block" />
       <button
         @click="onRefresh"
@@ -89,11 +78,11 @@ const sections = {
   commands:  { label: 'Commands',     icon: 'command',   color: 'indigo',    group: 'Agents' },
   clients:   { label: 'Clients',      icon: 'phone',     color: 'lava',      group: 'Connections' },
   conversations: { label: 'Conversations', icon: 'chat', color: 'teal',      group: 'Audit' },
+  runs:          { label: 'Runs',          icon: 'clock', color: 'arena',     group: 'Audit' },
   settings:      { label: 'Settings',      icon: 'automation', color: 'blue', group: 'System' },
 }
 
 const section = computed(() => sections[props.activeTab] || sections.backends)
-
 const sectionIconBg = computed(() => {
   const map = {
     purple: 'bg-purple-500/15',
@@ -129,10 +118,4 @@ const sectionIconText = computed(() => {
   }
   return map[section.value.color] || map.sol
 })
-
-const stats = computed(() => [
-  { label: 'agents',   count: store.agents.length,   classes: 'bg-sol-500/10 text-sol-400' },
-  { label: 'backends', count: store.backends.length,  classes: 'bg-purple-500/10 text-purple-400' },
-  { label: 'clients',  count: store.clients.length,   classes: 'bg-lava-500/10 text-lava-400' },
-])
 </script>

@@ -2,156 +2,184 @@
 title: "Agentic Flows"
 ---
 
-A flow chains multiple agents into a multi-step workflow. Instead of one agent handling everything, you split the work: one agent researches, another writes, another reviews, another fact-checks. Each agent focuses on what it does best, and the flow coordinates them.
+A flow chains agents and logic into one pipeline: research with one agent, review with another, route on quality, notify a webhook. You build them in a visual editor. If you have not created an agent yet, start with [Agents](/docs/agents/).
 
-You build flows visually in the Admin UI with a drag-and-drop editor, or define them as JSON through the API. The visual editor is the same regardless of complexity. A 2-agent pipeline and a 20-agent workflow use the same building blocks.
+## How a flow is put together
 
-<div class="screenshots" style="margin-bottom: 2rem;">
-{{< screenshot src="img/screenshots/admin-flows.png" alt="Admin UI — Flows" >}}
-</div>
+A flow is a graph of blocks connected by arrows. Each block does one thing. Each arrow carries the output of one block into the next. The **Start** box marks the entry: drag from its dot to a block, and execution begins there.
 
-## Why use flows
+Two words come up constantly. **Input** is the data arriving at a block through its arrow. **State** is a shared scratchpad any block can read and write. More on both below.
 
-A single agent can be powerful, but it has limits. It might be great at writing and mediocre at fact-checking, or handle research well but produce unstructured output. Flows let you compose specialised agents around those strengths and weaknesses:
+## The blocks
 
-- **Quality through specialisation.** Each agent has a focused prompt and can use a different model. A fast cheap model for drafts, a powerful expensive model for review.
-- **Iterative refinement.** Loops let agents revise their work until it meets a quality bar.
-- **Parallel processing.** Multiple agents work simultaneously on different parts of a problem, then their results merge.
-- **Data passing.** Agents share structured data through output keys, so one agent's research becomes another agent's input.
+Eight types, grouped by role in the toolbar:
 
-## Step types
+| Block | What it does |
+|-------|--------------|
+| **Agent** | Runs one of your [agents](/docs/agents/) with the input as its message. |
+| **Foreach** | Runs an agent once per item of a list, concurrently. |
+| **Subflow** | Embeds another flow as a single block. |
+| **Router** | Takes a decision: evaluates [CEL](https://github.com/google/cel-spec) conditions in order and fires exactly one arrow. |
+| **Join** | Waits for several branches and merges their results into one map. |
+| **Expression** | Transforms the input with a CEL one-liner, like `input.split(",")`. |
+| **Template** | Renders text with `{{ input }}` and `{{ state.key }}` placeholders. |
+| **Code** | Runs a [Starlark](https://github.com/bazelbuild/starlark) script when a one-liner is not enough. |
 
-Flows are built from four types of steps, which you can nest freely.
+Two small languages appear here. **CEL** is for one-liners: router conditions and expressions. **Starlark** is Python-like and powers the code block, for real logic.
 
-### Agent
-
-The leaf node. It runs a single agent and passes its output forward. Every flow ultimately bottoms out in agent steps. They are the ones doing the actual work.
-
-### Sequential
-
-Runs its children one after another, in order. The output of each step becomes available to the next. This is the most common building block: do A, then B, then C.
-
-### Parallel
-
-Runs its children simultaneously. All branches receive the same input, their outputs are concatenated, and the result passes forward. Use this when multiple agents can work independently on different aspects of the same problem.
-
-### Loop
-
-Repeats its children until one of these happens:
-
-1. The `maxIterations` cap is reached. Always active as a safety net against infinite loops.
-2. (Optional) An agent inside the loop calls the built-in `exit_loop` tool, when the loop's exit strategy is set to **agent decides**.
-3. (Optional) A CEL expression on shared flow state evaluates to `true` after an iteration, when the strategy is set to **expression**.
-
-The cap and the optional early exit are independent. The cap is a hard ceiling that always applies; the early exit is an additional way to stop sooner. Click the loop's **Mode** button in the editor to configure both.
-
-## Nesting
-
-Steps can be nested without limits. A sequential step can contain parallel branches. A parallel branch can contain loops. A loop can contain sequences with more parallels inside them. The visual editor handles this naturally: you drag steps into other steps.
-
-## Building flows
-
-### Visual editor
-
-The Admin UI has a flow editor where you create flows by dragging step types onto a canvas and connecting them. Add agents, wrap them in sequential, parallel or loop containers, and arrange them however you want.
+Not sure what a block accepts? Hover **Need help?** in its header: variables, syntax, examples to paste.
 
 <div class="screenshots" style="margin-bottom: 2rem;">
-{{< screenshot src="img/screenshots/admin-flow-simple.png" alt="Admin UI — Research Pipeline flow (4 agents)" >}}
+{{< screenshot src="img/screenshots/admin-flow-node-help.png" alt="Block help popover on a Router" >}}
 </div>
 
-The Research Pipeline above shows a simple flow: parallel research and critique, then fact-checking, then synthesis. Four agents, clear and readable.
+## The code block, up close
 
-The same editor handles much larger workflows. The Software Factory below chains 13 agents through a full software development lifecycle:
+The code block is the escape hatch. Scripts get `input` and `state`, assign their result to `output`, and can use [starlet's libraries](https://github.com/1set/starlet#libraries) directly, no import needed: `http`, `json`, `re`, `hashlib` and more.
+
+```python
+resp = http.post(
+    "https://hooks.example.com/notify",
+    json_body = {"topic": state["topic"], "verdict": input},
+)
+output = resp.status_code
+```
 
 <div class="screenshots" style="margin-bottom: 2rem;">
-{{< screenshot src="img/screenshots/admin-flow-complex.png" alt="Admin UI — Software Factory flow (13 agents)" >}}
+{{< screenshot src="img/screenshots/admin-flow-node-code.png" alt="Code block with a Starlark script" >}}
 </div>
 
-### How data flows between agents
+The admin decides which libraries are on, not the flow author. Everything ships enabled; Settings > Flows turns off what your deployment should not have (no `http` for air-gapped installs, no `file` if scripts must not touch disk). Execution limits live there too: timeout and output cap, as ceilings a block may only lower.
 
-Each step receives the accumulated output of all previous steps as context. The mechanism for structured data passing is **output keys**:
+<div class="screenshots" style="margin-bottom: 2rem;">
+{{< screenshot src="img/screenshots/admin-settings-flows.png" alt="Flows settings: script libraries and execution limits" >}}
+</div>
 
-1. Give an agent an `outputKey` in its [configuration](/docs/agents/) (for example, `research_results`).
-2. The agent's output is saved under that key in the flow's shared state.
-3. Later agents reference it with `{{agent.output:research_results}}` in their system prompt.
-4. Magec replaces the placeholder with the actual output at runtime.
+## Your first flow
 
-> **Note:** Magec uses `{{agent.output:variable}}` instead of `{variable}` for state references. This avoids conflicts with curly braces in your prompts, JSON examples, or any other content that uses `{` and `}`.
+1. Add a **Template** block. Write `Answer briefly: {{ input }}`.
+2. Add an **Agent** block and pick an agent.
+3. Connect Start to the template, and the template to the agent.
+4. Save.
 
-This lets you build precise data pipelines. A researcher outputs structured findings, a writer references those findings in its prompt, a reviewer references both. Each agent sees exactly the context it needs.
+<div class="screenshots" style="margin-bottom: 2rem;">
+{{< screenshot src="img/screenshots/admin-flow-first.png" alt="A two-block flow: Start, a template, an agent" >}}
+</div>
 
-In parallel steps, all branches receive the same input. Their outputs are concatenated and passed to whatever comes next.
+Done. Send it a message: the template wraps your text, the agent answers.
 
-## Sharing state and exiting loops early
+The agent block's **response toggle** marks whose output the user sees. With one agent it hardly matters. With five, it hides the intermediate noise.
 
-Output keys cover passing values between turns through the system prompt. For coordination during a turn, like an agent signalling "we're done" mid-flow or a loop that stops based on a condition, Magec adds extra tools and loop modes you configure from the **Mode** button on a loop step.
+Editor habits that pay off:
 
-See [Flow control](/docs/flow-control/) for the full guide: shared `set_state` and `get_state` tools, `exit_loop` for LLM-driven termination, and CEL expressions for state-driven termination.
+- **Full screen** (expand button on the zoom bar; Escape twice to leave).
+- **Ctrl+scroll** zooms, **plain scroll** pans, **Fit** frames the graph.
+- Click a block's **ID chip** to rename it; arrows and references follow.
 
-## Response agents
+## Adding a decision
 
-When a flow runs, every agent in the pipeline produces output internally. The user doesn't necessarily want to see all of it, only the final result. The **response agent** flag controls which agent's output appears in the response that the user sees.
+Want long questions on your expensive agent and the rest on a cheap one? Put a **Router** between the template and the agents.
 
-Mark one or more agent steps as "response agent" in the flow editor. Only those agents' outputs are included in the final response. This is useful for flows where intermediate steps (research, validation, formatting) produce output that matters to the pipeline but not to the user.
+A router holds ordered rules: a CEL condition plus a route. First match wins; the fixed **otherwise** route catches the rest. Each outgoing arrow carries one route, so exactly one path fires. The input passes through unchanged.
+
+<div class="screenshots" style="margin-bottom: 2rem;">
+{{< screenshot src="img/screenshots/admin-flow-node-router.png" alt="Router block with a CEL rule and the OTHERWISE route" >}}
+</div>
+
+Conditions see `input`, `state` and `iterations` (times this router fired this run) and must return a boolean:
+
+```
+size(input) >= 200
+input.contains("urgent")
+state.magec_meta.source == "telegram"
+```
+
+Magec compiles every condition on save and rejects the broken ones. A rule that fails at runtime counts as false and the run continues. To experiment, use the [CEL playground](https://playcel.undistro.io/).
+
+## Going parallel
+
+Drag two arrows out of one block and both targets run at once, each with a copy of the input. The **Join** block closes the fan: it waits for all branches and emits a map keyed by block ID.
+
+<div class="screenshots" style="margin-bottom: 2rem;">
+{{< screenshot src="img/screenshots/admin-flow-fanout.png" alt="Fan-out into two agents, joined back and merged" >}}
+</div>
+
+Here `gather` emits `{"bender_pros": ..., "bender_cons": ...}`. A template or a script then merges the map.
+
+## Sharing data beyond the arrow
+
+When a later block needs a value from three steps back, use **state**.
+
+Writing: expression, template and code blocks have an **output key** field that stores their result under that key. Agents call their `set_state` tool (they also get `get_state`; both appear automatically for agents inside a flow).
+
+Reading: `state.topic` in conditions and expressions, `{{ state.topic }}` in templates, `state["topic"]` in scripts.
+
+State lasts the whole conversation, not one run: every run in the same conversation reads and writes the same scratchpad, so the next message still sees what the previous one wrote. Each flow has its own state; nothing leaks across flows. Use it for flags, scores, short strings; for documents, use [artifacts](/docs/agents/).
+
+Because state carries over, a flow that depends on a key should set it before reading it. Make the first block initialize what the run needs: an expression with the value `false` and output key `approved` resets the flag at the start of every run, no matter what an earlier run left behind.
+
+Client metadata arrives for free in `state.magec_meta`: messages from Telegram, Discord, Slack or webhooks carry their details there, so a router can branch on where the message came from. The exact keys depend on the client; run the flow once and check the run's detail.
+
+## Looping
+
+There is no loop block. Point a router backwards:
+
+<div class="screenshots" style="margin-bottom: 2rem;">
+{{< screenshot src="img/screenshots/admin-flow-loop.png" alt="A loop: the router's retry route arcs back to the draft template" >}}
+</div>
+
+The `quality_gate` router has one exit rule; the otherwise arrow points back:
+
+```
+state.approved == true || iterations >= 4   ->  approved (forward)
+otherwise                                   ->  back to draft_prompt
+```
+
+Each pass, the writer drafts and the gate checks. When an agent has written `approved` to state, or after four tries, the flow moves on. A template on the back arrow can reshape the retry ("Too short, expand it: {{ input }}").
+
+Exit conditions worth stealing:
+
+- `iterations >= 5`: five passes, no matter what.
+- `state.approved == true`: an agent wrote the flag via `set_state`.
+- `input.contains("DONE")`: the agent says so in its output.
+- `size(input) >= 400 || iterations >= 3`: long enough, or three tries.
+
+Always bound `iterations`. It saves you the day the LLM never says DONE. Magec kills a run if one router fires over 1000 times, but don't count on meeting that guard.
+
+## A complete flow
+
+Most of the pieces, in one graph. Takes a topic, argues both sides in parallel, merges, measures, routes on quality.
+
+<div class="screenshots" style="margin-bottom: 2rem;">
+{{< screenshot src="img/screenshots/admin-flow-editor.png" alt="A complete flow in the full-screen editor" >}}
+</div>
+
+Left to right: an expression stores the topic, two templates build the PROS and CONS prompts, two agents argue, a join collects, a code block merges, an expression measures, a router decides. Long analyses get a verdict from a third agent plus a webhook; short ones get a rejection template. Thirteen blocks, three agents. The other ten cost no tokens and never hallucinate. That's the point: you spend LLM calls only where thinking happens.
+
+## Watching your flows run
+
+Every run is recorded. The **Runs** section of the Admin UI shows each execution as a timeline: what went into each block, what came out, which state keys were written, which route fired. When a run fails, the failing block carries the error. Look there first.
+
+<div class="screenshots" style="margin-bottom: 2rem;">
+{{< screenshot src="img/screenshots/admin-runs-timeline.png" alt="A run's timeline with an expanded activation" >}}
+</div>
+
+## Troubleshooting
+
+**The agent never calls `set_state`.** Make it explicit and mandatory in the system prompt. Small models need it repeated.
+
+**The loop never exits.** Open the run and check what state each block wrote. Missing key? Fix the prompt.
+
+**The loop exits on the first pass.** Runs in the same conversation share state, so a flag written by an earlier run satisfies the condition immediately. Initialize the key at the start of the flow: an expression with the value `false` and output key `approved` clears it every run.
+
+**The router takes the wrong route.** Rules are ordered, first match wins. Put specific conditions above general ones.
+
+**A routed arrow points at a join.** Joins wait for all their inputs; a branch that may never fire would deadlock them. Magec rejects this on save.
 
 ## Spokesperson (Voice UI)
 
-When a flow is selected in the Voice UI, you can choose which agent acts as the **spokesperson**: the voice the user hears. The spokesperson's TTS and STT configuration determines how the flow sounds and how it listens.
-
-By default, the spokesperson is the first response agent. You can switch it from the agent switcher in the Voice UI. This lets you, for example, have a flow where the "manager" agent is the response agent (its text appears in chat) and the "presenter" agent is the spokesperson (its voice is what you hear).
-
-See [Voice UI — Spokesperson](/docs/voice-ui/) for details.
-
-## Example flows
-
-### Research Pipeline (4 agents)
-
-A parallel research stage where two researchers work simultaneously, a critique stage, then synthesis.
-
-```
-Sequential
-├── Parallel
-│   ├── Agent: Researcher A
-│   └── Agent: Researcher B
-├── Agent: Fact Checker
-└── Agent: Synthesizer (response agent)
-```
-
-### Debate Arena (3 agents)
-
-A loop where two debaters argue while a moderator controls the flow.
-
-```
-Loop (maxIterations: 5)
-└── Sequential
-    ├── Agent: Debater A
-    ├── Agent: Debater B
-    └── Agent: Moderator (calls exit_loop when debate is resolved)
-```
-
-### Software Factory (13 agents)
-
-A full SDLC pipeline with parallel development branches and quality loops.
-
-```
-Sequential
-├── Agent: Product Manager
-├── Agent: Architect
-├── Parallel
-│   ├── Agent: Frontend Developer
-│   ├── Agent: Backend Developer
-│   └── Agent: Database Engineer
-├── Loop
-│   └── Sequential
-│       ├── Agent: QA Engineer
-│       └── Agent: Code Reviewer
-├── Agent: Technical Writer
-├── Agent: Security Auditor
-└── Agent: Deployment Manager (response agent)
-```
-
-These are just patterns. You can build any workflow topology that makes sense for your use case.
+In the Voice UI you pick which agent is the spokesperson: the voice the user hears. Default: the first agent the flow reaches from its entry. See [Voice UI](/docs/voice-ui/).
 
 {{< callout type="info" >}}
-Flows, like agents, support hot-reload. Edit a flow in the Admin UI and the changes take effect immediately. No restart needed.
+Flows hot-reload. Edit and the changes apply immediately, no restart.
 {{< /callout >}}

@@ -139,13 +139,11 @@ func FlowResponseFilter(next http.Handler, dataStore *store.Store) http.Handler 
 			return
 		}
 
-		// We match event.Author against the ADK agent name that flow.go
-		// assigned to each leaf instance, NOT against the AgentDefinition
-		// IDs the operator wrote in the flow tree. The two used to coincide
-		// before flows started building per-appearance instances; they no
-		// longer do (decision #28). ResponseAgentNames computes the synthetic
-		// names with the same recipe flow.go uses so the filter and the
-		// runtime agree.
+		// We match event.Author against the adk node name of each response
+		// agent. In the graph model a node's ID is its adk Node.Name() and
+		// therefore the event.Author, so ResponseAgentNames simply returns the
+		// IDs of the agent nodes flagged as response agents — no synthetic
+		// naming recipe to keep in lockstep with the builder.
 		responseNames := flow.ResponseAgentNames()
 		if len(responseNames) == 0 {
 			next.ServeHTTP(w, r)

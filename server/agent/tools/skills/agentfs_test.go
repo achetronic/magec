@@ -17,7 +17,7 @@ import (
 	"testing"
 	"testing/fstest"
 
-	adkskill "google.golang.org/adk/tool/skilltoolset/skill"
+	adkskill "google.golang.org/adk/v2/tool/skilltoolset/skill"
 )
 
 // fakeRoot is a fstest.MapFS that mimics data/skills/, populated with

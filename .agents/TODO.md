@@ -2,61 +2,110 @@
 
 ## Recently Completed
 
-### This branch (`feature/lazy-load-skills`, 2026-05-09)
+### This branch (`feat/workflow-graph-redesign`)
 
-- **Skills as on-disk packages** — skills now live at `data/skills/{slug}/SKILL.md` with optional `references/`, `assets/`, `scripts/` sub-trees. Store keeps only `{id, slug}`; everything else (frontmatter, instructions, resources) is read live from disk. Inline injection into system prompts is gone. Decision #29.
-- **Per-agent `skilltoolset`** — adopted `google.golang.org/adk/tool/skilltoolset` (v1.2.0). Each agent gets its own `skilltoolset` rooted at `data/skills/` but filtered through `agent/tools/skills.AgentFS`, an `fs.FS` wrapper that whitelists only the slugs linked to the agent. Agents with no linked skills get no toolset at all.
-- **Single upload endpoint (`POST /skills/upload`)** — accepts a SKILL.md or a `.zip`/`.tar.gz` package; `?replace=true` overwrites an existing skill that owns the same slug while preserving its store ID so agent links stay valid. Replaces the old `/skills`, `/skills/{id}`, `/skills/{id}/references`, `/skills/{id}/package` admin endpoints.
-- **Read-only Skill viewer (admin UI)** — `SkillViewDialog.vue` opens on card click, renders frontmatter (license, compatibility, allowed-tools, custom metadata), instructions as Markdown, and lists every resource grouped by `references/assets/scripts`. Includes a Download button that streams the on-disk package as `tar.gz` for backups or magec-to-magec copies.
-- **Upload-only Skill modal** — `SkillDialog.vue` no longer has Manual/Package toggle, Name/Description/Instructions fields, or a per-file uploader. One dropzone, one button.
-- **Legacy stores → breaking change, no migrator** — pre-decision-#29 stores are flagged at load time by `store.detectBrokenSkills`. Each broken skill (entry with fields outside `{id, slug}`) gets one WARN-level log on startup with id/reason/action and is filtered out of every `*Store` accessor (`ListSkills`, `GetSkill`, `GetSkillBySlug`, `ListRawSkills`, `GetRawSkill`). The admin UI doesn't see them, the agent build path doesn't link them, and the upload handler can re-create the same slug as a clean skill. The legacy entry stays in `store.json` until the operator removes it by hand and re-uploads. No auto-migration, no on-disk repair: an earlier compat layer rotted silently and produced corrupted SKILL.md files.
-- **Tolerant frontmatter parsing** — admin GET (`hydrateSkill`) uses a permissive YAML decode so non-canonical frontmatter keys (`version:`, `author:`, `tags:`) don't blank the viewer; runtime uses `agent/tools/skills.TolerantSource` so the agent toolset stays alive when ADK's strict `KnownFields(true)` parser would have rejected the SKILL.md outright.
-- **Magec-flavoured markdown renderer** — `frontend/admin-ui/src/lib/markdown.js` + `.magec-markdown` block in `style.css`. Custom `marked` renderer + tiny regex syntax highlighter for YAML/JSON/bash/Go/JS/TS/Python/Markdown. No external highlight library; visual choices documented inline.
-
-### Earlier branch (`feature/flow-state`, 2026-05-04)
-
-- **Flow-shared state** — agents inside any flow get `set_state(key, value)` and `get_state(key)` tools backed by `session.state` under the `flow:` prefix. Standalone agents do not get them. Implemented in `server/agent/tools/flowstate/`. Decision #28.
-- **LLM-driven loop exit** — loop steps gained an `ExitLoop` flag. When set, every agent in the loop's subtree (any depth, propagated through nested sequentials/parallels) receives ADK's native `exit_loop` tool. The current iteration completes before the loop terminates (matches ADK's loopagent semantics). Decision #28.
-- **Expression-driven loop exit (`ExitWhen`)** — loop steps gained a CEL expression evaluated against the shared flow state after every iteration. New `server/agent/flowexit/` package with `Compile` (called both by admin validation and at flow build time) and `NewExitWhenAgent` (synthetic evaluator agent appended as the last child of the loopagent, emits `Escalate` when the expression is true). New direct dep: `github.com/google/cel-go`. Decision #28.
-- **`BuildAgentInstance` refactor** — `buildSingleAgent` was renamed and exported, signature converted to a `BuildAgentInstanceParams` struct. `flow.go` now builds a fresh ADK instance per agent appearance via `BuildAgentInstance`, allowing scope-dependent toolsets/instructions without polluting the standalone catalogue. `wrapAgent` is kept only for flow-as-step composition.
-- **Loop config dialog (admin UI)** — replaced the `prompt()`-based max iterations input with `LoopConfigDialog.vue` exposing the three exit strategies (max only / agent decides / expression). `FlowBlock` badge now shows the chosen strategy alongside the iteration count.
-
-### Earlier branch (`feature/always-artifacts`, 2026-04-30)
-
-- **Always-artifact attachments** — removed the inline-vs-artifact size threshold; `msgutil.ShouldInline` and `msgutil.InlinePart` are gone. Every user upload (Telegram/Slack/Discord) flows through `msgutil.StoreAsArtifact` + `AttachedArtifactsBlock`. Decision #24 rewritten.
-- **`load_artifact` via RequestProcessor** — replaced the old `functiontool` that returned base64 in JSON (which corrupted the model's view and burned context) with a manual `tool.Tool` implementing `RequestProcessor`. It mutates the existing `FunctionResponse` Content rather than appending a new one, preserving the "1 session event = 1 req.Contents entry" invariant ContextGuard relies on. Decision #25.
-- **`adk-utils-go` v0.15.2** — bumped from v0.13.0 to pick up `lowercaseTypes` in the Anthropic provider, which normalises `Type: "STRING"` (Gemini-style) to `"string"` (JSON Schema draft 2020-12) for tool input schemas built with `genai.Schema`.
-- **`export_artifact` tool + Settings.TemporaryDir** — new tool decodes an artifact and writes the raw bytes to disk under a single, centrally-resolved directory (`Store.ResolveTemporaryDir()` → `Settings.TemporaryDir` or `os.TempDir()`). Lets the model hand artifacts off to any filesystem-aware tool. Admin UI gained a Runtime section under Settings to configure the path. Decision #26.
-- **`get_artifact_url` tool + ephemeral URL endpoint** — new `GET /api/v1/ephemeral/artifacts/{token}` serves an artifact's raw bytes when called with a valid HMAC-SHA256 signed token. Companion tool `get_artifact_url` mints those URLs (1 h TTL, signed with `server.encryptionKey`, public hostname from `getA2APublicURL`). Lets sidecars and remote consumers fetch artifacts over HTTP without sharing volumes. New `server/ephemeral` package with sign/verify primitives. Decision #27.
-
-### Older branch (`feature/todo-audit-cleanup`, 2026-04-18)
-
-- **Telegram: thread-aware error messages** — the 4 remaining error-path `SendMessage` calls in `telegram/bot.go` now pass `MessageThreadID`, keeping error replies in the origin topic.
-- **Slack multimodal (inlineData)** — new `extractInlineDataFromFiles` in `slack/bot.go` processes non-audio files (`image/*`, `application/pdf`, `text/*`, etc.) from DMs, encodes them as base64 `inlineData` parts. `callAgentSSE` and `processMessage` now accept a `[]map[string]interface{}` parts slice. 5MB/file limit.
-- **Discord multimodal (inlineData)** — new `extractInlineDataFromAttachments` in `discord/bot.go` processes non-audio message attachments the same way. Voice messages still handled separately by `handleVoice`.
-- **MemoryCard border** — removed the active-state override so the card follows the normal Card hover behaviour (grey at rest, green tint on hover). Active state is indicated solely by the radio button at the top-left.
-
-### Earlier audit (2026-04-18)
-
-- **Client Config — DefaultAgent + ThreadHistoryLimit** — `defaultAgent` persisted on `!agent <id>` with fallback chain, `threadHistoryLimit` replaces hardcoded 50. Shared schema helpers in `server/clients/provider.go`.
-- **Large Message Handling (Telegram/Slack/Discord)** — `server/clients/msgutil/` package with `ValidateInputLength` + `SplitMessage`.
-- **Artifact Management Toolset** — `server/agent/tools/artifacts/toolset.go`. Wired via `base_toolset.go`. Filesystem-backed. Clients auto-deliver new artifacts as file attachments.
-- **Voice Provider Registry (Multi-Backend TTS/STT)** — `server/voice/` with OpenAI + Gemini providers. Typed `TTSConfig`/`STTConfig` structs per provider. `GET /voice/types` endpoint.
-- **Skill Card View Formatter** — `lib/frontmatter.js`, canonical skills render structured cards.
-- **Skill Package Upload (ZIP/tar.gz)** — `POST /skills/{id}/package`.
-- **Secret Deletion + Env Var Cleanup** — `DeleteSecret` calls `os.Unsetenv`, `UpdateSecret` unsets old key on rename, both re-expand store data via `reExpandDataLocked`.
-- **Telegram Multimodal Files (inlineData)** — `telegram/bot.go` downloads `Photo`/`Document`/`Video`/`Audio`/`Animation`/`VideoNote`/`Sticker`, encodes base64, sends as `inlineData` parts. 5MB limit enforced.
-- **Voice UI Multiline Text Input** — `PanelHistory.vue` uses `<textarea>` with Shift+Enter for newline, Enter to send, auto-resize up to 150px.
-- **Voice UI File Attachments** — `PanelHistory.vue` supports `image/*`, `application/pdf`, `text/*` via `<input type="file">`, base64 encoded, preview thumbnails, removable.
-- **Tool Execution Visibility** — `msgutil/sse.go` has `FormatToolCall*` / `FormatToolResult*` for Telegram (expandable blockquote), Discord and Slack (compact summary). Voice UI has collapsible tool blocks in `ChatMessage.vue`. `!showtools` toggle per client.
-- **Admin UI: Strip Metadata in ConversationDetail** — `stripMetadata` applied in `renderMarkdown` and `handleExportPDF`.
-- **MemoryCard uses Card component** — `MemoryCard.vue` wraps `<Card color="green">` correctly.
-- **Composable Flows (flow-as-step) — partial** — `server/agent/agent.go:sortFlowsTopologically` provides topological sort with cycle detection. Still pending: admin API validation, `InheritResponseAgents` field, UI selector showing flows as step targets.
-- **Telegram Groups + Threads — in-thread replies** — @mention filter in groups/supergroups implemented. `MessageThreadID` threaded in all outbound calls (typing, tool counter, text response, error paths, artifact delivery).
+- **Flows as a directed graph on adk-go v2** — 8 node types (agent, router,
+  join, parallel/Foreach, subflow, expression, template, code), CEL guards
+  with `input` + `state` + `iterations`, fixed `otherwise` fallback route
+  (decision #34), Starlark code node with admin-governed
+  libraries and limits, graph validation, visual editor (fan-out, renamable
+  node ID chips, NodeHelp popovers, StarlarkEditor, double-Escape fullscreen,
+  blurred preview when minimized).
+  Decisions #30, #28. Reference: `WORKFLOW_DESIGN.md`.
+- **Run auditing end to end** — `runrecorder` plugin (raw ordered events +
+  user input via OnUserMessageCallback), `server/runs` SQLite store
+  (modernc.org/sqlite, retention sweeps, manual delete/clear), `RunAudit`
+  middleware (attribution + SSE error capture), admin API with on-read
+  activation projection (node-type snapshots per run, internal `__` nodes
+  hidden), Runs UI (list with kind toggle + timeline detail with
+  RunHeader/ActivationCard/StatusPill). Verified live on a 14-node torture
+  flow. Decisions #31, #33.
+- **Client metadata prefilter** — synthetic `__meta__` node strips the
+  MAGEC_META block into `state.magec_meta`; `__` ID prefix reserved.
+  Decision #32.
+- **adk-utils-go v0.22.0** — Redis session service parity fixes (StateDelta
+  applied to the live session, temp: key semantics, timestamps, List/Get
+  validation); consumed from the remote module, vendor dropped.
+- **Website flows docs rewritten for the graph model** — single concept-first
+  page (Flow Control folded in), hardened through adversarial audit rounds,
+  screenshots captured live from the admin UI.
 
 ---
 
 ## High Priority
+
+### Run recorder: interrupted status on shutdown
+
+A server restart mid-run produces a run record with status `completed` even
+though the run was decapitated (observed live: a flow whose agents had called
+tools but never emitted text was flushed as completed during the redeploy).
+The AfterRunCallback defer fires during shutdown and flushes with the default
+status. Fix candidates: flush as `interrupted` from Recorder.Close() for every
+live accumulator, and/or only mark `completed` when a terminal run event was
+observed. Tests: simulate Close() with a live accumulator and assert the
+persisted status.
+
+**Modify**: `server/agent/runrecorder/recorder.go` (+ test).
+
+---
+
+### Runs UI: event presentation polish
+
+Remaining cosmetic issues observed on real runs:
+
+- **Raw event summaries** — collapsed raw events show generic JSON; summarise
+  the interesting shape instead (`functionCall: search_memory`,
+  `functionResponse`, text preview).
+- **MAGEC_META leaks into previews of pre-prefilter runs** — runs recorded
+  before the `__meta__` prefilter existed still show the raw metadata block
+  in input/output previews. Presentation-level filtering.
+
+**Modify**: `server/api/admin/runs.go` (projection), `frontend/admin-ui/src/views/runs/`.
+
+---
+
+### Runs timeline: branch-aware projection
+
+With fan-out, events of concurrent branches interleave in the single event
+queue, which fragments the consecutive-author grouping (author A, B, A yields
+three activations where two nodes ran) and makes branches hard to follow.
+Agreed first steps, deliberately short of a git-graph redesign:
+
+- Group activations by (author, branch) instead of author alone.
+- Within a fan-out segment (between the forking node and its join), order
+  activations branch by branch while keeping global chronology across
+  segments.
+
+**Modify**: `server/api/admin/runs.go` (projection + tests).
+
+---
+
+### MAGEC_META phase 2: metadata as state, context for agents
+
+Phase 1 (the `__meta__` prefilter, decision #32) ships on this branch. Phase 2,
+for its own branch:
+
+- Client bots emit the metadata as a StateDelta instead of an inline comment
+  block appended to the user text.
+- Agent instructions gain a context block built from the metadata.
+- Group chats prefix messages with the human author's name (`[Alby]:`) so
+  multi-user conversations are attributable.
+
+**Modify**: `server/clients/{telegram,discord,slack}/bot.go`, `server/clients/executor.go`, instruction builder in `server/agent/agent.go`.
+
+---
+
+### Run auditing phase 2: Conversations as a projection over runs
+
+Rebuild the Conversations audit as a projection over recorded runs
+(conversation = runs of one session; user perspective = on-read filter by
+ResponseAgentNames). Retires the body-buffering ConversationRecorder
+middleware and the persisted dual perspective. Clean break, no migrator.
+Decision #31.
+
+---
+
+---
 
 ### Multimodal File Support — AppMention in Slack (channel files)
 
@@ -72,11 +121,38 @@ The Slack `extractInlineDataFromFiles` helper only runs in the DM path (`handleM
 
 ---
 
-### Improve Drag-and-Drop UX in Visual Flow Editor
+### Workflow graph: ToolNode (deferred)
 
-The visual flow editor's drag-and-drop already has placeholder, ghost, drop highlight, dead zones and vuedraggable reorder. Remaining polish items are subjective — define specific UX targets before working on this.
+The flow redesign (`feat/workflow-graph-redesign`) added agent, router, join,
+parallel and subflow nodes. adk-go v2 also offers `workflow.NewToolNode`, which
+runs an MCP tool **directly as a step** (deterministic, no LLM turn). It is
+deferred because Magec has **no static tool catalogue**: tools are discovered at
+runtime when an MCP server connects, the store only persists the server
+(endpoint/command), and `NewToolNode` requires a runnable `tool.Tool` with
+resolved input AND output schemas. So ToolNode needs a prerequisite feature:
 
-**Modify**: `frontend/admin-ui/src/views/flows/` (flow editor components)
+1. **MCP tool discovery** — an admin endpoint that connects to an MCP server
+   and lists its tools with their JSON schemas (name, description, input/output).
+2. **Editor tool picker** — a `tool` node whose reference is `{mcpServerId, toolName}`,
+   resolved + validated against discovery (not free-typed).
+3. **Builder** — resolve the chosen tool from the agent/flow's `mcptoolset` and
+   wrap it with `workflow.NewToolNode`.
+
+Until discovery exists, a tool node would be a free-typed `{server, name}` with
+no validation and bad UX — explicitly not worth doing half-way.
+
+**Modify**: `server/store/types.go`, `server/agent/flow.go`, `server/api/admin/mcps.go` (+ new discovery handler), `frontend/admin-ui/src/views/flows/`.
+
+---
+
+### Workflow graph: remaining debt
+
+- **HITL pause/resume** — adk v2's `NewRequestInputEvent` + `NodeConfig.RerunOnResume`
+  let a node pause for human input mid-flow (distinct from per-tool confirmation
+  below). Phase 2 of the redesign.
+- **String extensions in router guards** — the router CEL env lacks
+  `ext.Strings`/`ext.Lists` (expression nodes have them); add if a guard ever
+  needs `split`/`replace`.
 
 ---
 
@@ -180,18 +256,6 @@ Messages posted in Telegram channels (not groups) are silently ignored. Supporti
 
 ---
 
-### Composable Flows (flow-as-step) — UI + Admin Validation
-
-**Status**: Topological sort + cycle detection at build time already implemented (`agent/agent.go:sortFlowsTopologically`). Still pending:
-
-- Admin API validation (reject cycles at save time)
-- `FlowStep.InheritResponseAgents *bool` (default true). When false, step's sub-flow responseAgents excluded from parent flow's `ResponseAgentIDs()`
-- Admin UI: flow step selector must show both agents and flows (distinguished by `type`)
-
-**Modify**: `server/store/types.go`, `server/api/admin/flows.go`, `frontend/admin-ui/src/views/flows/`.
-
----
-
 ### Voice Activity Detection During TTS
 
 On mobile, microphone picks up speaker output and triggers wake word during TTS playback. Options: mute mic during TTS, echo cancellation, or increase threshold temporarily.
@@ -232,12 +296,6 @@ TTS `response_format` (hardcoded `"opus"`) in Telegram/Slack/Discord clients (`b
 **Characteristics**: Remote gets full context. No orchestrator tokens during transfer. One transfer at a time.
 
 **Implementation**: Same `RemoteAgent` entity as tool mode. Per-remote flag for tool-vs-subagent mode.
-
----
-
-### Evaluate Flow Subagent Invocation Model
-
-Should clients target sub-agents within flows? Should flows support conditional routing? Should execution include per-step metadata?
 
 ---
 

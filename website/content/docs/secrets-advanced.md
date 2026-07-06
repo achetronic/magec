@@ -2,9 +2,9 @@
 title: "Advanced Secrets"
 ---
 
-This page covers the internal details of how Magec handles secrets — the expansion pipeline, encryption at rest, compatibility with external environment variables, and recovery procedures. For a practical guide on creating and using secrets, see [Secrets](/docs/secrets/).
+This page covers the internal details of how Magec handles secrets: the expansion pipeline, encryption at rest, compatibility with external environment variables, and recovery procedures. For a practical guide on creating and using secrets, see [Secrets](/docs/secrets/).
 
-Secrets are named values — API keys, tokens, passwords — that you manage through the Admin UI and reference anywhere in your configuration using `${KEY}` syntax. They provide a single place to store sensitive data instead of scattering environment variables across your deployment.
+Secrets are named values (API keys, tokens, passwords) that you manage through the Admin UI and reference anywhere in your configuration using `${KEY}` syntax. They provide a single place to store sensitive data instead of scattering environment variables across your deployment.
 
 ## How secrets work
 
@@ -30,7 +30,7 @@ On startup, Magec processes secrets before anything else:
 4. Expand all `${VAR}` references across the entire store using `os.ExpandEnv()`
 5. Continue with the fully resolved configuration
 
-This two-pass approach means secrets can reference other environment variables, and the rest of the store can reference secrets — everything resolves in a single consistent pass.
+This two-pass approach means secrets can reference other environment variables, and the rest of the store can reference secrets. Everything resolves in a single consistent pass.
 
 ## Encryption at rest
 
@@ -41,7 +41,7 @@ When `server.encryptionKey` is set in `config.yaml`, secret values are encrypted
 | **Algorithm** | AES-256-GCM (authenticated encryption) |
 | **Key derivation** | PBKDF2 with 100,000 iterations, SHA-256 |
 | **Source key** | The `encryptionKey` from `config.yaml` |
-| **Format** | Encrypted values are stored as `enc:v1:<base64>` — clearly distinguishable from plain text |
+| **Format** | Encrypted values are stored as `enc:v1:<base64>` (clearly distinguishable from plain text) |
 
 Without an encryption key, secrets are stored as plain text in `store.json` and a warning is logged:
 
@@ -51,7 +51,7 @@ WARN  Secrets are stored without encryption — set server.encryptionKey in conf
 
 ## Compatibility with external environment variables
 
-Secrets don't replace environment variables — they complement them. The expansion pipeline merges both sources:
+Secrets don't replace environment variables. They complement them. The expansion pipeline merges both sources:
 
 - **Secrets** are injected via `os.Setenv()` before expansion
 - **External env vars** (from Docker, Kubernetes, systemd, shell) are already in the environment
@@ -68,7 +68,7 @@ This means you can use both approaches interchangeably:
 | Kubernetes secret | `secretKeyRef` in Pod spec | Yes |
 | Shell export | `export KEY=value` | Yes |
 
-If a secret and an external env var have the same key, the **secret takes precedence** — `os.Setenv()` overwrites the existing value.
+If a secret and an external env var have the same key, the **secret takes precedence**: `os.Setenv()` overwrites the existing value.
 
 {{< callout type="info" >}}
 The main advantage of Magec secrets over external environment variables is that you can manage them through the Admin UI without restarting the server or redeploying. Add an API key, and it's available immediately on the next store reload.
@@ -78,24 +78,24 @@ The main advantage of Magec secrets over external environment variables is that 
 
 ### Changing the encryption key
 
-If you change the encryption key, existing encrypted secrets cannot be decrypted — the derived key will be different. Before changing it:
+If you change the encryption key, existing encrypted secrets cannot be decrypted. The derived key will be different. Before changing it:
 
 1. Note down all secret values (they're write-only, so you'll need them from their original source)
 2. Change `encryptionKey` in `config.yaml`
-3. Restart Magec — encrypted values will fail to decrypt and remain as `enc:v1:...` strings
-4. Re-create or update each secret with its plain-text value — they'll be re-encrypted with the new key
+3. Restart Magec. Encrypted values will fail to decrypt and remain as `enc:v1:...` strings
+4. Re-create or update each secret with its plain-text value. They'll be re-encrypted with the new key
 
 ### Losing the encryption key
 
-If you lose the encryption key entirely, the same applies — encrypted values are unrecoverable without the original key. You'll need to re-enter all secret values from their original sources.
+If you lose the encryption key entirely, the same applies. Encrypted values are unrecoverable without the original key. You'll need to re-enter all secret values from their original sources.
 
 ### Removing the encryption key
 
 If you remove `encryptionKey` from `config.yaml`:
 
-1. Existing encrypted secrets cannot be decrypted — you'll need to re-create them (they'll be stored as plain text)
+1. Existing encrypted secrets cannot be decrypted. You'll need to re-create them (they'll be stored as plain text)
 2. New secrets will be stored without encryption and a warning will be logged
 
 {{< callout type="info" >}}
-The `encryptionKey` is independent from `adminPassword`. You can have admin authentication without encryption, or encryption without authentication — though using both together is recommended for production.
+The `encryptionKey` is independent from `adminPassword`. You can have admin authentication without encryption, or encryption without authentication. Using both is recommended for production.
 {{< /callout >}}

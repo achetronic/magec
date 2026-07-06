@@ -46,7 +46,11 @@ ARG TARGETARCH
 WORKDIR /build
 
 COPY server/go.mod server/go.sum ./
-RUN go mod download
+# Module download primes the layer cache. It cannot resolve a local replace
+# directive (used while testing adk-utils-go changes before pushing them), so
+# it is allowed to fail: the vendored build compiles from server/vendor and a
+# genuinely missing dependency still fails the build step loudly.
+RUN go mod download || echo "go mod download skipped (vendored build)"
 
 COPY server/ ./
 COPY --from=frontend /build/admin-ui/dist/ ./frontend/admin-ui/

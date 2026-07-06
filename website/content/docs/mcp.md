@@ -2,28 +2,26 @@
 title: "MCP Tools"
 ---
 
-MCP (Model Context Protocol) is what transforms your agents from chatbots into genuinely useful assistants. Without tools, an agent can only generate text. With MCP tools, an agent can **do things** — control your lights, read files, query databases, manage GitHub repositories, search the web, send messages, and anything else you can imagine.
-
-This is the mechanism that makes the difference between "a chat interface" and "an AI platform that actually interacts with the real world."
+MCP (Model Context Protocol) is what transforms your agents from chatbots into genuinely useful assistants. Without tools, an agent can only generate text. With MCP tools, an agent can **do things**: control your lights, read files, query databases, manage GitHub repositories, search the web, send messages, and anything else you can imagine.
 
 ## What is MCP
 
-[Model Context Protocol](https://modelcontextprotocol.io) is an open standard for connecting AI models to external tools. It defines how an agent discovers what tools are available, what parameters they accept, and how to call them. Magec acts as an MCP client — you point it at MCP servers, and the tools those servers provide become available to your agents.
+[Model Context Protocol](https://modelcontextprotocol.io) is an open standard for connecting AI models to external tools. It defines how an agent discovers what tools are available, what parameters they accept, and how to call them. Magec acts as an MCP client: you point it at MCP servers, and the tools those servers provide become available to your agents.
 
 The ecosystem is large and growing. There are MCP servers for:
 
-- **Smart home** — [Home Assistant](https://github.com/achetronic/hass-mcp), controlling lights, thermostats, locks, cameras
-- **Development** — GitHub, GitLab, filesystem access, Docker, Kubernetes
-- **Data** — PostgreSQL, MySQL, MongoDB, Elasticsearch, Google Sheets
-- **Communication** — Slack, Discord, email, SMS
-- **Productivity** — Google Drive, Notion, Todoist, Calendar
-- **Web** — Web search, web scraping, URL fetching
-- **And hundreds more** — Check the [MCP servers directory](https://github.com/modelcontextprotocol/servers) for the full list
+- **Smart home.** [Home Assistant](https://github.com/achetronic/hass-mcp), controlling lights, thermostats, locks, cameras.
+- **Development.** GitHub, GitLab, filesystem access, Docker, Kubernetes.
+- **Data.** PostgreSQL, MySQL, MongoDB, Elasticsearch, Google Sheets.
+- **Communication.** Slack, Discord, email, SMS.
+- **Productivity.** Google Drive, Notion, Todoist, Calendar.
+- **Web.** Web search, web scraping, URL fetching.
+- **And hundreds more.** Check the [MCP servers directory](https://github.com/modelcontextprotocol/servers) for the full list.
 
 When you connect an MCP server to an agent, the agent gains the ability to use all the tools that server provides. The agent decides when and how to use them based on the conversation context and its system prompt.
 
 <div class="screenshots" style="margin-bottom: 2rem;">
-{{< screenshot src="img/screenshots/admin-mcp.png" alt="Admin UI — MCP Servers" >}}
+{{< screenshot src="img/screenshots/admin-mcp.png" alt="MCP Servers" >}}
 </div>
 
 ## Adding an MCP server
@@ -32,17 +30,17 @@ In the Admin UI, go to **MCP Servers** and click **New**. You'll configure the c
 
 ### HTTP transport
 
-For MCP servers that run as separate services — their own process, a Docker container, a remote server. Magec connects to them over HTTP/SSE (Server-Sent Events).
+For MCP servers that run as separate services (their own process, a Docker container, a remote server). Magec connects to them over HTTP/SSE (Server-Sent Events).
 
 <div class="screenshots" style="margin-bottom: 2rem;">
-{{< screenshot src="img/screenshots/admin-mcp-http.png" alt="Admin UI — New MCP Server (HTTP)" >}}
+{{< screenshot src="img/screenshots/admin-mcp-http.png" alt="New MCP Server (HTTP)" >}}
 </div>
 
 | Field | Required | Description |
 |-------|----------|-------------|
-| `name` | Yes | Display name — appears in agent MCP toggles |
+| `name` | Yes | Display name (appears in agent MCP toggles) |
 | `type` | Yes | Set to **HTTP** |
-| `endpoint` | Yes | URL of the MCP server — e.g., `http://hass-mcp:8080/sse` |
+| `endpoint` | Yes | URL of the MCP server, e.g. `http://hass-mcp:8080/sse` |
 | `headers` | No | Custom HTTP headers (e.g., authentication tokens) |
 | `systemPrompt` | No | Instructions for the LLM about when and how to use this tool |
 
@@ -71,8 +69,8 @@ If you plan to use stdio-based MCP servers, running Magec as a [binary](/docs/in
 |-------|----------|-------------|
 | `name` | Yes | Display name |
 | `type` | Yes | Set to **Stdio** |
-| `command` | Yes | The binary to execute — e.g., `npx`, `uvx`, `/usr/local/bin/my-tool` |
-| `args` | No | Command arguments (comma-separated) — e.g., `-y, @modelcontextprotocol/server-filesystem, /data` |
+| `command` | Yes | The binary to execute, e.g. `npx`, `uvx`, `/usr/local/bin/my-tool` |
+| `args` | No | Command arguments (comma-separated), e.g. `-y, @modelcontextprotocol/server-filesystem, /data` |
 | `env` | No | Environment variables for the subprocess |
 | `workDir` | No | Working directory for the subprocess |
 | `systemPrompt` | No | Instructions for the LLM |
@@ -108,7 +106,7 @@ Every MCP server has an optional system prompt field. This text gets injected in
 - *"Only call this tool when the user explicitly asks for file operations."*
 - *"Use the web search tool when the user needs current information that you don't know."*
 
-Good system prompts make agents more reliable — they know when to reach for a tool and when to just respond from their own knowledge.
+Good system prompts make agents more reliable: they know when to reach for a tool and when to just respond from their own knowledge.
 
 ## Connecting MCP servers to agents
 
@@ -149,13 +147,13 @@ Connect a PostgreSQL or MySQL MCP server, and your agent can:
 
 ### The power of combination
 
-The real magic happens when you combine multiple MCP tools in a single agent, or across agents in a flow:
+Combining multiple MCP tools in one agent, or across agents in a flow, unlocks more complex behaviour:
 
 - An agent with **Home Assistant + web search** can say *"It's going to rain tonight, so I've closed the windows and turned on the heater."*
 - A flow with a **database agent + report writer + email sender** can generate and send daily business summaries automatically.
 - An agent with **GitHub + filesystem + web search** becomes a capable development assistant.
 
-The more tools you connect, the closer you get to having an AI assistant that can actually help with your daily life and work — not just chat about it.
+The more tools you connect, the closer you get to an AI assistant that can actually help with your daily life and work, not just chat about it.
 
 {{< callout type="info" >}}
 MCP servers are configured globally and then enabled per-agent. This means you set up the connection once and share it across as many agents as you want.

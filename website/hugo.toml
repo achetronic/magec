@@ -1,6 +1,6 @@
 baseURL = 'https://magec.dev/'
 languageCode = 'en'
-title = 'Magec — Self-hosted Multi-Agent AI Platform'
+title = 'Magec: Self-hosted Multi-Agent AI Platform'
 theme = 'magec'
 
 [params]
@@ -96,27 +96,27 @@ theme = 'magec'
     name = 'AI Backends'
     parent = 'core'
     url = '/docs/backends/'
-    weight = 3
+    weight = 4
   [[menu.docs]]
     name = 'Memory'
     parent = 'core'
     url = '/docs/memory/'
-    weight = 4
+    weight = 5
   [[menu.docs]]
     name = 'MCP Tools'
     parent = 'core'
     url = '/docs/mcp/'
-    weight = 5
+    weight = 6
   [[menu.docs]]
     name = 'Skills'
     parent = 'core'
     url = '/docs/skills/'
-    weight = 6
+    weight = 7
   [[menu.docs]]
     name = 'A2A Protocol'
     parent = 'core'
     url = '/docs/a2a/'
-    weight = 7
+    weight = 8
   [[menu.docs]]
     name = 'Secrets'
     parent = 'core'
@@ -193,15 +193,10 @@ theme = 'magec'
     url = '/docs/skills-vs-agents/'
     weight = 4
   [[menu.docs]]
-    name = 'Flow Control'
-    parent = 'reference'
-    url = '/docs/flow-control/'
-    weight = 5
-  [[menu.docs]]
     name = 'Screenshots'
     parent = 'reference'
     url = '/docs/screenshots/'
-    weight = 6
+    weight = 5
 
 [outputs]
   home = ['HTML']

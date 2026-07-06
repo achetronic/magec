@@ -4,6 +4,7 @@
     class="bg-piedra-900 border border-piedra-700/50 rounded-2xl p-0 text-arena-100 shadow-2xl"
     :class="sizeClass"
     @close="$emit('close')"
+    @cancel="onCancel"
   >
     <div class="flex flex-col max-h-[85vh]">
       <div class="flex items-center justify-between p-5 border-b border-piedra-700/50 flex-shrink-0">
@@ -37,11 +38,20 @@ import { ref, computed } from 'vue'
 const props = defineProps({
   title: { type: String, default: '' },
   size: { type: String, default: 'md' },
+  // persistent blocks the native <dialog> Escape-to-close so a heavy,
+  // unsaved form (e.g. the flow editor) is only dismissed via Cancel/Save/X.
+  persistent: { type: Boolean, default: false },
 })
 
 defineEmits(['close', 'save'])
 
 const dialogRef = ref(null)
+
+// onCancel fires on the native Escape close-request. When persistent, prevent
+// the default so the dialog stays open.
+function onCancel(e) {
+  if (props.persistent) e.preventDefault()
+}
 
 const sizeClass = computed(() => {
   const map = {

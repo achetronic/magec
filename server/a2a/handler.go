@@ -11,11 +11,11 @@ import (
 
 	"github.com/a2aproject/a2a-go/a2a"
 	"github.com/a2aproject/a2a-go/a2asrv"
-	"google.golang.org/adk/agent"
-	"google.golang.org/adk/memory"
-	"google.golang.org/adk/runner"
-	"google.golang.org/adk/server/adka2a"
-	"google.golang.org/adk/session"
+	"google.golang.org/adk/v2/agent"
+	"google.golang.org/adk/v2/memory"
+	"google.golang.org/adk/v2/runner"
+	"google.golang.org/adk/v2/server/adka2a"
+	"google.golang.org/adk/v2/session"
 
 	"github.com/achetronic/magec/server/store"
 )

@@ -3,8 +3,8 @@ package agent
 import (
 	"fmt"
 
-	"google.golang.org/adk/agent"
-	"google.golang.org/adk/tool"
+	"google.golang.org/adk/v2/agent"
+	"google.golang.org/adk/v2/tool"
 
 	toolsartifacts "github.com/achetronic/magec/server/agent/tools/artifacts"
 )

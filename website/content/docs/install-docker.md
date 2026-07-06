@@ -43,8 +43,8 @@ That's it. Magec is now running:
 
 | URL | What it is |
 |-----|-----------|
-| **`http://localhost:8081`** | **Admin UI** — create agents, backends, clients, and everything else |
-| **`http://localhost:8080`** | **Voice UI** — talk to your agents (wake word + push-to-talk) |
+| **`http://localhost:8081`** | **Admin UI.** Create agents, backends, clients, and everything else |
+| **`http://localhost:8080`** | **Voice UI.** Talk to your agents (wake word + push-to-talk) |
 
 ## 3. Set up your first agent
 
@@ -59,7 +59,7 @@ Go to **Backends → New**:
 | Name | `OpenAI` |
 | Type | `openai` |
 | API Key | Your OpenAI API key (`sk-...`) |
-| URL | *(leave empty — uses default OpenAI endpoint)* |
+| URL | *(leave empty: uses the default OpenAI endpoint)* |
 
 ### Create an agent
 
@@ -121,7 +121,7 @@ Then in the Admin UI, go to **Memory → New Session Provider**:
 On Linux, you need `--add-host=host.docker.internal:host-gateway` in your `docker run` command for the Magec container to reach services on the host. On macOS and Windows, `host.docker.internal` works automatically.
 {{< /callout >}}
 
-For the full memory setup (including long-term memory with PostgreSQL + pgvector), see the [Docker Compose — Local](/docs/install-compose-local/) guide which includes everything pre-configured.
+For the full memory setup (including long-term memory with PostgreSQL + pgvector), see the [Docker Compose: Local](/docs/install-compose-local/) guide which includes everything pre-configured.
 
 ## Data persistence
 
@@ -141,7 +141,7 @@ Your data is safe in the `magec_data` volume.
 
 This setup is great for trying Magec, but for a full deployment with memory, local models, or multiple services, check:
 
-- **[Docker Compose — Local](/docs/install-compose-local/)** — fully local with Ollama, Parakeet, memory, everything pre-wired
-- **[Docker Compose — Cloud](/docs/install-compose-cloud/)** — cloud providers with full infrastructure
-- **[Configuration](/docs/configuration/)** — understand the two configuration layers
-- **[MCP Tools](/docs/mcp/)** — connect external tools to your agents
+- **[Docker Compose: Local](/docs/install-compose-local/).** Fully local with Ollama, Parakeet, memory, everything pre-wired
+- **[Docker Compose: Cloud](/docs/install-compose-cloud/).** Cloud providers with full infrastructure
+- **[Configuration](/docs/configuration/).** Understand the two configuration layers
+- **[MCP Tools](/docs/mcp/).** Connect external tools to your agents

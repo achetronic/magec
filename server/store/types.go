@@ -1,8 +1,6 @@
 package store
 
 import (
-	"fmt"
-
 	"github.com/google/uuid"
 )
 
@@ -222,144 +220,265 @@ type Command struct {
 	Prompt      string `json:"prompt" yaml:"prompt"`
 }
 
-// FlowStepType identifies the kind of node inside a flow.
+// FlowNodeType identifies the kind of vertex inside a flow graph.
 const (
-	FlowStepAgent      = "agent"
-	FlowStepSequential = "sequential"
-	FlowStepParallel   = "parallel"
-	FlowStepLoop       = "loop"
+	// FlowNodeAgent wraps an AgentDefinition (or a sub-flow) and runs it.
+	FlowNodeAgent = "agent"
+	// FlowNodeRouter evaluates ordered CEL rules against the shared flow state
+	// and emits a single route label, which its outgoing edges match.
+	FlowNodeRouter = "router"
+	// FlowNodeJoin is a fan-in barrier: it fires once after every declared
+	// predecessor has completed. Routing into a join node is forbidden.
+	FlowNodeJoin = "join"
+	// FlowNodeParallel runs a wrapped agent once per item of a list-typed
+	// input, concurrently, and aggregates the per-item outputs into a list.
+	FlowNodeParallel = "parallel"
+	// FlowNodeSubflow embeds another FlowDefinition as a single node (a nested
+	// workflow). Its terminal output becomes this node's output.
+	FlowNodeSubflow = "subflow"
+	// FlowNodeExpression evaluates a CEL expression over `input` and `state`
+	// and emits the result as its output. A deterministic transform node.
+	FlowNodeExpression = "expression"
+	// FlowNodeTemplate renders a text template with {{ input }} / {{ state.key }}
+	// placeholders and emits the resulting string as its output.
+	FlowNodeTemplate = "template"
+	// FlowNodeCode runs a user-supplied Starlark script. The script receives
+	// `input` (the upstream output) and `state` (the shared flow state) and
+	// must assign `output`; that value becomes the node's output.
+	FlowNodeCode = "code"
 )
 
-// FlowStep is a recursive node in a flow tree.
-// Leaf nodes have Type "agent" and reference an AgentDefinition or FlowDefinition by ID.
-// Container nodes have Type "sequential", "parallel", or "loop" and hold
-// child steps. Loop nodes additionally specify MaxIterations.
-// ResponseAgent marks an agent node whose output should be included in the
-// final response when the flow is invoked via webhook/cron. If no agent in
-// the flow is marked, all agent outputs are concatenated (default behavior).
-//
-// Loop-only fields:
-//   - ExitLoop: when true, every agent in the loop's subtree (any depth)
-//     receives the exit_loop tool. The first agent that calls it terminates
-//     the loop after the current iteration completes.
-//   - ExitWhen: an optional CEL expression evaluated against the shared flow
-//     state at the end of every iteration. If it returns true, the loop
-//     terminates. The expression sees a `state` map containing only keys
-//     written through the set_state tool (the "flow:" namespace).
-//
-// ExitLoop and ExitWhen are mutually exclusive — the admin API rejects
-// flows that set both. They both stack with MaxIterations as a hard cap.
-type FlowStep struct {
-	Type          string     `json:"type"`
-	AgentID       string     `json:"agentId,omitempty"`
-	ResponseAgent bool       `json:"responseAgent,omitempty"`
-	MaxIterations uint       `json:"maxIterations,omitempty"`
-	ExitLoop      bool       `json:"exitLoop,omitempty"`
-	ExitWhen      string     `json:"exitWhen,omitempty"`
-	Steps         []FlowStep `json:"steps,omitempty"`
+// FlowStart is the reserved identifier for the graph entry sentinel. An edge
+// whose From equals FlowStart is wired to the adk workflow Start node by the
+// builder. Reserved so an operator cannot name a real node "START".
+const FlowStart = "START"
+
+// RouterOtherwiseRoute is the fixed label of every router's fallback route,
+// emitted when no rule matches. It is not configurable: rules may carry any
+// name, the otherwise route is always called "otherwise".
+const RouterOtherwiseRoute = "otherwise"
+
+// FlowRule is one ordered branch of a router node. When the CEL guard When
+// evaluates to true against the flow state, the router emits Route as its
+// label and stops evaluating later rules. When sees a `state` map (keys
+// written through set_state, the "flow:" namespace) and an `iterations`
+// integer (how many times this router has been activated in the current run).
+type FlowRule struct {
+	When  string `json:"when" yaml:"when"`
+	Route string `json:"route" yaml:"route"`
 }
 
-// ResponseAgentIDs walks the flow tree and returns the agent IDs of all
-// steps marked with ResponseAgent.
+// FlowNode is one vertex of the flow graph. ID is unique within the flow and
+// becomes the adk workflow Node.Name(), so it must be a safe identifier: it
+// also appears as the event Author used by the response filter and as a
+// fragment of session-state keys.
+type FlowNode struct {
+	ID   string `json:"id" yaml:"id"`
+	Type string `json:"type" yaml:"type"`
+
+	// AgentID references an AgentDefinition by ID. Required when Type is
+	// FlowNodeAgent (the agent to run) or FlowNodeParallel (the agent run once
+	// per list item). Ignored for other types.
+	AgentID string `json:"agentId,omitempty" yaml:"agentId,omitempty"`
+
+	// ResponseAgent marks an agent node whose output is included in the final
+	// response when the flow is invoked via webhook/cron. If no agent in the
+	// flow is marked, all agent outputs are concatenated (default behaviour).
+	// Only meaningful when Type is FlowNodeAgent.
+	ResponseAgent bool `json:"responseAgent,omitempty" yaml:"responseAgent,omitempty"`
+
+	// Rules drive a router node, evaluated in order; when none matches the
+	// router emits RouterOtherwiseRoute. Only meaningful when Type
+	// is FlowNodeRouter.
+	Rules []FlowRule `json:"rules,omitempty" yaml:"rules,omitempty"`
+
+	// MaxConcurrency caps how many items a parallel node processes at once.
+	// 0 means unlimited. Only meaningful when Type is FlowNodeParallel.
+	MaxConcurrency int `json:"maxConcurrency,omitempty" yaml:"maxConcurrency,omitempty"`
+
+	// FlowID references another FlowDefinition embedded as a nested workflow.
+	// Required when Type is FlowNodeSubflow, ignored otherwise.
+	FlowID string `json:"flowId,omitempty" yaml:"flowId,omitempty"`
+
+	// Expression is a CEL expression evaluated over `input` (the previous
+	// node's output) and `state` (the shared flow state). Its result becomes
+	// this node's output. Required when Type is FlowNodeExpression.
+	Expression string `json:"expression,omitempty" yaml:"expression,omitempty"`
+
+	// Template is text with {{ input }}, {{ input.field }} and {{ state.key }}
+	// placeholders; the rendered string becomes this node's output. Required
+	// when Type is FlowNodeTemplate.
+	Template string `json:"template,omitempty" yaml:"template,omitempty"`
+
+	// Script is the Starlark source code to execute. Required when Type is
+	// FlowNodeCode; the script must assign a top-level variable named `output`.
+	Script string `json:"script,omitempty" yaml:"script,omitempty"`
+
+	// TimeoutMs is the per-node wall-clock execution ceiling in milliseconds.
+	// 0 means "defer to the global ceiling in Settings.Flows.ExecutionTimeoutMs".
+	// The effective timeout is min(TimeoutMs, ceiling) when both are non-zero.
+	TimeoutMs int `json:"timeoutMs,omitempty" yaml:"timeoutMs,omitempty"`
+
+	// MaxOutputBytes is the per-node cap on the JSON-serialised output size.
+	// 0 means "defer to the global ceiling in Settings.Flows.MaxOutputBytes".
+	// The effective cap is min(MaxOutputBytes, ceiling) when both are non-zero.
+	MaxOutputBytes int `json:"maxOutputBytes,omitempty" yaml:"maxOutputBytes,omitempty"`
+
+	// OutputKey, when set, also writes this node's output into the shared flow
+	// state under that key, readable downstream as state.<key>. It must be a
+	// valid CEL identifier (letters, digits, underscore; no hyphen) so
+	// downstream expressions can reference it. Meaningful for expression,
+	// template, and code nodes.
+	OutputKey string `json:"outputKey,omitempty" yaml:"outputKey,omitempty"`
+
+	// X and Y are the node's position on the visual editor canvas. They are a
+	// layout hint for the admin UI only: the builder and validation ignore
+	// them, so a flow authored without an editor (or with them omitted) still
+	// runs. Persisted so the operator's arrangement survives a round-trip.
+	X float64 `json:"x,omitempty" yaml:"x,omitempty"`
+	Y float64 `json:"y,omitempty" yaml:"y,omitempty"`
+
+	// W and H are the node's size on the visual editor canvas, in pixels. Like
+	// X/Y they are an admin-UI layout hint ignored by the builder and
+	// validation. Zero means "use the default size". Persisted so a node the
+	// operator resized (e.g. to read a long expression) keeps that size.
+	W float64 `json:"w,omitempty" yaml:"w,omitempty"`
+	H float64 `json:"h,omitempty" yaml:"h,omitempty"`
+}
+
+// FlowEdge is a directed connection between two nodes. Route is only
+// meaningful when From is a router node: it names the label the router must
+// emit for this edge to be taken. An empty Route is an unconditional edge.
+type FlowEdge struct {
+	From  string `json:"from" yaml:"from"`
+	To    string `json:"to" yaml:"to"`
+	Route string `json:"route,omitempty" yaml:"route,omitempty"`
+}
+
+// ResponseAgentIDs returns the AgentDefinition IDs of every agent node marked
+// with ResponseAgent.
 func (f *FlowDefinition) ResponseAgentIDs() []string {
 	var ids []string
-	collectResponseAgents(&f.Root, &ids)
+	for i := range f.Nodes {
+		n := &f.Nodes[i]
+		if n.Type == FlowNodeAgent && n.AgentID != "" && n.ResponseAgent {
+			ids = append(ids, n.AgentID)
+		}
+	}
 	return ids
 }
 
-// ResponseAgentNames walks the flow tree and returns the synthetic ADK
-// agent names assigned to every leaf marked with ResponseAgent. The naming
-// scheme matches the one used by server/agent/flow.go when it builds a
-// fresh ADK instance per appearance: the root step is named after the
-// flow ID, and every nested step appends "_<path>" with positional
-// indices joined by "_". This pairing is what lets the FlowResponseFilter
-// match event.Author values produced by ADK against the operator's
-// declarative response-agent toggles.
-//
-// Keep this method in lockstep with buildStep / buildChildren in
-// server/agent/flow.go. If the naming convention there changes, this
-// function must change too.
+// ResponseAgentNames returns the adk node names whose output should appear in
+// the final response. In the graph model a node's ID is its adk Node.Name()
+// and therefore the event.Author the response filter matches against, so the
+// names are simply the IDs of agent nodes flagged ResponseAgent. There is no
+// synthetic naming convention to keep in lockstep with the builder anymore.
 func (f *FlowDefinition) ResponseAgentNames() []string {
 	var names []string
-	collectResponseAgentNames(&f.Root, f.ID, "", &names)
+	for i := range f.Nodes {
+		n := &f.Nodes[i]
+		if n.Type == FlowNodeAgent && n.ResponseAgent {
+			names = append(names, n.ID)
+		}
+	}
 	return names
 }
 
-func collectResponseAgents(step *FlowStep, ids *[]string) {
-	if step.Type == FlowStepAgent {
-		if step.AgentID != "" && step.ResponseAgent {
-			*ids = append(*ids, step.AgentID)
-		}
-	}
-	for i := range step.Steps {
-		collectResponseAgents(&step.Steps[i], ids)
-	}
-}
-
-func collectResponseAgentNames(step *FlowStep, flowID, path string, names *[]string) {
-	stepName := flowID
-	if path != "" {
-		stepName = flowID + "_" + path
-	}
-	if step.Type == FlowStepAgent {
-		if step.AgentID != "" && step.ResponseAgent {
-			*names = append(*names, stepName)
-		}
-		return
-	}
-	for i := range step.Steps {
-		childPath := fmt.Sprintf("%d", i)
-		if path != "" {
-			childPath = path + "_" + fmt.Sprintf("%d", i)
-		}
-		collectResponseAgentNames(&step.Steps[i], flowID, childPath, names)
-	}
-}
-
-// FirstAgentID walks the flow tree depth-first and returns the first leaf
-// agent ID found. Used to resolve voice config (TTS/STT) for a flow.
+// FirstAgentID returns the AgentDefinition ID of the first agent node reached
+// from the entry, breadth-first. Used to resolve voice config (TTS/STT) for a
+// flow. Falls back to the first agent node in declaration order when the entry
+// reaches none, and to "" when the flow has no agent node at all.
 func (f *FlowDefinition) FirstAgentID() string {
-	return findFirstAgent(&f.Root)
-}
-
-func findFirstAgent(step *FlowStep) string {
-	if step.Type == FlowStepAgent && step.AgentID != "" {
-		return step.AgentID
+	index := make(map[string]*FlowNode, len(f.Nodes))
+	for i := range f.Nodes {
+		index[f.Nodes[i].ID] = &f.Nodes[i]
 	}
-	for i := range step.Steps {
-		if id := findFirstAgent(&step.Steps[i]); id != "" {
-			return id
+	successors := make(map[string][]string, len(f.Nodes))
+	for _, e := range f.Edges {
+		successors[e.From] = append(successors[e.From], e.To)
+	}
+	visited := map[string]bool{}
+	queue := []string{f.Entry}
+	for len(queue) > 0 {
+		id := queue[0]
+		queue = queue[1:]
+		if visited[id] {
+			continue
+		}
+		visited[id] = true
+		if n, ok := index[id]; ok && (n.Type == FlowNodeAgent || n.Type == FlowNodeParallel) && n.AgentID != "" {
+			return n.AgentID
+		}
+		queue = append(queue, successors[id]...)
+	}
+	for i := range f.Nodes {
+		if (f.Nodes[i].Type == FlowNodeAgent || f.Nodes[i].Type == FlowNodeParallel) && f.Nodes[i].AgentID != "" {
+			return f.Nodes[i].AgentID
 		}
 	}
 	return ""
 }
 
-// AgentIDs walks the flow tree and returns all unique agent IDs (leaf nodes).
+// AgentIDs returns all unique entity IDs this flow references: the AgentID of
+// agent and parallel nodes, plus the FlowID of subflow nodes. Used by the
+// topological sort to discover sub-flow dependencies (a referenced ID that
+// resolves to another flow), so it must include every cross-entity reference.
 func (f *FlowDefinition) AgentIDs() []string {
 	seen := map[string]bool{}
 	var ids []string
-	collectAgentIDs(&f.Root, seen, &ids)
+	add := func(id string) {
+		if id != "" && !seen[id] {
+			seen[id] = true
+			ids = append(ids, id)
+		}
+	}
+	for i := range f.Nodes {
+		n := &f.Nodes[i]
+		switch n.Type {
+		case FlowNodeAgent, FlowNodeParallel:
+			add(n.AgentID)
+		case FlowNodeSubflow:
+			add(n.FlowID)
+		}
+	}
 	return ids
 }
 
-func collectAgentIDs(step *FlowStep, seen map[string]bool, ids *[]string) {
-	if step.Type == FlowStepAgent && step.AgentID != "" && !seen[step.AgentID] {
-		seen[step.AgentID] = true
-		*ids = append(*ids, step.AgentID)
-	}
-	for i := range step.Steps {
-		collectAgentIDs(&step.Steps[i], seen, ids)
-	}
-}
-
-// FlowDefinition represents a multi-agent workflow stored as a recursive tree
-// of steps that maps directly to ADK workflow agents.
+// FlowDefinition is a multi-agent workflow stored as a directed graph that
+// maps one-to-one onto the adk-go v2 workflow engine ([]workflow.Edge wired
+// into workflowagent.New). Entry names the node connected to the Start
+// sentinel; it is recorded explicitly rather than inferred so a multi-root
+// graph keeps the operator's intent.
 type FlowDefinition struct {
 	ID          string     `json:"id" yaml:"id"`
 	Name        string     `json:"name" yaml:"name"`
 	Description string     `json:"description,omitempty" yaml:"description,omitempty"`
-	Root        FlowStep   `json:"root" yaml:"root"`
+	Entry       string     `json:"entry" yaml:"entry"`
+	Nodes       []FlowNode `json:"nodes" yaml:"nodes"`
+	Edges       []FlowEdge `json:"edges" yaml:"edges"`
 	A2A         *A2AConfig `json:"a2a,omitempty" yaml:"a2a,omitempty"`
+
+	// StartX and StartY are the position of the Start sentinel box on the
+	// visual editor canvas. Like the per-node X/Y they are an admin-UI layout
+	// hint ignored by the builder and validation. Persisted so the operator's
+	// placement of the Start box survives a round-trip.
+	StartX float64 `json:"startX,omitempty" yaml:"startX,omitempty"`
+	StartY float64 `json:"startY,omitempty" yaml:"startY,omitempty"`
+}
+
+// FlowsSettings holds global configuration for the Starlark code-node feature.
+// All values are ceilings: a code node may ask for less but never more.
+type FlowsSettings struct {
+	// DisabledLibraries lists starlet built-in module names the admin has
+	// turned off. Every built-in module not listed here is enabled. nil or
+	// empty means all modules are available.
+	DisabledLibraries []string `json:"disabledLibraries,omitempty" yaml:"disabledLibraries,omitempty"`
+	// ExecutionTimeoutMs is the global ceiling for a code node's wall-clock
+	// execution time in milliseconds. 0 means no limit.
+	ExecutionTimeoutMs int `json:"executionTimeoutMs" yaml:"executionTimeoutMs"`
+	// MaxOutputBytes is the global ceiling for a code node's JSON-serialised
+	// output size in bytes. 0 means no limit.
+	MaxOutputBytes int `json:"maxOutputBytes" yaml:"maxOutputBytes"`
 }
 
 // Settings holds global configuration that applies to the launcher/runtime
@@ -373,6 +492,8 @@ type Settings struct {
 	// temporary directory via Store.ResolveTemporaryDir, which is the only
 	// place that performs that fallback.
 	TemporaryDir string `json:"temporaryDir,omitempty" yaml:"temporaryDir,omitempty"`
+	// Flows holds global settings for the Starlark code-node feature.
+	Flows FlowsSettings `json:"flows" yaml:"flows"`
 }
 
 // Secret represents an encrypted key-value pair used for environment variable injection.

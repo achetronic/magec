@@ -9,7 +9,7 @@
 
     <SkeletonCard v-if="store.loading && !store.flows.length" />
 
-    <EmptyState v-else-if="!store.flows.length" title="No flows configured" subtitle="Create multi-agent workflows with sequential, parallel, and loop steps" icon="flow" color="rose" actionLabel="+ New Flow" @action="openDialog()" />
+    <EmptyState v-else-if="!store.flows.length" title="No flows configured" subtitle="Build multi-agent workflows as a graph of agent, router, and join nodes" icon="flow" color="rose" actionLabel="+ New Flow" @action="openDialog()" />
 
     <div v-else class="grid gap-3 grid-cols-1 sm:grid-cols-2">
       <Card v-for="f in store.flows" :key="f.id" color="rose">
