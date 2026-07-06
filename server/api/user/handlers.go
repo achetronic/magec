@@ -120,9 +120,12 @@ func (h *Handler) ClientInfo(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
+	// The default must come from the validated list, not the raw store list:
+	// AllowedAgents may hold IDs of agents/flows deleted after the client was
+	// configured, and pointing a UI at a ghost breaks every voice/run call.
 	defaultAgent := ""
-	if len(cl.AllowedAgents) > 0 {
-		defaultAgent = cl.AllowedAgents[0]
+	if len(allowedDetails) > 0 {
+		defaultAgent = allowedDetails[0].ID
 	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(ClientInfoResponse{
