@@ -112,15 +112,15 @@
                 <span class="text-sm font-medium text-arena-100 truncate">
                   {{ c.agentName || c.agentId }}
                 </span>
-                <Badge v-if="c.summary" variant="green">summarized</Badge>
               </div>
               <p v-if="c.preview" class="text-[11px] text-arena-500 italic truncate">"{{ stripMetadata(c.preview) }}"</p>
               <div class="flex items-center gap-1.5">
                 <Badge variant="muted" class="!py-0">{{ formatSource(c.source) }}</Badge>
                 <Badge v-if="c.flowId" variant="muted" class="!py-0">Flow</Badge>
                 <Badge v-if="c.clientName" variant="muted" class="!py-0">{{ c.clientName }}</Badge>
+                <Badge v-if="c.turns > 1" variant="muted" class="!py-0">{{ c.turns }} turns</Badge>
               </div>
-              <span class="text-[10px] text-arena-600 tabular-nums">{{ formatTime(c.startedAt) }}</span>
+              <span class="text-[10px] text-arena-600 tabular-nums">{{ formatTime(c.lastAt || c.startedAt) }}</span>
             </div>
 
             <!-- Arrow -->
@@ -180,32 +180,9 @@ let refreshTimer = null
 const hasFilters = computed(() => filterAgent.value || filterSource.value)
 const hasMore = computed(() => conversations.value.length < totalCount.value)
 
-const grouped = computed(() => {
-  const result = []
-  const activePairs = new Map()
-
-  for (const c of conversations.value) {
-    const key = `${c.sessionId}::${c.agentId}`
-    let pair = activePairs.get(key)
-
-    if (!pair || pair[c.perspective]) {
-      pair = { hasPair: false, admin: null, user: null, merged: { ...c } }
-      activePairs.set(key, pair)
-      result.push(pair.merged)
-    }
-
-    pair[c.perspective] = c
-    pair.merged.hasPair = !!(pair.admin && pair.user)
-
-    if (c.perspective === 'user') {
-      pair.merged.id = c.id
-      pair.merged.perspective = c.perspective
-      pair.merged.preview = c.preview || pair.merged.preview
-      pair.merged.summary = c.summary || pair.merged.summary
-    }
-  }
-  return result
-})
+// Conversations arrive pre-aggregated from the runs projection: one row per
+// session, no perspective pairs to merge client-side anymore.
+const grouped = computed(() => conversations.value)
 
 async function loadConversations(offset = 0) {
   loading.value = true

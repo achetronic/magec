@@ -295,68 +295,6 @@ definitions:
       strategy:
         type: string
     type: object
-  store.Conversation:
-    properties:
-      agentId:
-        type: string
-      agentName:
-        type: string
-      clientId:
-        type: string
-      clientName:
-        type: string
-      closed:
-        type: boolean
-      endedAt:
-        type: string
-      flowId:
-        type: string
-      flowName:
-        type: string
-      id:
-        type: string
-      messages:
-        items:
-          $ref: '#/definitions/store.ConversationMessage'
-        type: array
-      parentId:
-        type: string
-      perspective:
-        type: string
-      preview:
-        type: string
-      rawEvents:
-        items: {}
-        type: array
-      sessionId:
-        type: string
-      source:
-        type: string
-      startedAt:
-        type: string
-      summary:
-        type: string
-      userId:
-        type: string
-    type: object
-  store.ConversationMessage:
-    properties:
-      agent:
-        type: string
-      content:
-        type: string
-      metadata:
-        additionalProperties: true
-        type: object
-      role:
-        type: string
-      timestamp:
-        type: string
-      toolCalls:
-        items:
-          $ref: '#/definitions/store.ToolCallInfo'
-        type: array
-    type: object
   store.CronClientConfig:
     properties:
       commandId:
@@ -630,15 +568,6 @@ definitions:
       speed:
         type: number
     type: object
-  store.PaginatedResult-store_Conversation:
-    properties:
-      items:
-        items:
-          $ref: '#/definitions/store.Conversation'
-        type: array
-      total:
-        type: integer
-    type: object
   store.Reference:
     properties:
       field:
@@ -740,13 +669,6 @@ definitions:
         type: string
       responseMode:
         type: string
-    type: object
-  store.ToolCallInfo:
-    properties:
-      args: {}
-      name:
-        type: string
-      result: {}
     type: object
   store.WebhookClientConfig:
     properties:
@@ -1440,15 +1362,14 @@ paths:
       - commands
   /conversations:
     get:
-      description: Returns a paginated list of conversation audit logs, newest first.
-        Filters by agent, source, or client.
+      description: Returns conversations projected from recorded runs (one conversation
+        per session), newest activity first
       parameters:
       - description: Filter by agent or flow ID
         in: query
         name: agentId
         type: string
-      - description: Filter by source (voice-ui, telegram, executor, direct, cron,
-          webhook)
+      - description: Filter by source (telegram, voice-ui, webhook...)
         in: query
         name: source
         type: string
@@ -1456,11 +1377,7 @@ paths:
         in: query
         name: clientId
         type: string
-      - description: Filter by perspective (admin, user)
-        in: query
-        name: perspective
-        type: string
-      - description: Max items to return (default 30, 0 for all)
+      - description: Max items to return (default 30)
         in: query
         name: limit
         type: integer
@@ -1472,9 +1389,10 @@ paths:
       - application/json
       responses:
         "200":
-          description: OK
+          description: items + total
           schema:
-            $ref: '#/definitions/store.PaginatedResult-store_Conversation'
+            additionalProperties: true
+            type: object
       security:
       - AdminAuth: []
       summary: List conversations
@@ -1482,10 +1400,10 @@ paths:
       - conversations
   /conversations/{id}:
     delete:
-      description: Deletes a conversation audit log by ID together with its paired
-        perspective (user↔admin). Does not affect the ADK session.
+      description: Deletes every recorded run of the conversation's session. The ADK
+        session itself is not affected.
       parameters:
-      - description: Conversation ID
+      - description: Conversation ID (appId:sessionId)
         in: path
         name: id
         required: true
@@ -1503,13 +1421,18 @@ paths:
       tags:
       - conversations
     get:
-      description: Returns a conversation by ID with paginated messages (latest first).
-        Includes totalMessages for client-side pagination.
+      description: Projects a conversation from the runs of its session. view=user
+        filters flow output to response agents; view=admin (default) shows every agent's
+        messages.
       parameters:
-      - description: Conversation ID
+      - description: Conversation ID (appId:sessionId)
         in: path
         name: id
         required: true
+        type: string
+      - description: 'Perspective: admin (default) or user'
+        in: query
+        name: view
         type: string
       - description: Max messages to return (default 50, 0 for all)
         in: query
@@ -1539,10 +1462,10 @@ paths:
   /conversations/{id}/reset-session:
     post:
       description: Deletes the ADK session (in Redis or in-memory) for the agent/user/session
-        referenced by this conversation. The user will start a fresh session on their
-        next message. The conversation audit log is preserved.
+        of this conversation. The user starts a fresh session on their next message;
+        the recorded runs are preserved.
       parameters:
-      - description: Conversation ID
+      - description: Conversation ID (appId:sessionId)
         in: path
         name: id
         required: true
@@ -1563,10 +1486,6 @@ paths:
           description: Not Found
           schema:
             $ref: '#/definitions/admin.ErrorResponse'
-        "502":
-          description: Bad Gateway
-          schema:
-            $ref: '#/definitions/admin.ErrorResponse'
         "503":
           description: Service Unavailable
           schema:
@@ -1576,47 +1495,10 @@ paths:
       summary: Reset ADK session
       tags:
       - conversations
-  /conversations/{id}/summary:
-    put:
-      consumes:
-      - application/json
-      description: Sets the summary text for a conversation. Used for context window
-        summarization.
-      parameters:
-      - description: Conversation ID
-        in: path
-        name: id
-        required: true
-        type: string
-      - description: Summary text
-        in: body
-        name: body
-        required: true
-        schema:
-          type: object
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/store.Conversation'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/admin.ErrorResponse'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/admin.ErrorResponse'
-      security:
-      - AdminAuth: []
-      summary: Update conversation summary
-      tags:
-      - conversations
   /conversations/clear:
     delete:
-      description: Deletes all conversation audit logs. Does not affect ADK sessions.
+      description: Deletes every recorded run that belongs to a session. Session-less
+        runs are preserved.
       responses:
         "204":
           description: No Content
@@ -1631,18 +1513,19 @@ paths:
       - conversations
   /conversations/stats:
     get:
-      description: Returns total count and breakdowns by source and agent.
+      description: Returns total conversations plus per-agent and per-source counts,
+        projected from recorded runs
       produces:
       - application/json
       responses:
         "200":
-          description: total, bySources, byAgents
+          description: OK
           schema:
             additionalProperties: true
             type: object
       security:
       - AdminAuth: []
-      summary: Conversation statistics
+      summary: Conversation stats
       tags:
       - conversations
   /flows:
@@ -2424,7 +2307,7 @@ paths:
   /settings/backup:
     get:
       description: Streams a .tar.gz archive containing the entire data directory
-        (store.json, conversations.json, skills files).
+        (store.json, runs.db, skills files).
       produces:
       - application/gzip
       responses:

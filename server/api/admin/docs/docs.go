@@ -1081,7 +1081,7 @@ const docTemplate = `{
                         "AdminAuth": []
                     }
                 ],
-                "description": "Returns a paginated list of conversation audit logs, newest first. Filters by agent, source, or client.",
+                "description": "Returns conversations projected from recorded runs (one conversation per session), newest activity first",
                 "produces": [
                     "application/json"
                 ],
@@ -1098,7 +1098,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "Filter by source (voice-ui, telegram, executor, direct, cron, webhook)",
+                        "description": "Filter by source (telegram, voice-ui, webhook...)",
                         "name": "source",
                         "in": "query"
                     },
@@ -1109,14 +1109,8 @@ const docTemplate = `{
                         "in": "query"
                     },
                     {
-                        "type": "string",
-                        "description": "Filter by perspective (admin, user)",
-                        "name": "perspective",
-                        "in": "query"
-                    },
-                    {
                         "type": "integer",
-                        "description": "Max items to return (default 30, 0 for all)",
+                        "description": "Max items to return (default 30)",
                         "name": "limit",
                         "in": "query"
                     },
@@ -1129,9 +1123,10 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "OK",
+                        "description": "items + total",
                         "schema": {
-                            "$ref": "#/definitions/store.PaginatedResult-store_Conversation"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -1144,7 +1139,7 @@ const docTemplate = `{
                         "AdminAuth": []
                     }
                 ],
-                "description": "Deletes all conversation audit logs. Does not affect ADK sessions.",
+                "description": "Deletes every recorded run that belongs to a session. Session-less runs are preserved.",
                 "tags": [
                     "conversations"
                 ],
@@ -1169,17 +1164,17 @@ const docTemplate = `{
                         "AdminAuth": []
                     }
                 ],
-                "description": "Returns total count and breakdowns by source and agent.",
+                "description": "Returns total conversations plus per-agent and per-source counts, projected from recorded runs",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "conversations"
                 ],
-                "summary": "Conversation statistics",
+                "summary": "Conversation stats",
                 "responses": {
                     "200": {
-                        "description": "total, bySources, byAgents",
+                        "description": "OK",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
@@ -1195,7 +1190,7 @@ const docTemplate = `{
                         "AdminAuth": []
                     }
                 ],
-                "description": "Returns a conversation by ID with paginated messages (latest first). Includes totalMessages for client-side pagination.",
+                "description": "Projects a conversation from the runs of its session. view=user filters flow output to response agents; view=admin (default) shows every agent's messages.",
                 "produces": [
                     "application/json"
                 ],
@@ -1206,10 +1201,16 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Conversation ID",
+                        "description": "Conversation ID (appId:sessionId)",
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Perspective: admin (default) or user",
+                        "name": "view",
+                        "in": "query"
                     },
                     {
                         "type": "integer",
@@ -1246,7 +1247,7 @@ const docTemplate = `{
                         "AdminAuth": []
                     }
                 ],
-                "description": "Deletes a conversation audit log by ID together with its paired perspective (user↔admin). Does not affect the ADK session.",
+                "description": "Deletes every recorded run of the conversation's session. The ADK session itself is not affected.",
                 "tags": [
                     "conversations"
                 ],
@@ -1254,7 +1255,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Conversation ID",
+                        "description": "Conversation ID (appId:sessionId)",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -1280,7 +1281,7 @@ const docTemplate = `{
                         "AdminAuth": []
                     }
                 ],
-                "description": "Deletes the ADK session (in Redis or in-memory) for the agent/user/session referenced by this conversation. The user will start a fresh session on their next message. The conversation audit log is preserved.",
+                "description": "Deletes the ADK session (in Redis or in-memory) for the agent/user/session of this conversation. The user starts a fresh session on their next message; the recorded runs are preserved.",
                 "produces": [
                     "application/json"
                 ],
@@ -1291,7 +1292,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Conversation ID",
+                        "description": "Conversation ID (appId:sessionId)",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -1317,72 +1318,8 @@ const docTemplate = `{
                             "$ref": "#/definitions/admin.ErrorResponse"
                         }
                     },
-                    "502": {
-                        "description": "Bad Gateway",
-                        "schema": {
-                            "$ref": "#/definitions/admin.ErrorResponse"
-                        }
-                    },
                     "503": {
                         "description": "Service Unavailable",
-                        "schema": {
-                            "$ref": "#/definitions/admin.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/conversations/{id}/summary": {
-            "put": {
-                "security": [
-                    {
-                        "AdminAuth": []
-                    }
-                ],
-                "description": "Sets the summary text for a conversation. Used for context window summarization.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "conversations"
-                ],
-                "summary": "Update conversation summary",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Conversation ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "Summary text",
-                        "name": "body",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "type": "object"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/store.Conversation"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/admin.ErrorResponse"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
                         "schema": {
                             "$ref": "#/definitions/admin.ErrorResponse"
                         }
@@ -2619,7 +2556,7 @@ const docTemplate = `{
                         "AdminAuth": []
                     }
                 ],
-                "description": "Streams a .tar.gz archive containing the entire data directory (store.json, conversations.json, skills files).",
+                "description": "Streams a .tar.gz archive containing the entire data directory (store.json, runs.db, skills files).",
                 "produces": [
                     "application/gzip"
                 ],
@@ -3382,99 +3319,6 @@ const docTemplate = `{
                 }
             }
         },
-        "store.Conversation": {
-            "type": "object",
-            "properties": {
-                "agentId": {
-                    "type": "string"
-                },
-                "agentName": {
-                    "type": "string"
-                },
-                "clientId": {
-                    "type": "string"
-                },
-                "clientName": {
-                    "type": "string"
-                },
-                "closed": {
-                    "type": "boolean"
-                },
-                "endedAt": {
-                    "type": "string"
-                },
-                "flowId": {
-                    "type": "string"
-                },
-                "flowName": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "messages": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/store.ConversationMessage"
-                    }
-                },
-                "parentId": {
-                    "type": "string"
-                },
-                "perspective": {
-                    "type": "string"
-                },
-                "preview": {
-                    "type": "string"
-                },
-                "rawEvents": {
-                    "type": "array",
-                    "items": {}
-                },
-                "sessionId": {
-                    "type": "string"
-                },
-                "source": {
-                    "type": "string"
-                },
-                "startedAt": {
-                    "type": "string"
-                },
-                "summary": {
-                    "type": "string"
-                },
-                "userId": {
-                    "type": "string"
-                }
-            }
-        },
-        "store.ConversationMessage": {
-            "type": "object",
-            "properties": {
-                "agent": {
-                    "type": "string"
-                },
-                "content": {
-                    "type": "string"
-                },
-                "metadata": {
-                    "type": "object",
-                    "additionalProperties": true
-                },
-                "role": {
-                    "type": "string"
-                },
-                "timestamp": {
-                    "type": "string"
-                },
-                "toolCalls": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/store.ToolCallInfo"
-                    }
-                }
-            }
-        },
         "store.CronClientConfig": {
             "type": "object",
             "properties": {
@@ -3796,20 +3640,6 @@ const docTemplate = `{
                 }
             }
         },
-        "store.PaginatedResult-store_Conversation": {
-            "type": "object",
-            "properties": {
-                "items": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/store.Conversation"
-                    }
-                },
-                "total": {
-                    "type": "integer"
-                }
-            }
-        },
         "store.Reference": {
             "type": "object",
             "properties": {
@@ -3951,16 +3781,6 @@ const docTemplate = `{
                 "responseMode": {
                     "type": "string"
                 }
-            }
-        },
-        "store.ToolCallInfo": {
-            "type": "object",
-            "properties": {
-                "args": {},
-                "name": {
-                    "type": "string"
-                },
-                "result": {}
             }
         },
         "store.WebhookClientConfig": {

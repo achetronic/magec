@@ -317,6 +317,15 @@ the idempotent accumulator) and stored as the run's `input`. The admin UI
 surfaces this as the Runs section (list plus timeline detail). Full rationale
 in decision #31.
 
+Conversations are a second projection over the same runs (decision #37):
+one conversation per `(session, app)` pair, each run one turn (its input is
+the user message, its events the assistant messages), the user/admin
+perspective an on-read filter (`view=user` keeps only the flow's response
+agents). `server/runs/conversations.go` holds the aggregation queries;
+`server/api/admin/conversations.go` the projection. Nothing
+conversation-shaped is persisted and deleting a conversation deletes its
+runs.
+
 ## Key files
 
 - `server/store/types.go`: `FlowDefinition`, `FlowNode`, `FlowEdge`,

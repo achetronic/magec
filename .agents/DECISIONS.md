@@ -1121,3 +1121,33 @@ delete (deleting an agent should not quietly rewrite flows), and passive
 badges/views for dead references (noise; the button is enough). Tolerant
 reads (ClientInfo skipping stale IDs) remain as the safety net for stores
 nobody has cleaned yet.
+
+## 37. Conversations are a projection over recorded runs
+
+The Conversations audit used to be its own pipeline: two HTTP middlewares
+buffering the ENTIRE body of every /run and /run_sse response (the full SSE
+stream in memory), re-parsing it, and persisting each conversation TWICE
+(an "admin" and a "user" perspective) into a bespoke JSON store
+(data/conversations.json). Meanwhile the run recorder already captured the
+same information better: every run with its input, raw events and client
+attribution, in SQLite, including webhook/cron/A2A runs the HTTP middleware
+never saw.
+
+Conversations are now a pure projection over runs (run auditing phase 2,
+follow-up to decision #31): a conversation is every run sharing a
+(session_id, app_name) pair, each run is one turn (its input is the user
+message, its events are the assistant messages), and the perspective is an
+on-read query parameter — view=user filters flow events to response agents,
+view=admin shows everything. Nothing conversation-shaped is persisted, so
+both perspectives are always available for every conversation, including
+past ones. The conversation ID is the composite `appName:sessionID`.
+
+Deleting a conversation deletes its runs (they are the same data, decision
+taken explicitly); the raw-events view left the conversation detail because
+forensics live in the Runs view. The never-wired summary feature
+(SetSummary had no callers, the UI badge could never light up) was removed
+as a fossil rather than ported. ConversationRecorder,
+ConversationRecorderSSE, the ConversationStore and the executor's
+conversation logging are gone; a clean break with no migrator —
+conversations.json is simply ignored and old conversations are not
+projected (their runs, if recorded, are).

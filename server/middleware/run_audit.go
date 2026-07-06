@@ -70,6 +70,20 @@ func RunAudit(next http.Handler, recorder *runrecorder.Recorder, dataStore *stor
 	})
 }
 
+// getClientFromRequest resolves the calling client from its bearer token so
+// runs carry their attribution (client ID and source).
+func getClientFromRequest(r *http.Request, dataStore *store.Store) (store.ClientDefinition, bool) {
+	auth := r.Header.Get("Authorization")
+	if auth == "" {
+		return store.ClientDefinition{}, false
+	}
+	token := strings.TrimPrefix(auth, "Bearer ")
+	if token == auth {
+		return store.ClientDefinition{}, false
+	}
+	return dataStore.GetClientByToken(token)
+}
+
 // flusherOf returns the writer's flusher when it has one.
 func flusherOf(w http.ResponseWriter) http.Flusher {
 	f, _ := w.(http.Flusher)
