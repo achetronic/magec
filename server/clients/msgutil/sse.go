@@ -61,58 +61,71 @@ type UsageMetadata struct {
 }
 
 // ParseSSEStream reads a /run_sse response body and calls handler for each
-// meaningful event as it arrives. The handler receives events one at a time.
-// This is a blocking call that returns when the stream ends or an error occurs.
+// event as it arrives, blocking until the stream ends. It reads with a growing
+// buffered reader because one data: line can carry an unbounded event payload.
 func ParseSSEStream(reader io.Reader, handler func(SSEEvent)) error {
-	scanner := bufio.NewScanner(reader)
-	scanner.Buffer(make([]byte, 0, 256*1024), 1024*1024)
+	br := bufio.NewReaderSize(reader, 64*1024)
 
 	const adkErrorPrefix = "Error while running agent: "
 
-	for scanner.Scan() {
-		line := scanner.Text()
-
-		if strings.HasPrefix(line, adkErrorPrefix) {
-			errMsg := strings.TrimPrefix(line, adkErrorPrefix)
-			slog.Error("SSE stream: ADK agent error received as plain text",
-				"error", errMsg,
-			)
-			handler(SSEEvent{
-				Type:         SSEEventError,
-				ErrorMessage: errMsg,
-			})
-			continue
+	for {
+		line, err := br.ReadString('\n')
+		// The stream may end without a trailing newline; the residual line
+		// still carries the last event.
+		if line != "" {
+			line = strings.TrimRight(line, "\r\n")
+			handleSSELine(line, adkErrorPrefix, handler)
 		}
-
-		if !strings.HasPrefix(line, "data: ") {
-			continue
-		}
-
-		data := strings.TrimPrefix(line, "data: ")
-		if data == "" {
-			continue
-		}
-
-		var raw map[string]interface{}
-		if err := json.Unmarshal([]byte(data), &raw); err != nil {
-			continue
-		}
-
-		events := classifyEvent(raw)
-		if len(events) == 0 {
-			author, _ := raw["author"].(string)
-			slog.Debug("SSE event dropped (no classifiable parts)",
-				"author", author,
-				"raw_keys", mapKeys(raw),
-				"data_len", len(data),
-			)
-		}
-		for _, evt := range events {
-			handler(evt)
+		if err != nil {
+			if err == io.EOF {
+				return nil
+			}
+			return err
 		}
 	}
+}
 
-	return scanner.Err()
+// handleSSELine dispatches one SSE line: ADK plain-text errors, data: frames
+// with JSON events, everything else ignored.
+func handleSSELine(line, adkErrorPrefix string, handler func(SSEEvent)) {
+	if strings.HasPrefix(line, adkErrorPrefix) {
+		errMsg := strings.TrimPrefix(line, adkErrorPrefix)
+		slog.Error("SSE stream: ADK agent error received as plain text",
+			"error", errMsg,
+		)
+		handler(SSEEvent{
+			Type:         SSEEventError,
+			ErrorMessage: errMsg,
+		})
+		return
+	}
+
+	if !strings.HasPrefix(line, "data: ") {
+		return
+	}
+
+	data := strings.TrimPrefix(line, "data: ")
+	if data == "" {
+		return
+	}
+
+	var raw map[string]interface{}
+	if err := json.Unmarshal([]byte(data), &raw); err != nil {
+		return
+	}
+
+	events := classifyEvent(raw)
+	if len(events) == 0 {
+		author, _ := raw["author"].(string)
+		slog.Debug("SSE event dropped (no classifiable parts)",
+			"author", author,
+			"raw_keys", mapKeys(raw),
+			"data_len", len(data),
+		)
+	}
+	for _, evt := range events {
+		handler(evt)
+	}
 }
 
 // classifyEvent examines a raw ADK event JSON and returns one or more typed SSEEvents.
