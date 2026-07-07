@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"regexp"
 
+	"github.com/google/jsonschema-go/jsonschema"
 	"google.golang.org/adk/v2/agent"
 	"google.golang.org/adk/v2/tool"
 	"google.golang.org/adk/v2/tool/functiontool"
@@ -37,7 +38,7 @@ const StateKeyPrefix = "flow:"
 // keyPattern matches the subset of key names we accept from the LLM. It
 // rules out colons (which would let the model escape the namespace into
 // "app:" or "user:" tiers) and any character that is not a typical
-// identifier. The pattern is intentionally restrictive — flow-shared state
+// identifier. The pattern is intentionally restrictive: flow-shared state
 // is not meant to carry structured paths.
 var keyPattern = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_]*$`)
 
@@ -46,6 +47,14 @@ var keyPattern = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_]*$`)
 // regardless of the flow shape (sequential, parallel, loop, or nested).
 type Toolset struct {
 	tools []tool.Tool
+}
+
+// anyValueSchema describes a value of any JSON type as an explicit union.
+// Schemas inferred from `any` fields become the boolean schema `true`, which
+// Ollama's request parser rejects and strict jinja chat templates choke on.
+var anyValueSchema = &jsonschema.Schema{
+	Types:       []string{"string", "number", "integer", "boolean", "array", "object", "null"},
+	Description: "The value to store. Any JSON type is accepted.",
 }
 
 // NewToolset builds the set_state/get_state tools. The toolset is stateless
@@ -60,6 +69,14 @@ func NewToolset() (*Toolset, error) {
 				"Keys must be simple identifiers (letters, digits, underscores). " +
 				"Values can be strings, numbers, booleans, lists or objects. " +
 				"State persists for the duration of the conversation and is visible to every other agent in the same flow.",
+			InputSchema: &jsonschema.Schema{
+				Type: "object",
+				Properties: map[string]*jsonschema.Schema{
+					"key":   {Type: "string", Description: "Identifier: letters, digits, underscores."},
+					"value": anyValueSchema,
+				},
+				Required: []string{"key", "value"},
+			},
 		},
 		setState,
 	)
@@ -73,6 +90,16 @@ func NewToolset() (*Toolset, error) {
 			Description: "Read a value previously stored in the shared flow state by another agent (or by an earlier turn of this agent). " +
 				"Returns {found: true, value: ...} when the key exists and {found: false} when it does not. " +
 				"Use this to check signals, decisions or intermediate results produced by upstream agents.",
+			// Explicit because GetResult.Value is `any`; see anyValueSchema.
+			OutputSchema: &jsonschema.Schema{
+				Type: "object",
+				Properties: map[string]*jsonschema.Schema{
+					"found":   {Type: "boolean", Description: "Whether the key exists in the flow state."},
+					"value":   anyValueSchema,
+					"message": {Type: "string", Description: "Optional validation message."},
+				},
+				Required: []string{"found"},
+			},
 		},
 		getState,
 	)
@@ -147,7 +174,7 @@ type GetResult struct {
 
 // getState reads args.Key from the session state. We go through
 // tool.Context.State() rather than ReadonlyState() so the lookup observes
-// values written in the current event's StateDelta — i.e. a get_state
+// values written in the current event's StateDelta, i.e. a get_state
 // after a set_state inside the same turn returns the freshly written
 // value, not the pre-event one. A missing key is not an error: it returns
 // {found: false} so the model can branch on absence without spurious
