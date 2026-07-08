@@ -1,3 +1,6 @@
+<!-- SPDX-FileCopyrightText: 2026 Alby Hernández <hola@achetronic.com> -->
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+
 <template>
   <div class="detail-row flex justify-between items-baseline gap-4">
     <span class="text-[11px] text-arena-500 flex-shrink-0">{{ label }}</span>

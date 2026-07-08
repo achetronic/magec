@@ -1,3 +1,6 @@
+<!-- SPDX-FileCopyrightText: 2026 Alby Hernández <hola@achetronic.com> -->
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+
 <template>
   <header class="border-b border-piedra-700/50 backdrop-blur-sm bg-piedra-950/90 flex-shrink-0">
     <div class="px-3 sm:px-4 py-3 sm:py-4 flex items-center justify-between gap-2">

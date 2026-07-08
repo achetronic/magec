@@ -1,3 +1,6 @@
+<!-- SPDX-FileCopyrightText: 2026 Alby Hernández <hola@achetronic.com> -->
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+
 <template>
   <div class="border-t border-piedra-700/30 p-4 mt-3 space-y-3">
     <p v-if="agent.description" class="text-xs text-arena-400 leading-relaxed">{{ agent.description }}</p>

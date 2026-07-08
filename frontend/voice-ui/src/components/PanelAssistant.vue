@@ -1,3 +1,6 @@
+<!-- SPDX-FileCopyrightText: 2026 Alby Hernández <hola@achetronic.com> -->
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+
 <template>
   <div class="flex-1 flex flex-col p-4 gap-4 overflow-hidden">
     <div class="flex-1 flex items-center justify-center overflow-hidden min-h-[180px]">

@@ -1,3 +1,6 @@
+<!-- SPDX-FileCopyrightText: 2026 Alby Hernández <hola@achetronic.com> -->
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+
 <template>
   <AppDialog ref="dialogRef" :title="isEdit ? 'Edit Flow' : 'New Flow'" size="xl" persistent :footer-divider="false" @save="save">
     <div class="space-y-4">

@@ -1,3 +1,6 @@
+<!-- SPDX-FileCopyrightText: 2026 Alby Hernández <hola@achetronic.com> -->
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+
 <template>
   <span class="inline-flex items-stretch rounded overflow-hidden text-[10px] font-medium">
     <span class="w-[18px] flex-shrink-0 rounded-r" :class="colorClass" />

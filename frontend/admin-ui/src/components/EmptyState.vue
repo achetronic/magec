@@ -1,3 +1,6 @@
+<!-- SPDX-FileCopyrightText: 2026 Alby Hernández <hola@achetronic.com> -->
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+
 <template>
   <div class="text-center py-16 text-arena-500">
     <div v-if="icon" class="mx-auto mb-4 w-14 h-14 rounded-2xl flex items-center justify-center" :class="iconBg">

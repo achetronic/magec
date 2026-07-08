@@ -1,3 +1,6 @@
+<!-- SPDX-FileCopyrightText: 2026 Alby Hernández <hola@achetronic.com> -->
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+
 <template>
   <AppDialog ref="dialogRef" :title="title" size="xl">
     <div v-if="loading" class="text-center text-xs text-arena-500 py-12">Loading…</div>

@@ -1,3 +1,6 @@
+<!-- SPDX-FileCopyrightText: 2026 Alby Hernández <hola@achetronic.com> -->
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+
 <template>
   <div class="flex items-center gap-2 text-[11px]">
     <span class="px-2 py-0.5 bg-piedra-800 rounded-full text-arena-300">{{ store.backends.length }} backend{{ store.backends.length !== 1 ? 's' : '' }}</span>
