@@ -63,6 +63,7 @@ func buildCodeNode(node store.FlowNode, deps FlowBuildDeps) (workflow.Node, erro
 	outputKey := node.OutputKey
 	loaders := deps.StarletLoaders
 	flowsSettings := deps.FlowsSettings
+	secretMap := flowSecretMap(deps)
 
 	fn := func(ctx adkagent.Context, input any, emit func(*session.Event) error) (any, error) {
 		effTimeout := effectiveLimit(node.TimeoutMs, flowsSettings.ExecutionTimeoutMs)
@@ -74,7 +75,11 @@ func buildCodeNode(node store.FlowNode, deps FlowBuildDeps) (workflow.Node, erro
 		m.SetPrintFunc(starlet.NoopPrintFunc)
 		m.SetScriptContent([]byte(script))
 
-		extras := starlet.StringAnyMap{"input": input, "state": flowState}
+		secret := map[string]any{}
+		for k, v := range secretMap {
+			secret[k] = v
+		}
+		extras := starlet.StringAnyMap{"input": input, "state": flowState, "secret": secret}
 
 		var (
 			res starlet.StringAnyMap

@@ -21,6 +21,10 @@ type AgentDefinition struct {
 	TTS           TTSRef              `json:"tts,omitempty" yaml:"tts,omitempty"`
 	MCPServers    []string            `json:"mcpServers,omitempty" yaml:"mcpServers,omitempty"`
 	Skills        []string            `json:"skills,omitempty" yaml:"skills,omitempty"`
+	// Secrets lists the secret IDs this agent may expand in tool calls.
+	// AllowAllSecrets grants every secret in the store and ignores the list.
+	Secrets         []string `json:"secrets,omitempty" yaml:"secrets,omitempty"`
+	AllowAllSecrets bool     `json:"allowAllSecrets,omitempty" yaml:"allowAllSecrets,omitempty"`
 	Tags          []string            `json:"tags,omitempty" yaml:"tags,omitempty"`
 	ContextGuard  *ContextGuardConfig `json:"contextGuard,omitempty" yaml:"contextGuard,omitempty"`
 	A2A           *A2AConfig          `json:"a2a,omitempty" yaml:"a2a,omitempty"`

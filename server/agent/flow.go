@@ -19,6 +19,7 @@ import (
 	"google.golang.org/adk/v2/tool"
 	"google.golang.org/adk/v2/workflow"
 
+	"github.com/achetronic/magec/server/agent/secrets"
 	"github.com/achetronic/magec/server/store"
 )
 
@@ -55,6 +56,9 @@ type FlowBuildDeps struct {
 	// FlowsSettings carries the admin ceilings (timeout, output cap) for code
 	// nodes. Computed once in agent.New and forwarded through FlowBuildDeps.
 	FlowsSettings store.FlowsSettings
+	// SecretsSnapshot exposes store secrets to transform nodes and to the
+	// per-agent tool wrapping. May be nil.
+	SecretsSnapshot *secrets.Snapshot
 }
 
 // BuildFlowAgent translates a FlowDefinition graph into an adk workflow agent
@@ -167,10 +171,10 @@ func buildNode(n store.FlowNode, deps FlowBuildDeps) (workflow.Node, error) {
 		return workflow.NewWorkflowNode(n.ID, subEdges)
 
 	case store.FlowNodeExpression:
-		return buildExpressionNode(n)
+		return buildExpressionNode(n, flowSecretMap(deps))
 
 	case store.FlowNodeTemplate:
-		return buildTemplateNode(n)
+		return buildTemplateNode(n, flowSecretMap(deps))
 
 	case store.FlowNodeCode:
 		return buildCodeNode(n, deps)
@@ -205,9 +209,19 @@ func buildFlowScopedAgent(instanceName, agentID string, deps FlowBuildDeps) (adk
 		InstanceName:                instanceName,
 		ExtraToolsets:               extraToolsets,
 		IncludeFlowStateInstruction: deps.FlowStateToolset != nil,
+		SecretsSnapshot:             deps.SecretsSnapshot,
 	})
 	if err != nil {
 		return nil, err
 	}
 	return instance, nil
+}
+
+// flowSecretMap returns every store secret for transform nodes. Flow nodes
+// are operator-authored configuration, so no per-node allowlist applies.
+func flowSecretMap(deps FlowBuildDeps) map[string]string {
+	if deps.SecretsSnapshot == nil {
+		return nil
+	}
+	return deps.SecretsSnapshot.Map(nil, true)
 }

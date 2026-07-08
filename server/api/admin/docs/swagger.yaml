@@ -180,6 +180,8 @@ definitions:
     properties:
       a2a:
         $ref: '#/definitions/store.A2AConfig'
+      allowAllSecrets:
+        type: boolean
       contextGuard:
         $ref: '#/definitions/store.ContextGuardConfig'
       description:
@@ -196,6 +198,13 @@ definitions:
         type: string
       outputKey:
         type: string
+      secrets:
+        description: |-
+          Secrets lists the secret IDs this agent may expand in tool calls.
+          AllowAllSecrets grants every secret in the store and ignores the list.
+        items:
+          type: string
+        type: array
       skills:
         items:
           type: string

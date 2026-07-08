@@ -22,7 +22,7 @@ Eight types, grouped by role in the toolbar:
 | **Router** | Takes a decision: evaluates [CEL](https://github.com/google/cel-spec) conditions in order and fires exactly one arrow. |
 | **Join** | Waits for several branches and merges their results into one map. |
 | **Expression** | Transforms the input with a CEL one-liner, like `input.split(",")`. |
-| **Template** | Renders text with `{{ input }}` and `{{ state.key }}` placeholders. |
+| **Template** | Renders text with `{{ input }}`, `{{ state.key }}` and `{{ secret.KEY }}` placeholders. |
 | **Code** | Runs a [Starlark](https://github.com/bazelbuild/starlark) script when a one-liner is not enough. |
 
 Two small languages appear here. **CEL** is for one-liners: router conditions and expressions. **Starlark** is Python-like and powers the code block, for real logic.
@@ -113,6 +113,8 @@ When a later block needs a value from three steps back, use **state**.
 Writing: expression, template and code blocks have an **output key** field that stores their result under that key. Agents call their `set_state` tool (they also get `get_state`; both appear automatically for agents inside a flow).
 
 Reading: `state.topic` in conditions and expressions, `{{ state.topic }}` in templates, `state["topic"]` in scripts.
+
+[Secrets](/docs/secrets/) work the same way in transform blocks: `secret.API_TOKEN` in expressions, `{{ secret.API_TOKEN }}` in templates, `secret["API_TOKEN"]` in scripts. Values never reach the models: anything leaving for an LLM is scrubbed.
 
 State lasts the whole conversation, not one run: every run in the same conversation reads and writes the same scratchpad, so the next message still sees what the previous one wrote. Each flow has its own state; nothing leaks across flows. Use it for flags, scores, short strings; for documents, use [artifacts](/docs/agents/).
 

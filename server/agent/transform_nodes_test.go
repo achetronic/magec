@@ -32,7 +32,7 @@ func TestRenderTemplate(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			got := renderTemplate(tc.tmpl, tc.in, state)
+			got := renderTemplate(tc.tmpl, tc.in, state, nil)
 			if got != tc.want {
 				t.Fatalf("renderTemplate(%q) = %q, want %q", tc.tmpl, got, tc.want)
 			}

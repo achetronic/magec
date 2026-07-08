@@ -25,6 +25,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -54,6 +55,7 @@ import (
 	toolsmemory "github.com/achetronic/adk-utils-go/tools/memory"
 
 	"github.com/achetronic/magec/server/agent/runrecorder"
+	"github.com/achetronic/magec/server/agent/secrets"
 	toolsartifacts "github.com/achetronic/magec/server/agent/tools/artifacts"
 	toolsflowstate "github.com/achetronic/magec/server/agent/tools/flowstate"
 	toolsskills "github.com/achetronic/magec/server/agent/tools/skills"
@@ -96,6 +98,11 @@ You are running inside a multi-agent workflow. You have shared state tools avail
 
 Use shared state for orchestration signals (e.g. an approval flag, a quality score, a list of pending items), not for bulky content — keep large outputs in artifacts.`
 
+// secretsInstructionHeader precedes the list of secret keys an agent may use.
+const secretsInstructionHeader = `
+You have access to stored secrets through placeholders. Write {{secret:KEY}} wherever a tool argument needs the secret's value (an API key, a token, a password) and the real value is substituted right before the tool runs. You never see the real values and must never try to print them.
+Available secret keys:`
+
 // Service wraps the ADK REST handler that serves all configured agents.
 // Incoming requests are routed to the correct agent by the appName field.
 type Service struct {
@@ -125,7 +132,7 @@ type Service struct {
 // by the get_artifact_url tool). May be nil; when nil the tool is not
 // registered, so deployments that have not configured the signing secret do
 // not advertise a capability that always fails.
-func New(ctx context.Context, agents []store.AgentDefinition, backends []store.BackendDefinition, memoryProviders []store.MemoryProvider, mcpServers []store.MCPServer, skills []store.Skill, flows []store.FlowDefinition, settings store.Settings, registry contextguard.ModelRegistry, tempDirProvider func() string, skillsDir string, artifactURLBuilder toolsartifacts.ArtifactURLBuilder, recorder *runrecorder.Recorder) (*Service, error) {
+func New(ctx context.Context, agents []store.AgentDefinition, backends []store.BackendDefinition, memoryProviders []store.MemoryProvider, mcpServers []store.MCPServer, skills []store.Skill, flows []store.FlowDefinition, storeSecrets []store.Secret, settings store.Settings, registry contextguard.ModelRegistry, tempDirProvider func() string, skillsDir string, artifactURLBuilder toolsartifacts.ArtifactURLBuilder, recorder *runrecorder.Recorder) (*Service, error) {
 	if len(agents) == 0 {
 		return nil, fmt.Errorf("no agents defined")
 	}
@@ -139,6 +146,8 @@ func New(ctx context.Context, agents []store.AgentDefinition, backends []store.B
 	for _, m := range memoryProviders {
 		memoryProviderMap[m.ID] = m
 	}
+
+	secretsSnap := secrets.NewSnapshot(storeSecrets)
 
 	mcpServerMap := make(map[string]store.MCPServer, len(mcpServers))
 	for _, m := range mcpServers {
@@ -187,14 +196,15 @@ func New(ctx context.Context, agents []store.AgentDefinition, backends []store.B
 	// Build ADK agents
 	for i, agentDef := range agents {
 		adkAgent, llmModel, err := BuildAgentInstance(BuildAgentInstanceParams{
-			Ctx:          ctx,
-			AgentDef:     agentDef,
-			BackendMap:   backendMap,
-			MCPServerMap: mcpServerMap,
-			SkillSlugs:   skillSlugIndex,
-			SkillsDir:    skillsDir,
-			MemorySvc:    memorySvc,
-			BaseToolset:  baseTset,
+			Ctx:             ctx,
+			AgentDef:        agentDef,
+			BackendMap:      backendMap,
+			MCPServerMap:    mcpServerMap,
+			SkillSlugs:      skillSlugIndex,
+			SkillsDir:       skillsDir,
+			MemorySvc:       memorySvc,
+			BaseToolset:     baseTset,
+			SecretsSnapshot: secretsSnap,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("agent %q: %w", agentDef.ID, err)
@@ -256,6 +266,7 @@ func New(ctx context.Context, agents []store.AgentDefinition, backends []store.B
 		FlowStateToolset: flowStateToolset,
 		StarletLoaders:   starletLoaders,
 		FlowsSettings:    settings.Flows,
+		SecretsSnapshot:  secretsSnap,
 	}
 
 	// Build flows
@@ -300,6 +311,13 @@ func New(ctx context.Context, agents []store.AgentDefinition, backends []store.B
 
 	if registry != nil {
 		restCfg.PluginConfig = buildContextGuardConfig(agents, llmMap, registry)
+	}
+	// The model-boundary secret guard redacts known secret values from every
+	// LLM request, whatever path they took into it.
+	if guardPlugin, err := secretsSnap.Plugin(); err != nil {
+		slog.Warn("Failed to build secretguard plugin; model requests will not be redacted", "error", err)
+	} else {
+		restCfg.PluginConfig.Plugins = append(restCfg.PluginConfig.Plugins, guardPlugin)
 	}
 	// The run recorder plugin coexists with contextguard: PluginConfig.Plugins
 	// is a slice and the runner invokes every plugin's callbacks.
@@ -458,6 +476,10 @@ type BuildAgentInstanceParams struct {
 	// the agent instruction. Set by the flow builder for every agent inside
 	// a flow so the model knows it can call set_state and get_state.
 	IncludeFlowStateInstruction bool
+	// SecretsSnapshot carries the store secrets. When the agent has secrets
+	// allowed, its MCP toolsets are wrapped for placeholder expansion and the
+	// instruction lists the available keys. May be nil.
+	SecretsSnapshot *secrets.Snapshot
 }
 
 // BuildAgentInstance constructs an individual ADK agent instance from its
@@ -482,6 +504,18 @@ func BuildAgentInstance(p BuildAgentInstanceParams) (agent.Agent, model.LLM, err
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to build toolsets: %w", err)
 	}
+
+	// Secrets expand only inside MCP tool calls (the toolsets built above),
+	// scoped to this agent's allowlist. Internal toolsets (memory, artifacts,
+	// skills, flow state) keep placeholders as-is by design.
+	var allowedSecrets map[string]string
+	if p.SecretsSnapshot != nil && (p.AgentDef.AllowAllSecrets || len(p.AgentDef.Secrets) > 0) {
+		allowedSecrets = p.SecretsSnapshot.Map(p.AgentDef.Secrets, p.AgentDef.AllowAllSecrets)
+		for i, ts := range toolsets {
+			toolsets[i] = p.SecretsSnapshot.WrapToolset(ts, allowedSecrets)
+		}
+	}
+
 	toolsets = append(toolsets, p.BaseToolset)
 	if skillTs, err := buildSkillToolset(p.Ctx, p.AgentDef, p.SkillSlugs, p.SkillsDir); err != nil {
 		return nil, nil, fmt.Errorf("failed to build skill toolset: %w", err)
@@ -496,6 +530,17 @@ func BuildAgentInstance(p BuildAgentInstanceParams) (agent.Agent, model.LLM, err
 	instruction := buildInstruction(p.AgentDef, p.MCPServerMap, p.MemorySvc)
 	if p.IncludeFlowStateInstruction {
 		instruction += flowStateInstruction
+	}
+	if len(allowedSecrets) > 0 {
+		keys := make([]string, 0, len(allowedSecrets))
+		for k := range allowedSecrets {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+		instruction += secretsInstructionHeader
+		for _, k := range keys {
+			instruction += "\n- " + k
+		}
 	}
 
 	name := p.InstanceName

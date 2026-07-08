@@ -69,6 +69,10 @@ func (h *Handler) createFlow(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
+	if err := h.validateFlowSecrets(&f); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
 	created, err := h.store.CreateFlow(f)
 	if err != nil {
 		writeError(w, http.StatusConflict, err.Error())
@@ -98,6 +102,10 @@ func (h *Handler) updateFlow(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := flowgraph.Validate(&f); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if err := h.validateFlowSecrets(&f); err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}

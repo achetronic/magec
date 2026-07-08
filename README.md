@@ -62,13 +62,16 @@ Ideal for local MCP tools (filesystem, git, shell). See the [Binary Installation
 
 ## Highlights
 
-- **Multi-agent** — Per-agent LLM, memory, voice, and tools. Hot-reload from the Admin UI.
-- **Agentic Flows** — Visual drag-and-drop editor. Sequential, parallel, loop, nested.
-- **Any backend** — OpenAI, Anthropic, Gemini, Ollama, or any OpenAI-compatible API.
-- **MCP tools** — Home Assistant, GitHub, databases, and hundreds more via Model Context Protocol.
-- **Memory** — Session (Redis) + long-term semantic (PostgreSQL/pgvector).
-- **Voice** — Wake word, VAD, STT, TTS. All server-side via ONNX Runtime. Privacy-first.
-- **Clients** — Voice UI (PWA), Admin UI, Telegram, webhooks, cron, REST API, Slack.
+- **Multi-agent**: per-agent LLM, memory, voice, and tools. Hot-reload from the Admin UI.
+- **Agentic Flows**: visual graph editor. Agents, routers, joins, loops, parallel fan-out, and code blocks (CEL and Starlark).
+- **Run auditing**: every execution recorded and browsable as a timeline; conversations projected from the same data.
+- **Secrets**: encrypted at rest, usable by agents and flows through placeholders the models never see resolved.
+- **Any backend**: OpenAI, Anthropic, Gemini, Ollama, or any OpenAI-compatible API.
+- **MCP tools**: Home Assistant, GitHub, databases, and hundreds more via Model Context Protocol.
+- **Memory**: session (Redis) + long-term semantic (PostgreSQL/pgvector).
+- **Voice**: wake word, VAD, STT, TTS. All server-side via ONNX Runtime. Privacy-first.
+- **Clients**: Voice UI (PWA), Telegram, Discord, Slack, webhooks, cron, REST API.
+- **A2A**: expose agents and flows to other agent platforms via the Agent-to-Agent protocol.
 
 ## Screenshots
 
@@ -77,7 +80,7 @@ See all screenshots in the [documentation](https://achetronic.github.io/magec/do
 ## Roadmap
 
 - [x] Multi-agent system with per-agent LLM, memory, and tools
-- [x] Visual flow editor (sequential, parallel, loop, nested)
+- [x] Visual flow editor
 - [x] MCP tool integration (HTTP + stdio transports)
 - [x] Voice UI with wake word detection and VAD
 - [x] Telegram client with voice support
@@ -87,13 +90,16 @@ See all screenshots in the [documentation](https://achetronic.github.io/magec/do
 - [x] Admin UI with hot-reload
 - [x] Secrets management (encrypted storage for API keys and sensitive credentials)
 - [x] Slack client
-- [x] Context window management — automatic summarization when approaching token limits (experimental)
+- [x] Context window management: automatic summarization when approaching token limits (experimental)
 - [x] Expose agents and flows with A2a (Agent-to-agent) protocol
 - [x] Discord client
+- [x] Flows as real graphs (routers, joins, loops, fan-out, CEL/Starlark blocks)
+- [x] Run auditing with per-block timelines
+- [x] Secrets usable by agents and flows without exposing values to the models
 
 ## Documentation
 
-Full docs at **[magec.dev/docs](https://magec.dev/docs/)** — installation, configuration, agents, flows, backends, memory, MCP tools, clients, voice system, and API reference.
+Full docs at **[magec.dev/docs](https://magec.dev/docs/)**: installation, configuration, agents, flows, backends, memory, MCP tools, clients, voice system, and API reference.
 
 ## Development
 
@@ -132,7 +138,7 @@ Full docs at **[magec.dev/docs](https://magec.dev/docs/)** — installation, con
 
 | Who                                      | What                                                                                                                                                                                                                                                                                                                                             |
 | ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| [@travisvn](https://github.com/travisvn) | Built the ARM64 Docker image for [OpenAI Edge TTS](https://github.com/travisvn/openai-edge-tts) in record time. This is the local TTS service we recommend — it exposes an OpenAI-compatible API (`/v1/audio/speech`) that uses Microsoft Edge's free neural voices under the hood, so Magec can use it as a drop-in replacement for OpenAI TTS. |
+| [@travisvn](https://github.com/travisvn) | Built the ARM64 Docker image for [OpenAI Edge TTS](https://github.com/travisvn/openai-edge-tts) in record time. This is the local TTS service we recommend: it exposes an OpenAI-compatible API (`/v1/audio/speech`) that uses Microsoft Edge's free neural voices under the hood, so Magec can use it as a drop-in replacement for OpenAI TTS. |
 
 ## Contributors
 
@@ -142,10 +148,10 @@ Full docs at **[magec.dev/docs](https://magec.dev/docs/)** — installation, con
 
 ## License
 
-[Apache 2.0](LICENSE) — Alby Hernández
+[Apache 2.0](LICENSE) · Alby Hernández
 
 ---
 
 <p align="center">
-  If you find Magec useful, please ⭐ star this repo — it helps a lot.
+  If you find Magec useful, please ⭐ star this repo, it helps a lot.
 </p>

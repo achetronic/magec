@@ -179,7 +179,7 @@ func TestEvaluateValue_SplitProducesList(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CompileValue: %v", err)
 	}
-	out, err := EvaluateValue(prog, `input.split(",")`, "a,b,c", map[string]any{})
+	out, err := EvaluateValue(prog, `input.split(",")`, "a,b,c", map[string]any{}, nil)
 	if err != nil {
 		t.Fatalf("EvaluateValue: %v", err)
 	}
@@ -204,7 +204,7 @@ func TestEvaluateValue_ReadsState(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CompileValue: %v", err)
 	}
-	out, err := EvaluateValue(prog, `state.greeting + " " + input`, "world", map[string]any{"greeting": "hello"})
+	out, err := EvaluateValue(prog, `state.greeting + " " + input`, "world", map[string]any{"greeting": "hello"}, nil)
 	if err != nil {
 		t.Fatalf("EvaluateValue: %v", err)
 	}

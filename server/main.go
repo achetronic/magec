@@ -28,6 +28,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -35,6 +36,7 @@ import (
 	mageca2a "github.com/achetronic/magec/server/a2a"
 	"github.com/achetronic/magec/server/agent"
 	"github.com/achetronic/magec/server/agent/runrecorder"
+	"github.com/achetronic/magec/server/agent/secrets"
 	toolsartifacts "github.com/achetronic/magec/server/agent/tools/artifacts"
 	"github.com/achetronic/magec/server/api/admin"
 	user "github.com/achetronic/magec/server/api/user"
@@ -97,13 +99,20 @@ func main() {
 
 	// Run auditing: SQLite-backed store plus the recorder plugin that feeds it.
 	// A failure here degrades gracefully: runs are simply not audited.
+	// secretsSnap follows the store: replaced on every rebuild, read by the
+	// run recorder to redact secret values before payloads hit disk.
+	var secretsSnap atomic.Pointer[secrets.Snapshot]
+	secretsSnap.Store(secrets.NewSnapshot(dataStore.Data().Secrets))
+
 	var runRecorder *runrecorder.Recorder
 	runsStore, err := runs.Open("data/runs.db")
 	if err != nil {
 		slog.Warn("Failed to open runs database; run auditing disabled", "error", err)
 	} else {
 		runsStore.StartSweeper(time.Hour, 30*24*time.Hour, 500)
-		runRecorder = runrecorder.New(runsStore)
+		runRecorder = runrecorder.New(runsStore, runrecorder.WithPayloadRedactor(func(s string) string {
+			return secretsSnap.Load().RedactString(s)
+		}))
 		defer runsStore.Close()
 		defer runRecorder.Close()
 		slog.Info("Run auditing initialized", "db", "data/runs.db")
@@ -130,6 +139,7 @@ func main() {
 		cwRegistry:         cwRegistry,
 		artifactURLBuilder: newArtifactURLBuilder(cfg),
 		runRecorder:        runRecorder,
+		secretsSnap:        &secretsSnap,
 	}
 	agentRouter.rebuild(ctx, dataStore)
 
@@ -682,6 +692,9 @@ type agentRouterHandler struct {
 	// cwRegistry is passed through to agent.New so the ContextGuard plugin
 	// can look up each model's context window at runtime.
 	cwRegistry *contextguard.CrushRegistry
+	// secretsSnap is refreshed on every rebuild so the recorder's redactor
+	// always covers the current secrets.
+	secretsSnap *atomic.Pointer[secrets.Snapshot]
 	// artifactURLBuilder mints ephemeral signed download URLs for artifacts.
 	// Built once at startup with cfg + EncryptionKey + publicURL; nil when
 	// no signing secret is configured (the get_artifact_url tool stays
@@ -719,6 +732,9 @@ func (h *agentRouterHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // swaps it in atomically. Called on startup and whenever the store changes.
 func (h *agentRouterHandler) rebuild(ctx context.Context, dataStore *store.Store) {
 	storeData := dataStore.Data()
+	if h.secretsSnap != nil {
+		h.secretsSnap.Store(secrets.NewSnapshot(storeData.Secrets))
+	}
 
 	var agentHandler http.Handler
 	var artifactSvc artifact.Service
@@ -733,7 +749,7 @@ func (h *agentRouterHandler) rebuild(ctx context.Context, dataStore *store.Store
 		// the same view of "what is a real skill" — there's only
 		// one source of truth for that, and it's ListSkills.
 		skills := dataStore.ListSkills()
-		svc, err := agent.New(ctx, storeData.Agents, storeData.Backends, storeData.MemoryProviders, storeData.MCPServers, skills, storeData.Flows, storeData.Settings, h.cwRegistry, dataStore.ResolveTemporaryDir, dataStore.SkillsDir(), h.artifactURLBuilder, h.runRecorder)
+		svc, err := agent.New(ctx, storeData.Agents, storeData.Backends, storeData.MemoryProviders, storeData.MCPServers, skills, storeData.Flows, storeData.Secrets, storeData.Settings, h.cwRegistry, dataStore.ResolveTemporaryDir, dataStore.SkillsDir(), h.artifactURLBuilder, h.runRecorder)
 		if err != nil {
 			slog.Warn("Failed to initialize agents", "error", err)
 		} else {
