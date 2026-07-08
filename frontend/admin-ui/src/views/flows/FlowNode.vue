@@ -135,10 +135,12 @@
             :placeholder="whenPlaceholder(i)"
             class="flex-1 min-w-0 bg-transparent text-[10px] font-mono text-arena-200 placeholder:text-arena-600 outline-none"
           />
+          <span class="w-px self-stretch bg-piedra-700/50" />
           <input
             :value="rule.route"
             @input="updateRule(i, 'route', $event.target.value)"
             @pointerdown.stop
+            :placeholder="'route-' + (i + 1)"
             class="w-14 bg-transparent text-[10px] font-mono font-medium text-atlantico-300 placeholder:text-arena-600 outline-none"
           />
           <button @pointerdown.stop @click.stop="removeRule(i)" class="p-0.5 rounded opacity-0 group-hover:opacity-100 hover:bg-lava-500/20 transition-all">
