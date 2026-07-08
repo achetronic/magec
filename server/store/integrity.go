@@ -85,6 +85,9 @@ func collectRefs(d *StoreData) []refEntry {
 		for _, skillID := range a.Skills {
 			add(skillID, "agent", a.ID, a.Name, "skills", RefMembership)
 		}
+		for _, secretID := range a.Secrets {
+			add(secretID, "agent", a.ID, a.Name, "secrets", RefMembership)
+		}
 	}
 
 	for i := range d.MemoryProviders {
@@ -159,6 +162,9 @@ func existingIDs(d *StoreData) map[string]bool {
 	}
 	for i := range d.Commands {
 		ids[d.Commands[i].ID] = true
+	}
+	for i := range d.Secrets {
+		ids[d.Secrets[i].ID] = true
 	}
 	return ids
 }
@@ -262,6 +268,7 @@ func scrubData(d *StoreData, id string) {
 		}
 		a.MCPServers = filterOut(a.MCPServers, id)
 		a.Skills = filterOut(a.Skills, id)
+		a.Secrets = filterOut(a.Secrets, id)
 	}
 
 	for i := range d.MemoryProviders {

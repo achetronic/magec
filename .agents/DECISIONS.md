@@ -1151,3 +1151,32 @@ ConversationRecorderSSE, the ConversationStore and the executor's
 conversation logging are gone; a clean break with no migrator —
 conversations.json is simply ignored and old conversations are not
 projected (their runs, if recorded, are).
+
+## 38. Secrets reach tools and flow nodes through placeholders, never the model
+
+Agents need API keys and tokens inside tool calls, but anything the model
+sees gets persisted (session history, run events) and can be echoed back.
+The design keeps the value out of the model's sight for its whole life:
+
+- The model writes `{{secret:KEY}}` in tool arguments. The agent's MCP
+  toolsets are wrapped (`server/agent/secrets`): the wrapper expands
+  placeholders into a COPY of the arguments right before the tool runs and
+  redacts known values from the result before it becomes an event. Copying
+  matters: the args map is shared with the model's functionCall event, so
+  in-place mutation (what adk's BeforeToolCallback offers) would leak the
+  expanded value into session history. That is why this is a toolset
+  wrapper and not a tool callback.
+- Expansion is scoped per agent: an allowlist of secret IDs plus an
+  allow-all toggle on AgentDefinition. Agents with secrets get the
+  available KEYS listed in their instruction; internal toolsets (memory,
+  artifacts, skills, flow state) never expand.
+- Flow transform nodes are operator-authored, so they get every secret
+  with no allowlist: `{{ secret.KEY }}` in templates, `secret.KEY` in CEL
+  expressions, `secret["KEY"]` in Starlark. References to unknown keys are
+  rejected at save time (textual best-effort check per language).
+- Two belts make the promise a guarantee: the `secretguard` plugin redacts
+  every known value from each LLM request (BeforeModelCallback, covering
+  values that arrived through node outputs or history), and the run
+  recorder redacts payloads before persisting them.
+- Values shorter than 6 characters expand but are never redacted:
+  replacing them would mangle unrelated text.

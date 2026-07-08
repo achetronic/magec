@@ -54,10 +54,14 @@ func Evaluate(prog cel.Program, expr string, input any, state map[string]any, it
 // (which is a loop guard and swallows errors as false), a transform failure is
 // a real problem the operator must fix, so the error is returned to fail the
 // node loudly rather than silently emitting a zero value.
-func EvaluateValue(prog cel.Program, expr string, input any, state map[string]any) (any, error) {
+func EvaluateValue(prog cel.Program, expr string, input any, state map[string]any, secret map[string]string) (any, error) {
+	if secret == nil {
+		secret = map[string]string{}
+	}
 	out, _, err := prog.Eval(map[string]any{
-		"input": input,
-		"state": state,
+		"input":  input,
+		"state":  state,
+		"secret": secret,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("evaluating %q: %w", expr, err)

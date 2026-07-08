@@ -68,6 +68,9 @@ type Recorder struct {
 
 	stop chan struct{}
 	done chan struct{}
+
+	// redact rewrites payloads before persistence; nil means no rewriting.
+	redact func(string) string
 }
 
 // WithMaxEventPayloadBytes caps the persisted size of a single event payload.
@@ -84,6 +87,12 @@ func WithOrphanTimeout(d time.Duration) Option {
 // WithLogger sets the logger used for swallowed sink and marshal errors.
 func WithLogger(l *slog.Logger) Option {
 	return func(r *Recorder) { r.logger = l }
+}
+
+// WithPayloadRedactor sets a transform applied to every event payload before
+// it is persisted, so secret values never reach the run database.
+func WithPayloadRedactor(f func(string) string) Option {
+	return func(r *Recorder) { r.redact = f }
 }
 
 // New builds a Recorder around the given sink and starts the background
@@ -326,7 +335,7 @@ func (r *Recorder) flush(acc *runAccumulator, statusOverride string) {
 func (r *Recorder) marshalEvent(ev *session.Event) []byte {
 	payload, err := json.Marshal(ev)
 	if err == nil && len(payload) <= r.maxPayload {
-		return payload
+		return r.redactPayload(payload)
 	}
 	if err != nil {
 		r.logger.Warn("runrecorder: failed to marshal event", "eventId", ev.ID, "error", err)
@@ -337,7 +346,7 @@ func (r *Recorder) marshalEvent(ev *session.Event) []byte {
 	slim.Content = nil
 	payload, err = json.Marshal(&slim)
 	if err == nil && len(payload) <= r.maxPayload {
-		return payload
+		return r.redactPayload(payload)
 	}
 
 	stub := map[string]string{
@@ -347,7 +356,7 @@ func (r *Recorder) marshalEvent(ev *session.Event) []byte {
 		"note":         truncationMarker,
 	}
 	payload, _ = json.Marshal(stub)
-	return payload
+	return r.redactPayload(payload)
 }
 
 // sweepLoop periodically evicts orphaned runs (flushed as interrupted) and
@@ -398,4 +407,12 @@ func (r *Recorder) recoverPanic(where string) {
 	if p := recover(); p != nil {
 		r.logger.Error("runrecorder: recovered panic", "callback", where, "panic", fmt.Sprintf("%v", p))
 	}
+}
+
+// redactPayload applies the configured redactor to a marshaled payload.
+func (r *Recorder) redactPayload(payload []byte) []byte {
+	if r.redact == nil {
+		return payload
+	}
+	return []byte(r.redact(string(payload)))
 }

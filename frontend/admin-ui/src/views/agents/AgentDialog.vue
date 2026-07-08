@@ -167,6 +167,37 @@
         </div>
       </details>
 
+      <!-- Secrets -->
+      <details class="group border border-piedra-700/40 rounded-xl">
+        <summary class="flex items-center justify-between px-4 py-3 cursor-pointer select-none text-xs font-medium text-arena-400 hover:text-arena-300">
+          <span>Secrets</span>
+          <Icon name="chevronDown" size="md" class="text-arena-500 transition-transform group-open:rotate-180" />
+        </summary>
+        <div class="px-4 pb-4 space-y-3">
+          <p class="text-[10px] text-arena-500">Allowed secrets expand inside the agent's tool calls through placeholders. The model only ever sees the placeholder, never the value.</p>
+          <div class="flex items-center justify-between">
+            <span class="text-xs text-arena-400">Allow all secrets</span>
+            <FormToggle v-model="form.allowAllSecrets" />
+          </div>
+          <div v-if="!form.allowAllSecrets">
+            <div v-if="store.secrets.length" class="flex flex-wrap gap-1.5">
+              <button
+                v-for="sec in store.secrets" :key="sec.id"
+                type="button"
+                @click="toggleSecret(sec.id)"
+                class="px-2.5 py-1 text-[11px] font-medium rounded-lg border transition-all cursor-pointer font-mono"
+                :class="form.secrets.includes(sec.id)
+                  ? 'bg-sol-500/15 text-sol-300 border-sol-500/30'
+                  : 'bg-piedra-800 text-arena-500 border-piedra-700/40 hover:border-piedra-600 hover:text-arena-300'"
+              >
+                {{ sec.key }}
+              </button>
+            </div>
+            <p v-else class="text-xs text-arena-500">No secrets defined yet</p>
+          </div>
+        </div>
+      </details>
+
       <!-- A2A -->
       <div class="border border-piedra-700/40 rounded-xl px-4 py-3">
         <div class="flex items-center justify-between">
@@ -307,6 +338,8 @@ const form = reactive({
   llmHeaders: [],
   mcpServers: [],
   skills: [],
+  secrets: [],
+  allowAllSecrets: false,
   tags: [],
   transcriptionBackend: '',
   transcriptionModel: '',
@@ -408,6 +441,12 @@ function toggleSkill(id) {
   else form.skills.splice(idx, 1)
 }
 
+function toggleSecret(id) {
+  const idx = form.secrets.indexOf(id)
+  if (idx === -1) form.secrets.push(id)
+  else form.secrets.splice(idx, 1)
+}
+
 function addTag() {
   const tag = tagInput.value.trim().toLowerCase()
   if (tag && !form.tags.includes(tag)) {
@@ -451,6 +490,8 @@ async function open(agent = null) {
   form.llmHeaders = headersToList(agent?.llm?.headers)
   form.mcpServers = [...(agent?.mcpServers || [])]
   form.skills = [...(agent?.skills || [])]
+  form.secrets = [...(agent?.secrets || [])]
+  form.allowAllSecrets = !!agent?.allowAllSecrets
   form.tags = [...(agent?.tags || [])]
   form.transcriptionBackend = agent?.transcription?.backend || ''
   form.transcriptionModel = agent?.transcription?.model || ''
@@ -489,6 +530,8 @@ async function save() {
     },
     mcpServers: form.mcpServers,
     skills: form.skills,
+    secrets: form.allowAllSecrets ? undefined : (form.secrets.length ? form.secrets : undefined),
+    allowAllSecrets: form.allowAllSecrets || undefined,
     tags: form.tags.length ? form.tags : undefined,
     contextGuard: form.contextGuardEnabled ? {
       enabled: true,

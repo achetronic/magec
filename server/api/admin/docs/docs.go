@@ -3143,6 +3143,9 @@ const docTemplate = `{
                 "a2a": {
                     "$ref": "#/definitions/store.A2AConfig"
                 },
+                "allowAllSecrets": {
+                    "type": "boolean"
+                },
                 "contextGuard": {
                     "$ref": "#/definitions/store.ContextGuardConfig"
                 },
@@ -3166,6 +3169,13 @@ const docTemplate = `{
                 },
                 "outputKey": {
                     "type": "string"
+                },
+                "secrets": {
+                    "description": "Secrets lists the secret IDs this agent may expand in tool calls.\nAllowAllSecrets grants every secret in the store and ignores the list.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 },
                 "skills": {
                     "type": "array",

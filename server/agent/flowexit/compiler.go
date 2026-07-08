@@ -67,6 +67,7 @@ func init() {
 	venv, err := cel.NewEnv(
 		cel.Variable("input", cel.DynType),
 		cel.Variable("state", cel.MapType(cel.StringType, cel.DynType)),
+		cel.Variable("secret", cel.MapType(cel.StringType, cel.StringType)),
 		// String and list extensions give transform expressions the tools they
 		// exist for: split/join/substring/replace and list map/filter helpers.
 		// e.g. input.split(",") is what feeds a downstream For-Each node.

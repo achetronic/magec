@@ -28,7 +28,7 @@ import (
 // state). The expression's result becomes the node's output; when OutputKey is
 // set it is also written into flow state under that key (readable downstream as
 // state.<key>).
-func buildExpressionNode(node store.FlowNode) (workflow.Node, error) {
+func buildExpressionNode(node store.FlowNode, secretMap map[string]string) (workflow.Node, error) {
 	prog, err := flowexit.CompileValue(node.Expression)
 	if err != nil {
 		// Should not happen: the admin API validates at save time. Recompiling
@@ -40,7 +40,7 @@ func buildExpressionNode(node store.FlowNode) (workflow.Node, error) {
 
 	fn := func(ctx adkagent.Context, input any, emit func(*session.Event) error) (any, error) {
 		state := flowexit.ExtractFlowState(ctx.State())
-		out, err := flowexit.EvaluateValue(prog, expr, input, state)
+		out, err := flowexit.EvaluateValue(prog, expr, input, state, secretMap)
 		if err != nil {
 			return nil, fmt.Errorf("expression node %q: %w", node.ID, err)
 		}
@@ -61,13 +61,13 @@ func buildExpressionNode(node store.FlowNode) (workflow.Node, error) {
 // buildTemplateNode builds a transform node that renders a text template. The
 // rendered string becomes the node's output; when OutputKey is set it is also
 // written into flow state under that key.
-func buildTemplateNode(node store.FlowNode) (workflow.Node, error) {
+func buildTemplateNode(node store.FlowNode, secretMap map[string]string) (workflow.Node, error) {
 	tmpl := node.Template
 	outputKey := node.OutputKey
 
 	fn := func(ctx adkagent.Context, input any, emit func(*session.Event) error) (any, error) {
 		state := flowexit.ExtractFlowState(ctx.State())
-		out := renderTemplate(tmpl, input, state)
+		out := renderTemplate(tmpl, input, state, secretMap)
 		ev := session.NewEvent(ctx, ctx.InvocationID())
 		ev.Author = node.ID
 		ev.Output = out
@@ -83,14 +83,14 @@ func buildTemplateNode(node store.FlowNode) (workflow.Node, error) {
 }
 
 // placeholderRE matches a template placeholder: {{ input }}, {{ input.field }},
-// {{ state.key }}. The captured group is a dot path starting with input or
-// state. Whitespace inside the braces is tolerated.
+// {{ state.key }}, {{ secret.KEY }}. The captured group is a dot path starting
+// with input, state or secret. Whitespace inside the braces is tolerated.
 var placeholderRE = regexp.MustCompile(`\{\{\s*([a-zA-Z_][a-zA-Z0-9_.]*)\s*\}\}`)
 
 // renderTemplate resolves each placeholder against input and state by walking
 // the dot path into nested maps. An unknown root or a path that does not
 // resolve renders as an empty string, so a template never fails the flow.
-func renderTemplate(tmpl string, input any, state map[string]any) string {
+func renderTemplate(tmpl string, input any, state map[string]any, secret map[string]string) string {
 	return placeholderRE.ReplaceAllStringFunc(tmpl, func(match string) string {
 		path := placeholderRE.FindStringSubmatch(match)[1]
 		segs := strings.Split(path, ".")
@@ -101,6 +101,13 @@ func renderTemplate(tmpl string, input any, state map[string]any) string {
 			cur = input
 		case "state":
 			cur = state
+		case "secret":
+			if len(segs) == 2 {
+				if v, ok := secret[segs[1]]; ok {
+					return v
+				}
+			}
+			return ""
 		default:
 			return ""
 		}

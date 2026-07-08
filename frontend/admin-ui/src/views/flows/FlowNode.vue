@@ -608,8 +608,9 @@ const NODE_HELP = {
       items: [
         { name: 'input', desc: 'the output of the previous node.' },
         { name: 'state.<key>', desc: 'values saved earlier in the flow.' },
+        { name: 'secret.<KEY>', desc: 'a stored secret, by its key.' },
       ],
-      code: ['input.split(",")', '"hello " + input'],
+      code: ['input.split(",")', '"Bearer " + secret.API_TOKEN'],
     },
     {
       heading: 'Save as',
@@ -627,6 +628,7 @@ const NODE_HELP = {
         { name: '{{ input }}', desc: 'the output of the previous node.' },
         { name: '{{ input.field }}', desc: 'a field of that output.' },
         { name: '{{ state.key }}', desc: 'a value saved earlier in the flow.' },
+        { name: '{{ secret.KEY }}', desc: 'a stored secret, by its key.' },
       ],
     },
     {
@@ -645,6 +647,7 @@ const NODE_HELP = {
       items: [
         { name: 'input', desc: 'the output of the previous node.' },
         { name: 'state', desc: 'values saved earlier in the flow.' },
+        { name: 'secret["KEY"]', desc: 'a stored secret, by its key.' },
       ],
     },
     {
