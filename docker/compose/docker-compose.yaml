@@ -2,7 +2,9 @@
 # Everything runs on your machine: LLM, STT, TTS, embeddings, memory.
 # No API keys, no cloud accounts, no data leaving your network.
 #
-# GPU: Uncomment the 'deploy' section under ollama for NVIDIA acceleration.
+# GPU: Uncomment ONE of the GPU sections under ollama:
+#   - Docker:  the 'deploy' block (uses nvidia container runtime)
+#   - Podman:  the 'devices' line (uses CDI — requires nvidia-ctk cdi generate)
 #
 # Usage:
 #   docker compose up -d
@@ -31,13 +33,13 @@ services:
     restart: unless-stopped
 
   redis:
-    image: redis:alpine
+    image: docker.io/library/redis:alpine
     volumes:
       - redis_data:/data
     restart: unless-stopped
 
   postgres:
-    image: pgvector/pgvector:pg17
+    image: docker.io/pgvector/pgvector:pg17
     environment:
       POSTGRES_USER: magec
       POSTGRES_PASSWORD: magec
@@ -47,11 +49,13 @@ services:
     restart: unless-stopped
 
   ollama:
-    image: ollama/ollama:latest
+    image: docker.io/ollama/ollama:latest
     volumes:
       - ollama_data:/root/.ollama
     restart: unless-stopped
-    # Uncomment for NVIDIA GPU acceleration:
+    # ── NVIDIA GPU acceleration (uncomment ONE option) ──────────────
+    #
+    # Option A — Docker (nvidia-container-runtime):
     # deploy:
     #   resources:
     #     reservations:
@@ -59,9 +63,13 @@ services:
     #         - driver: nvidia
     #           count: all
     #           capabilities: [gpu]
+    #
+    # Option B — Podman (CDI — run: sudo nvidia-ctk cdi generate --output=/etc/cdi/nvidia.yaml):
+    # devices:
+    #   - nvidia.com/gpu=all
 
   ollama-setup:
-    image: ollama/ollama:latest
+    image: docker.io/ollama/ollama:latest
     depends_on:
       - ollama
     restart: "no"
@@ -87,7 +95,7 @@ services:
     restart: unless-stopped
 
   tts:
-    image: travisvn/openai-edge-tts:latest
+    image: docker.io/travisvn/openai-edge-tts:latest
     environment:
       - REQUIRE_API_KEY=False
     restart: unless-stopped

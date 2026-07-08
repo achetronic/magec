@@ -273,19 +273,19 @@ box_line "  on your machine."
 box_empty
 box_sep
 box_empty
-box_line "$(badge " 2 " "$BG_MAGENTA" "$FG_WHITE")  Use containers (Docker)"
+box_line "$(badge " 2 " "$BG_MAGENTA" "$FG_WHITE")  Use containers (Docker / Podman)"
 box_empty
 box_line "  Everything runs inside isolated containers."
 box_line "  Nothing gets installed system-wide. Easiest"
 box_line "  to set up — one command starts everything."
-box_line "  Requires Docker to be installed."
+box_line "  Requires Docker or Podman to be installed."
 box_empty
 box_bottom
 echo
 
 choose \
   "Download the program directly (binary)" \
-  "Use containers (Docker)"
+  "Use containers (Docker / Podman)"
 
 INSTALL_METHOD="$REPLY"
 
@@ -716,7 +716,7 @@ printf "  ${DIM}$(hline '─' "$BOX_W")${NC}\n"
 echo
 
 method_label="Direct download (binary)"
-[[ "$INSTALL_METHOD" == "2" ]] && method_label="Containers (Docker)"
+[[ "$INSTALL_METHOD" == "2" ]] && method_label="Containers (Docker/Podman)"
 
 llm_label="Local (Ollama — private)"
 [[ "$LLM_CHOICE" == "2" ]] && llm_label="Cloud (OpenAI, Anthropic, Gemini)"
@@ -1396,21 +1396,39 @@ install_containers() {
   printf "  ${DIM}$(hline '─' "$BOX_W")${NC}\n"
   echo
 
-  # ── Check Docker ────────────────────────────────────────────────────
+  # ── Check container engine (Docker or Podman) ───────────────────────
 
-  info "Checking for Docker..."
+  CONTAINER_ENGINE=""
+  USE_PODMAN=false
 
-  if ! check_cmd docker; then
+  info "Checking for a container engine..."
+
+  if check_cmd podman && podman info &>/dev/null 2>&1; then
+    CONTAINER_ENGINE="podman"
+    USE_PODMAN=true
+    ok "Podman is ready"
+  elif check_cmd docker && docker info &>/dev/null 2>&1; then
+    CONTAINER_ENGINE="docker"
+    ok "Docker is ready"
+  elif check_cmd docker; then
+    die "Docker is installed but not running. Start Docker and try again."
+  elif check_cmd podman; then
+    die "Podman is installed but not running. Start Podman and try again."
+  else
     echo
     box_top
     box_empty
-    box_line "  ${RED}Docker is not installed${NC}" "" "center"
+    box_line "  ${RED}No container engine found${NC}" "" "center"
     box_empty
-    box_line "  Docker is needed to run Magec in containers."
-    box_line "  Install it and then run this script again:"
+    box_line "  A container engine is needed to run Magec."
+    box_line "  Install Docker or Podman and try again:"
     box_empty
     case "$OS" in
-      linux)  box_line "  ${CYAN}https://docs.docker.com/engine/install/${NC}" ;;
+      linux)
+        box_line "  ${CYAN}https://docs.docker.com/engine/install/${NC}"
+        box_line "  ${DIM}or${NC}"
+        box_line "  ${CYAN}https://podman.io/docs/installation${NC}"
+        ;;
       darwin) box_line "  ${CYAN}https://docs.docker.com/desktop/install/mac-install/${NC}" ;;
       windows) box_line "  ${CYAN}https://docs.docker.com/desktop/install/windows-install/${NC}" ;;
     esac
@@ -1419,18 +1437,48 @@ install_containers() {
     exit 1
   fi
 
-  if ! docker info &>/dev/null; then
-    die "Docker is installed but not running. Start Docker and try again."
+  # ── Check compose ───────────────────────────────────────────────────
+
+  if $USE_PODMAN; then
+    if podman compose version &>/dev/null 2>&1; then
+      COMPOSE="podman compose"
+    elif check_cmd podman-compose; then
+      COMPOSE="podman-compose"
+    else
+      die "podman-compose is required. Install it: pip install podman-compose  (or use podman with compose plugin)"
+    fi
+  else
+    if docker compose version &>/dev/null; then
+      COMPOSE="docker compose"
+    elif docker-compose version &>/dev/null; then
+      COMPOSE="docker-compose"
+    else
+      die "Docker Compose is required. Install it from https://docs.docker.com/compose/install/"
+    fi
   fi
 
-  if ! docker compose version &>/dev/null && ! docker-compose version &>/dev/null; then
-    die "Docker Compose is required. Install it from https://docs.docker.com/compose/install/"
-  fi
+  ok "Compose command: ${COMPOSE}"
 
-  ok "Docker is ready"
+  # ── Check GPU / NVIDIA ─────────────────────────────────────────────
 
   if $GPU; then
-    if ! docker info 2>/dev/null | grep -qi 'nvidia'; then
+    local gpu_ok=false
+
+    if $USE_PODMAN; then
+      # Podman uses CDI — check for nvidia CDI spec
+      if [[ -f /etc/cdi/nvidia.yaml ]] || { [[ -d /etc/cdi ]] && ls /etc/cdi/nvidia*.yaml &>/dev/null 2>&1; }; then
+        gpu_ok=true
+      elif nvidia-ctk cdi list 2>/dev/null | grep -qi 'nvidia.com/gpu'; then
+        gpu_ok=true
+      fi
+    else
+      # Docker — check nvidia runtime
+      if docker info 2>/dev/null | grep -qi 'nvidia'; then
+        gpu_ok=true
+      fi
+    fi
+
+    if ! $gpu_ok; then
       echo
       box_top
       box_empty
@@ -1443,18 +1491,17 @@ install_containers() {
       box_line "  ${CYAN}https://docs.nvidia.com/datacenter/cloud-native/${NC}"
       box_line "  ${CYAN}container-toolkit/install-guide.html${NC}"
       box_empty
-      box_line "  Then restart Docker and run this script again."
+      if $USE_PODMAN; then
+        box_line "  Then generate CDI specs:"
+        box_line "  ${CYAN}sudo nvidia-ctk cdi generate --output=/etc/cdi/nvidia.yaml${NC}"
+      else
+        box_line "  Then restart Docker and run this script again."
+      fi
       box_empty
       box_bottom
       exit 1
     fi
     ok "NVIDIA GPU detected"
-  fi
-
-  if docker compose version &>/dev/null; then
-    COMPOSE="docker compose"
-  else
-    COMPOSE="docker-compose"
   fi
 
   # ── Generate files ──────────────────────────────────────────────────
@@ -1695,7 +1742,7 @@ generate_docker_compose() {
 
   if $WANT_REDIS; then
     services+="\n  redis:\n"
-    services+="    image: redis:alpine\n"
+    services+="    image: docker.io/library/redis:alpine\n"
     services+="    volumes:\n"
     services+="      - redis_data:/data\n"
     services+="    restart: unless-stopped\n"
@@ -1704,7 +1751,7 @@ generate_docker_compose() {
 
   if $WANT_POSTGRES; then
     services+="\n  postgres:\n"
-    services+="    image: pgvector/pgvector:pg17\n"
+    services+="    image: docker.io/pgvector/pgvector:pg17\n"
     services+="    environment:\n"
     services+="      POSTGRES_USER: magec\n"
     services+="      POSTGRES_PASSWORD: magec\n"
@@ -1717,19 +1764,26 @@ generate_docker_compose() {
 
   if $need_ollama; then
     services+="\n  ollama:\n"
-    services+="    image: ollama/ollama:latest\n"
+    services+="    image: docker.io/ollama/ollama:latest\n"
     services+="    volumes:\n"
     services+="      - ollama_data:/root/.ollama\n"
     services+="    restart: unless-stopped\n"
 
     if $GPU; then
-      services+="    deploy:\n"
-      services+="      resources:\n"
-      services+="        reservations:\n"
-      services+="          devices:\n"
-      services+="            - driver: nvidia\n"
-      services+="              count: all\n"
-      services+="              capabilities: [gpu]\n"
+      if $USE_PODMAN; then
+        # Podman uses CDI (Container Device Interface) for GPU access
+        services+="    devices:\n"
+        services+="      - nvidia.com/gpu=all\n"
+      else
+        # Docker uses nvidia container runtime via deploy block
+        services+="    deploy:\n"
+        services+="      resources:\n"
+        services+="        reservations:\n"
+        services+="          devices:\n"
+        services+="            - driver: nvidia\n"
+        services+="              count: all\n"
+        services+="              capabilities: [gpu]\n"
+      fi
     fi
 
     local models_to_pull=""
@@ -1741,7 +1795,7 @@ generate_docker_compose() {
     fi
 
     services+="\n  ollama-setup:\n"
-    services+="    image: ollama/ollama:latest\n"
+    services+="    image: docker.io/ollama/ollama:latest\n"
     services+="    depends_on:\n"
     services+="      - ollama\n"
     services+="    restart: \"no\"\n"
@@ -1768,7 +1822,7 @@ generate_docker_compose() {
     services+="    restart: unless-stopped\n"
 
     services+="\n  tts:\n"
-    services+="    image: travisvn/openai-edge-tts:latest\n"
+    services+="    image: docker.io/travisvn/openai-edge-tts:latest\n"
     services+="    environment:\n"
     services+="      - REQUIRE_API_KEY=False\n"
     services+="    restart: unless-stopped\n"

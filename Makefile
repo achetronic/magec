@@ -1,6 +1,7 @@
 .PHONY: help build build-admin build-voice dev dev-admin dev-voice clean download-model swagger docker-build docker-buildx docker-push postgres redis ollama infra infra-stop infra-clean
 
 CONFIG ?= config.yaml
+CONTAINER_ENGINE ?= $(shell command -v podman 2>/dev/null || echo docker)
 
 help:
 	@echo "Magec - Multi-Agent AI Platform"
@@ -91,54 +92,54 @@ IMAGE_TAG ?= latest
 DOCKER_PLATFORMS ?= linux/amd64,linux/arm64
 
 docker-build:
-	@docker build -f docker/build/Dockerfile -t $(IMAGE_NAME):$(IMAGE_TAG) .
+	@$(CONTAINER_ENGINE) build -f docker/build/Dockerfile -t $(IMAGE_NAME):$(IMAGE_TAG) .
 	@echo "Image built: $(IMAGE_NAME):$(IMAGE_TAG)"
 
 docker-buildx:
-	@docker buildx build -f docker/build/Dockerfile --platform $(DOCKER_PLATFORMS) -t $(IMAGE_NAME):$(IMAGE_TAG) .
+	@$(CONTAINER_ENGINE) buildx build -f docker/build/Dockerfile --platform $(DOCKER_PLATFORMS) -t $(IMAGE_NAME):$(IMAGE_TAG) .
 	@echo "Multi-arch image built: $(IMAGE_NAME):$(IMAGE_TAG) [$(DOCKER_PLATFORMS)]"
 
 docker-push:
-	@docker buildx build -f docker/build/Dockerfile --platform $(DOCKER_PLATFORMS) -t $(IMAGE_NAME):$(IMAGE_TAG) --push .
+	@$(CONTAINER_ENGINE) buildx build -f docker/build/Dockerfile --platform $(DOCKER_PLATFORMS) -t $(IMAGE_NAME):$(IMAGE_TAG) --push .
 	@echo "Image pushed: $(IMAGE_NAME):$(IMAGE_TAG) [$(DOCKER_PLATFORMS)]"
 
 # Infrastructure (Docker)
 
 postgres:
-	@docker run -d --name magec-postgres \
+	@$(CONTAINER_ENGINE) run -d --name magec-postgres \
 		-p 5432:5432 \
 		-e POSTGRES_PASSWORD=postgres \
 		-e POSTGRES_DB=magec \
-		pgvector/pgvector:pg17
+		docker.io/pgvector/pgvector:pg17
 	@echo "PostgreSQL (pgvector) started on localhost:5432"
 
 redis:
-	@docker run -d --name magec-redis \
+	@$(CONTAINER_ENGINE) run -d --name magec-redis \
 		-p 6379:6379 \
-		redis:alpine
+		docker.io/library/redis:alpine
 	@echo "Redis started on localhost:6379"
 
 ollama:
-	@docker run -d --name magec-ollama \
+	@$(CONTAINER_ENGINE) run -d --name magec-ollama \
 		-p 11434:11434 \
 		-v ollama:/root/.ollama \
-		ollama/ollama
+		docker.io/ollama/ollama
 	@echo "Waiting for Ollama to start..."
 	@sleep 3
-	@docker exec magec-ollama ollama pull qwen3:8b
-	@docker exec magec-ollama ollama pull nomic-embed-text
+	@$(CONTAINER_ENGINE) exec magec-ollama ollama pull qwen3:8b
+	@$(CONTAINER_ENGINE) exec magec-ollama ollama pull nomic-embed-text
 	@echo "Ollama started on localhost:11434 with qwen3:8b and nomic-embed-text"
 
 infra: postgres redis
 	@echo "Infrastructure ready"
 
 infra-stop:
-	@docker stop magec-postgres magec-redis 2>/dev/null || true
-	@docker rm magec-postgres magec-redis 2>/dev/null || true
+	@$(CONTAINER_ENGINE) stop magec-postgres magec-redis 2>/dev/null || true
+	@$(CONTAINER_ENGINE) rm magec-postgres magec-redis 2>/dev/null || true
 	@echo "Infrastructure stopped"
 
 infra-clean: infra-stop
-	@docker stop magec-ollama 2>/dev/null || true
-	@docker rm magec-ollama 2>/dev/null || true
-	@docker volume rm ollama 2>/dev/null || true
+	@$(CONTAINER_ENGINE) stop magec-ollama 2>/dev/null || true
+	@$(CONTAINER_ENGINE) rm magec-ollama 2>/dev/null || true
+	@$(CONTAINER_ENGINE) volume rm ollama 2>/dev/null || true
 	@echo "All containers and volumes removed"
