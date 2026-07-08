@@ -317,6 +317,12 @@ the idempotent accumulator) and stored as the run's `input`. The admin UI
 surfaces this as the Runs section (list plus timeline detail). Full rationale
 in decision #31.
 
+Transform nodes see secrets next to input and state: `{{ secret.KEY }}` in
+templates, `secret.KEY` in CEL expressions (value env only, not router
+guards), `secret["KEY"]` in Starlark globals. All store secrets are available
+(nodes are operator-authored); unknown keys are rejected at save time and the
+secretguard plugin scrubs values from every LLM request. Decision #38.
+
 Conversations are a second projection over the same runs (decision #37):
 one conversation per `(session, app)` pair, each run one turn (its input is
 the user message, its events the assistant messages), the user/admin

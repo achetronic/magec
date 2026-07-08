@@ -24,6 +24,7 @@ Store (in-memory + JSON persistence → data/store.json)
 │   ├── tts: {backend, model, voice, speed}
 │   ├── mcpServers: ["id1", "id2"]
 │   ├── skills: ["id1", "id2"]
+│   ├── secrets: ["id1"], allowAllSecrets  — placeholder expansion scope for tool calls
 │   ├── tags: ["tag1", "tag2"]
 │   ├── contextGuard: {enabled, strategy, maxTurns}
 │   └── a2a: {enabled}  — exposes agent via A2A protocol
@@ -157,6 +158,12 @@ Client types: `direct`, `telegram`, `discord`, `slack`, `cron`, `webhook`. See [
 | -------------- | --------------- | ------------------------------------------------------------------ |
 | GET/POST       | `/secrets`      | List / Create (GET never returns `value`)                          |
 | GET/PUT/DELETE | `/secrets/{id}` | Get / Update / Delete (empty `value` on update preserves existing) |
+
+Beyond config expansion, secrets reach agents and flows as placeholders whose
+value the model never sees: `{{secret:KEY}}` in tool arguments (scoped by the
+agent's `secrets` allowlist or `allowAllSecrets`), `{{ secret.KEY }}` /
+`secret.KEY` / `secret["KEY"]` in flow transform nodes (all secrets, validated
+at save time). Decision #38.
 
 ### Settings
 

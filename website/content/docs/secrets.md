@@ -49,6 +49,32 @@ Secrets work in every resource field:
 
 The `${VAR:-default}` syntax is also supported: if the variable is unset or empty, the default value after `:-` is used instead.
 
+## Letting agents use secrets
+
+Agents can use secrets inside tool calls without ever seeing the values. On the agent form, open the **Secrets** section and pick which secrets the agent may use (or enable **Allow all secrets**).
+
+The agent then writes a placeholder wherever a tool argument needs the value:
+
+```
+{{secret:GITHUB_TOKEN}}
+```
+
+Magec substitutes the real value right before the tool runs and scrubs it from the tool's response before the model reads it. The model works with the placeholder the whole time: the value never enters the conversation, the session history, or the recorded runs.
+
+Agents with secrets get the list of allowed keys in their instructions automatically, so you rarely need to mention placeholders in your prompt.
+
+## Using secrets in flows
+
+Flow blocks accept secrets with the same style as `input` and `state`, each in its own language:
+
+| Block | Syntax | Example |
+|-------|--------|---------|
+| **Template** | `{{ secret.KEY }}` | `Authorization: Bearer {{ secret.API_TOKEN }}` |
+| **Expression** | `secret.KEY` | `"Bearer " + secret.API_TOKEN` |
+| **Code** | `secret["KEY"]` | `output = fetch(url, secret["API_TOKEN"])` |
+
+Saving a flow that references a nonexistent key fails with a clear error. Requests leaving for the LLM are always scrubbed of known secret values, so a secret used in a block cannot leak into a downstream agent's conversation.
+
 ## How it works under the hood
 
 When Magec starts, all secrets are injected as environment variables. Then every `${VAR}` reference in the store is expanded. This means secrets and regular environment variables (from Docker, Kubernetes, systemd) all work the same way.
