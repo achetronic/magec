@@ -1,3 +1,6 @@
+<!-- SPDX-FileCopyrightText: 2026 Alby Hernández <hola@achetronic.com> -->
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+
 <!-- Starlark editor without editor dependencies: a plain textarea whose text
      is transparent (the caret stays visible) over a pre that renders the same
      content tokenized by a small regex highlighter. Both layers share font

@@ -1,3 +1,6 @@
+<!-- SPDX-FileCopyrightText: 2026 Alby Hernández <hola@achetronic.com> -->
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+
 <!-- Small info-icon trigger that reveals a help panel for flow nodes. The
      panel is a native popover kept INLINE in the component: the flow editor
      lives inside a <dialog> opened with showModal(), which makes everything

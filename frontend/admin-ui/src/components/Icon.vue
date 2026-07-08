@@ -1,3 +1,6 @@
+<!-- SPDX-FileCopyrightText: 2026 Alby Hernández <hola@achetronic.com> -->
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+
 <template>
   <svg class="flex-shrink-0" :class="sizeClass" fill="none" stroke="currentColor" viewBox="0 0 24 24">
     <path stroke-linecap="round" stroke-linejoin="round" :stroke-width="strokeWidth" :d="paths[name]" />

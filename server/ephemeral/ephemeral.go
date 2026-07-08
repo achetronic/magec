@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Alby Hernández <hola@achetronic.com>
+// SPDX-License-Identifier: Apache-2.0
+
 // Package ephemeral provides primitives for issuing self-contained, signed,
 // time-limited tokens that grant one-shot access to a specific resource.
 //

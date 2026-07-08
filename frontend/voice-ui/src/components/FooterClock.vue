@@ -1,3 +1,6 @@
+<!-- SPDX-FileCopyrightText: 2026 Alby Hernández <hola@achetronic.com> -->
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+
 <template>
   <footer class="border-t border-piedra-700/50 py-3 flex-shrink-0">
     <p class="text-center text-xs text-arena-500">{{ clockText }}</p>

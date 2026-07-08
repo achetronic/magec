@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
-# Magec interactive installer — https://github.com/achetronic/magec
+# SPDX-FileCopyrightText: 2026 Alby Hernández <hola@achetronic.com>
+# SPDX-License-Identifier: Apache-2.0
+
+# Magec interactive installer: https://github.com/achetronic/magec
 # Usage:
 #   curl -fsSL https://raw.githubusercontent.com/achetronic/magec/master/scripts/install.sh | bash
 
@@ -248,7 +251,7 @@ box_bottom
 echo
 
 # ═══════════════════════════════════════════════════════════════════════════
-#  STEP 1 — INSTALLATION METHOD
+#  STEP 1: INSTALLATION METHOD
 # ═══════════════════════════════════════════════════════════════════════════
 
 cls
@@ -287,7 +290,7 @@ choose \
 INSTALL_METHOD="$REPLY"
 
 # ═══════════════════════════════════════════════════════════════════════════
-#  STEP 2 — AI MODELS
+#  STEP 2: AI MODELS
 # ═══════════════════════════════════════════════════════════════════════════
 
 cls
@@ -334,7 +337,7 @@ choose \
 LLM_CHOICE="$REPLY"
 
 # ═══════════════════════════════════════════════════════════════════════════
-#  STEP 3 — MEMORY
+#  STEP 3: MEMORY
 # ═══════════════════════════════════════════════════════════════════════════
 
 cls
@@ -430,7 +433,7 @@ else
 fi
 
 # ═══════════════════════════════════════════════════════════════════════════
-#  STEP 4 — VOICE
+#  STEP 4: VOICE
 # ═══════════════════════════════════════════════════════════════════════════
 
 cls
@@ -497,7 +500,7 @@ else
 fi
 
 # ═══════════════════════════════════════════════════════════════════════════
-#  STEP 5 — GPU (containers with local models only)
+#  STEP 5: GPU (containers with local models only)
 # ═══════════════════════════════════════════════════════════════════════════
 
 GPU=false
@@ -539,7 +542,7 @@ if [[ "$INSTALL_METHOD" == "2" ]] && [[ "$LLM_CHOICE" == "1" || "$LLM_CHOICE" ==
 fi
 
 # ═══════════════════════════════════════════════════════════════════════════
-#  STEP 6 — INSTALL DIRECTORY
+#  STEP 6: INSTALL DIRECTORY
 # ═══════════════════════════════════════════════════════════════════════════
 
 local_step=5
@@ -612,7 +615,7 @@ if [[ -d "${INSTALL_DIR}/data" ]] || [[ -f "${INSTALL_DIR}/config.yaml" ]]; then
 fi
 
 # ═══════════════════════════════════════════════════════════════════════════
-#  STEP — ADMIN PASSWORD
+#  STEP: ADMIN PASSWORD
 # ═══════════════════════════════════════════════════════════════════════════
 
 ADMIN_PASSWORD=""
