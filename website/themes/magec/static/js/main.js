@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { Centella } from './centella.js';
+import { initScenes } from './scenes.js';
 
 document.addEventListener('DOMContentLoaded', () => {
   // Nav scroll
@@ -19,6 +20,9 @@ document.addEventListener('DOMContentLoaded', () => {
   // Hero orb
   const canvas = document.getElementById('hero-orb');
   if (canvas) new Centella(canvas).start();
+
+  // Scroll-driven feature scenes
+  initScenes();
 
   // Scroll reveal
   const obs = new IntersectionObserver(entries => {

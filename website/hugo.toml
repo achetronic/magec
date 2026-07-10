@@ -17,25 +17,58 @@ theme = 'magec'
 
 [menu]
   [[menu.main]]
-    name = 'How it works'
-    url = '/#how-it-works'
+    name = 'Home'
+    url = '/'
     weight = 1
   [[menu.main]]
-    name = 'Platform'
-    url = '/#what'
+    identifier = 'tour'
+    name = 'Tour'
+    url = '/#agents'
     weight = 2
   [[menu.main]]
-    name = 'Use cases'
-    url = '/#use-cases'
+    name = 'Agents'
+    parent = 'tour'
+    url = '/#agents'
+    weight = 1
+  [[menu.main]]
+    name = 'MCPs & Skills'
+    parent = 'tour'
+    url = '/#tools'
+    weight = 2
+  [[menu.main]]
+    name = 'Memory'
+    parent = 'tour'
+    url = '/#memory'
     weight = 3
   [[menu.main]]
-    name = 'Screenshots'
-    url = '/#screenshots'
+    name = 'Flows'
+    parent = 'tour'
+    url = '/#flows'
     weight = 4
+  [[menu.main]]
+    name = 'Clients'
+    parent = 'tour'
+    url = '/#clients-scene'
+    weight = 5
+  [[menu.main]]
+    name = 'Voice'
+    parent = 'tour'
+    url = '/#voice'
+    weight = 6
+  [[menu.main]]
+    name = 'Secrets'
+    parent = 'tour'
+    url = '/#secrets'
+    weight = 7
+  [[menu.main]]
+    name = 'Runs'
+    parent = 'tour'
+    url = '/#runs'
+    weight = 8
   [[menu.main]]
     name = 'Docs'
     url = '/docs/'
-    weight = 5
+    weight = 3
 
   # Docs sidebar menu
   [[menu.docs]]

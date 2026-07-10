@@ -15,7 +15,20 @@
     </button>
     <ul class="nav__links">
       {{ range .Site.Menus.main }}
+      {{ if .HasChildren }}
+      <li class="nav__dropdown">
+        <a href="{{ .URL }}" class="nav__link">{{ .Name }}
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+        </a>
+        <ul class="nav__dropdown-menu">
+          {{ range .Children }}
+          <li><a href="{{ .URL }}" class="nav__dropdown-link">{{ .Name }}</a></li>
+          {{ end }}
+        </ul>
+      </li>
+      {{ else }}
       <li><a href="{{ .URL }}" class="nav__link">{{ .Name }}</a></li>
+      {{ end }}
       {{ end }}
       <li>
         <a href="{{ .Site.Params.github }}" class="nav__cta" target="_blank" rel="noopener">
