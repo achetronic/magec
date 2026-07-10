@@ -36,7 +36,7 @@ export function initScenes() {
       ghost.classList.add('wire-ghost');
       path.parentNode.insertBefore(ghost, path);
 
-      const len = path.getTotalLength();
+      const len = path.getTotalLength() || 1;
       path.style.strokeDasharray = `${len}`;
       path.style.strokeDashoffset = `${len}`;
       const [a, b] = path.dataset.wire.split(',').map(Number);
@@ -49,7 +49,7 @@ export function initScenes() {
     const travellers = [...scene.querySelectorAll('[data-travel]')].map(el => {
       const [id, a, b] = el.dataset.travel.split(',');
       const path = scene.querySelector(`#${id}`);
-      return { el, path, len: path.getTotalLength(), a: Number(a), b: Number(b) };
+      return { el, path, len: path.getTotalLength() || 1, a: Number(a), b: Number(b) };
     });
     return { scene, wires, steps, travellers, auto: 0, done: false };
   });
