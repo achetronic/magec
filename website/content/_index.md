@@ -30,284 +30,470 @@ title: "Magec: Self-hosted Multi-Agent AI Platform"
       </div>
     </div>
   </div>
+  <a href="#agents" class="scene__hint hero__hint" aria-label="Start the tour">
+    <svg class="scene__hint-ball" viewBox="0 0 64 64" fill="none"><defs><linearGradient id="hintg0" x1="0%" y1="100%" x2="100%" y2="0%"><stop offset="0%" stop-color="#f59e0b"/><stop offset="100%" stop-color="#f87171"/></linearGradient></defs><circle cx="32" cy="32" r="26" fill="url(#hintg0)"/><circle cx="20" cy="24" r="2" fill="white" opacity=".9"/><circle cx="26" cy="18" r="1.5" fill="white" opacity=".7"/><circle cx="40" cy="22" r="1.8" fill="white" opacity=".8"/><circle cx="38" cy="38" r="2" fill="white" opacity=".75"/><circle cx="24" cy="40" r="1.4" fill="white" opacity=".65"/></svg>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+  </a>
 </section>
 
-<!-- HOW IT WORKS -->
-<section id="how-it-works">
-  <div class="container">
-    <div class="section-header reveal">
-      <span class="section-label">How it works</span>
-      <h2 class="section-title">Three steps to AI automation</h2>
+<!-- SCENE: AGENTS -->
+<section id="agents" class="scene" data-scene>
+  <div class="scene__sticky">
+    <div class="scene__head" data-step="0">
+      <span class="scene__label ec-agent">Agents</span>
+      <h2 class="scene__title">One agent, everything it needs</h2>
+      <p class="scene__desc">Pick its brain. Plug in tools, skills and memory. Each agent is an independent unit, assembled in minutes.</p>
     </div>
-    <div class="steps stagger-children">
-      <div class="step">
-        <div class="step__number">1</div>
-        <div class="step__icon step__icon--sol">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
+    <div class="scene__fit">
+      <div class="scene__stage">
+        <svg class="scene__wires" viewBox="0 0 1040 560" aria-hidden="true">
+          <path class="ec-backend" data-wire="0.10,0.24" d="M 285 122 C 345 122, 345 238, 394 238"/>
+          <path class="ec-mcp" data-wire="0.26,0.40" d="M 285 272 C 340 272, 345 270, 394 270"/>
+          <path class="ec-skill" data-wire="0.42,0.56" d="M 285 422 C 345 422, 345 302, 394 302"/>
+          <path class="ec-memory" data-wire="0.58,0.72" d="M 778 197 C 725 197, 715 246, 652 246"/>
+          <path class="ec-extra" data-wire="0.74,0.88" d="M 778 357 C 725 357, 715 286, 652 286"/>
+        </svg>
+        <div class="scene__end ec-backend" style="left:120px; top:92px" data-step="0.08">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="5" y="5" width="14" height="14" rx="2"/><rect x="10" y="10" width="4" height="4"/><line x1="9" y1="2" x2="9" y2="5"/><line x1="15" y1="2" x2="15" y2="5"/><line x1="9" y1="19" x2="9" y2="22"/><line x1="15" y1="19" x2="15" y2="22"/><line x1="2" y1="9" x2="5" y2="9"/><line x1="2" y1="15" x2="5" y2="15"/><line x1="19" y1="9" x2="22" y2="9"/><line x1="19" y1="15" x2="22" y2="15"/></svg>
+          <span class="scene__tag">all AI models</span>
         </div>
-        <h3 class="step__title">Create agents</h3>
-        <p class="step__desc">Give each agent its own LLM, personality, memory, voice and tools. Mix OpenAI, Anthropic, Gemini or Ollama, even in the same setup.</p>
-      </div>
-      <div class="step__connector"><svg viewBox="0 0 40 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity=".3"><path d="M0 12h32m0 0l-6-6m6 6l-6 6"/></svg></div>
-      <div class="step">
-        <div class="step__number">2</div>
-        <div class="step__icon step__icon--pink">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/><line x1="4" y1="4" x2="9" y2="9"/></svg>
+        <div class="scene__end ec-mcp" style="left:120px; top:242px" data-step="0.24">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="9" y1="2" x2="9" y2="8"/><line x1="15" y1="2" x2="15" y2="8"/><path d="M6 8h12v4a6 6 0 0 1-6 6 6 6 0 0 1-6-6z"/><line x1="12" y1="18" x2="12" y2="22"/></svg>
+          <span class="scene__tag">mcps</span>
         </div>
-        <h3 class="step__title">Chain into flows</h3>
-        <p class="step__desc">Build multi-agent workflows in a visual editor. Fan out in parallel, route on conditions, loop until the work is good. One agent writes, another reviews, another fact-checks.</p>
-      </div>
-      <div class="step__connector"><svg viewBox="0 0 40 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity=".3"><path d="M0 12h32m0 0l-6-6m6 6l-6 6"/></svg></div>
-      <div class="step">
-        <div class="step__number">3</div>
-        <div class="step__icon step__icon--atlantico">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        <div class="scene__end ec-skill" style="left:120px; top:392px" data-step="0.40">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+          <span class="scene__tag">skills</span>
         </div>
-        <h3 class="step__title">Connect everywhere</h3>
-        <p class="step__desc">Expose any agent or flow through voice, Telegram, webhooks or cron. Each client gets its own token and permissions. Add as many as you need.</p>
+        <div class="scene__end ec-memory" style="left:760px; top:167px" data-step="0.56">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14a9 3 0 0 0 18 0V5"/><path d="M3 12a9 3 0 0 0 18 0"/></svg>
+          <span class="scene__tag">semantic memory</span>
+        </div>
+        <div class="scene__end ec-extra" style="left:760px; top:327px" data-step="0.72">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          <span class="scene__tag">and more</span>
+        </div>
+        <div class="fnode fnode--agent" style="left:400px; top:210px;" data-step="0">
+          <div class="fnode__head">
+            <div class="fnode__icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg></div>
+            <span class="fnode__label">AGENT</span>
+            <span class="fnode__id">writer_1</span>
+          </div>
+          <div class="fnode__body">
+            <div class="fnode__skel" style="width:85%"></div>
+            <div class="fnode__skel" style="width:65%"></div>
+            <div class="fnode__skel" style="width:74%"></div>
+          </div>
+          <span class="fnode__port" style="left:-6px; top:22px"></span>
+          <span class="fnode__port" style="left:-6px; top:54px"></span>
+          <span class="fnode__port" style="left:-6px; top:86px"></span>
+          <span class="fnode__port" style="right:-6px; top:30px"></span>
+          <span class="fnode__port" style="right:-6px; top:70px"></span>
+        </div>
       </div>
+    </div>
+    <div class="scene__hint">
+      <svg class="scene__hint-ball" viewBox="0 0 64 64" fill="none"><defs><linearGradient id="hintg1" x1="0%" y1="100%" x2="100%" y2="0%"><stop offset="0%" stop-color="#f59e0b"/><stop offset="100%" stop-color="#f87171"/></linearGradient></defs><circle cx="32" cy="32" r="26" fill="url(#hintg1)"/><circle cx="20" cy="24" r="2" fill="white" opacity=".9"/><circle cx="26" cy="18" r="1.5" fill="white" opacity=".7"/><circle cx="40" cy="22" r="1.8" fill="white" opacity=".8"/><circle cx="38" cy="38" r="2" fill="white" opacity=".75"/><circle cx="24" cy="40" r="1.4" fill="white" opacity=".65"/></svg>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
     </div>
   </div>
 </section>
 
-<!-- PILLARS -->
-<section id="what">
-  <div class="container">
-    <div class="section-header reveal">
-      <span class="section-label">The platform</span>
-      <h2 class="section-title">Everything you need to run AI agents</h2>
-      <p class="section-desc">Magec is a complete platform, not just an API wrapper. Agents, workflows, tools, memory, voice and integrations, managed from a single admin panel.</p>
+<!-- SCENE: TOOLS AND SKILLS -->
+<section id="tools" class="scene" data-scene>
+  <div class="scene__sticky">
+    <div class="scene__head" data-step="0">
+      <span class="scene__label ec-mcp">MCPs &amp; Skills</span>
+      <h2 class="scene__title">Real tools, learned know-how</h2>
+      <p class="scene__desc">Through MCP your agents operate real systems. Skills are playbooks they load to do the job the way you want.</p>
     </div>
-    <div class="pillars stagger-children">
-      <div class="pillar">
-        <div class="pillar__icon pillar__icon--sol">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+    <div class="scene__fit">
+      <div class="scene__stage">
+        <svg class="scene__wires" viewBox="0 0 1040 560" aria-hidden="true">
+          <path id="w-mcp" class="ec-mcp" data-wire="0.10,0.24" d="M 334 240 C 490 240, 540 160, 696 160"/>
+          <path id="w-skill" class="ec-skill" data-wire="0.58,0.72" d="M 334 280 C 490 280, 540 420, 696 420"/>
+        </svg>
+        <div class="fnode fnode--agent" style="left:90px; top:210px;" data-step="0">
+          <div class="fnode__head">
+            <div class="fnode__icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg></div>
+            <span class="fnode__label">AGENT</span>
+            <span class="fnode__id">writer_1</span>
+          </div>
+          <div class="fnode__body">
+            <div class="fnode__skel" style="width:85%"></div>
+            <div class="fnode__skel" style="width:65%"></div>
+          </div>
+          <span class="fnode__port" style="right:-6px; top:24px"></span>
+          <span class="fnode__port" style="right:-6px; top:64px"></span>
         </div>
-        <h3 class="pillar__title">Multi-Agent System</h3>
-        <p class="pillar__desc">Each agent is an independent unit with its own LLM, system prompt, tools and memory. Hot-reload from the admin: no restarts, no config files.</p>
-        <ul class="pillar__list">
-          <li>Per-agent LLM selection (GPT, Claude, Gemini, Ollama)</li>
-          <li>Hundreds of tools via MCP (Model Context Protocol)</li>
-          <li>Session + long-term semantic memory</li>
-        </ul>
-      </div>
-      <div class="pillar">
-        <div class="pillar__icon pillar__icon--pink">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+        <div class="fnode fnode--mcp" style="left:700px; top:100px;" data-step="0.06">
+          <div class="fnode__head">
+            <div class="fnode__icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="9" y1="2" x2="9" y2="8"/><line x1="15" y1="2" x2="15" y2="8"/><path d="M6 8h12v4a6 6 0 0 1-6 6 6 6 0 0 1-6-6z"/><line x1="12" y1="18" x2="12" y2="22"/></svg></div>
+            <span class="fnode__label">MCP</span>
+            <span class="fnode__id">home_assistant</span>
+          </div>
+          <div class="fnode__body">
+            <div class="fnode__line" data-step="0.28">turn_on_lights</div>
+            <div class="fnode__line" data-step="0.34">set_temperature</div>
+            <div class="fnode__line" data-step="0.40">snapshot_camera <em>+38</em></div>
+          </div>
+          <span class="fnode__port" style="left:-6px; top:54px"></span>
         </div>
-        <h3 class="pillar__title">Agentic Flows</h3>
-        <p class="pillar__desc">Chain agents into teams that work together. Build pipelines of 2 agents or 20 in a visual graph editor.</p>
-        <ul class="pillar__list">
-          <li>Parallel branches, condition routing, loops</li>
-          <li>Deterministic blocks that cost no tokens</li>
-          <li>Every run recorded and inspectable</li>
-        </ul>
-      </div>
-      <div class="pillar">
-        <div class="pillar__icon pillar__icon--atlantico">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+        <div class="fnode fnode--skill" style="left:700px; top:360px;" data-step="0.54">
+          <div class="fnode__head">
+            <div class="fnode__icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></div>
+            <span class="fnode__label">SKILL</span>
+            <span class="fnode__id">daily_report</span>
+          </div>
+          <div class="fnode__body">
+            <div class="fnode__line" data-step="0.74">1. gather metrics</div>
+            <div class="fnode__line" data-step="0.79">2. compare trends</div>
+            <div class="fnode__line" data-step="0.84">3. draft summary</div>
+          </div>
+          <span class="fnode__port" style="left:-6px; top:54px"></span>
         </div>
-        <h3 class="pillar__title">Voice First</h3>
-        <p class="pillar__desc">Wake word detection, speech-to-text, text-to-speech, all server-side via ONNX Runtime. Each agent can have its own voice.</p>
-        <ul class="pillar__list">
-          <li>Privacy-first: audio never leaves your server</li>
-          <li>PWA installable on tablets and phones</li>
-          <li>"Oye Magec" hands-free activation</li>
-        </ul>
+        <span class="scene__pulse ec-mcp" data-travel="w-mcp,0.42,0.52"></span>
+        <span class="scene__pulse ec-skill" data-travel="w-skill,0.86,0.96"></span>
       </div>
-      <div class="pillar">
-        <div class="pillar__icon pillar__icon--green">
+    </div>
+    <div class="scene__hint">
+      <svg class="scene__hint-ball" viewBox="0 0 64 64" fill="none"><defs><linearGradient id="hintg2" x1="0%" y1="100%" x2="100%" y2="0%"><stop offset="0%" stop-color="#f59e0b"/><stop offset="100%" stop-color="#f87171"/></linearGradient></defs><circle cx="32" cy="32" r="26" fill="url(#hintg2)"/><circle cx="20" cy="24" r="2" fill="white" opacity=".9"/><circle cx="26" cy="18" r="1.5" fill="white" opacity=".7"/><circle cx="40" cy="22" r="1.8" fill="white" opacity=".8"/><circle cx="38" cy="38" r="2" fill="white" opacity=".75"/><circle cx="24" cy="40" r="1.4" fill="white" opacity=".65"/></svg>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+    </div>
+  </div>
+</section>
+
+<!-- SCENE: MEMORY -->
+<section id="memory" class="scene" data-scene>
+  <div class="scene__sticky">
+    <div class="scene__head" data-step="0">
+      <span class="scene__label ec-memory">Memory</span>
+      <h2 class="scene__title">It learns you</h2>
+      <p class="scene__desc">Things you mention in passing become long-term facts. Months later, your agents still remember, and it shows.</p>
+    </div>
+    <div class="scene__fit">
+      <div class="scene__stage">
+        <svg class="scene__wires" viewBox="0 0 1040 560" aria-hidden="true">
+          <path id="w-m1" class="ec-memory" data-wire="0.10,0.20" d="M 320 112 C 380 112, 380 240, 424 240"/>
+          <path id="w-m2" class="ec-memory" data-wire="0.26,0.36" d="M 320 268 C 380 268, 380 268, 424 268"/>
+          <path id="w-m3" class="ec-memory" data-wire="0.42,0.52" d="M 320 422 C 380 422, 380 296, 424 296"/>
+          <path id="w-m4" class="ec-memory" data-wire="0.62,0.72" d="M 674 268 C 720 268, 720 250, 764 250"/>
+        </svg>
+        <div class="mem-quote" style="left:70px; top:80px" data-step="0.06">
+          <em>march</em>
+          "I'm vegetarian"
+        </div>
+        <div class="mem-quote" style="left:70px; top:236px" data-step="0.22">
+          <em>april</em>
+          "my partner is Ana"
+        </div>
+        <div class="mem-quote" style="left:70px; top:390px" data-step="0.38">
+          <em>may</em>
+          "we moved to Tenerife"
+        </div>
+        <div class="fnode fnode--memory" style="left:430px; top:210px;" data-step="0">
+          <div class="fnode__head">
+            <div class="fnode__icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14a9 3 0 0 0 18 0V5"/><path d="M3 12a9 3 0 0 0 18 0"/></svg></div>
+            <span class="fnode__label">MEMORY</span>
+            <span class="fnode__id">facts</span>
+          </div>
+          <div class="fnode__body">
+            <div class="fnode__line" data-step="0.20">diet: vegetarian</div>
+            <div class="fnode__line" data-step="0.36">partner: Ana</div>
+            <div class="fnode__line" data-step="0.52">home: Tenerife</div>
+          </div>
+          <span class="fnode__port" style="left:-6px; top:30px"></span>
+          <span class="fnode__port" style="left:-6px; top:58px"></span>
+          <span class="fnode__port" style="left:-6px; top:86px"></span>
+          <span class="fnode__port" style="right:-6px; top:58px"></span>
+        </div>
+        <div class="mem-quote" style="left:770px; top:180px; width:250px" data-step="0.58">
+          <em>june</em>
+          "book us a dinner saturday"
+        </div>
+        <div class="mem-quote" style="left:770px; top:290px; width:250px" data-step="0.76">
+          <em>the agent, without asking</em>
+          table for two, <mark>veggie</mark> tasting menu, <mark>Santa Cruz de Tenerife</mark>
+        </div>
+        <span class="scene__pulse ec-memory" data-travel="w-m4,0.68,0.76"></span>
+      </div>
+    </div>
+    <div class="scene__hint">
+      <svg class="scene__hint-ball" viewBox="0 0 64 64" fill="none"><defs><linearGradient id="hintg8" x1="0%" y1="100%" x2="100%" y2="0%"><stop offset="0%" stop-color="#f59e0b"/><stop offset="100%" stop-color="#f87171"/></linearGradient></defs><circle cx="32" cy="32" r="26" fill="url(#hintg8)"/><circle cx="20" cy="24" r="2" fill="white" opacity=".9"/><circle cx="26" cy="18" r="1.5" fill="white" opacity=".7"/><circle cx="40" cy="22" r="1.8" fill="white" opacity=".8"/><circle cx="38" cy="38" r="2" fill="white" opacity=".75"/><circle cx="24" cy="40" r="1.4" fill="white" opacity=".65"/></svg>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+    </div>
+  </div>
+</section>
+
+<!-- SCENE: FLOWS -->
+<section id="flows" class="scene" data-scene>
+  <div class="scene__sticky">
+    <div class="scene__head" data-step="0">
+      <span class="scene__label ec-flow">Flows</span>
+      <h2 class="scene__title">Chain agents into teams</h2>
+      <p class="scene__desc">Draw the pipeline on a canvas: parallel branches, condition routing, loops. One agent writes, another decides, code does the plumbing.</p>
+    </div>
+    <div class="scene__fit">
+      <div class="scene__stage">
+        <svg class="scene__wires" viewBox="0 0 1040 560" aria-hidden="true">
+          <path id="w-f1" class="ec-flow" data-wire="0.06,0.16" d="M 76 274 L 84 274"/>
+          <path id="w-f2" class="ec-flow" data-wire="0.22,0.34" d="M 334 274 C 385 274, 380 274, 424 274"/>
+          <path id="w-f3" class="ec-flow" data-wire="0.40,0.52" d="M 674 250 C 730 250, 715 164, 764 164"/>
+          <path id="w-f4" class="ec-flow" data-wire="0.54,0.66" d="M 674 298 C 730 298, 715 424, 764 424"/>
+          <path class="ec-flow wire-loop" data-step="0.72" d="M 550 336 C 550 470, 210 470, 210 336"/>
+        </svg>
+        <div class="scene__start" style="left:-14px; top:254px" data-step="0.02">
+          <div class="scene__start-card">
+            <span class="scene__start-ic"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></span>
+            <span class="scene__start-label">Start</span>
+          </div>
+          <span class="scene__start-port"></span>
+        </div>
+        <div class="fnode fnode--agent" style="left:90px; top:220px;" data-step="0.16">
+          <div class="fnode__head">
+            <div class="fnode__icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg></div>
+            <span class="fnode__label">AGENT</span>
+            <span class="fnode__id">researcher</span>
+          </div>
+          <div class="fnode__body">
+            <div class="fnode__skel" style="width:80%"></div>
+            <div class="fnode__skel" style="width:60%"></div>
+          </div>
+          <span class="fnode__port" style="left:-6px; top:48px"></span>
+          <span class="fnode__port" style="right:-6px; top:48px"></span>
+        </div>
+        <div class="fnode fnode--router" style="left:430px; top:220px;" data-step="0.34">
+          <div class="fnode__head">
+            <div class="fnode__icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/><line x1="4" y1="4" x2="9" y2="9"/></svg></div>
+            <span class="fnode__label">ROUTER</span>
+            <span class="fnode__id">quality_gate</span>
+          </div>
+          <div class="fnode__body">
+            <div class="fnode__line">pass: publisher</div>
+            <div class="fnode__line">fix: format_md</div>
+            <div class="fnode__line">retry: researcher</div>
+          </div>
+          <span class="fnode__port" style="left:-6px; top:48px"></span>
+          <span class="fnode__port" style="right:-6px; top:26px"></span>
+          <span class="fnode__port" style="right:-6px; top:74px"></span>
+        </div>
+        <div class="fnode fnode--agent" style="left:770px; top:110px;" data-step="0.52">
+          <div class="fnode__head">
+            <div class="fnode__icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg></div>
+            <span class="fnode__label">AGENT</span>
+            <span class="fnode__id">publisher</span>
+          </div>
+          <div class="fnode__body">
+            <div class="fnode__skel" style="width:75%"></div>
+            <div class="fnode__skel" style="width:55%"></div>
+          </div>
+          <span class="fnode__port" style="left:-6px; top:48px"></span>
+        </div>
+        <div class="fnode fnode--code" style="left:770px; top:360px; width:280px;" data-step="0.66">
+          <div class="fnode__head">
+            <div class="fnode__icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg></div>
+            <span class="fnode__label">CODE</span>
+            <span class="fnode__id">format_md</span>
+          </div>
+          <div class="fnode__code"><span class="tk-c"># deterministic step: no tokens</span>
+best = <span class="tk-b">sorted</span>(drafts, key=score)[-1]
+out = <span class="tk-b">render</span>(best, format=<span class="tk-b">"md"</span>)</div>
+          <span class="fnode__port" style="left:-6px; top:48px"></span>
+        </div>
+        <span class="scene__pulse ec-flow" data-travel="w-f2,0.78,0.88"></span>
+      </div>
+    </div>
+    <div class="scene__hint">
+      <svg class="scene__hint-ball" viewBox="0 0 64 64" fill="none"><defs><linearGradient id="hintg3" x1="0%" y1="100%" x2="100%" y2="0%"><stop offset="0%" stop-color="#f59e0b"/><stop offset="100%" stop-color="#f87171"/></linearGradient></defs><circle cx="32" cy="32" r="26" fill="url(#hintg3)"/><circle cx="20" cy="24" r="2" fill="white" opacity=".9"/><circle cx="26" cy="18" r="1.5" fill="white" opacity=".7"/><circle cx="40" cy="22" r="1.8" fill="white" opacity=".8"/><circle cx="38" cy="38" r="2" fill="white" opacity=".75"/><circle cx="24" cy="40" r="1.4" fill="white" opacity=".65"/></svg>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+    </div>
+  </div>
+</section>
+
+<!-- SCENE: CLIENTS -->
+<section id="clients-scene" class="scene" data-scene>
+  <div class="scene__sticky">
+    <div class="scene__head" data-step="0">
+      <span class="scene__label ec-client">Clients</span>
+      <h2 class="scene__title">Anything can wake them</h2>
+      <p class="scene__desc">Voice, Telegram, webhooks, cron, plain HTTP, even other agents over A2A. Every client has its own token and reaches only the agents and flows you allow.</p>
+    </div>
+    <div class="scene__fit">
+      <div class="scene__stage">
+        <svg class="scene__wires" viewBox="0 0 1040 560" aria-hidden="true">
+          <path id="w-c1" class="ec-client" data-wire="0.07,0.17" d="M 260 102 C 480 102, 540 246, 696 246"/>
+          <path id="w-c2" class="ec-client" data-wire="0.21,0.31" d="M 260 198 C 480 198, 500 264, 696 264"/>
+          <path id="w-c3" class="ec-trigger" data-wire="0.35,0.45" d="M 260 294 C 480 294, 500 282, 696 282"/>
+          <path id="w-c4" class="ec-trigger" data-wire="0.49,0.59" d="M 260 390 C 480 390, 500 300, 696 300"/>
+          <path id="w-c5" class="ec-agent" data-wire="0.63,0.73" d="M 260 486 C 480 486, 540 318, 696 318"/>
+        </svg>
+        <div class="scene__end ec-client" style="left:100px; top:72px" data-step="0.05">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/></svg>
+          <span class="scene__tag">"Oye Magec"</span>
+        </div>
+        <div class="scene__end ec-client" style="left:100px; top:168px" data-step="0.19">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+          <span class="scene__tag">telegram, slack, discord</span>
+        </div>
+        <div class="scene__end ec-trigger" style="left:100px; top:264px" data-step="0.33">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+          <span class="scene__tag">POST /webhook/alert</span>
         </div>
-        <h3 class="pillar__title">Automations</h3>
-        <p class="pillar__desc">Agents don't need a human to start working. Schedule them with cron, trigger them from webhooks, or chain them with external systems.</p>
-        <ul class="pillar__list">
-          <li>Cron jobs with standard syntax + @daily shorthands</li>
-          <li>Webhooks with passthrough or fixed commands</li>
-          <li>Full REST API with Swagger docs</li>
-        </ul>
+        <div class="scene__end ec-trigger" style="left:100px; top:360px" data-step="0.47">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15.5 14"/></svg>
+          <span class="scene__tag">cron 0 7 * * *</span>
+        </div>
+        <div class="scene__end ec-agent" style="left:100px; top:456px" data-step="0.61">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="6" cy="7" r="3.5"/><circle cx="18" cy="17" r="3.5"/><path d="M9.5 7h5a3 3 0 0 1 3 3v3.5"/><path d="M14.5 17h-5a3 3 0 0 1-3-3V10.5"/></svg>
+          <span class="scene__tag">other agents (a2a)</span>
+        </div>
+        <div class="fnode fnode--flow" style="left:700px; top:220px;" data-step="0">
+          <div class="fnode__head">
+            <div class="fnode__icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="5" cy="6" r="3"/><circle cx="19" cy="18" r="3"/><path d="M8 6h8a3 3 0 0 1 3 3v6"/></svg></div>
+            <span class="fnode__label">FLOW</span>
+            <span class="fnode__id">morning_brief</span>
+          </div>
+          <div class="fnode__body">
+            <div class="fnode__skel" style="width:82%"></div>
+            <div class="fnode__skel" style="width:64%"></div>
+            <div class="fnode__skel" style="width:72%"></div>
+          </div>
+          <span class="fnode__port" style="left:-6px; top:26px"></span>
+          <span class="fnode__port" style="left:-6px; top:44px"></span>
+          <span class="fnode__port" style="left:-6px; top:62px"></span>
+          <span class="fnode__port" style="left:-6px; top:80px"></span>
+          <span class="fnode__port" style="left:-6px; top:98px"></span>
+        </div>
+        <span class="scene__pulse ec-client" data-travel="w-c1,0.77,0.87"></span>
+        <span class="scene__pulse ec-agent" data-travel="w-c5,0.83,0.93"></span>
       </div>
+    </div>
+    <div class="scene__hint">
+      <svg class="scene__hint-ball" viewBox="0 0 64 64" fill="none"><defs><linearGradient id="hintg4" x1="0%" y1="100%" x2="100%" y2="0%"><stop offset="0%" stop-color="#f59e0b"/><stop offset="100%" stop-color="#f87171"/></linearGradient></defs><circle cx="32" cy="32" r="26" fill="url(#hintg4)"/><circle cx="20" cy="24" r="2" fill="white" opacity=".9"/><circle cx="26" cy="18" r="1.5" fill="white" opacity=".7"/><circle cx="40" cy="22" r="1.8" fill="white" opacity=".8"/><circle cx="38" cy="38" r="2" fill="white" opacity=".75"/><circle cx="24" cy="40" r="1.4" fill="white" opacity=".65"/></svg>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
     </div>
   </div>
 </section>
 
-<!-- USE CASES -->
-<section id="use-cases">
-  <div class="container">
-    <div class="section-header reveal">
-      <span class="section-label">What you can build</span>
-      <h2 class="section-title">Real examples, not buzzwords</h2>
+<!-- SCENE: VOICE -->
+<section id="voice" class="scene" data-scene>
+  <div class="scene__sticky">
+    <div class="scene__head" data-step="0">
+      <span class="scene__label ec-client">Voice</span>
+      <h2 class="scene__title">Talk to it like a person</h2>
+      <p class="scene__desc">Wake it with your voice and just talk, like Alexa, if Alexa were actually smart and knew you.</p>
     </div>
-    <div class="features-grid stagger-children">
-      <div class="feature-card">
-        <div class="feature-card__icon feature-card__icon--sol">🏠</div>
-        <h3 class="feature-card__title">Smart home with natural language</h3>
-        <p class="feature-card__desc">Connect Home Assistant via MCP. Ask "turn off the living room lights" from your voice tablet, Telegram, or a cron job that dims everything at midnight.</p>
+    <div class="scene__fit">
+      <div class="scene__stage">
+        <svg class="scene__wires" viewBox="0 0 1040 560" aria-hidden="true">
+          <path id="w-v1" class="ec-client" style="stroke-width:2" data-wire="0.06,0.24" d="M 60 270 Q 74 210, 88 270 Q 102 330, 116 270 Q 130 180, 144 270 Q 158 350, 172 270 Q 186 225, 200 270 Q 214 315, 228 270 Q 242 245, 256 270"/>
+          <path id="w-v2" class="ec-client" data-wire="0.28,0.38" d="M 256 270 L 394 270"/>
+          <path id="w-v3" class="ec-agent" data-wire="0.52,0.62" d="M 646 270 L 782 270"/>
+          <path id="w-v4" class="ec-agent" style="stroke-width:2" data-wire="0.66,0.86" d="M 782 270 Q 796 210, 810 270 Q 824 335, 838 270 Q 852 175, 866 270 Q 880 355, 894 270 Q 908 220, 922 270 Q 936 320, 950 270 Q 964 248, 978 270"/>
+        </svg>
+        <div class="scene__end ec-client" style="left:80px; top:330px" data-step="0.04">
+          <span class="scene__tag">"Oye Magec, dim the lights"</span>
+        </div>
+        <div class="fnode fnode--agent" style="left:400px; top:210px;" data-step="0.38">
+          <div class="fnode__head">
+            <div class="fnode__icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg></div>
+            <span class="fnode__label">AGENT</span>
+            <span class="fnode__id">home_butler</span>
+          </div>
+          <div class="fnode__body">
+            <div class="fnode__line" data-step="0.44"><em>stt:</em> dim the lights</div>
+            <div class="fnode__line" data-step="0.48"><em>mcp:</em> lights.dim(30%)</div>
+            <div class="fnode__line" data-step="0.52"><em>tts:</em> "done"</div>
+          </div>
+          <span class="fnode__port" style="left:-6px; top:54px"></span>
+          <span class="fnode__port" style="right:-6px; top:54px"></span>
+        </div>
+        <div class="scene__end ec-agent" style="left:800px; top:330px" data-step="0.80">
+          <span class="scene__tag">"Done. Anything else?"</span>
+        </div>
+        <span class="scene__pulse ec-client" data-travel="w-v2,0.40,0.48"></span>
+        <span class="scene__pulse ec-agent" data-travel="w-v3,0.56,0.64"></span>
       </div>
-      <div class="feature-card">
-        <div class="feature-card__icon feature-card__icon--pink">🏗</div>
-        <h3 class="feature-card__title">Software factory</h3>
-        <p class="feature-card__desc">13 agents in a pipeline: product manager → architect → developers → QA → documentation. Feed it a feature request, get back a complete technical spec with code.</p>
-      </div>
-      <div class="feature-card">
-        <div class="feature-card__icon feature-card__icon--atlantico">🎙</div>
-        <h3 class="feature-card__title">Multi-agent platform for your business</h3>
-        <p class="feature-card__desc">Put a tablet at the front desk. Staff speaks, the agent listens, checks inventory via MCP, and answers hands-free. Each agent has its own voice.</p>
-      </div>
-      <div class="feature-card">
-        <div class="feature-card__icon feature-card__icon--green">📊</div>
-        <h3 class="feature-card__title">Automated reports</h3>
-        <p class="feature-card__desc">A cron job fires every morning. An agent queries your database, another writes the summary, a third formats it. The result lands in your inbox via webhook.</p>
-      </div>
-      <div class="feature-card">
-        <div class="feature-card__icon feature-card__icon--lava">🔬</div>
-        <h3 class="feature-card__title">Research pipeline</h3>
-        <p class="feature-card__desc">Two researchers work in parallel, a critic reviews their output, a fact-checker verifies claims, a synthesizer produces the final report. All from a single prompt.</p>
-      </div>
-      <div class="feature-card">
-        <div class="feature-card__icon feature-card__icon--purple">🔌</div>
-        <h3 class="feature-card__title">Whatever you connect</h3>
-        <p class="feature-card__desc">MCP gives your agents access to hundreds of tools: GitHub, databases, file systems, APIs. The more tools you connect, the more your agents can do.</p>
-      </div>
+    </div>
+    <div class="scene__hint">
+      <svg class="scene__hint-ball" viewBox="0 0 64 64" fill="none"><defs><linearGradient id="hintg5" x1="0%" y1="100%" x2="100%" y2="0%"><stop offset="0%" stop-color="#f59e0b"/><stop offset="100%" stop-color="#f87171"/></linearGradient></defs><circle cx="32" cy="32" r="26" fill="url(#hintg5)"/><circle cx="20" cy="24" r="2" fill="white" opacity=".9"/><circle cx="26" cy="18" r="1.5" fill="white" opacity=".7"/><circle cx="40" cy="22" r="1.8" fill="white" opacity=".8"/><circle cx="38" cy="38" r="2" fill="white" opacity=".75"/><circle cx="24" cy="40" r="1.4" fill="white" opacity=".65"/></svg>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
     </div>
   </div>
 </section>
 
-<!-- FEATURES -->
-<section id="features">
-  <div class="container">
-    <div class="section-header reveal">
-      <span class="section-label">Under the hood</span>
-      <h2 class="section-title">What powers it</h2>
+<!-- SCENE: SECRETS -->
+<section id="secrets" class="scene" data-scene>
+  <div class="scene__sticky">
+    <div class="scene__head" data-step="0">
+      <span class="scene__label ec-secret">Secrets</span>
+      <h2 class="scene__title">Models never see your keys</h2>
+      <p class="scene__desc">Secrets live encrypted at rest and are swapped in only at call time. The model works with placeholders; your tools get the real value.</p>
     </div>
-    <div class="features-grid stagger-children">
-      <div class="feature-card">
-        <div class="feature-card__icon feature-card__icon--sol">✦</div>
-        <h3 class="feature-card__title">Agents</h3>
-        <p class="feature-card__desc">Each agent has its own LLM, system prompt, memory, voice, and tools. Create as many as you need. Changes take effect instantly, no restarts.</p>
+    <div class="scene__fit">
+      <div class="scene__stage">
+        <svg class="scene__wires" viewBox="0 0 1040 560" aria-hidden="true">
+          <path id="w-s1" class="ec-secret" data-wire="0.20,0.70" d="M 520 96 L 520 440"/>
+        </svg>
+        <div class="sec-col" style="left:395px; top:20px; width:250px" data-step="0.08">
+          <span class="sec-value sec-value--masked">{{secret:API_KEY}}</span>
+          <span class="sec-caption">what the model sees</span>
+        </div>
+        <span class="sec-ball" style="left:507px; top:252px" data-step="0.42"></span>
+        <div class="sec-col" style="left:395px; top:452px; width:250px" data-step="0.68">
+          <span class="sec-value sec-value--real">sk-live-4f8a91c2</span>
+          <span class="sec-caption">what your tools get</span>
+        </div>
+        <div class="sec-rest" style="left:110px; top:180px" data-step="0.30">
+          <span>gAAAAABmJx9v3q</span><br>
+          <span>Zk1uYzR0aXlXcU</span><br>
+          <span>x2b3JQZXJhbmRv</span><br>
+          <span class="sec-caption">at rest: encrypted</span>
+        </div>
+        <span class="scene__pulse ec-secret" data-travel="w-s1,0.74,0.90"></span>
       </div>
-      <div class="feature-card">
-        <div class="feature-card__icon feature-card__icon--pink">⛓</div>
-        <h3 class="feature-card__title">Flows</h3>
-        <p class="feature-card__desc">Chain agents into workflows on a visual canvas. Parallel branches, condition routing, loops, flows inside flows. Deterministic blocks handle the plumbing so you spend tokens only where thinking happens.</p>
-      </div>
-      <div class="feature-card">
-        <div class="feature-card__icon feature-card__icon--purple">⚡</div>
-        <h3 class="feature-card__title">AI Backends</h3>
-        <p class="feature-card__desc">OpenAI, Anthropic, Google Gemini, Ollama. Mix cloud and local models. One agent can use GPT-4, another a local Qwen, in the same flow.</p>
-      </div>
-      <div class="feature-card">
-        <div class="feature-card__icon feature-card__icon--green">🔧</div>
-        <h3 class="feature-card__title">MCP Tools</h3>
-        <p class="feature-card__desc">Connect external tools via Model Context Protocol. Home Assistant, GitHub, databases, file systems: hundreds of integrations, growing every day.</p>
-      </div>
-      <div class="feature-card">
-        <div class="feature-card__icon feature-card__icon--atlantico">🧠</div>
-        <h3 class="feature-card__title">Memory</h3>
-        <p class="feature-card__desc">Session memory keeps conversation history in Redis. Long-term memory stores facts about you in PostgreSQL with semantic search. Your agents remember.</p>
-      </div>
-      <div class="feature-card">
-        <div class="feature-card__icon feature-card__icon--lava">🎙</div>
-        <h3 class="feature-card__title">Voice</h3>
-        <p class="feature-card__desc">Wake word detection, voice activity detection, speech-to-text, text-to-speech. All processed server-side via ONNX Runtime. Each agent can have its own voice.</p>
-      </div>
+    </div>
+    <div class="scene__hint">
+      <svg class="scene__hint-ball" viewBox="0 0 64 64" fill="none"><defs><linearGradient id="hintg6" x1="0%" y1="100%" x2="100%" y2="0%"><stop offset="0%" stop-color="#f59e0b"/><stop offset="100%" stop-color="#f87171"/></linearGradient></defs><circle cx="32" cy="32" r="26" fill="url(#hintg6)"/><circle cx="20" cy="24" r="2" fill="white" opacity=".9"/><circle cx="26" cy="18" r="1.5" fill="white" opacity=".7"/><circle cx="40" cy="22" r="1.8" fill="white" opacity=".8"/><circle cx="38" cy="38" r="2" fill="white" opacity=".75"/><circle cx="24" cy="40" r="1.4" fill="white" opacity=".65"/></svg>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
     </div>
   </div>
 </section>
 
-<!-- ARCHITECTURE -->
-<section id="architecture" class="architecture">
-  <div class="container">
-    <div class="section-header reveal">
-      <span class="section-label">Architecture</span>
-      <h2 class="section-title">How it all connects</h2>
-      <p class="section-desc">Clients on the left, AI backends on the right, Magec orchestrating in the middle. Every connection is configurable.</p>
+<!-- SCENE: RUNS -->
+<section id="runs" class="scene" data-scene>
+  <div class="scene__sticky">
+    <div class="scene__head" data-step="0">
+      <span class="scene__label" style="color:#2dd4bf">Runs</span>
+      <h2 class="scene__title">Every run, recorded</h2>
+      <p class="scene__desc">Each step, each decision, each failure: timestamped and inspectable from the admin panel.</p>
     </div>
-    <div class="reveal">
-      <img src="img/architecture.svg" alt="Magec Architecture" class="architecture__img">
-    </div>
-  </div>
-</section>
-
-<!-- SCREENSHOTS -->
-<section id="screenshots">
-  <div class="container">
-    <div class="section-header reveal">
-      <span class="section-label">Admin Panel</span>
-      <h2 class="section-title">Manage everything visually</h2>
-      <p class="section-desc">No config files to edit. Create agents, design flows, connect tools, manage clients, all from your browser.</p>
-    </div>
-    <div class="screenshots reveal">
-      <img src="img/screenshots/admin-agents.png" alt="Admin UI: Agents" class="screenshot screenshot--desktop">
-      <img src="img/screenshots/admin-flow-editor.png" alt="Admin UI: Flow editor" class="screenshot screenshot--desktop screenshot--crop">
-    </div>
-    <div class="screenshots reveal" style="margin-top: 1rem;">
-      <img src="img/screenshots/admin-backends.png" alt="Admin UI: Backends" class="screenshot screenshot--desktop">
-      <img src="img/screenshots/admin-clients.png" alt="Admin UI: Clients" class="screenshot screenshot--desktop">
-    </div>
-    <div class="screenshots reveal" style="margin-top: 1rem;">
-      <img src="img/screenshots/admin-conversations.png" alt="Admin UI: Conversations" class="screenshot screenshot--desktop">
-      <img src="img/screenshots/admin-conversation-detail.png" alt="Admin UI: Conversation detail" class="screenshot screenshot--desktop">
-    </div>
-    <div class="section-header reveal" style="margin-top: 4rem;">
-      <span class="section-label">Voice Interface</span>
-      <h2 class="section-title">Talk to your agents</h2>
-      <p class="section-desc">Say "Oye Magec" or tap to talk. Switch between agents and flows. Choose who speaks when a team responds. Install it on your phone like a native app.</p>
-    </div>
-    <div class="screenshots reveal">
-      <img src="img/screenshots/voice-ui-home-idle.png" alt="Voice UI: Home" class="screenshot screenshot--phone">
-      <img src="img/screenshots/voice-ui-home-recording.png" alt="Voice UI: Recording" class="screenshot screenshot--phone">
-      <img src="img/screenshots/voice-ui-chat.png" alt="Voice UI: Chat" class="screenshot screenshot--phone">
-      <img src="img/screenshots/voice-ui-settings.png" alt="Voice UI: Settings" class="screenshot screenshot--phone">
-    </div>
-  </div>
-</section>
-
-<!-- CLIENTS -->
-<section id="clients">
-  <div class="container">
-    <div class="section-header reveal">
-      <span class="section-label">Clients</span>
-      <h2 class="section-title">Reach your agents from anywhere</h2>
-      <p class="section-desc">Every client gets its own token, its own set of allowed agents, and its own way of connecting. Add as many as you need.</p>
-    </div>
-    <div class="clients-grid stagger-children">
-      <div class="client-card"><div><div class="client-card__name">Voice UI</div><div class="client-card__status client-card__status--ready">✓ Available</div><p class="client-card__desc">Browser-based voice interface with wake word, push-to-talk, agent switching, conversation history. Installable as PWA.</p></div></div>
-      <div class="client-card"><div><div class="client-card__name">Admin UI</div><div class="client-card__status client-card__status--ready">✓ Available</div><p class="client-card__desc">Visual management panel. Create agents, design flows, connect tools, manage clients. Keyboard shortcuts, search palette, live health checks.</p></div></div>
-      <div class="client-card"><div><div class="client-card__name">Telegram</div><div class="client-card__status client-card__status--ready">✓ Available</div><p class="client-card__desc">Text or voice messages. Multiple response modes (text, voice, mirror, both). Per-chat agent switching.</p></div></div>
-      <div class="client-card"><div><div class="client-card__name">Webhooks</div><div class="client-card__status client-card__status--ready">✓ Available</div><p class="client-card__desc">HTTP endpoints for external integrations. Fixed command or passthrough mode. Wire them to CI, forms, alerts, or any system.</p></div></div>
-      <div class="client-card"><div><div class="client-card__name">Cron</div><div class="client-card__status client-card__status--ready">✓ Available</div><p class="client-card__desc">Scheduled tasks. Daily summaries, periodic checks, automated maintenance. Standard cron syntax plus shorthands like @daily.</p></div></div>
-      <div class="client-card"><div><div class="client-card__name">REST API</div><div class="client-card__status client-card__status--ready">✓ Available</div><p class="client-card__desc">Full API with Swagger docs on both ports. Build any custom integration you can imagine.</p></div></div>
-      <div class="client-card"><div><div class="client-card__name">Slack</div><div class="client-card__status client-card__status--ready">✓ Available</div><p class="client-card__desc">Socket Mode, no public URL needed. DMs and @mentions in channels. Per-channel agent switching.</p></div></div>
-      <div class="client-card"><div><div class="client-card__name">Discord</div><div class="client-card__status client-card__status--ready">✓ Available</div><p class="client-card__desc">Gateway WebSocket, no public URL needed. DMs, @mentions, voice messages, reactions, and commands.</p></div></div>
-    </div>
-  </div>
-</section>
-
-<!-- PROVIDERS -->
-<section id="providers">
-  <div class="container">
-    <div class="section-header reveal">
-      <span class="section-label">AI Backends</span>
-      <h2 class="section-title">Bring any model</h2>
-      <p class="section-desc">Each agent picks its own backend. Mix a cloud model for complex reasoning with a local model for fast tasks, in the same flow.</p>
-    </div>
-    <div class="providers-grid stagger-children">
-      <div class="provider-card"><div class="provider-card__name">OpenAI</div><div class="provider-card__type">Cloud</div></div>
-      <div class="provider-card"><div class="provider-card__name">Anthropic</div><div class="provider-card__type">Cloud</div></div>
-      <div class="provider-card"><div class="provider-card__name">Google Gemini</div><div class="provider-card__type">Cloud</div></div>
-      <div class="provider-card"><div class="provider-card__name">Ollama</div><div class="provider-card__type">Local</div></div>
-    </div>
-  </div>
-</section>
-
-<!-- ABOUT -->
-<section id="about">
-  <div class="container container--narrow">
-    <div class="section-header reveal">
-      <span class="section-label">About</span>
-      <h2 class="section-title">Why "Magec"?</h2>
-      <p class="section-desc"><strong>Magec</strong> (/maˈxek/) was the god of the Sun worshipped by the Guanches, the aboriginal Berber inhabitants of Tenerife in the Canary Islands. The name honors this Canarian heritage while reflecting the project's purpose: to illuminate and assist.</p>
+    <div class="scene__fit">
+      <div class="scene__stage">
+        <svg class="scene__wires" viewBox="0 0 1040 560" aria-hidden="true">
+          <path id="w-r1" style="color:var(--piedra-600)" data-wire="0.06,0.80" d="M 370 60 L 370 500"/>
+        </svg>
+        <span class="run-dot run-dot--ok" style="left:364px; top:94px" data-step="0.16"></span>
+        <div class="run-row" style="left:410px; top:88px" data-step="0.16">
+          <span class="run-row__name">researcher</span><span class="run-row__meta">2.1s</span>
+        </div>
+        <span class="run-dot run-dot--ok" style="left:364px; top:194px" data-step="0.32"></span>
+        <div class="run-row" style="left:410px; top:188px" data-step="0.32">
+          <span class="run-row__name">quality_gate</span><span class="run-row__meta">0.1s</span>
+        </div>
+        <span class="run-dot run-dot--ok" style="left:364px; top:294px" data-step="0.48"></span>
+        <div class="run-row" style="left:410px; top:288px" data-step="0.48">
+          <span class="run-row__name">format_md</span><span class="run-row__meta">0.2s</span>
+        </div>
+        <span class="run-dot run-dot--fail" style="left:364px; top:394px" data-step="0.64"></span>
+        <div class="run-row run-row--fail" style="left:410px; top:388px" data-step="0.64">
+          <span class="run-row__name">publisher</span><span class="run-row__meta">failed</span>
+        </div>
+        <span class="run-dot run-dot--ok" style="left:364px; top:494px" data-step="0.80"></span>
+        <div class="run-row" style="left:410px; top:488px" data-step="0.80">
+          <span class="run-row__name">publisher (retry)</span><span class="run-row__meta">1.4s</span>
+        </div>
+      </div>
     </div>
   </div>
 </section>
