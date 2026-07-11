@@ -157,15 +157,16 @@ img { max-width: 100%; height: auto; }
     padding: 1rem; gap: .25rem;
   }
   .nav__links.open { display: flex; }
-  .nav__link { padding: .75rem 1rem; width: 100%; }
+  .nav__link { padding: .75rem 1rem; width: 100%; justify-content: center; text-align: center; }
   .nav__cta { margin: .5rem 0 0 0; justify-content: center; }
   .nav__toggle { display: block; }
   .nav__dropdown { width: 100%; }
   .nav__dropdown-menu {
     position: static; opacity: 1; visibility: visible; transform: none;
     background: none; border: none; box-shadow: none; backdrop-filter: none;
-    padding: 0 0 0 1rem; margin: 0;
+    padding: 0; margin: 0;
   }
+  .nav__dropdown-link { text-align: center; padding: .6rem 1rem; }
   .nav__dropdown .nav__link svg { display: none; }
 }
 
@@ -953,4 +954,25 @@ section { padding: 6rem 0; }
   position: absolute; right: -7px; top: 50%; transform: translateY(-50%);
   width: 12px; height: 12px; border-radius: 9999px;
   background: var(--piedra-700); border: 2px solid #fb7185;
+}
+
+
+/* ---------- SCENES: MOBILE (portrait stages) ---------- */
+/* Each scene ships a second stage laid out for a 360px portrait canvas,
+   with its own SVG wires, pulses and timings. Same engine, same story,
+   different choreography. Desktop keeps the 1040px stage untouched. */
+.scene__stage--mobile { display: none; }
+
+@media (max-width: 768px) {
+  .scene { height: 220vh; }
+  .scene__head { margin-bottom: 1rem; padding: 0 1.25rem; }
+  .scene__desc { font-size: .9375rem; }
+  .scene__fit {
+    transform: scale(min(1, calc((100vw - 1.5rem) / 360), calc((100vh - 250px) / var(--mh, 640))));
+  }
+  .scene__stage { display: none; }
+  .scene__stage--mobile { display: block; width: 360px; }
+  .scene__stage--mobile .mem-quote { font-size: .875rem; text-align: center; }
+  .scene__stage--mobile .run-row { width: 280px; font-size: .875rem; }
+  .scene__hint { bottom: .9rem; }
 }
