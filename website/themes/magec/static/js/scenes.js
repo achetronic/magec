@@ -63,6 +63,7 @@ export function initScenes() {
 
   if (matchMedia('(prefers-reduced-motion: reduce)').matches) {
     scenes.forEach(finish);
+    fitStages(sections);
     return;
   }
 
@@ -168,6 +169,34 @@ export function initScenes() {
   });
 
   addEventListener('scroll', schedule, { passive: true });
-  addEventListener('resize', schedule, { passive: true });
+  addEventListener('resize', () => { fitStages(sections); schedule(); }, { passive: true });
+  fitStages(sections);
   schedule();
+}
+
+// Scale each scene's visible stage so it fits the sticky viewport next to
+// its header, both in width and height. Done in JS because CSS scale()
+// needs a plain number and calc() cannot turn viewport/stage lengths into
+// one; the previous stylesheet-only attempt was silently invalid, which
+// left tall stages clipped at the bottom on phones.
+function fitStages(sections) {
+  sections.forEach(scene => {
+    const sticky = scene.querySelector('.scene__sticky');
+    const head = scene.querySelector('.scene__head');
+    const fit = scene.querySelector('.scene__fit');
+    if (!sticky || !fit) return;
+    const stage = [...fit.children].find(el => el.offsetParent !== null);
+    if (!stage) return;
+    const sw = stage.offsetWidth;
+    const sh = stage.offsetHeight;
+    const headH = head ? head.offsetHeight + 16 : 0;
+    const availW = sticky.clientWidth - 24;
+    const availH = sticky.clientHeight - headH - 88; // hint + breathing room
+    const scale = Math.min(1, availW / sw, availH / sh);
+    fit.style.transform = scale < 1 ? `scale(${scale})` : '';
+    // Only height needs collapsing: the flex column centers using layout
+    // boxes, and transform does not shrink them. Width stays natural so the
+    // top-center origin keeps the scaled stage horizontally centered.
+    fit.style.height = `${sh * scale}px`;
+  });
 }
