@@ -690,7 +690,7 @@ section { padding: 6rem 0; }
    land with the sticky engaged (rect.top <= 1) so the autoplay clock starts. */
 .scene { scroll-margin-top: calc(-5rem - 2px); }
 .scene__sticky {
-  position: sticky; top: 0; height: 100vh;
+  position: sticky; top: 0; height: 100vh; height: 100dvh;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   overflow: hidden;
 }
@@ -706,10 +706,10 @@ section { padding: 6rem 0; }
 }
 .scene__desc { font-size: 1.0625rem; color: var(--arena-400); line-height: 1.7; }
 
-.scene__fit {
-  transform: scale(min(1, calc((100vw - 2rem) / 1040)));
-  transform-origin: top center;
-}
+/* Scale is computed by scenes.js (fitStages): CSS scale() cannot divide
+   lengths into the number it needs, so a stylesheet-only fit is not
+   expressible. JS measures the visible stage against the sticky viewport. */
+.scene__fit { transform-origin: top center; }
 .scene__stage { position: relative; width: 1040px; height: 560px; }
 
 .scene__wires { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
@@ -967,9 +967,6 @@ section { padding: 6rem 0; }
   .scene { height: 220vh; }
   .scene__head { margin-bottom: 1rem; padding: 0 1.25rem; }
   .scene__desc { font-size: .9375rem; }
-  .scene__fit {
-    transform: scale(min(1, calc((100vw - 1.5rem) / 360), calc((100vh - 250px) / var(--mh, 640))));
-  }
   .scene__stage { display: none; }
   .scene__stage--mobile { display: block; width: 360px; }
   .scene__stage--mobile .mem-quote { font-size: .875rem; text-align: center; }
