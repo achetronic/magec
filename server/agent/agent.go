@@ -872,17 +872,7 @@ func createMCPTransport(srv *store.MCPServer) (mcp.Transport, error) {
 		if srv.Command == "" {
 			return nil, fmt.Errorf("stdio transport requires 'command' field")
 		}
-		cmd := exec.Command(srv.Command, srv.Args...)
-		if srv.WorkDir != "" {
-			cmd.Dir = srv.WorkDir
-		}
-		if len(srv.Env) > 0 {
-			cmd.Env = os.Environ()
-			for k, v := range srv.Env {
-				cmd.Env = append(cmd.Env, k+"="+v)
-			}
-		}
-		return &mcp.CommandTransport{Command: cmd}, nil
+		return &stdioCommandTransport{srv: srv}, nil
 
 	case "http", "":
 		if srv.Endpoint == "" {
@@ -897,6 +887,37 @@ func createMCPTransport(srv *store.MCPServer) (mcp.Transport, error) {
 	default:
 		return nil, fmt.Errorf("unknown MCP transport type: %s", srv.Type)
 	}
+}
+
+// stdioCommand launches a fresh subprocess for every MCP connection.
+// The ADK's mcptoolset reconnects when a session dies, but mcp.CommandTransport
+// reuses the same *exec.Cmd — and exec.Cmd is single-use, so any reconnect
+// after the first fails with "exec: Stdout already set" (issue #70). Holding
+// the server definition instead of a command instance keeps reconnects working
+// for the lifetime of the toolset.
+type stdioCommandTransport struct {
+	srv *store.MCPServer
+}
+
+// stdioCommand builds the command for one subprocess run from the server
+// definition.
+func stdioCommand(srv *store.MCPServer) *exec.Cmd {
+	cmd := exec.Command(srv.Command, srv.Args...)
+	if srv.WorkDir != "" {
+		cmd.Dir = srv.WorkDir
+	}
+	if len(srv.Env) > 0 {
+		cmd.Env = os.Environ()
+		for k, v := range srv.Env {
+			cmd.Env = append(cmd.Env, k+"="+v)
+		}
+	}
+	return cmd
+}
+
+// Connect starts a new subprocess and returns its connection.
+func (t *stdioCommandTransport) Connect(ctx context.Context) (mcp.Connection, error) {
+	return (&mcp.CommandTransport{Command: stdioCommand(t.srv)}).Connect(ctx)
 }
 
 // httpClientForMCP returns an HTTP client configured with custom headers

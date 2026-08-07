@@ -244,7 +244,7 @@ log:
 - **Client type registry**: JSON Schema based. Each provider declares `ConfigSchema()`. Validation via `ValidateConfig()` with recursive `oneOf`/`required`/`properties`
 - **Memory provider registry**: Same pattern as clients — `init()` + blank imports in `main.go`
 - **Hot-reload**: Store `OnChange()` channel → `agentRouterHandler` rebuilds with 500ms debounce
-- **MCP transports**: HTTP (`StreamableClientTransport` with optional headers + TLS skip) and stdio (`CommandTransport`). Stdio spawns subprocesses — works best with binary installs, not Docker
+- **MCP transports**: HTTP (`StreamableClientTransport` with optional headers + TLS skip) and stdio (`stdioCommandTransport`). The stdio transport builds a fresh `exec.Cmd` and subprocess on every `Connect`: the ADK mcptoolset calls `Connect` again on each reconnect after a dead session, and `exec.Cmd` is single-use — reusing one command fails with "exec: Stdout already set". Stdio spawns subprocesses — works best with binary installs, not Docker
 - **Migration chain** (on load): `migrateTTSConfig` moves legacy `tts.speed` → `tts.config.openai.speed` and flat Gemini config → `tts.config.gemini.*`. Operates on raw JSON before unmarshal. All idempotent
 - **Webhook auth**: Separate from `clientAuthMiddleware`. Webhook handler validates Bearer token against client's `cl.Token`
 - **Flow execution**: `FlowDefinition` is a directed graph (`Entry`, `Nodes`, `Edges`) built into a single adk v2 `workflowagent` by `flow.go`, which synthesizes the `Start -> Entry` edge. Node types: agent, router, join, parallel, subflow, expression, template, code. A node's ID is its adk `Node.Name()` and the `event.Author`, so `responseAgent` on an agent node filters output by matching node IDs (no synthetic naming)
