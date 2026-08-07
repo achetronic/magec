@@ -846,6 +846,8 @@ func buildToolsets(agentDef store.AgentDefinition, mcpServerMap map[string]store
 	for _, mcpName := range agentDef.MCPServers {
 		srv, ok := mcpServerMap[mcpName]
 		if !ok {
+			slog.Warn("Agent references an MCP server that does not exist; its tools will not be available",
+				"agent", agentDef.ID, "mcp", mcpName)
 			continue
 		}
 		transport, err := createMCPTransport(&srv)
