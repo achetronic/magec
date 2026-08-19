@@ -17,6 +17,10 @@ const (
 	BackendTypeGemini    = "gemini"
 
 	DefaultOpenAIURL = "https://api.openai.com/v1"
+
+	// Wire APIs for OpenAI-compatible backends (BackendDefinition.API).
+	BackendAPICompletions = "completions"
+	BackendAPIResponses   = "responses"
 )
 
 // Config represents the YAML configuration file.
