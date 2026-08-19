@@ -44,6 +44,9 @@ type BackendDefinition struct {
 	ID      string            `json:"id" yaml:"id"`
 	Name    string            `json:"name" yaml:"name"`
 	Type    string            `json:"type" yaml:"type"`
+	// API selects the wire API for OpenAI-compatible backends: "completions"
+	// (default when empty) or "responses". Ignored by other backend types.
+	API     string            `json:"api,omitempty" yaml:"api,omitempty"`
 	URL     string            `json:"url,omitempty" yaml:"url,omitempty"`
 	APIKey  string            `json:"apiKey,omitempty" yaml:"apiKey,omitempty"`
 	Headers map[string]string `json:"headers,omitempty" yaml:"headers,omitempty"`

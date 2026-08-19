@@ -9,6 +9,7 @@ import (
 
 	"github.com/gorilla/mux"
 
+	"github.com/achetronic/magec/server/config"
 	"github.com/achetronic/magec/server/store"
 )
 
@@ -45,6 +46,17 @@ func (h *Handler) getBackend(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, b)
 }
 
+// validateBackendAPI rejects wire API values the server does not know.
+func validateBackendAPI(w http.ResponseWriter, api string) bool {
+	switch api {
+	case "", config.BackendAPICompletions, config.BackendAPIResponses:
+		return true
+	default:
+		writeError(w, http.StatusBadRequest, "api must be \"completions\" or \"responses\"")
+		return false
+	}
+}
+
 // createBackend creates a new backend.
 // @Summary      Create backend
 // @Description  Creates a new LLM/TTS/transcription backend
@@ -69,6 +81,9 @@ func (h *Handler) createBackend(w http.ResponseWriter, r *http.Request) {
 	}
 	if b.Type == "" {
 		writeError(w, http.StatusBadRequest, "type is required")
+		return
+	}
+	if !validateBackendAPI(w, b.API) {
 		return
 	}
 	created, err := h.store.CreateBackend(b)
@@ -97,6 +112,9 @@ func (h *Handler) updateBackend(w http.ResponseWriter, r *http.Request) {
 	var b store.BackendDefinition
 	if err := json.NewDecoder(r.Body).Decode(&b); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid JSON: "+err.Error())
+		return
+	}
+	if !validateBackendAPI(w, b.API) {
 		return
 	}
 	if err := h.store.UpdateBackend(id, b); err != nil {

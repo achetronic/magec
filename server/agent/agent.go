@@ -37,7 +37,7 @@ import (
 	"github.com/1set/starlet"
 	artifactfs "github.com/achetronic/adk-utils-go/artifact/filesystem"
 	genaianthro "github.com/achetronic/adk-utils-go/genai/anthropic"
-	genaiopenai "github.com/achetronic/adk-utils-go/genai/openai"
+	genaiopenai "github.com/achetronic/adk-utils-go/genai/openai/completions"
 	memorypostgres "github.com/achetronic/adk-utils-go/memory/postgres"
 	"github.com/achetronic/adk-utils-go/plugin/contextguard"
 	sessionredis "github.com/achetronic/adk-utils-go/session/redis"
@@ -743,6 +743,24 @@ func mergeHeaders(backendHeaders, agentHeaders map[string]string) http.Header {
 	return h
 }
 
+// dialectFor selects the provider dialect from the backend URL. OpenAI's own
+// API and generic compatible servers (Ollama, vLLM, ...) get nil, which keeps
+// the adapter OpenAI-pure.
+func dialectFor(baseURL string) genaiopenai.Dialect {
+	u, err := url.Parse(baseURL)
+	if err != nil {
+		return nil
+	}
+	switch strings.ToLower(u.Hostname()) {
+	case "openrouter.ai":
+		return genaiopenai.OpenRouter
+	case "api.deepseek.com":
+		return genaiopenai.DeepSeek
+	default:
+		return nil
+	}
+}
+
 // createLLM instantiates the language model client for a backend definition.
 // Supports OpenAI-compatible, Anthropic, and Gemini backends.
 func createLLM(ctx context.Context, backend store.BackendDefinition, llmRef store.BackendRef) (model.LLM, error) {
@@ -750,14 +768,24 @@ func createLLM(ctx context.Context, backend store.BackendDefinition, llmRef stor
 
 	switch backend.Type {
 	case config.BackendTypeOpenAI:
-		return genaiopenai.New(genaiopenai.Config{
-			APIKey:    backend.APIKey,
-			BaseURL:   backend.URL,
-			ModelName: llmRef.Model,
-			HTTPOptions: genaiopenai.HTTPOptions{
-				Headers: headers,
-			},
-		}), nil
+		switch backend.API {
+		case "", config.BackendAPICompletions:
+			return genaiopenai.New(genaiopenai.Config{
+				APIKey:    backend.APIKey,
+				BaseURL:   backend.URL,
+				ModelName: llmRef.Model,
+				Dialect:   dialectFor(backend.URL),
+				HTTPOptions: genaiopenai.HTTPOptions{
+					Headers: headers,
+				},
+			}), nil
+		case config.BackendAPIResponses:
+			// Placeholder: adk-utils-go will ship the Responses adapter next;
+			// the field is already persisted so backends are ready for it.
+			return nil, fmt.Errorf("responses API is not supported yet by adk-utils-go (backend %q)", backend.Name)
+		default:
+			return nil, fmt.Errorf("unsupported API %q for OpenAI-compatible backend %q (expected %q or %q)", backend.API, backend.Name, config.BackendAPICompletions, config.BackendAPIResponses)
+		}
 
 	case config.BackendTypeAnthropic:
 		return genaianthro.New(genaianthro.Config{

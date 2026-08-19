@@ -16,6 +16,14 @@
           <option value="gemini">Gemini</option>
         </FormSelect>
       </div>
+      <div v-if="form.type === 'openai'">
+        <FormLabel label="API" />
+        <FormSelect v-model="form.api">
+          <option value="completions">Chat Completions</option>
+          <option value="responses">Responses (coming soon)</option>
+        </FormSelect>
+        <p class="text-[10px] text-arena-500 mt-1">Wire API for OpenAI-compatible backends. Responses is not supported yet; the value is stored for when it lands.</p>
+      </div>
       <div>
         <FormLabel label="URL" />
         <FormInput v-model="form.url" placeholder="http://localhost:11434/v1" />
@@ -69,6 +77,7 @@ const isEdit = ref(false)
 const form = reactive({
   name: '',
   type: 'openai',
+  api: 'completions',
   url: '',
   apiKey: '',
   headers: [],
@@ -93,6 +102,7 @@ function open(backend = null) {
   editId.value = backend?.id || null
   form.name = backend?.name || ''
   form.type = backend?.type || 'openai'
+  form.api = backend?.api || 'completions'
   form.url = backend?.url || ''
   form.apiKey = backend?.apiKey || ''
   form.headers = headersToList(backend?.headers)
@@ -101,6 +111,7 @@ function open(backend = null) {
 
 async function save() {
   const data = { name: form.name, type: form.type, url: form.url, apiKey: form.apiKey }
+  if (form.type === 'openai') data.api = form.api
   const headers = listToHeaders(form.headers)
   if (headers) data.headers = headers
   try {
