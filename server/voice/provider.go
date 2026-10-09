@@ -6,6 +6,7 @@ package voice
 import (
 	"context"
 	"io"
+	"time"
 
 	"github.com/achetronic/magec/server/store"
 )
@@ -75,4 +76,14 @@ type Provider interface {
 
 	// TranscribeAudio converts audio to text.
 	TranscribeAudio(ctx context.Context, req STTRequest, backend store.BackendDefinition) (string, error)
+}
+
+// WithDefaultTimeout bounds ctx by d unless the caller already set a deadline.
+// Providers use it so an agent-level timeout set upstream wins over their
+// built-in default instead of being silently capped by it.
+func WithDefaultTimeout(ctx context.Context, d time.Duration) (context.Context, context.CancelFunc) {
+	if _, ok := ctx.Deadline(); ok {
+		return context.WithCancel(ctx)
+	}
+	return context.WithTimeout(ctx, d)
 }

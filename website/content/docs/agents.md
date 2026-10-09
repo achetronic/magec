@@ -146,6 +146,7 @@ Converts spoken audio into text. The agent needs this to understand what you're 
 |-------|-------------|
 | `transcriptionBackend` | A backend with a Whisper-compatible STT endpoint (e.g., OpenAI, Parakeet) |
 | `transcriptionModel` | Model name, e.g. `whisper-1` for OpenAI, or the model name your STT service expects |
+| `transcriptionTimeout` | Seconds to wait for a transcription before giving up. Raise it for slow models or long audio. Empty uses the provider default (60s for OpenAI-compatible backends, 120s for Gemini) |
 
 ### Text-to-Speech (TTS)
 

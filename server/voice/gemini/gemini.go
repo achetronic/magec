@@ -226,7 +226,7 @@ func (p *provider) TranscribeAudio(ctx context.Context, req voice.STTRequest, ba
 		proxyURL.RawQuery = q.Encode()
 	}
 
-	reqCtx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
+	reqCtx, cancel := voice.WithDefaultTimeout(ctx, 120*time.Second)
 	defer cancel()
 
 	httpReq, err := http.NewRequestWithContext(reqCtx, http.MethodPost, proxyURL.String(), bytes.NewReader(payload))

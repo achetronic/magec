@@ -60,6 +60,9 @@ type BackendRef struct {
 	Model   string            `json:"model,omitempty" yaml:"model,omitempty"`
 	Headers map[string]string `json:"headers,omitempty" yaml:"headers,omitempty"`
 	Config  STTConfig         `json:"config,omitempty" yaml:"config,omitempty"`
+	// TimeoutSeconds caps how long a transcription request may take. Only
+	// honoured on the agent's Transcription ref. 0 means the provider default.
+	TimeoutSeconds int `json:"timeoutSeconds,omitempty" yaml:"timeoutSeconds,omitempty"`
 }
 
 // TTSConfig holds provider-specific TTS configuration. Only the field matching

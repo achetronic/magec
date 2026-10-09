@@ -234,6 +234,11 @@
                 <FormInput v-model="form.transcriptionModel" :placeholder="sttModelPlaceholder" />
               </div>
             </div>
+            <div v-if="form.transcriptionBackend">
+              <FormLabel label="Timeout (seconds)" />
+              <FormInput v-model="form.transcriptionTimeout" type="number" placeholder="Provider default" />
+              <p class="text-[10px] text-arena-500 mt-1">Maximum time to wait for a transcription. Increase it for slow models or long audio. Empty uses the provider default (60s OpenAI-compatible, 120s Gemini).</p>
+            </div>
             <template v-if="sttExtraProps.length">
               <div class="grid gap-3" :class="sttExtraHasHalf ? 'grid-cols-2' : 'grid-cols-1'">
                 <div v-for="{ key, prop } in sttExtraProps" :key="key" :class="prop['x-size'] === 'half' ? '' : 'col-span-full'">
@@ -346,6 +351,7 @@ const form = reactive({
   tags: [],
   transcriptionBackend: '',
   transcriptionModel: '',
+  transcriptionTimeout: '',
   sttProviderConfig: {},
   ttsBackend: '',
   ttsModel: '',
@@ -498,6 +504,7 @@ async function open(agent = null) {
   form.tags = [...(agent?.tags || [])]
   form.transcriptionBackend = agent?.transcription?.backend || ''
   form.transcriptionModel = agent?.transcription?.model || ''
+  form.transcriptionTimeout = agent?.transcription?.timeoutSeconds || ''
   const sttType = backendType(form.transcriptionBackend)
   form.sttProviderConfig = { ...(agent?.transcription?.config?.[sttType] || {}) }
   form.ttsBackend = agent?.tts?.backend || ''
@@ -524,7 +531,7 @@ async function save() {
     outputKey: form.outputKey.trim(),
     systemPrompt: form.systemPrompt.trim(),
     llm: { backend: form.llmBackend, model: form.llmModel.trim(), headers: listToHeaders(form.llmHeaders) },
-    transcription: { backend: form.transcriptionBackend, model: form.transcriptionModel.trim(), config: buildNamespacedConfig(selectedSttProviderType.value, form.sttProviderConfig) },
+    transcription: { backend: form.transcriptionBackend, model: form.transcriptionModel.trim(), config: buildNamespacedConfig(selectedSttProviderType.value, form.sttProviderConfig), timeoutSeconds: parseInt(form.transcriptionTimeout) || undefined },
     tts: {
       backend: form.ttsBackend,
       model: form.ttsModel.trim(),

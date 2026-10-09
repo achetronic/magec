@@ -3247,6 +3247,10 @@ const docTemplate = `{
                 },
                 "model": {
                     "type": "string"
+                },
+                "timeoutSeconds": {
+                    "description": "TimeoutSeconds caps how long a transcription request may take. Only\nhonoured on the agent's Transcription ref. 0 means the provider default.",
+                    "type": "integer"
                 }
             }
         },

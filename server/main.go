@@ -6,6 +6,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -660,9 +661,20 @@ func serveTranscriptionProxy(w http.ResponseWriter, r *http.Request, agentDef st
 		Config:      agentDef.Transcription.Config,
 	}
 
-	text, err := provider.TranscribeAudio(r.Context(), req, backend)
+	ctx := r.Context()
+	if secs := agentDef.Transcription.TimeoutSeconds; secs > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, time.Duration(secs)*time.Second)
+		defer cancel()
+	}
+
+	text, err := provider.TranscribeAudio(ctx, req, backend)
 	if err != nil {
-		slog.Error("Transcription proxy error", "error", err)
+		slog.Error("Transcription proxy error", "agent", agentDef.ID, "backend", backend.ID, "error", err)
+		if errors.Is(err, context.DeadlineExceeded) {
+			http.Error(w, "Transcription timed out", http.StatusGatewayTimeout)
+			return
+		}
 		http.Error(w, "Transcription service unavailable", http.StatusBadGateway)
 		return
 	}

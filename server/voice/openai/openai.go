@@ -140,6 +140,9 @@ func (p *provider) TranscribeAudio(ctx context.Context, req voice.STTRequest, ba
 	proxyURL := *target
 	proxyURL.Path = "/v1/audio/transcriptions"
 
+	ctx, cancel := voice.WithDefaultTimeout(ctx, 60*time.Second)
+	defer cancel()
+
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, proxyURL.String(), &proxyBody)
 	if err != nil {
 		return "", fmt.Errorf("failed to create request: %w", err)
@@ -149,8 +152,7 @@ func (p *provider) TranscribeAudio(ctx context.Context, req voice.STTRequest, ba
 		httpReq.Header.Set("Authorization", "Bearer "+backend.APIKey)
 	}
 
-	client := &http.Client{Timeout: 60 * time.Second}
-	resp, err := client.Do(httpReq)
+	resp, err := http.DefaultClient.Do(httpReq)
 	if err != nil {
 		return "", fmt.Errorf("STT request failed: %w", err)
 	}
