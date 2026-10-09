@@ -103,6 +103,9 @@ type TTSRef struct {
 	Model   string    `json:"model,omitempty" yaml:"model,omitempty"`
 	Voice   string    `json:"voice,omitempty" yaml:"voice,omitempty"`
 	Config  TTSConfig `json:"config,omitempty" yaml:"config,omitempty"`
+	// TimeoutSeconds caps how long a speech synthesis request may take.
+	// 0 means the provider default.
+	TimeoutSeconds int `json:"timeoutSeconds,omitempty" yaml:"timeoutSeconds,omitempty"`
 }
 
 // ContextGuardConfig holds per-agent context guard settings.

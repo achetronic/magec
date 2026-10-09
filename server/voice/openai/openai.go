@@ -73,8 +73,11 @@ func (p *provider) SynthesizeSpeech(ctx context.Context, req voice.TTSRequest, b
 	proxyURL := *target
 	proxyURL.Path = "/v1/audio/speech"
 
+	ctx, cancel := voice.WithDefaultTimeout(ctx, 60*time.Second)
+
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, proxyURL.String(), bytes.NewReader(payload))
 	if err != nil {
+		cancel()
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
@@ -82,13 +85,14 @@ func (p *provider) SynthesizeSpeech(ctx context.Context, req voice.TTSRequest, b
 		httpReq.Header.Set("Authorization", "Bearer "+backend.APIKey)
 	}
 
-	client := &http.Client{Timeout: 60 * time.Second}
-	resp, err := client.Do(httpReq)
+	resp, err := http.DefaultClient.Do(httpReq)
 	if err != nil {
+		cancel()
 		return nil, fmt.Errorf("TTS request failed: %w", err)
 	}
 
 	if resp.StatusCode != http.StatusOK {
+		defer cancel()
 		defer resp.Body.Close()
 		errBody, _ := io.ReadAll(resp.Body)
 		return nil, fmt.Errorf("TTS backend returned %d: %s", resp.StatusCode, string(errBody))
@@ -100,7 +104,7 @@ func (p *provider) SynthesizeSpeech(ctx context.Context, req voice.TTSRequest, b
 	}
 
 	return &voice.TTSResponse{
-		Audio:       resp.Body,
+		Audio:       voice.CancelOnClose(resp.Body, cancel),
 		ContentType: contentType,
 	}, nil
 }

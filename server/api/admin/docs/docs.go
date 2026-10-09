@@ -3779,6 +3779,10 @@ const docTemplate = `{
                 "model": {
                     "type": "string"
                 },
+                "timeoutSeconds": {
+                    "description": "TimeoutSeconds caps how long a speech synthesis request may take.\n0 means the provider default.",
+                    "type": "integer"
+                },
                 "voice": {
                     "type": "string"
                 }

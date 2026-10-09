@@ -87,3 +87,20 @@ func WithDefaultTimeout(ctx context.Context, d time.Duration) (context.Context, 
 	}
 	return context.WithTimeout(ctx, d)
 }
+
+// CancelOnClose ties cancel to body: the context stays alive while the caller
+// streams the body and is released when it closes it.
+func CancelOnClose(body io.ReadCloser, cancel context.CancelFunc) io.ReadCloser {
+	return &cancelOnClose{ReadCloser: body, cancel: cancel}
+}
+
+type cancelOnClose struct {
+	io.ReadCloser
+	cancel context.CancelFunc
+}
+
+func (c *cancelOnClose) Close() error {
+	err := c.ReadCloser.Close()
+	c.cancel()
+	return err
+}

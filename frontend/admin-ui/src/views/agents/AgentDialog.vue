@@ -277,7 +277,12 @@
                 </label>
                 <FormInput v-model="form.ttsVoice" :placeholder="ttsVoicePlaceholder" />
               </div>
+              <div v-if="form.ttsBackend">
+                <FormLabel label="Timeout (seconds)" />
+                <FormInput v-model="form.ttsTimeout" type="number" placeholder="Provider default" />
+              </div>
             </div>
+            <p v-if="form.ttsBackend" class="text-[10px] text-arena-500 -mt-1">Timeout: maximum time to wait for speech synthesis. Increase it for slow models or long responses. Empty uses the provider default (60s OpenAI-compatible, 120s Gemini).</p>
             <template v-if="ttsMainProps.length">
               <div class="grid gap-3" :class="ttsMainHasHalf ? 'grid-cols-2' : 'grid-cols-1'">
                 <div v-for="{ key, prop } in ttsMainProps" :key="key" :class="prop['x-size'] === 'half' ? '' : 'col-span-full'">
@@ -356,6 +361,7 @@ const form = reactive({
   ttsBackend: '',
   ttsModel: '',
   ttsVoice: '',
+  ttsTimeout: '',
   ttsProviderConfig: {},
   contextGuardEnabled: false,
   contextGuardStrategy: 'threshold',
@@ -510,6 +516,7 @@ async function open(agent = null) {
   form.ttsBackend = agent?.tts?.backend || ''
   form.ttsModel = agent?.tts?.model || ''
   form.ttsVoice = agent?.tts?.voice || ''
+  form.ttsTimeout = agent?.tts?.timeoutSeconds || ''
   const ttsType = backendType(form.ttsBackend)
   form.ttsProviderConfig = { ...(agent?.tts?.config?.[ttsType] || {}) }
   form.contextGuardEnabled = agent?.contextGuard?.enabled || false
@@ -536,6 +543,7 @@ async function save() {
       backend: form.ttsBackend,
       model: form.ttsModel.trim(),
       voice: form.ttsVoice.trim(),
+      timeoutSeconds: parseInt(form.ttsTimeout) || undefined,
       config: buildNamespacedConfig(selectedTtsProviderType.value, form.ttsProviderConfig),
     },
     mcpServers: form.mcpServers,

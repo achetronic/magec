@@ -158,6 +158,7 @@ Converts the agent's text responses into spoken audio. Required for the agent to
 | `ttsModel` | Model name, e.g. `tts-1`, `tts-1-hd` |
 | `ttsVoice` | Voice identifier, e.g. `alloy`, `nova`, `shimmer`, `echo`, `onyx`, `fable` |
 | `ttsSpeed` | Playback speed multiplier (e.g., `1.0` for normal, `1.2` for slightly faster) |
+| `ttsTimeout` | Seconds to wait for speech synthesis before giving up. Raise it for slow models or long responses. Empty uses the provider default (60s for OpenAI-compatible backends, 120s for Gemini) |
 
 {{< callout type="info" >}}
 If an agent without TTS is selected as the spokesperson in a flow, the Voice UI will show a notification explaining that the agent can't speak. Same for STT: if the agent can't transcribe, you'll be told it can't understand voice input.

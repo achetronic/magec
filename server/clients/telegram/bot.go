@@ -1213,7 +1213,7 @@ func (c *Client) transcribeAudio(audioData []byte, filePath string, agentID stri
 
 	transcriptionURL := strings.TrimSuffix(c.agentURL, "/agent") + "/voice/" + agentID + "/transcription"
 
-	ctx, cancel := context.WithTimeout(context.Background(), clients.TranscriptionRequestTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), clients.VoiceRequestTimeout)
 	defer cancel()
 
 	req, err := http.NewRequestWithContext(ctx, "POST", transcriptionURL, &buf)
@@ -1282,7 +1282,7 @@ func (c *Client) generateTTS(text string, agentID string) ([]byte, error) {
 
 	ttsURL := strings.TrimSuffix(c.agentURL, "/agent") + "/voice/" + agentID + "/speech"
 
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), clients.VoiceRequestTimeout)
 	defer cancel()
 
 	req, err := http.NewRequestWithContext(ctx, "POST", ttsURL, bytes.NewReader(jsonBody))

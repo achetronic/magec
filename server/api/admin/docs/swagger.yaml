@@ -675,6 +675,11 @@ definitions:
         $ref: '#/definitions/store.TTSConfig'
       model:
         type: string
+      timeoutSeconds:
+        description: |-
+          TimeoutSeconds caps how long a speech synthesis request may take.
+          0 means the provider default.
+        type: integer
       voice:
         type: string
     type: object

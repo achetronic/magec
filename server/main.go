@@ -620,9 +620,20 @@ func serveSpeechProxy(w http.ResponseWriter, r *http.Request, agentDef store.Age
 		Config:         agentDef.TTS.Config,
 	}
 
-	resp, err := provider.SynthesizeSpeech(r.Context(), req, backend)
+	ctx := r.Context()
+	if secs := agentDef.TTS.TimeoutSeconds; secs > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, time.Duration(secs)*time.Second)
+		defer cancel()
+	}
+
+	resp, err := provider.SynthesizeSpeech(ctx, req, backend)
 	if err != nil {
-		slog.Error("TTS proxy error", "error", err)
+		slog.Error("TTS proxy error", "agent", agentDef.ID, "backend", backend.ID, "error", err)
+		if errors.Is(err, context.DeadlineExceeded) {
+			http.Error(w, "TTS timed out", http.StatusGatewayTimeout)
+			return
+		}
 		http.Error(w, "TTS service unavailable", http.StatusBadGateway)
 		return
 	}
