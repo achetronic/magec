@@ -277,25 +277,21 @@
                 </label>
                 <FormInput v-model="form.ttsVoice" :placeholder="ttsVoicePlaceholder" />
               </div>
-              <div v-if="form.ttsBackend">
-                <FormLabel label="Timeout (seconds)" />
-                <FormInput v-model="form.ttsTimeout" type="number" placeholder="Provider default" />
+              <div v-for="{ key, prop } in ttsMainProps" :key="key" :class="prop['x-size'] === 'half' ? '' : 'col-span-full'">
+                <label class="flex items-center gap-1 text-xs text-arena-400 mb-1">
+                  {{ prop.title || key }}
+                  <a v-if="prop['x-link']" :href="prop['x-link']" target="_blank" class="text-arena-600 hover:text-arena-400 transition-colors" :title="prop.title || key"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="13" height="13"><circle cx="8" cy="8" r="6"/><path d="M8 7.5V11M8 5.5V5"/></svg></a>
+                </label>
+                <textarea v-if="prop['x-format'] === 'textarea'" v-model="form.ttsProviderConfig[key]" rows="2" class="w-full bg-piedra-800 border border-piedra-700 rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-sol-500 focus:border-sol-500 outline-none resize-y" :placeholder="prop['x-placeholder'] || prop.default || ''" />
+                <FormInput v-else v-model="form.ttsProviderConfig[key]" :placeholder="prop['x-placeholder'] || prop.default || ''" :type="prop.type === 'number' ? 'number' : 'text'" />
+                <p v-if="prop.description" class="text-[10px] text-arena-500 mt-1">{{ prop.description }}</p>
               </div>
             </div>
-            <p v-if="form.ttsBackend" class="text-[10px] text-arena-500 -mt-1">Timeout: maximum time to wait for speech synthesis. Increase it for slow models or long responses. Empty uses the provider default (60s OpenAI-compatible, 120s Gemini).</p>
-            <template v-if="ttsMainProps.length">
-              <div class="grid gap-3" :class="ttsMainHasHalf ? 'grid-cols-2' : 'grid-cols-1'">
-                <div v-for="{ key, prop } in ttsMainProps" :key="key" :class="prop['x-size'] === 'half' ? '' : 'col-span-full'">
-                  <label class="flex items-center gap-1 text-xs text-arena-400 mb-1">
-                    {{ prop.title || key }}
-                    <a v-if="prop['x-link']" :href="prop['x-link']" target="_blank" class="text-arena-600 hover:text-arena-400 transition-colors" :title="prop.title || key"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="13" height="13"><circle cx="8" cy="8" r="6"/><path d="M8 7.5V11M8 5.5V5"/></svg></a>
-                  </label>
-                  <textarea v-if="prop['x-format'] === 'textarea'" v-model="form.ttsProviderConfig[key]" rows="2" class="w-full bg-piedra-800 border border-piedra-700 rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-sol-500 focus:border-sol-500 outline-none resize-y" :placeholder="prop['x-placeholder'] || prop.default || ''" />
-                  <FormInput v-else v-model="form.ttsProviderConfig[key]" :placeholder="prop['x-placeholder'] || prop.default || ''" :type="prop.type === 'number' ? 'number' : 'text'" />
-                  <p v-if="prop.description" class="text-[10px] text-arena-500 mt-1">{{ prop.description }}</p>
-                </div>
-              </div>
-            </template>
+            <div v-if="form.ttsBackend">
+              <FormLabel label="Timeout (seconds)" />
+              <FormInput v-model="form.ttsTimeout" type="number" placeholder="Provider default" />
+              <p class="text-[10px] text-arena-500 mt-1">Maximum time to wait for speech synthesis. Increase it for slow models or long responses. Empty uses the provider default (60s OpenAI-compatible, 120s Gemini).</p>
+            </div>
             <div v-if="ttsAdvancedProps.length" class="border-t border-piedra-700/30 pt-3">
               <div class="flex items-center justify-between mb-3">
                 <h4 class="text-[10px] font-medium text-arena-500 uppercase tracking-wider">Advanced</h4>
@@ -419,7 +415,6 @@ const ttsExtraProps = computed(() => schemaToProps(ttsExtraSchema.value))
 const sttExtraProps = computed(() => schemaToProps(sttExtraSchema.value))
 const ttsMainProps = computed(() => ttsExtraProps.value.filter(p => !p.prop['x-advanced']))
 const ttsAdvancedProps = computed(() => ttsExtraProps.value.filter(p => p.prop['x-advanced']))
-const ttsMainHasHalf = computed(() => ttsMainProps.value.some(p => p.prop['x-size'] === 'half'))
 const ttsAdvancedHasHalf = computed(() => ttsAdvancedProps.value.some(p => p.prop['x-size'] === 'half'))
 const sttExtraHasHalf = computed(() => sttExtraProps.value.some(p => p.prop['x-size'] === 'half'))
 
