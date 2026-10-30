@@ -236,8 +236,8 @@
             </div>
             <div v-if="form.transcriptionBackend">
               <FormLabel label="Timeout (seconds)" />
-              <FormInput v-model="form.transcriptionTimeout" type="number" placeholder="Provider default" />
-              <p class="text-[10px] text-arena-500 mt-1">Maximum time to wait for a transcription. Increase it for slow models or long audio. Empty uses the provider default (60s OpenAI-compatible, 120s Gemini).</p>
+              <FormInput v-model="form.transcriptionTimeout" type="number" min="1" :max="MAX_VOICE_TIMEOUT_SECONDS" placeholder="Provider default" />
+              <p class="text-[10px] text-arena-500 mt-1">Maximum time to wait for a transcription. Increase it for slow models or long audio, up to 900s (15 min). Empty uses the provider default (60s OpenAI-compatible, 120s Gemini).</p>
             </div>
             <template v-if="sttExtraProps.length">
               <div class="grid gap-3" :class="sttExtraHasHalf ? 'grid-cols-2' : 'grid-cols-1'">
@@ -289,8 +289,8 @@
             </div>
             <div v-if="form.ttsBackend">
               <FormLabel label="Timeout (seconds)" />
-              <FormInput v-model="form.ttsTimeout" type="number" placeholder="Provider default" />
-              <p class="text-[10px] text-arena-500 mt-1">Maximum time to wait for speech synthesis. Increase it for slow models or long responses. Empty uses the provider default (60s OpenAI-compatible, 120s Gemini).</p>
+              <FormInput v-model="form.ttsTimeout" type="number" min="1" :max="MAX_VOICE_TIMEOUT_SECONDS" placeholder="Provider default" />
+              <p class="text-[10px] text-arena-500 mt-1">Maximum time to wait for speech synthesis. Increase it for slow models or long responses, up to 900s (15 min). Empty uses the provider default (60s OpenAI-compatible, 120s Gemini).</p>
             </div>
             <div v-if="ttsAdvancedProps.length" class="border-t border-piedra-700/30 pt-3">
               <div class="flex items-center justify-between mb-3">
@@ -430,6 +430,16 @@ function headersToList(obj) {
   return Object.entries(obj).map(([key, value]) => ({ key, value }))
 }
 
+// The voice proxies run on the user server, whose 15 min WriteTimeout cuts
+// any longer request. Empty or below 1 means the provider default.
+const MAX_VOICE_TIMEOUT_SECONDS = 900
+
+function voiceTimeout(value) {
+  const secs = parseInt(value)
+  if (!(secs > 0)) return undefined
+  return Math.min(secs, MAX_VOICE_TIMEOUT_SECONDS)
+}
+
 function listToHeaders(list) {
   const obj = {}
   for (const h of list) {
@@ -533,12 +543,12 @@ async function save() {
     outputKey: form.outputKey.trim(),
     systemPrompt: form.systemPrompt.trim(),
     llm: { backend: form.llmBackend, model: form.llmModel.trim(), headers: listToHeaders(form.llmHeaders) },
-    transcription: { backend: form.transcriptionBackend, model: form.transcriptionModel.trim(), config: buildNamespacedConfig(selectedSttProviderType.value, form.sttProviderConfig), timeoutSeconds: parseInt(form.transcriptionTimeout) || undefined },
+    transcription: { backend: form.transcriptionBackend, model: form.transcriptionModel.trim(), config: buildNamespacedConfig(selectedSttProviderType.value, form.sttProviderConfig), timeoutSeconds: voiceTimeout(form.transcriptionTimeout) },
     tts: {
       backend: form.ttsBackend,
       model: form.ttsModel.trim(),
       voice: form.ttsVoice.trim(),
-      timeoutSeconds: parseInt(form.ttsTimeout) || undefined,
+      timeoutSeconds: voiceTimeout(form.ttsTimeout),
       config: buildNamespacedConfig(selectedTtsProviderType.value, form.ttsProviderConfig),
     },
     mcpServers: form.mcpServers,
