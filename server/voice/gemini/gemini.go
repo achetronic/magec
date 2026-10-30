@@ -145,7 +145,7 @@ func (p *provider) SynthesizeSpeech(ctx context.Context, req voice.TTSRequest, b
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
 
-	resp, err := (&http.Client{}).Do(httpReq)
+	resp, err := http.DefaultClient.Do(httpReq)
 	if err != nil {
 		return nil, fmt.Errorf("Gemini TTS request failed: %w", err)
 	}
@@ -235,7 +235,7 @@ func (p *provider) TranscribeAudio(ctx context.Context, req voice.STTRequest, ba
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
 
-	resp, err := (&http.Client{}).Do(httpReq)
+	resp, err := http.DefaultClient.Do(httpReq)
 	if err != nil {
 		return "", fmt.Errorf("Gemini STT request failed: %w", err)
 	}

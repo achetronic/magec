@@ -641,7 +641,11 @@ func serveSpeechProxy(w http.ResponseWriter, r *http.Request, agentDef store.Age
 
 	w.Header().Set("Content-Type", resp.ContentType)
 	w.WriteHeader(http.StatusOK)
-	io.Copy(w, resp.Audio)
+	// The status is already sent: a timeout or backend error mid-stream can only
+	// truncate the audio, so leave a trace of it.
+	if _, err := io.Copy(w, resp.Audio); err != nil {
+		slog.Warn("TTS proxy stream interrupted", "agent", agentDef.ID, "backend", backend.ID, "error", err)
+	}
 }
 
 // serveTranscriptionProxy forwards a speech-to-text request to the backend
