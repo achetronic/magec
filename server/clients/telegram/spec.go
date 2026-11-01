@@ -33,6 +33,18 @@ func (p *Provider) ConfigSchema() clients.Schema {
 				"title":         "Allowed Users",
 				"x-placeholder": "Comma-separated Telegram user IDs",
 			},
+			"groupPolicy": clients.Schema{
+				"type":    "string",
+				"title":   "Group Policy",
+				"enum":    []string{"mention", "all", "observe"},
+				"default": "mention",
+				"description": "When the bot answers in a group or supergroup. " +
+					"'mention': only when it is named (the historical behaviour). " +
+					"'all': every message. " +
+					"'observe': never answers, but still receives the messages " +
+					"and keeps them as context, so it can be asked later what " +
+					"was said. Has no effect on private chats.",
+			},
 			"allowedChats": clients.Schema{
 				"type":          "array",
 				"items":         clients.Schema{"type": "integer"},

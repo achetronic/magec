@@ -163,6 +163,23 @@ type TelegramClientConfig struct {
 	BotToken     string  `json:"botToken,omitempty" yaml:"botToken,omitempty"`
 	AllowedUsers []int64 `json:"allowedUsers,omitempty" yaml:"allowedUsers,omitempty"`
 	AllowedChats []int64 `json:"allowedChats,omitempty" yaml:"allowedChats,omitempty"`
+
+	// GroupPolicy decides when the bot answers in a group or supergroup.
+	//
+	//	"mention" (default) — answer only when the bot is named. This is
+	//	                      the behaviour of upstream Magec, which has
+	//	                      it hard-coded; keeping it as the default
+	//	                      means an existing deployment is unchanged.
+	//	"all"             — answer every message in the group.
+	//	"observe"         — never answer in groups. The messages are
+	//	                    still received and kept as context, which is
+	//	                    what makes a silent agent useful: it can be
+	//	                    asked later what was said.
+	//
+	// An unknown value falls back to "mention", because a bot that
+	// speaks when its configuration is not understood is worse than one
+	// that stays quiet.
+	GroupPolicy  string  `json:"groupPolicy,omitempty" yaml:"groupPolicy,omitempty"`
 	ResponseMode string  `json:"responseMode,omitempty" yaml:"responseMode,omitempty"`
 	DefaultAgent string  `json:"defaultAgent,omitempty" yaml:"defaultAgent,omitempty"`
 }
