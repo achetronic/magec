@@ -441,6 +441,55 @@ func (c *Client) getFileAttachment(msg telego.Message) (string, string) {
 // handleMessage processes a regular text or multimodal message: checks permissions, sends a
 // typing indicator, forwards the text to the active agent via SSE, and delivers
 // each response event incrementally.
+// groupGate decides whether a group message should be answered, and
+// returns the text with the bot mention removed when it was addressed.
+//
+// Upstream Magec hard-codes one policy: in a group, answer only when the
+// bot is named. That is a sensible default, but it is the only option and
+// it is not documented anywhere. Two real needs it cannot serve:
+//
+//   - a bot that should answer everything in a small working group;
+//   - a bot that should read a group and never speak in it, so that it
+//     can be asked later what was said. Receiving is not answering, and
+//     staying silent is a valid turn.
+//
+// The default is "mention", so an existing deployment behaves exactly as
+// before this change. An unrecognised value also falls back to "mention":
+// a bot that speaks because its configuration was not understood is worse
+// than one that stays quiet.
+func (c *Client) groupGate(chatType, text string) (string, bool) {
+	if chatType != "group" && chatType != "supergroup" {
+		return text, true
+	}
+
+	mention := "@" + c.botUsername
+	named := strings.Contains(text, mention)
+	stripped := strings.TrimSpace(strings.ReplaceAll(text, mention, ""))
+
+	// The Telegram config can be nil -- a client row written before this
+	// field existed, or a malformed import. Dereferencing it here would
+	// panic on the first group message and take the whole bot down, so
+	// a missing config means the historical behaviour.
+	policy := ""
+	if tg := c.clientDef.Config.Telegram; tg != nil {
+		policy = tg.GroupPolicy
+	}
+
+	switch policy {
+	case "all":
+		return stripped, true
+	case "observe":
+		return stripped, false
+	case "mention", "":
+		return stripped, named
+	default:
+		c.logger.Warn("Unknown groupPolicy, falling back to 'mention'",
+			"group_policy", policy,
+			"chat_type", chatType)
+		return stripped, named
+	}
+}
+
 func (c *Client) handleMessage(ctx *th.Context, msg telego.Message) error {
 	text := msg.Text
 	if text == "" {
@@ -452,12 +501,9 @@ func (c *Client) handleMessage(ctx *th.Context, msg telego.Message) error {
 		return nil
 	}
 
-	if msg.Chat.Type == "group" || msg.Chat.Type == "supergroup" {
-		mention := "@" + c.botUsername
-		if !strings.Contains(text, mention) {
-			return nil
-		}
-		text = strings.TrimSpace(strings.ReplaceAll(text, mention, ""))
+	var answer bool
+	if text, answer = c.groupGate(string(msg.Chat.Type), text); !answer {
+		return nil
 	}
 
 	if !c.isAllowed(msg.From.ID, msg.Chat.ID) {
@@ -607,12 +653,9 @@ func (c *Client) handleVoice(ctx *th.Context, msg telego.Message) error {
 		return nil
 	}
 
-	if msg.Chat.Type == "group" || msg.Chat.Type == "supergroup" {
-		mention := "@" + c.botUsername
-		if !strings.Contains(msg.Caption, mention) {
-			return nil
-		}
-		msg.Caption = strings.TrimSpace(strings.ReplaceAll(msg.Caption, mention, ""))
+	var answerVoice bool
+	if msg.Caption, answerVoice = c.groupGate(string(msg.Chat.Type), msg.Caption); !answerVoice {
+		return nil
 	}
 
 	c.logger.Info("Received voice message", "user_id", msg.From.ID, "chat_id", msg.Chat.ID, "duration", msg.Voice.Duration)
