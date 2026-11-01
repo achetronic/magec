@@ -466,7 +466,16 @@ func (c *Client) groupGate(chatType, text string) (string, bool) {
 	named := strings.Contains(text, mention)
 	stripped := strings.TrimSpace(strings.ReplaceAll(text, mention, ""))
 
-	switch c.clientDef.Config.Telegram.GroupPolicy {
+	// The Telegram config can be nil -- a client row written before this
+	// field existed, or a malformed import. Dereferencing it here would
+	// panic on the first group message and take the whole bot down, so
+	// a missing config means the historical behaviour.
+	policy := ""
+	if tg := c.clientDef.Config.Telegram; tg != nil {
+		policy = tg.GroupPolicy
+	}
+
+	switch policy {
 	case "all":
 		return stripped, true
 	case "observe":
@@ -475,7 +484,7 @@ func (c *Client) groupGate(chatType, text string) (string, bool) {
 		return stripped, named
 	default:
 		c.logger.Warn("Unknown groupPolicy, falling back to 'mention'",
-			"group_policy", c.clientDef.Config.Telegram.GroupPolicy,
+			"group_policy", policy,
 			"chat_type", chatType)
 		return stripped, named
 	}

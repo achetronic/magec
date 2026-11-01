@@ -35,12 +35,41 @@ In the Admin UI, go to **Clients** → **New** → **Telegram**:
 | `botToken` | The token from BotFather |
 | `allowedUsers` | Comma-separated list of Telegram user IDs that can use this bot |
 | `allowedChats` | Comma-separated list of chat IDs where the bot can respond (for group chats) |
+| `groupPolicy` | When the bot answers in a group (see below) |
 | `responseMode` | How the bot responds (see below) |
 | `allowedAgents` | Which agents and flows this bot can access |
 
 ### 4. Start chatting
 
 Open your bot in Telegram and send a message. The bot responds using the first allowed agent.
+
+## Group policy
+
+In a private chat the bot answers every message. In a group or
+supergroup, `groupPolicy` decides when it speaks:
+
+| Policy | Behavior |
+|--------|----------|
+| `mention` | Answer only when the bot is named, for example `@mybot what is the deadline?`. This is the default, and the behaviour of every version before this setting existed. |
+| `all` | Answer every message in the group. Useful in a small working group where the bot is a participant rather than a tool. |
+| `observe` | Never answer in a group. The messages are still received and kept as context, so the bot can be asked later — in a private chat, or by an agent — what was said. |
+
+`observe` exists because receiving is not answering. A bot that reads a
+busy group and comments on every line becomes unbearable; the same bot,
+silent, can still summarise the discussion when someone asks for it.
+
+An unrecognised value falls back to `mention` and logs a warning. A bot
+that speaks because its configuration was not understood is worse than
+one that stays quiet.
+
+Two notes if group messages do not reach the bot at all:
+
+- Telegram's privacy mode must be disabled in BotFather
+  (`/setprivacy` → `Disable`), otherwise the bot only receives messages
+  that start with `/` or name it — regardless of `groupPolicy`.
+- `allowedChats`, when set, still applies. `groupPolicy` decides *when*
+  to answer in a chat the bot is already allowed to use; it does not
+  grant access to a chat.
 
 ## Response modes
 
