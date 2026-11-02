@@ -133,6 +133,7 @@ Full docs at **[magec.dev/docs](https://magec.dev/docs/)**: installation, config
 | [yalue/onnxruntime_go](https://github.com/yalue/onnxruntime_go)               | ONNX Runtime for wake word / VAD |
 | [mymmrac/telego](https://github.com/mymmrac/telego)                           | Telegram bot                     |
 | [achetronic/adk-utils-go](https://github.com/achetronic/adk-utils-go)         | ADK providers, session, memory   |
+| [yuin/goldmark](https://github.com/yuin/goldmark)                             | CommonMark + GFM parser for Telegram HTML rendering |
 
 ## Special Mentions
 

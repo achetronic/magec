@@ -297,12 +297,12 @@ func CollectSSEEvents(reader io.Reader) ([]SSEEvent, string, error) {
 func FormatToolCallTelegram(evt SSEEvent) string {
 	lines := humanArgLines(evt.ToolArgs)
 	if len(lines) == 0 {
-		return fmt.Sprintf("<blockquote>🔧 <b>%s</b></blockquote>", escapeHTML(evt.ToolName))
+		return fmt.Sprintf("<blockquote>🔧 <b>%s</b></blockquote>", EscapeHTML(evt.ToolName))
 	}
 	var b strings.Builder
-	b.WriteString(fmt.Sprintf("<blockquote expandable>🔧 <b>%s</b>\n", escapeHTML(evt.ToolName)))
+	b.WriteString(fmt.Sprintf("<blockquote expandable>🔧 <b>%s</b>\n", EscapeHTML(evt.ToolName)))
 	for _, l := range lines {
-		b.WriteString(fmt.Sprintf("<b>%s</b>: %s\n", escapeHTML(l.Key), escapeHTML(l.Value)))
+		b.WriteString(fmt.Sprintf("<b>%s</b>: %s\n", EscapeHTML(l.Key), EscapeHTML(l.Value)))
 	}
 	b.WriteString("</blockquote>")
 	return b.String()
@@ -322,9 +322,9 @@ func FormatToolCallSlack(evt SSEEvent) string {
 func FormatToolResultTelegram(evt SSEEvent) string {
 	result := prettyResult(evt.ToolResult)
 	if result == "" {
-		return fmt.Sprintf("<blockquote>✅ <b>%s</b> → (empty)</blockquote>", escapeHTML(evt.ToolName))
+		return fmt.Sprintf("<blockquote>✅ <b>%s</b> → (empty)</blockquote>", EscapeHTML(evt.ToolName))
 	}
-	return fmt.Sprintf("<blockquote expandable>✅ <b>%s</b>\n%s</blockquote>", escapeHTML(evt.ToolName), escapeHTML(result))
+	return fmt.Sprintf("<blockquote expandable>✅ <b>%s</b>\n%s</blockquote>", EscapeHTML(evt.ToolName), EscapeHTML(result))
 }
 
 // FormatToolResultDiscord formats a tool result for Discord.
@@ -424,7 +424,9 @@ func humanValue(v interface{}) string {
 	}
 }
 
-func escapeHTML(s string) string {
+// EscapeHTML escapes the three characters Telegram's HTML parse mode requires:
+// &, < and >.
+func EscapeHTML(s string) string {
 	s = strings.ReplaceAll(s, "&", "&amp;")
 	s = strings.ReplaceAll(s, "<", "&lt;")
 	s = strings.ReplaceAll(s, ">", "&gt;")

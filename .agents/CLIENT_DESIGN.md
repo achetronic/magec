@@ -222,7 +222,8 @@ server/clients/
 ├── direct/spec.go       — Direct provider (empty schema)
 ├── telegram/
 │   ├── spec.go          — Telegram provider (JSON Schema with x-format, enum)
-│   └── bot.go           — Telegram bot (long polling, voice, emoji reactions)
+│   ├── bot.go           — Telegram bot (long polling, voice, emoji reactions)
+│   └── html.go          — Agent Markdown → Telegram HTML (goldmark), split into valid chunks
 ├── discord/
 │   ├── spec.go          — Discord provider (JSON Schema with x-format, enum)
 │   └── bot.go           — Discord bot (Gateway WebSocket, voice, reactions, ! commands)
@@ -525,7 +526,7 @@ Shared utility package for message validation and splitting. Both Telegram and S
 
 | Client       | Inbound                                                                            | Outbound                                                                          |
 | ------------ | ---------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
-| **Telegram** | `handleMessage()` validates `msg.Text`; `handleVoice()` validates transcribed text | `sendResponse()` splits via `SplitMessage(text, 4096)`, sends chunks sequentially |
+| **Telegram** | `handleMessage()` validates `msg.Text`; `handleVoice()` validates transcribed text | `sendResponse()` renders Markdown to HTML and splits between blocks via `markdownToHTML(text, 4096)` (`telegram/html.go`), sends chunks sequentially, resends a chunk as plain text if Telegram rejects its entities |
 | **Discord**  | `handleTextMessage()` validates text; `handleVoice()` validates transcribed text   | `sendResponse()` splits via `SplitMessage(text, 2000)`, sends chunks sequentially |
 | **Slack**    | `processMessage()` validates text (covers DMs + audio clips)                       | `postMessage()` splits via `SplitMessage(text, 39000)`, posts chunks sequentially |
 | **Voice UI** | No validation (browser input is bounded)                                           | No splitting (browser has no render limit)                                        |

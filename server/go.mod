@@ -21,6 +21,7 @@ require (
 	github.com/swaggo/http-swagger/v2 v2.0.2
 	github.com/swaggo/swag v1.16.6
 	github.com/yalue/onnxruntime_go v1.25.0
+	github.com/yuin/goldmark v1.8.6
 	golang.org/x/crypto v0.54.0
 	google.golang.org/adk/v2 v2.0.0
 	google.golang.org/genai v1.57.0

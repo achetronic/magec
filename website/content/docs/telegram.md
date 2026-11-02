@@ -6,6 +6,10 @@ Magec can connect to Telegram through a bot. Users send text or voice messages t
 
 This is a great way to access your agents from anywhere (your phone, desktop, or any Telegram client) without opening the Voice UI or writing API calls.
 
+{{< callout type="info" >}}
+Agent responses are sent with Telegram `ParseMode HTML`, rendered from Markdown using [goldmark](https://github.com/yuin/goldmark) (CommonMark + GFM). The text is split safely by blocks to respect Telegram limits and falls back to plain text if formatting is rejected.
+{{< /callout >}}
+
 <div class="screenshots" style="margin-bottom: 2rem;">
 {{< screenshot src="img/screenshots/admin-clients-telegram.png" alt="Telegram client" >}}
 </div>

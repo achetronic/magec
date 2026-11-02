@@ -8,6 +8,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -20,6 +21,7 @@ import (
 	"time"
 
 	"github.com/mymmrac/telego"
+	"github.com/mymmrac/telego/telegoapi"
 	th "github.com/mymmrac/telego/telegohandler"
 	tu "github.com/mymmrac/telego/telegoutil"
 	"google.golang.org/adk/v2/artifact"
@@ -822,18 +824,40 @@ func (c *Client) sendTextResponse(ctx *th.Context, chatID int64, threadID int, t
 		}
 	}
 
-	chunks := msgutil.SplitMessage(text, msgutil.TelegramMaxMessageLength)
+	chunks := markdownToHTML(text, msgutil.TelegramMaxMessageLength)
 	for _, chunk := range chunks {
 		_, err := ctx.Bot().SendMessage(ctx, &telego.SendMessageParams{
 			ChatID:          tu.ID(chatID),
 			MessageThreadID: threadID,
 			Text:            chunk,
+			ParseMode:       "HTML",
 		})
 		if err != nil {
-			c.logger.Error("Failed to send message", "error", err)
-			break
+			if isParseEntitiesError(err) {
+				// Formatting was rejected: deliver the same chunk as plain text
+				// rather than dropping it.
+				c.logger.Warn("Telegram rejected formatting, sending as plain text", "error", err)
+				_, err = ctx.Bot().SendMessage(ctx, &telego.SendMessageParams{
+					ChatID:          tu.ID(chatID),
+					MessageThreadID: threadID,
+					Text:            htmlToPlain(chunk),
+				})
+			}
+			if err != nil {
+				c.logger.Error("Failed to send message", "error", err)
+				break
+			}
 		}
 	}
+}
+
+// isParseEntitiesError reports whether err is the Telegram API error that
+// rejects a message's formatting, so the caller can resend it as plain text.
+// Telegram prefixes the category ("Bad Request: can't parse entities: ..."),
+// so the check is a Contains on the description, not a prefix match.
+func isParseEntitiesError(err error) bool {
+	var apiErr *telegoapi.Error
+	return errors.As(err, &apiErr) && apiErr.ErrorCode == 400 && strings.Contains(apiErr.Description, "can't parse entities")
 }
 
 // getResponseMode returns the current response mode. If the user has set a

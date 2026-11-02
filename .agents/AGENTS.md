@@ -87,7 +87,7 @@ magec/
 │   │   ├── registry.go         # Register(), ValidateConfig() with oneOf support
 │   │   ├── executor.go         # RunClient() — executes commands against all allowedAgents
 │   │   ├── direct/spec.go      # Direct provider (empty schema)
-│   │   ├── telegram/           # Telegram bot (spec.go + bot.go)
+│   │   ├── telegram/           # Telegram bot (spec.go + bot.go + html.go)
 │   │   ├── discord/            # Discord Gateway bot (spec.go + bot.go)
 │   │   ├── slack/              # Slack Socket Mode bot (spec.go + bot.go)
 │   │   ├── webhook/            # Webhook handler (spec.go + handler.go)
@@ -347,6 +347,7 @@ GPU section commented out by default. Users who want cloud providers create diff
 - `github.com/gorilla/mux` — HTTP router (v1.8.1)
 - `github.com/gorilla/websocket` — WebSocket for voice handler (v1.5.3)
 - `github.com/mymmrac/telego` — Telegram bot API (v1.5.1)
+- `github.com/yuin/goldmark` — CommonMark/GFM Markdown parser, renders agent replies to Telegram HTML (v1.8.6)
 - `github.com/bwmarrin/discordgo` — Discord bot API + Gateway WebSocket (v0.29.0)
 - `github.com/slack-go/slack` — Slack API + Socket Mode (v0.17.3)
 - `github.com/yalue/onnxruntime_go` — ONNX runtime for voice models (v1.25.0)
