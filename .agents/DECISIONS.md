@@ -1180,3 +1180,38 @@ The design keeps the value out of the model's sight for its whole life:
   recorder redacts payloads before persisting them.
 - Values shorter than 6 characters expand but are never redacted:
   replacing them would mangle unrelated text.
+
+## 39. One SSE timeout, set per client
+
+A slow model or a quiet tool used to fail with `context deadline exceeded`
+after 15 minutes (issue #78). Four timeouts were involved: the client's
+request context, the ADK's `SSEWriteTimeout`, the `SSEIdleTimeout`
+middleware and `http.Server.WriteTimeout`. Whichever was lowest won, so an
+operator had to know all four and raise them together.
+
+The operator sees a single field, `sseClientTimeoutMinutes`, in each
+client's Options (15 minutes when unset). `ClientConfig.SSETimeout()` is the
+only place that resolves it, and every limit follows it:
+
+- Bots and the cron/webhook executor use it as the request context timeout.
+- The `SSEIdleTimeout` middleware resolves it per request from the client
+  that `ClientAuth` identified (`X-Client-ID`), and its writer implements
+  `SetWriteDeadline` so the ADK's fixed deadline at the start of `/run_sse`
+  is replaced instead of cutting the stream before the first token.
+- The webhook handler extends its own write deadline, since it answers only
+  when the run ends.
+
+A value saved in the client takes effect on the next request; nothing needs
+a restart. Requests that carry no client (open mode) get the 15 minute
+default, and A2A streaming, which does not go through the middleware, keeps
+the 15 minute `http.Server.WriteTimeout`.
+
+**Do not**: Reintroduce global SSE timeouts in Settings next to the
+per-client one. Two knobs for the same limit means the lower one silently
+wins, which is the bug this replaced.
+
+**Files**: `server/store/types.go` (`DefaultSSETimeoutMinutes`,
+`ClientConfig.SSETimeout`), `server/middleware/sseidle.go`, `server/main.go`,
+`server/clients/executor.go`, `server/clients/{telegram,discord,slack}/bot.go`,
+`server/clients/webhook/handler.go`, `server/clients/provider.go`
+(`SSEClientTimeoutSchema`).

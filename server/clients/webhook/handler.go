@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
+	"time"
 
 	"github.com/gorilla/mux"
 
@@ -86,6 +87,12 @@ func (h *Handler) handle(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.logger.Info("Webhook client firing", "client", cl.Name, "id", cl.ID)
+
+	// The response is written when the run ends, so the server's fixed
+	// WriteTimeout must not cut it before the client's own timeout does.
+	if err := http.NewResponseController(w).SetWriteDeadline(time.Now().Add(cl.Config.SSETimeout())); err != nil {
+		h.logger.Warn("Webhook client: cannot extend write deadline", "client", cl.Name, "error", err)
+	}
 
 	result, err := h.executor.RunClient(r.Context(), cl, req.Prompt)
 	if err != nil {

@@ -417,6 +417,7 @@ Base path: `/api/v1/admin`
 
 - **`defaultAgent` is persisted on the client** — chat clients (Telegram, Slack, Discord) write the active agent there when the user runs the `!agent` command. Initial value falls back to `allowedAgents[0]`. Lives on `ClientDefinition` and on the platform configs that need per-thread state.
 - **`threadHistoryLimit` per chat client** — caps how much history is replayed when reconstructing thread context. Defaults to a sensible number when unset.
+- **`sseClientTimeoutMinutes` per client is the only SSE timeout** — how long an agent run started by that client may take, 15 minutes when unset. The client's request context and the server's write deadlines on `/run_sse` and webhook responses all read it through `ClientConfig.SSETimeout()`, so raising it is enough. See decision #39.
 - **JSON Schema replaces FieldSpec** — full OpenAPI JSON Schema per type with extensions for UI rendering
 - **`oneOf` for exclusive config** — webhook's passthrough XOR commandId enforced at schema level
 - **Client token for webhook auth** — no separate `secret` field. One auth mechanism everywhere

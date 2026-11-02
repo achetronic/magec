@@ -302,7 +302,8 @@ const visibleProperties = computed(() => {
 })
 
 const PERMISSION_KEYS = new Set(['allowedUsers', 'allowedChannels', 'allowedChats'])
-const OPTION_KEYS = new Set(['responseMode', 'threadHistoryLimit'])
+const OPTION_KEYS = new Set(['responseMode', 'threadHistoryLimit', 'sseClientTimeoutMinutes'])
+const OPTION_ORDER = ['responseMode', 'threadHistoryLimit', 'sseClientTimeoutMinutes']
 
 const mainProperties = computed(() =>
   Object.fromEntries(Object.entries(visibleProperties.value).filter(([k]) => !PERMISSION_KEYS.has(k) && !OPTION_KEYS.has(k)))
@@ -312,9 +313,18 @@ const permissionProperties = computed(() =>
   Object.fromEntries(Object.entries(visibleProperties.value).filter(([k]) => PERMISSION_KEYS.has(k)))
 )
 
-const optionProperties = computed(() =>
-  Object.fromEntries(Object.entries(visibleProperties.value).filter(([k]) => OPTION_KEYS.has(k)))
-)
+const optionProperties = computed(() => {
+  const filtered = Object.fromEntries(Object.entries(visibleProperties.value).filter(([k]) => OPTION_KEYS.has(k)))
+  const ordered = {}
+  for (const key of OPTION_ORDER) {
+    if (key in filtered) ordered[key] = filtered[key]
+  }
+  // Append any remaining option keys not in explicit order
+  for (const [k, v] of Object.entries(filtered)) {
+    if (!(k in ordered)) ordered[k] = v
+  }
+  return ordered
+})
 
 function isExcludedByOtherBranches(key) {
   const branches = currentSchema.value.oneOf

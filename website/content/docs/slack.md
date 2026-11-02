@@ -61,6 +61,7 @@ In the Admin UI, go to **Clients** → **New** → **Slack**:
 | `allowedUsers` | Slack user IDs that can use this bot (empty = everyone in the workspace) |
 | `allowedChannels` | Slack channel IDs where the bot can respond (empty = all channels) |
 | `responseMode` | How the bot responds (see [Response modes](#response-modes)) |
+| `sseClientTimeoutMinutes` | Minutes an agent run started from this client may take before it is cancelled (default 15). Raise it for slow models or long-running tools |
 | `allowedAgents` | Which agents and flows this bot can access |
 
 ### 4. Start chatting

@@ -45,7 +45,8 @@ func (p *Provider) ConfigSchema() clients.Schema {
 				"default": "text",
 				"enum":    []string{"text", "voice", "mirror", "both"},
 			},
-			"defaultAgent": clients.DefaultAgentSchema(),
+			"defaultAgent":            clients.DefaultAgentSchema(),
+			"sseClientTimeoutMinutes": clients.SSEClientTimeoutSchema(),
 		},
 		"required": []string{"botToken"},
 	}

@@ -1067,7 +1067,7 @@ func (c *Client) callAgentSSE(msg telego.Message, agentID, sessionID, textPart s
 		return fmt.Errorf("failed to marshal request: %w", err)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), c.clientDef.Config.SSETimeout())
 	defer cancel()
 
 	req, err := http.NewRequestWithContext(ctx, "POST", c.agentURL+"/run_sse", bytes.NewReader(jsonBody))

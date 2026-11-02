@@ -40,6 +40,7 @@ In the Admin UI, go to **Clients** → **New** → **Telegram**:
 | `allowedUsers` | Comma-separated list of Telegram user IDs that can use this bot |
 | `allowedChats` | Comma-separated list of chat IDs where the bot can respond (for group chats) |
 | `responseMode` | How the bot responds (see below) |
+| `sseClientTimeoutMinutes` | Minutes an agent run started from this client may take before it is cancelled (default 15). Raise it for slow models or long-running tools |
 | `allowedAgents` | Which agents and flows this bot can access |
 
 ### 4. Start chatting

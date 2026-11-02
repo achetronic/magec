@@ -3203,6 +3203,10 @@ const docTemplate = `{
         "store.BackendDefinition": {
             "type": "object",
             "properties": {
+                "api": {
+                    "description": "API selects the wire API for OpenAI-compatible backends: \"completions\"\n(default when empty) or \"responses\". Ignored by other backend types.",
+                    "type": "string"
+                },
                 "apiKey": {
                     "type": "string"
                 },
@@ -3337,6 +3341,9 @@ const docTemplate = `{
                 },
                 "schedule": {
                     "type": "string"
+                },
+                "sseClientTimeoutMinutes": {
+                    "type": "integer"
                 }
             }
         },
@@ -3389,6 +3396,9 @@ const docTemplate = `{
                 },
                 "responseMode": {
                     "type": "string"
+                },
+                "sseClientTimeoutMinutes": {
+                    "type": "integer"
                 },
                 "threadHistoryLimit": {
                     "type": "integer"
@@ -3734,6 +3744,9 @@ const docTemplate = `{
                 "responseMode": {
                     "type": "string"
                 },
+                "sseClientTimeoutMinutes": {
+                    "type": "integer"
+                },
                 "threadHistoryLimit": {
                     "type": "integer"
                 }
@@ -3790,6 +3803,9 @@ const docTemplate = `{
                 },
                 "responseMode": {
                     "type": "string"
+                },
+                "sseClientTimeoutMinutes": {
+                    "type": "integer"
                 }
             }
         },
@@ -3801,6 +3817,9 @@ const docTemplate = `{
                 },
                 "passthrough": {
                     "type": "boolean"
+                },
+                "sseClientTimeoutMinutes": {
+                    "type": "integer"
                 }
             }
         },

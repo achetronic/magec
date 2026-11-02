@@ -25,6 +25,7 @@ The agent, prompt, and behavior are all defined in the command. The webhook is j
 | `name` | Display name |
 | `passthrough` | Set to `false` for command mode |
 | `commandId` | The command to run when the webhook is triggered |
+| `sseClientTimeoutMinutes` | Minutes an agent run started from this client may take before it is cancelled (default 15). Raise it for slow models or long-running tools |
 | `allowedAgents` | Which agents/flows this webhook can access |
 
 ## Passthrough mode
@@ -44,6 +45,7 @@ This is the mode you want when the input is dynamic:
 |-------|-------------|
 | `name` | Display name |
 | `passthrough` | Set to `true` for passthrough mode |
+| `sseClientTimeoutMinutes` | Minutes an agent run started from this client may take before it is cancelled (default 15). Raise it for slow models or long-running tools |
 | `allowedAgents` | Which agents/flows this webhook can access |
 
 ## Calling a webhook

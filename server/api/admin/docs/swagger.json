@@ -3200,6 +3200,10 @@
         "store.BackendDefinition": {
             "type": "object",
             "properties": {
+                "api": {
+                    "description": "API selects the wire API for OpenAI-compatible backends: \"completions\"\n(default when empty) or \"responses\". Ignored by other backend types.",
+                    "type": "string"
+                },
                 "apiKey": {
                     "type": "string"
                 },
@@ -3334,6 +3338,9 @@
                 },
                 "schedule": {
                     "type": "string"
+                },
+                "sseClientTimeoutMinutes": {
+                    "type": "integer"
                 }
             }
         },
@@ -3386,6 +3393,9 @@
                 },
                 "responseMode": {
                     "type": "string"
+                },
+                "sseClientTimeoutMinutes": {
+                    "type": "integer"
                 },
                 "threadHistoryLimit": {
                     "type": "integer"
@@ -3731,6 +3741,9 @@
                 "responseMode": {
                     "type": "string"
                 },
+                "sseClientTimeoutMinutes": {
+                    "type": "integer"
+                },
                 "threadHistoryLimit": {
                     "type": "integer"
                 }
@@ -3787,6 +3800,9 @@
                 },
                 "responseMode": {
                     "type": "string"
+                },
+                "sseClientTimeoutMinutes": {
+                    "type": "integer"
                 }
             }
         },
@@ -3798,6 +3814,9 @@
                 },
                 "passthrough": {
                     "type": "boolean"
+                },
+                "sseClientTimeoutMinutes": {
+                    "type": "integer"
                 }
             }
         },

@@ -22,6 +22,7 @@ The command defines **what** happens (the prompt and which agent processes it). 
 | `name` | Display name (helps you identify this job in the Admin UI) |
 | `schedule` | Cron expression or shorthand (see below) |
 | `commandId` | Which command to run |
+| `sseClientTimeoutMinutes` | Minutes an agent run started from this client may take before it is cancelled (default 15). Raise it for slow models or long-running tools |
 | `allowedAgents` | Which agents/flows this cron job can access |
 
 ## Schedule format

@@ -32,6 +32,7 @@ func (p *Provider) ConfigSchema() clients.Schema {
 				"minLength": 1,
 				"x-entity":  "commands",
 			},
+			"sseClientTimeoutMinutes": clients.SSEClientTimeoutSchema(),
 		},
 		"oneOf": []clients.Schema{
 			{

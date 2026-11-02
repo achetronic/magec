@@ -64,6 +64,7 @@ In the Admin UI, go to **Clients** → **New** → **Discord**:
 | `allowedUsers` | Discord user IDs that can use this bot (empty = everyone) |
 | `allowedChannels` | Channel IDs where the bot can respond (empty = all channels) |
 | `responseMode` | How the bot responds: see [Response modes](#response-modes) |
+| `sseClientTimeoutMinutes` | Minutes an agent run started from this client may take before it is cancelled (default 15). Raise it for slow models or long-running tools |
 | `allowedAgents` | Which agents and flows this bot can access |
 
 ### 6. Start Chatting

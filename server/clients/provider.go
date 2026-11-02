@@ -3,6 +3,8 @@
 
 package clients
 
+import "github.com/achetronic/magec/server/store"
+
 // Schema is a JSON Schema object represented as a plain map so providers can
 // define arbitrarily complex schemas (oneOf, if/then, etc.) without the
 // framework imposing structural limits.
@@ -41,5 +43,17 @@ func ThreadHistoryLimitSchema(max int) Schema {
 		"default":     50,
 		"minimum":     1,
 		"maximum":     max,
+	}
+}
+
+// SSEClientTimeoutSchema returns the shared JSON Schema fragment for the
+// sseClientTimeoutMinutes field.
+func SSEClientTimeoutSchema() Schema {
+	return Schema{
+		"type":        "integer",
+		"title":       "SSE Client Timeout",
+		"description": "Minutes an agent run started from this client may take before it is cancelled. Increase for long-running tasks or slow models.",
+		"default":     store.DefaultSSETimeoutMinutes,
+		"minimum":     1,
 	}
 }

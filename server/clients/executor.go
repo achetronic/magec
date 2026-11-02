@@ -83,7 +83,7 @@ func (e *Executor) RunClient(ctx context.Context, cl store.ClientDefinition, pas
 			// Node.Name() == event.Author, so they filter events directly.
 			responseFilter = flow.ResponseAgentNames()
 		}
-		result, err := e.callAgent(ctx, agentID, prompt, cl.Token, responseFilter)
+		result, err := e.callAgent(ctx, agentID, prompt, cl.Token, responseFilter, cl.Config.SSETimeout())
 		if err != nil {
 			e.logger.Error("Failed to run agent", "client", cl.Name, "agent", agentID, "error", err)
 			continue
@@ -103,7 +103,7 @@ func (e *Executor) RunClient(ctx context.Context, cl store.ClientDefinition, pas
 // callAgent sends a prompt to the agent API and returns the response text.
 // responseFilter optionally limits which agent authors are included in the
 // extracted response. When empty, all events are considered.
-func (e *Executor) callAgent(ctx context.Context, agentID, prompt, token string, responseFilter []string) (string, error) {
+func (e *Executor) callAgent(ctx context.Context, agentID, prompt, token string, responseFilter []string, timeout time.Duration) (string, error) {
 	userID := "trigger"
 	sessionID := uuid.New().String()
 
@@ -128,7 +128,7 @@ func (e *Executor) callAgent(ctx context.Context, agentID, prompt, token string,
 		return "", fmt.Errorf("failed to marshal request: %w", err)
 	}
 
-	callCtx, cancel := context.WithTimeout(ctx, 15*time.Minute)
+	callCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	req, err := http.NewRequestWithContext(callCtx, "POST", e.agentURL+"/run_sse", bytes.NewReader(jsonBody))
@@ -212,4 +212,3 @@ func (e *Executor) ensureSession(ctx context.Context, agentID, userID, sessionID
 	}
 	return nil
 }
-

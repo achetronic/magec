@@ -222,6 +222,11 @@ definitions:
     type: object
   store.BackendDefinition:
     properties:
+      api:
+        description: |-
+          API selects the wire API for OpenAI-compatible backends: "completions"
+          (default when empty) or "responses". Ignored by other backend types.
+        type: string
       apiKey:
         type: string
       headers:
@@ -310,6 +315,8 @@ definitions:
         type: string
       schedule:
         type: string
+      sseClientTimeoutMinutes:
+        type: integer
     type: object
   store.DeadReference:
     properties:
@@ -349,6 +356,8 @@ definitions:
         type: string
       responseMode:
         type: string
+      sseClientTimeoutMinutes:
+        type: integer
       threadHistoryLimit:
         type: integer
     type: object
@@ -641,6 +650,8 @@ definitions:
         type: string
       responseMode:
         type: string
+      sseClientTimeoutMinutes:
+        type: integer
       threadHistoryLimit:
         type: integer
     type: object
@@ -678,6 +689,8 @@ definitions:
         type: string
       responseMode:
         type: string
+      sseClientTimeoutMinutes:
+        type: integer
     type: object
   store.WebhookClientConfig:
     properties:
@@ -685,6 +698,8 @@ definitions:
         type: string
       passthrough:
         type: boolean
+      sseClientTimeoutMinutes:
+        type: integer
     type: object
   voice.Schema:
     additionalProperties: true
