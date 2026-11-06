@@ -16,7 +16,7 @@ COPY frontend/voice-ui/ ./voice-ui/
 RUN cd voice-ui && npx vite build
 
 # Download auxiliary models (VAD, mel-spectrogram, embeddings)
-FROM golang:1.25-alpine AS models
+FROM golang:1.26-alpine AS models
 
 WORKDIR /build
 COPY scripts/download-model.go ./scripts/
@@ -39,7 +39,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends wget ca-certifi
     cp /tmp/onnxruntime-linux-${ONNX_ARCH}-1.23.2/lib/libonnxruntime.so* /out/
 
 # Go build stage (frontends + models embedded into binary)
-FROM golang:1.25 AS builder
+FROM golang:1.26 AS builder
 
 ARG TARGETARCH
 
