@@ -24,6 +24,8 @@ When you connect an MCP server to an agent, the agent gains the ability to use a
 {{< screenshot src="img/screenshots/admin-mcp.png" alt="MCP Servers" >}}
 </div>
 
+For a complete external-service setup, see [Parallel Search MCP](/docs/parallel-search/) under External Integrations.
+
 ## Adding an MCP server
 
 In the Admin UI, go to **MCP Servers** and click **New**. You'll configure the connection depending on how the MCP server runs.

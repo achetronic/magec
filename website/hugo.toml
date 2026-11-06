@@ -231,6 +231,16 @@ theme = 'magec'
     url = '/docs/screenshots/'
     weight = 5
 
+  [[menu.docs]]
+    identifier = 'external-integrations'
+    name = 'External Integrations'
+    weight = 6
+  [[menu.docs]]
+    name = 'Parallel Search MCP'
+    parent = 'external-integrations'
+    url = '/docs/parallel-search/'
+    weight = 1
+
 [outputs]
   home = ['HTML']
   section = ['HTML']
