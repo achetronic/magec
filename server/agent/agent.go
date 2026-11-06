@@ -756,6 +756,8 @@ func dialectFor(baseURL string) genaiopenai.Dialect {
 		return genaiopenai.OpenRouter
 	case "api.deepseek.com":
 		return genaiopenai.DeepSeek
+	case "api.reflection.ai":
+		return genaiopenai.Reflection
 	default:
 		return nil
 	}
