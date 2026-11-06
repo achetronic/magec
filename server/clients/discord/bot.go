@@ -21,6 +21,7 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"google.golang.org/adk/v2/artifact"
 
+	"github.com/achetronic/magec/server/clients"
 	"github.com/achetronic/magec/server/clients/msgutil"
 	"github.com/achetronic/magec/server/store"
 )
@@ -1069,7 +1070,7 @@ func (c *Client) transcribeAudio(wavData []byte, agentID string) (string, error)
 	buf.Write(wavData)
 	buf.WriteString(fmt.Sprintf("\r\n--%s--\r\n", boundary))
 
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), clients.VoiceRequestTimeout)
 	defer cancel()
 
 	transcriptionURL := strings.TrimSuffix(c.agentURL, "/agent") + "/voice/" + agentID + "/transcription"
@@ -1115,7 +1116,7 @@ func (c *Client) generateTTS(text string, agentID string) ([]byte, error) {
 
 	ttsURL := strings.TrimSuffix(c.agentURL, "/agent") + "/voice/" + agentID + "/speech"
 
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), clients.VoiceRequestTimeout)
 	defer cancel()
 
 	req, err := http.NewRequestWithContext(ctx, "POST", ttsURL, bytes.NewReader(jsonBody))
