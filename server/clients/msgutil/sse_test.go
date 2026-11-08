@@ -59,6 +59,26 @@ func TestParseSSEStream_NoTrailingNewline(t *testing.T) {
 	}
 }
 
+// TestParseSSEStream_ThoughtFlag: a thinking part carries Thought=true, a
+// normal text part stays false.
+func TestParseSSEStream_ThoughtFlag(t *testing.T) {
+	body := `data: {"author":"agent_1","content":{"parts":[{"text":"thinking","thought":true},{"text":"answer"}]}}`
+
+	var got []SSEEvent
+	if err := ParseSSEStream(strings.NewReader(body), func(e SSEEvent) { got = append(got, e) }); err != nil {
+		t.Fatalf("ParseSSEStream: %v", err)
+	}
+	if len(got) != 2 {
+		t.Fatalf("events = %d, want 2", len(got))
+	}
+	if !got[0].Thought {
+		t.Fatalf("thinking part not flagged: %+v", got[0])
+	}
+	if got[1].Thought {
+		t.Fatalf("answer part flagged as thinking: %+v", got[1])
+	}
+}
+
 // TestParseSSEStream_HappyPath: text, comments, blanks, CRLF and ADK plain-text errors dispatch correctly.
 func TestParseSSEStream_HappyPath(t *testing.T) {
 	body := strings.Join([]string{

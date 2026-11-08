@@ -53,6 +53,7 @@ func (p *Provider) ConfigSchema() clients.Schema {
 				"enum":    []string{"text", "voice", "mirror", "both"},
 			},
 			"defaultAgent":            clients.DefaultAgentSchema(),
+			"hideThinking":            clients.HideThinkingSchema(),
 			"threadHistoryLimit":      clients.ThreadHistoryLimitSchema(1000),
 			"sseClientTimeoutMinutes": clients.SSEClientTimeoutSchema(),
 		},

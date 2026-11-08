@@ -62,6 +62,9 @@ type Client struct {
 	showToolsMu sync.RWMutex
 	showTools   bool
 
+	hideThinkingMu       sync.RWMutex
+	hideThinkingOverride *bool
+
 	seenMu sync.Mutex
 	seen   map[string]struct{}
 
@@ -399,7 +402,8 @@ func (c *Client) handleBotCommand(userID, channelID, text, threadTS string) bool
 			"• `!reset` — Reset the conversation session\n" +
 			"• `!responsemode` — Show or change the response mode\n" +
 			"• `!responsemode <mode>` — Set response mode (`text`, `voice`, `mirror`, `both`, `reset`)\n" +
-			"• `!showtools` — Toggle tool call visibility"
+			"• `!showtools` — Toggle tool call visibility\n" +
+			"• `!thinking [on|off|reset]` — Show or change thinking visibility"
 		c.postMessage(channelID, helpText, threadTS)
 		return true
 	}
@@ -499,7 +503,62 @@ func (c *Client) handleBotCommand(userID, channelID, text, threadTS string) bool
 		return true
 	}
 
+	if lower == "thinking" {
+		c.handleThinkingCommand(channelID, "", threadTS)
+		return true
+	}
+
+	if strings.HasPrefix(lower, "thinking ") {
+		c.handleThinkingCommand(channelID, strings.TrimSpace(text[9:]), threadTS)
+		return true
+	}
+
 	return false
+}
+
+// handleThinkingCommand shows or changes thinking visibility. "" shows the
+// current state, "on"/"off" overrides the config default, "reset" clears it.
+func (c *Client) handleThinkingCommand(channelID, arg, threadTS string) {
+	if arg == "" {
+		status := fmt.Sprintf("*Thinking messages:* %s", msgutil.OnOff(c.getHideThinking()))
+		c.hideThinkingMu.RLock()
+		if c.hideThinkingOverride != nil {
+			status += fmt.Sprintf(" (override, config: `%v`)", c.clientDef.Config.Slack.HideThinking)
+		}
+		c.hideThinkingMu.RUnlock()
+		status += "\n*Options:* `on` (hide), `off` (show), `reset`"
+		c.postMessage(channelID, status, threadTS)
+		return
+	}
+
+	switch arg {
+	case "reset":
+		c.hideThinkingMu.Lock()
+		c.hideThinkingOverride = nil
+		c.hideThinkingMu.Unlock()
+		c.logger.Info("Thinking override cleared", "config", c.clientDef.Config.Slack.HideThinking)
+		c.postMessage(channelID, fmt.Sprintf("Thinking reset to config default: *%s*", msgutil.OnOff(c.clientDef.Config.Slack.HideThinking)), threadTS)
+		return
+	case "on", "off":
+		v := arg == "on"
+		c.hideThinkingMu.Lock()
+		c.hideThinkingOverride = &v
+		c.hideThinkingMu.Unlock()
+		c.logger.Info("Thinking override changed", "hidden", v)
+		c.postMessage(channelID, fmt.Sprintf("Thinking messages: *%s* (until restart)", msgutil.OnOff(v)), threadTS)
+		return
+	default:
+		c.postMessage(channelID, "Invalid option. Use `on`, `off` or `reset`.", threadTS)
+	}
+}
+
+func (c *Client) getHideThinking() bool {
+	c.hideThinkingMu.RLock()
+	defer c.hideThinkingMu.RUnlock()
+	if c.hideThinkingOverride != nil {
+		return *c.hideThinkingOverride
+	}
+	return c.clientDef.Config.Slack.HideThinking
 }
 
 func (c *Client) handleResponseModeCommand(channelID, arg, threadTS string) bool {
@@ -584,6 +643,9 @@ func (c *Client) processMessage(userID, channelID, channelType, text, threadTS, 
 		}
 		switch evt.Type {
 		case msgutil.SSEEventText:
+			if evt.Thought && c.getHideThinking() {
+				break
+			}
 			hasText = true
 			lastTextResponse = evt.Text
 			toolCount = 0

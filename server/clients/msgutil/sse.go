@@ -33,6 +33,7 @@ type SSEEvent struct {
 	Type       SSEEventType
 	Author     string
 	Text       string
+	Thought    bool // Text is a model thinking part
 	ToolName   string
 	ToolArgs   interface{}
 	ToolResult interface{}
@@ -195,6 +196,7 @@ func classifyEvent(raw map[string]interface{}) []SSEEvent {
 			evt := base
 			evt.Type = SSEEventText
 			evt.Text = text
+			evt.Thought, _ = partMap["thought"].(bool)
 			events = append(events, evt)
 		}
 
@@ -422,6 +424,14 @@ func humanValue(v interface{}) string {
 	default:
 		return fmt.Sprintf("%v", v)
 	}
+}
+
+// OnOff renders a bool as "ON"/"OFF" for client command replies.
+func OnOff(b bool) string {
+	if b {
+		return "ON"
+	}
+	return "OFF"
 }
 
 // EscapeHTML escapes the three characters Telegram's HTML parse mode requires:
