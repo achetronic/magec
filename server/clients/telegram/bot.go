@@ -76,6 +76,9 @@ type Client struct {
 	showToolsMu sync.RWMutex
 	showTools   bool
 
+	hideThinkingMu       sync.RWMutex
+	hideThinkingOverride *bool
+
 	botUsername string
 
 	// artifacts is optional: when set, user attachments
@@ -177,6 +180,10 @@ func (c *Client) Start(ctx context.Context) error {
 	handler.HandleMessage(func(ctx *th.Context, msg telego.Message) error {
 		return c.handleShowToolsCommand(ctx, msg)
 	}, th.CommandEqual("showtools"))
+
+	handler.HandleMessage(func(ctx *th.Context, msg telego.Message) error {
+		return c.handleThinkingCommand(ctx, msg)
+	}, th.CommandEqual("thinking"))
 
 	// Voice handler must be registered before the general text handler.
 	handler.HandleMessage(func(ctx *th.Context, msg telego.Message) error {
@@ -289,6 +296,7 @@ func (c *Client) handleHelpCommand(ctx *th.Context, msg telego.Message) error {
 		"/reset — Reset the conversation session\n" +
 		"/responsemode — Show or change the response mode\n" +
 		"/showtools — Toggle tool call visibility\n" +
+		"/thinking — Show or change thinking visibility\n" +
 		"/start — Show the welcome message"
 
 	_, _ = ctx.Bot().SendMessage(ctx, &telego.SendMessageParams{
@@ -535,6 +543,9 @@ func (c *Client) handleMessage(ctx *th.Context, msg telego.Message) error {
 		}
 		switch evt.Type {
 		case msgutil.SSEEventText:
+			if evt.Thought && c.getHideThinking() {
+				break
+			}
 			hasText = true
 			toolCount = 0
 			toolCounterMsgID = 0
@@ -944,6 +955,81 @@ func (c *Client) getShowTools() bool {
 	c.showToolsMu.RLock()
 	defer c.showToolsMu.RUnlock()
 	return c.showTools
+}
+
+// getHideThinking returns whether thinking messages are hidden. A runtime
+// override wins; otherwise the config default applies.
+func (c *Client) getHideThinking() bool {
+	c.hideThinkingMu.RLock()
+	defer c.hideThinkingMu.RUnlock()
+	if c.hideThinkingOverride != nil {
+		return *c.hideThinkingOverride
+	}
+	return c.clientDef.Config.Telegram.HideThinking
+}
+
+// handleThinkingCommand responds to /thinking. Without arguments it shows the
+// current state. "on" or "off" overrides the config default; "reset" clears
+// the override.
+func (c *Client) handleThinkingCommand(ctx *th.Context, msg telego.Message) error {
+	if !c.isAllowed(msg.From.ID, msg.Chat.ID) {
+		return nil
+	}
+
+	args := strings.TrimSpace(strings.TrimPrefix(msg.Text, "/thinking"))
+	if args == "" {
+		status := fmt.Sprintf("*Thinking messages:* %s", msgutil.OnOff(c.getHideThinking()))
+		c.hideThinkingMu.RLock()
+		if c.hideThinkingOverride != nil {
+			status += fmt.Sprintf(" (override, config: `%v`)", c.clientDef.Config.Telegram.HideThinking)
+		}
+		c.hideThinkingMu.RUnlock()
+		status += "\n*Options:* `on` (hide), `off` (show), `reset`"
+
+		_, _ = ctx.Bot().SendMessage(ctx, &telego.SendMessageParams{
+			ChatID:          tu.ID(msg.Chat.ID),
+			MessageThreadID: msg.MessageThreadID,
+			Text:            status,
+			ParseMode:       "Markdown",
+		})
+		return nil
+	}
+
+	switch args {
+	case "reset":
+		c.hideThinkingMu.Lock()
+		c.hideThinkingOverride = nil
+		c.hideThinkingMu.Unlock()
+		c.logger.Info("Thinking override cleared", "user_id", msg.From.ID, "config", c.clientDef.Config.Telegram.HideThinking)
+		_, _ = ctx.Bot().SendMessage(ctx, &telego.SendMessageParams{
+			ChatID:          tu.ID(msg.Chat.ID),
+			MessageThreadID: msg.MessageThreadID,
+			Text:            fmt.Sprintf("Thinking reset to config default: *%s*", msgutil.OnOff(c.clientDef.Config.Telegram.HideThinking)),
+			ParseMode:       "Markdown",
+		})
+		return nil
+	case "on", "off":
+		v := args == "on"
+		c.hideThinkingMu.Lock()
+		c.hideThinkingOverride = &v
+		c.hideThinkingMu.Unlock()
+		c.logger.Info("Thinking override changed", "user_id", msg.From.ID, "hidden", v)
+		_, _ = ctx.Bot().SendMessage(ctx, &telego.SendMessageParams{
+			ChatID:          tu.ID(msg.Chat.ID),
+			MessageThreadID: msg.MessageThreadID,
+			Text:            fmt.Sprintf("Thinking messages: *%s* (until restart)", msgutil.OnOff(v)),
+			ParseMode:       "Markdown",
+		})
+		return nil
+	default:
+		_, _ = ctx.Bot().SendMessage(ctx, &telego.SendMessageParams{
+			ChatID:          tu.ID(msg.Chat.ID),
+			MessageThreadID: msg.MessageThreadID,
+			Text:            "Invalid option. Use `on`, `off` or `reset`.",
+			ParseMode:       "Markdown",
+		})
+		return nil
+	}
 }
 
 func (c *Client) handleShowToolsCommand(ctx *th.Context, msg telego.Message) error {

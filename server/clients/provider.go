@@ -46,6 +46,17 @@ func ThreadHistoryLimitSchema(max int) Schema {
 	}
 }
 
+// HideThinkingSchema returns the shared JSON Schema fragment for the
+// hideThinking field, common to all bot clients.
+func HideThinkingSchema() Schema {
+	return Schema{
+		"type":        "boolean",
+		"title":       "Hide Thinking Messages",
+		"description": "Hide the model's thinking messages in chat. Change it at runtime with the thinking command.",
+		"default":     false,
+	}
+}
+
 // SSEClientTimeoutSchema returns the shared JSON Schema fragment for the
 // sseClientTimeoutMinutes field.
 func SSEClientTimeoutSchema() Schema {

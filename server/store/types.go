@@ -196,6 +196,7 @@ type TelegramClientConfig struct {
 	AllowedChats            []int64 `json:"allowedChats,omitempty" yaml:"allowedChats,omitempty"`
 	ResponseMode            string  `json:"responseMode,omitempty" yaml:"responseMode,omitempty"`
 	DefaultAgent            string  `json:"defaultAgent,omitempty" yaml:"defaultAgent,omitempty"`
+	HideThinking            bool    `json:"hideThinking,omitempty" yaml:"hideThinking,omitempty"`
 	SSEClientTimeoutMinutes int     `json:"sseClientTimeoutMinutes,omitempty" yaml:"sseClientTimeoutMinutes,omitempty"`
 }
 
@@ -208,6 +209,7 @@ type DiscordClientConfig struct {
 	ResponseMode            string   `json:"responseMode,omitempty" yaml:"responseMode,omitempty"`
 	DefaultAgent            string   `json:"defaultAgent,omitempty" yaml:"defaultAgent,omitempty"`
 	ThreadHistoryLimit      int      `json:"threadHistoryLimit,omitempty" yaml:"threadHistoryLimit,omitempty"`
+	HideThinking            bool     `json:"hideThinking,omitempty" yaml:"hideThinking,omitempty"`
 	SSEClientTimeoutMinutes int      `json:"sseClientTimeoutMinutes,omitempty" yaml:"sseClientTimeoutMinutes,omitempty"`
 }
 
@@ -221,6 +223,7 @@ type SlackClientConfig struct {
 	ResponseMode            string   `json:"responseMode,omitempty" yaml:"responseMode,omitempty"`
 	DefaultAgent            string   `json:"defaultAgent,omitempty" yaml:"defaultAgent,omitempty"`
 	ThreadHistoryLimit      int      `json:"threadHistoryLimit,omitempty" yaml:"threadHistoryLimit,omitempty"`
+	HideThinking            bool     `json:"hideThinking,omitempty" yaml:"hideThinking,omitempty"`
 	SSEClientTimeoutMinutes int      `json:"sseClientTimeoutMinutes,omitempty" yaml:"sseClientTimeoutMinutes,omitempty"`
 }
 

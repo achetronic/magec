@@ -58,6 +58,9 @@ type Client struct {
 	showToolsMu sync.RWMutex
 	showTools   bool
 
+	hideThinkingMu       sync.RWMutex
+	hideThinkingOverride *bool
+
 	// artifacts is optional: when set, user attachments
 	// are persisted here instead of being dropped.
 	// Set via SetArtifactService before Start.
@@ -306,6 +309,9 @@ func (c *Client) handleTextMessage(s *discordgo.Session, m *discordgo.MessageCre
 		}
 		switch evt.Type {
 		case msgutil.SSEEventText:
+			if evt.Thought && c.getHideThinking() {
+				break
+			}
 			hasText = true
 			toolCount = 0
 			toolCounterMsgID = ""
@@ -441,6 +447,9 @@ func (c *Client) handleVoice(s *discordgo.Session, m *discordgo.MessageCreate) {
 		}
 		switch evt.Type {
 		case msgutil.SSEEventText:
+			if evt.Thought && c.getHideThinking() {
+				break
+			}
 			hasText = true
 			lastTextResponse = evt.Text
 			toolCount = 0
@@ -528,7 +537,8 @@ func (c *Client) handleBotCommand(s *discordgo.Session, m *discordgo.MessageCrea
 			"• `!reset` — Reset the conversation session\n" +
 			"• `!responsemode` — Show or change the response mode\n" +
 			"• `!responsemode <mode>` — Set response mode (`text`, `voice`, `mirror`, `both`, `reset`)\n" +
-			"• `!showtools` — Toggle tool call visibility"
+			"• `!showtools` — Toggle tool call visibility\n" +
+			"• `!thinking [on|off|reset]` — Show or change thinking visibility"
 		s.ChannelMessageSend(m.ChannelID, helpText)
 		return true
 	}
@@ -636,7 +646,62 @@ func (c *Client) handleBotCommand(s *discordgo.Session, m *discordgo.MessageCrea
 		return true
 	}
 
+	if lower == "thinking" {
+		c.handleThinkingCommand(s, m.ChannelID, "")
+		return true
+	}
+
+	if strings.HasPrefix(lower, "thinking ") {
+		c.handleThinkingCommand(s, m.ChannelID, strings.TrimSpace(text[9:]))
+		return true
+	}
+
 	return false
+}
+
+// handleThinkingCommand shows or changes thinking visibility. "" shows the
+// current state, "on"/"off" overrides the config default, "reset" clears it.
+func (c *Client) handleThinkingCommand(s *discordgo.Session, channelID, arg string) {
+	if arg == "" {
+		status := fmt.Sprintf("**Thinking messages:** %s", msgutil.OnOff(c.getHideThinking()))
+		c.hideThinkingMu.RLock()
+		if c.hideThinkingOverride != nil {
+			status += fmt.Sprintf(" (override, config: `%v`)", c.clientDef.Config.Discord.HideThinking)
+		}
+		c.hideThinkingMu.RUnlock()
+		status += "\n**Options:** `on` (hide), `off` (show), `reset`"
+		s.ChannelMessageSend(channelID, status)
+		return
+	}
+
+	switch arg {
+	case "reset":
+		c.hideThinkingMu.Lock()
+		c.hideThinkingOverride = nil
+		c.hideThinkingMu.Unlock()
+		c.logger.Info("Thinking override cleared", "config", c.clientDef.Config.Discord.HideThinking)
+		s.ChannelMessageSend(channelID, fmt.Sprintf("Thinking reset to config default: **%s**", msgutil.OnOff(c.clientDef.Config.Discord.HideThinking)))
+		return
+	case "on", "off":
+		v := arg == "on"
+		c.hideThinkingMu.Lock()
+		c.hideThinkingOverride = &v
+		c.hideThinkingMu.Unlock()
+		c.logger.Info("Thinking override changed", "hidden", v)
+		s.ChannelMessageSend(channelID, fmt.Sprintf("Thinking messages: **%s** (until restart)", msgutil.OnOff(v)))
+		return
+	default:
+		s.ChannelMessageSend(channelID, "Invalid option. Use `on`, `off` or `reset`.")
+	}
+}
+
+func (c *Client) getHideThinking() bool {
+	c.hideThinkingMu.RLock()
+	defer c.hideThinkingMu.RUnlock()
+	if c.hideThinkingOverride != nil {
+		return *c.hideThinkingOverride
+	}
+	return c.clientDef.Config.Discord.HideThinking
 }
 
 func (c *Client) handleResponseModeCommand(s *discordgo.Session, channelID, arg string) bool {
