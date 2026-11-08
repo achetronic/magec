@@ -62,7 +62,7 @@ func HideThinkingSchema() Schema {
 func SSEClientTimeoutSchema() Schema {
 	return Schema{
 		"type":        "integer",
-		"title":       "Response Timeout",
+		"title":       "Response Timeout (minutes)",
 		"description": "How long to wait for the agent's reply before the request is cancelled. Raise it for slow models or long tasks.",
 		"default":     store.DefaultSSETimeoutMinutes,
 		"minimum":     1,
