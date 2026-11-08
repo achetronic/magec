@@ -148,8 +148,21 @@
         </summary>
         <div class="px-4 pb-4 space-y-4">
           <template v-for="(propSchema, key) in optionProperties" :key="key">
+            <!-- Boolean → toggle -->
+            <div v-if="propSchema.type === 'boolean'">
+              <label class="flex items-center gap-2 cursor-pointer">
+                <div class="relative">
+                  <input type="checkbox" v-model="form.config[key]" class="sr-only peer" />
+                  <div class="w-9 h-5 bg-piedra-700 rounded-full peer-checked:bg-teal-500/60 transition-colors" />
+                  <div class="absolute left-0.5 top-0.5 w-4 h-4 bg-arena-400 rounded-full peer-checked:translate-x-4 peer-checked:bg-white transition-transform" />
+                </div>
+                <span class="text-xs text-arena-300">{{ propSchema.title || key }}</span>
+              </label>
+              <p v-if="propSchema.description" class="text-[10px] text-arena-500 mt-1">{{ propSchema.description }}</p>
+            </div>
+
             <!-- Enum → select -->
-            <div v-if="propSchema.enum">
+            <div v-else-if="propSchema.enum">
               <FormLabel :label="propSchema.title || key" :required="isFieldRequired(key)" />
               <FormSelect :modelValue="form.config[key] ?? propSchema.default ?? ''" @update:modelValue="form.config[key] = $event">
                 <option v-for="o in propSchema.enum" :key="o" :value="o">{{ o }}</option>
@@ -302,8 +315,8 @@ const visibleProperties = computed(() => {
 })
 
 const PERMISSION_KEYS = new Set(['allowedUsers', 'allowedChannels', 'allowedChats'])
-const OPTION_KEYS = new Set(['responseMode', 'threadHistoryLimit', 'sseClientTimeoutMinutes'])
-const OPTION_ORDER = ['responseMode', 'threadHistoryLimit', 'sseClientTimeoutMinutes']
+const OPTION_KEYS = new Set(['responseMode', 'hideThinking', 'threadHistoryLimit', 'sseClientTimeoutMinutes'])
+const OPTION_ORDER = ['responseMode', 'hideThinking', 'threadHistoryLimit', 'sseClientTimeoutMinutes']
 
 const mainProperties = computed(() =>
   Object.fromEntries(Object.entries(visibleProperties.value).filter(([k]) => !PERMISSION_KEYS.has(k) && !OPTION_KEYS.has(k)))
