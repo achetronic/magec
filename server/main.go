@@ -6,6 +6,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -619,9 +620,20 @@ func serveSpeechProxy(w http.ResponseWriter, r *http.Request, agentDef store.Age
 		Config:         agentDef.TTS.Config,
 	}
 
-	resp, err := provider.SynthesizeSpeech(r.Context(), req, backend)
+	ctx := r.Context()
+	if secs := agentDef.TTS.TimeoutSeconds; secs > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, time.Duration(secs)*time.Second)
+		defer cancel()
+	}
+
+	resp, err := provider.SynthesizeSpeech(ctx, req, backend)
 	if err != nil {
-		slog.Error("TTS proxy error", "error", err)
+		slog.Error("TTS proxy error", "agent", agentDef.ID, "backend", backend.ID, "error", err)
+		if errors.Is(err, context.DeadlineExceeded) {
+			http.Error(w, "TTS timed out", http.StatusGatewayTimeout)
+			return
+		}
 		http.Error(w, "TTS service unavailable", http.StatusBadGateway)
 		return
 	}
@@ -629,7 +641,11 @@ func serveSpeechProxy(w http.ResponseWriter, r *http.Request, agentDef store.Age
 
 	w.Header().Set("Content-Type", resp.ContentType)
 	w.WriteHeader(http.StatusOK)
-	io.Copy(w, resp.Audio)
+	// The status is already sent: a timeout or backend error mid-stream can only
+	// truncate the audio, so leave a trace of it.
+	if _, err := io.Copy(w, resp.Audio); err != nil {
+		slog.Warn("TTS proxy stream interrupted", "agent", agentDef.ID, "backend", backend.ID, "error", err)
+	}
 }
 
 // serveTranscriptionProxy forwards a speech-to-text request to the backend
@@ -660,9 +676,20 @@ func serveTranscriptionProxy(w http.ResponseWriter, r *http.Request, agentDef st
 		Config:      agentDef.Transcription.Config,
 	}
 
-	text, err := provider.TranscribeAudio(r.Context(), req, backend)
+	ctx := r.Context()
+	if secs := agentDef.Transcription.TimeoutSeconds; secs > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, time.Duration(secs)*time.Second)
+		defer cancel()
+	}
+
+	text, err := provider.TranscribeAudio(ctx, req, backend)
 	if err != nil {
-		slog.Error("Transcription proxy error", "error", err)
+		slog.Error("Transcription proxy error", "agent", agentDef.ID, "backend", backend.ID, "error", err)
+		if errors.Is(err, context.DeadlineExceeded) {
+			http.Error(w, "Transcription timed out", http.StatusGatewayTimeout)
+			return
+		}
 		http.Error(w, "Transcription service unavailable", http.StatusBadGateway)
 		return
 	}

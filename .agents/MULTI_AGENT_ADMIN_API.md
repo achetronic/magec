@@ -20,8 +20,8 @@ Store (in-memory + JSON persistence → data/store.json)
 │   ├── id, name, description, outputKey
 │   ├── systemPrompt
 │   ├── llm: {backend, model}
-│   ├── transcription: {backend, model}
-│   ├── tts: {backend, model, voice, speed}
+│   ├── transcription: {backend, model, timeoutSeconds}
+│   ├── tts: {backend, model, voice, speed, timeoutSeconds}
 │   ├── mcpServers: ["id1", "id2"]
 │   ├── skills: ["id1", "id2"]
 │   ├── secrets: ["id1"], allowAllSecrets  — placeholder expansion scope for tool calls

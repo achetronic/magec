@@ -3,7 +3,11 @@
 
 package clients
 
-import "github.com/achetronic/magec/server/store"
+import (
+	"time"
+
+	"github.com/achetronic/magec/server/store"
+)
 
 // Schema is a JSON Schema object represented as a plain map so providers can
 // define arbitrarily complex schemas (oneOf, if/then, etc.) without the
@@ -68,3 +72,9 @@ func SSEClientTimeoutSchema() Schema {
 		"minimum":     1,
 	}
 }
+
+// VoiceRequestTimeout bounds a client's call to the magec voice proxies
+// (transcription and speech). The real limit is the agent's STT/TTS timeout,
+// enforced server-side; this is only a safety net and matches the user
+// server's WriteTimeout so the client never gives up before the server does.
+const VoiceRequestTimeout = 15 * time.Minute
