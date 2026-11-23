@@ -234,6 +234,11 @@
                 <FormInput v-model="form.transcriptionModel" :placeholder="sttModelPlaceholder" />
               </div>
             </div>
+            <div v-if="form.transcriptionBackend">
+              <FormLabel label="Timeout (seconds)" />
+              <FormInput v-model="form.transcriptionTimeout" type="number" min="1" :max="MAX_VOICE_TIMEOUT_SECONDS" placeholder="Provider default" />
+              <p class="text-[10px] text-arena-500 mt-1">Maximum time to wait for a transcription, up to 900s (15 min). Empty uses the provider default.</p>
+            </div>
             <template v-if="sttExtraProps.length">
               <div class="grid gap-3" :class="sttExtraHasHalf ? 'grid-cols-2' : 'grid-cols-1'">
                 <div v-for="{ key, prop } in sttExtraProps" :key="key" :class="prop['x-size'] === 'half' ? '' : 'col-span-full'">
@@ -272,20 +277,21 @@
                 </label>
                 <FormInput v-model="form.ttsVoice" :placeholder="ttsVoicePlaceholder" />
               </div>
-            </div>
-            <template v-if="ttsMainProps.length">
-              <div class="grid gap-3" :class="ttsMainHasHalf ? 'grid-cols-2' : 'grid-cols-1'">
-                <div v-for="{ key, prop } in ttsMainProps" :key="key" :class="prop['x-size'] === 'half' ? '' : 'col-span-full'">
-                  <label class="flex items-center gap-1 text-xs text-arena-400 mb-1">
-                    {{ prop.title || key }}
-                    <a v-if="prop['x-link']" :href="prop['x-link']" target="_blank" class="text-arena-600 hover:text-arena-400 transition-colors" :title="prop.title || key"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="13" height="13"><circle cx="8" cy="8" r="6"/><path d="M8 7.5V11M8 5.5V5"/></svg></a>
-                  </label>
-                  <textarea v-if="prop['x-format'] === 'textarea'" v-model="form.ttsProviderConfig[key]" rows="2" class="w-full bg-piedra-800 border border-piedra-700 rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-sol-500 focus:border-sol-500 outline-none resize-y" :placeholder="prop['x-placeholder'] || prop.default || ''" />
-                  <FormInput v-else v-model="form.ttsProviderConfig[key]" :placeholder="prop['x-placeholder'] || prop.default || ''" :type="prop.type === 'number' ? 'number' : 'text'" />
-                  <p v-if="prop.description" class="text-[10px] text-arena-500 mt-1">{{ prop.description }}</p>
-                </div>
+              <div v-for="{ key, prop } in ttsMainProps" :key="key" :class="prop['x-size'] === 'half' ? '' : 'col-span-full'">
+                <label class="flex items-center gap-1 text-xs text-arena-400 mb-1">
+                  {{ prop.title || key }}
+                  <a v-if="prop['x-link']" :href="prop['x-link']" target="_blank" class="text-arena-600 hover:text-arena-400 transition-colors" :title="prop.title || key"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="13" height="13"><circle cx="8" cy="8" r="6"/><path d="M8 7.5V11M8 5.5V5"/></svg></a>
+                </label>
+                <textarea v-if="prop['x-format'] === 'textarea'" v-model="form.ttsProviderConfig[key]" rows="2" class="w-full bg-piedra-800 border border-piedra-700 rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-sol-500 focus:border-sol-500 outline-none resize-y" :placeholder="prop['x-placeholder'] || prop.default || ''" />
+                <FormInput v-else v-model="form.ttsProviderConfig[key]" :placeholder="prop['x-placeholder'] || prop.default || ''" :type="prop.type === 'number' ? 'number' : 'text'" />
+                <p v-if="prop.description" class="text-[10px] text-arena-500 mt-1">{{ prop.description }}</p>
               </div>
-            </template>
+            </div>
+            <div v-if="form.ttsBackend">
+              <FormLabel label="Timeout (seconds)" />
+              <FormInput v-model="form.ttsTimeout" type="number" min="1" :max="MAX_VOICE_TIMEOUT_SECONDS" placeholder="Provider default" />
+              <p class="text-[10px] text-arena-500 mt-1">Maximum time to wait for speech synthesis, up to 900s (15 min). Empty uses the provider default.</p>
+            </div>
             <div v-if="ttsAdvancedProps.length" class="border-t border-piedra-700/30 pt-3">
               <div class="flex items-center justify-between mb-3">
                 <h4 class="text-[10px] font-medium text-arena-500 uppercase tracking-wider">Advanced</h4>
@@ -346,10 +352,12 @@ const form = reactive({
   tags: [],
   transcriptionBackend: '',
   transcriptionModel: '',
+  transcriptionTimeout: '',
   sttProviderConfig: {},
   ttsBackend: '',
   ttsModel: '',
   ttsVoice: '',
+  ttsTimeout: '',
   ttsProviderConfig: {},
   contextGuardEnabled: false,
   contextGuardStrategy: 'threshold',
@@ -407,7 +415,6 @@ const ttsExtraProps = computed(() => schemaToProps(ttsExtraSchema.value))
 const sttExtraProps = computed(() => schemaToProps(sttExtraSchema.value))
 const ttsMainProps = computed(() => ttsExtraProps.value.filter(p => !p.prop['x-advanced']))
 const ttsAdvancedProps = computed(() => ttsExtraProps.value.filter(p => p.prop['x-advanced']))
-const ttsMainHasHalf = computed(() => ttsMainProps.value.some(p => p.prop['x-size'] === 'half'))
 const ttsAdvancedHasHalf = computed(() => ttsAdvancedProps.value.some(p => p.prop['x-size'] === 'half'))
 const sttExtraHasHalf = computed(() => sttExtraProps.value.some(p => p.prop['x-size'] === 'half'))
 
@@ -421,6 +428,16 @@ watch(() => form.transcriptionBackend, () => { if (!isOpening.value) form.sttPro
 function headersToList(obj) {
   if (!obj || !Object.keys(obj).length) return []
   return Object.entries(obj).map(([key, value]) => ({ key, value }))
+}
+
+// The voice proxies run on the user server, whose 15 min WriteTimeout cuts
+// any longer request. Empty or below 1 means the provider default.
+const MAX_VOICE_TIMEOUT_SECONDS = 900
+
+function voiceTimeout(value) {
+  const secs = parseInt(value)
+  if (!(secs > 0)) return undefined
+  return Math.min(secs, MAX_VOICE_TIMEOUT_SECONDS)
 }
 
 function listToHeaders(list) {
@@ -498,11 +515,13 @@ async function open(agent = null) {
   form.tags = [...(agent?.tags || [])]
   form.transcriptionBackend = agent?.transcription?.backend || ''
   form.transcriptionModel = agent?.transcription?.model || ''
+  form.transcriptionTimeout = agent?.transcription?.timeoutSeconds || ''
   const sttType = backendType(form.transcriptionBackend)
   form.sttProviderConfig = { ...(agent?.transcription?.config?.[sttType] || {}) }
   form.ttsBackend = agent?.tts?.backend || ''
   form.ttsModel = agent?.tts?.model || ''
   form.ttsVoice = agent?.tts?.voice || ''
+  form.ttsTimeout = agent?.tts?.timeoutSeconds || ''
   const ttsType = backendType(form.ttsBackend)
   form.ttsProviderConfig = { ...(agent?.tts?.config?.[ttsType] || {}) }
   form.contextGuardEnabled = agent?.contextGuard?.enabled || false
@@ -524,11 +543,12 @@ async function save() {
     outputKey: form.outputKey.trim(),
     systemPrompt: form.systemPrompt.trim(),
     llm: { backend: form.llmBackend, model: form.llmModel.trim(), headers: listToHeaders(form.llmHeaders) },
-    transcription: { backend: form.transcriptionBackend, model: form.transcriptionModel.trim(), config: buildNamespacedConfig(selectedSttProviderType.value, form.sttProviderConfig) },
+    transcription: { backend: form.transcriptionBackend, model: form.transcriptionModel.trim(), config: buildNamespacedConfig(selectedSttProviderType.value, form.sttProviderConfig), timeoutSeconds: voiceTimeout(form.transcriptionTimeout) },
     tts: {
       backend: form.ttsBackend,
       model: form.ttsModel.trim(),
       voice: form.ttsVoice.trim(),
+      timeoutSeconds: voiceTimeout(form.ttsTimeout),
       config: buildNamespacedConfig(selectedTtsProviderType.value, form.ttsProviderConfig),
     },
     mcpServers: form.mcpServers,
